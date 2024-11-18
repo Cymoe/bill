@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Download, Printer, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MoreVertical, Download, Printer, CheckCircle, Pencil } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
@@ -11,6 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { EditInvoiceModal } from './EditInvoiceModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { generatePDF } from '../../utils/pdfGenerator';
+import { DetailSkeleton } from '../skeletons/DetailSkeleton';
 
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams();
@@ -25,7 +26,23 @@ export const InvoiceDetail: React.FC = () => {
   const updateInvoice = useMutation(api.invoices.updateInvoice);
   const deleteInvoice = useMutation(api.invoices.deleteInvoice);
 
-  if (!invoice || !client) return null;
+  if (!invoice || !client) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-4">
+          <div className="hidden md:block">
+            <Breadcrumbs 
+              items={[
+                { label: 'Invoices', href: '/invoices' },
+                { label: 'Loading...' }
+              ]} 
+            />
+          </div>
+          <DetailSkeleton />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const handleMarkAsPaid = async () => {
     try {
@@ -85,6 +102,12 @@ export const InvoiceDetail: React.FC = () => {
 
   const getDropdownItems = () => [
     {
+      label: 'Edit',
+      onClick: () => setShowEditModal(true),
+      className: 'flex items-center gap-2',
+      icon: <Pencil className="w-4 h-4" />
+    },
+    {
       label: 'Mark as Paid',
       onClick: handleMarkAsPaid,
       className: 'flex items-center gap-2',
@@ -104,10 +127,6 @@ export const InvoiceDetail: React.FC = () => {
       icon: <Printer className="w-4 h-4" />
     },
     {
-      label: 'Edit',
-      onClick: () => setShowEditModal(true)
-    },
-    {
       label: 'Delete',
       onClick: () => setShowDeleteModal(true),
       className: 'text-red-600 hover:text-red-700'
@@ -116,7 +135,7 @@ export const InvoiceDetail: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 md:space-y-6">
+      <div>
         {/* Mobile Back Button */}
         <button
           onClick={() => navigate('/invoices')}

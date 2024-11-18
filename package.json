@@ -12,6 +12,7 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "clsx": "^2.1.1",
     "convex": "^1.7.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.1",
@@ -20,7 +21,8 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.20.1",
     "react-to-print": "^2.14.15",
-    "recharts": "^2.12.2"
+    "recharts": "^2.12.2",
+    "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
