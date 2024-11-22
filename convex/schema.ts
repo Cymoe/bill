@@ -2,6 +2,31 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
 export default defineSchema({
+  users: defineTable({
+    name: v.string(),
+    email: v.string(),
+    picture: v.string(),
+    tokenIdentifier: v.string(),
+    // Profile fields
+    company: v.optional(v.string()),
+    title: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    bio: v.optional(v.string()),
+    // Settings
+    settings: v.object({
+      theme: v.string(),
+      emailNotifications: v.boolean(),
+      currency: v.string(),
+      dateFormat: v.string(),
+      timeZone: v.string(),
+    }),
+    // Metadata
+    createdAt: v.float64(),
+    lastLoginAt: v.float64(),
+    lastUpdatedAt: v.optional(v.float64()),
+  }),
+
   bills: defineTable({
     userId: v.optional(v.string()),
     amount: v.float64(),

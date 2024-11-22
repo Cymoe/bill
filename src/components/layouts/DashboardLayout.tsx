@@ -10,10 +10,12 @@ import {
   Moon,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Settings
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth0 } from '@auth0/auth0-react';
+import { UserProfileDropdown } from '../common/UserProfileDropdown';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -21,7 +23,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
-  const { logout } = useAuth0();
+  const { logout, user } = useAuth0();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -84,31 +86,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         }`}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between p-6">
+          <div className="p-6">
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8" />
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">InvoiceHub</h1>
-            </div>
-            <div className="mt-auto space-y-4">
-              <button
-                onClick={toggleTheme}
-                className="flex items-center w-full px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                {theme === 'dark' ? (
-                  <Sun className="w-5 h-5 mr-3" />
-                ) : (
-                  <Moon className="w-5 h-5 mr-3" />
-                )}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </button>
-              
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <LogOut className="w-5 h-5 mr-3" />
-                Logout
-              </button>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">Bill Breeze</h1>
             </div>
           </div>
 
@@ -131,6 +112,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </NavLink>
             ))}
           </nav>
+
+          {/* User Profile Dropdown */}
+          <div className="p-4 mt-auto border-t border-gray-200 dark:border-gray-700">
+            <UserProfileDropdown />
+          </div>
         </div>
       </aside>
 
@@ -158,6 +144,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <span className="text-xs">{item.label}</span>
             </button>
           ))}
+          <div className="flex flex-col items-center">
+            <UserProfileDropdown />
+          </div>
         </nav>
       )}
     </div>

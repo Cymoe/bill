@@ -12,6 +12,8 @@ import { InvoiceTemplateList } from './components/templates/InvoiceTemplateList'
 import { LandingPage } from './components/Landingpage';
 import { BillsList } from './components/bills/BillsList';
 import { TestAuth } from './components/auth/TestAuth';
+import { UserProfile } from './components/settings/UserProfile';
+import { Toaster } from 'react-hot-toast';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -103,6 +105,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <UserProfile />
+          </ProtectedRoute>
+        }
+      />
       
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" />} />
@@ -116,6 +126,7 @@ function App() {
       <ThemeProvider>
         <Auth0ConvexProvider>
           <AppRoutes />
+          <Toaster position="top-right" />
         </Auth0ConvexProvider>
       </ThemeProvider>
     </BrowserRouter>
