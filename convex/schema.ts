@@ -22,33 +22,33 @@ export default defineSchema({
       timeZone: v.string(),
     }),
     // Metadata
-    createdAt: v.float64(),
-    lastLoginAt: v.float64(),
-    lastUpdatedAt: v.optional(v.float64()),
-  }),
+    createdAt: v.string(),
+    lastLoginAt: v.string(),
+    lastUpdatedAt: v.string(),
+  }).index("by_token", ["tokenIdentifier"]).index("by_email", ["email"]),
 
   bills: defineTable({
-    userId: v.optional(v.string()),
+    userId: v.id("users"),
     amount: v.float64(),
     description: v.string(),
     dueDate: v.string(),
-    createdAt: v.float64(),
+    createdAt: v.string(),
     status: v.optional(v.union(
       v.literal("pending"),
       v.literal("paid"),
       v.literal("overdue")
     )),
-  }),
+  }).index("by_user", ["userId"]),
   
   clients: defineTable({
-    userId: v.optional(v.string()),
+    userId: v.id("users"),
     company: v.string(),
     name: v.string(),
     email: v.string(),
     phone: v.optional(v.string()),
     address: v.optional(v.string()),
-    createdAt: v.float64(),
-  }),
+    createdAt: v.string(),
+  }).index("by_user", ["userId"]),
 
   products: defineTable({
     userId: v.optional(v.string()),
@@ -56,7 +56,7 @@ export default defineSchema({
     description: v.string(),
     price: v.float64(),
     unit: v.string(),
-    createdAt: v.float64(),
+    createdAt: v.string(),
   }),
 
   templates: defineTable({
@@ -71,7 +71,7 @@ export default defineSchema({
       })
     ),
     total_amount: v.float64(),
-    createdAt: v.float64(),
+    createdAt: v.string(),
   }),
 
   invoices: defineTable({
@@ -94,6 +94,6 @@ export default defineSchema({
       v.literal("overdue")
     ),
     total_amount: v.float64(),
-    createdAt: v.float64(),
+    createdAt: v.string(),
   }),
 });

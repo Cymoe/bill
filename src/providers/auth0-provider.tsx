@@ -1,53 +1,80 @@
-import { Auth0Provider, useAuth0 } from '@auth0/auth0-react';
-import { ConvexProviderWithAuth0 } from 'convex/react-auth0';
-import { ReactNode, useEffect } from 'react';
-import { convex } from '../lib/convex';
-import { useMutation } from 'convex/react';
-import { api } from '../../convex/_generated/api';
+import { Auth0Provider, useAuth0 } from "@auth0/auth0-react";
+import { ConvexProviderWithAuth0 } from "convex/react-auth0";
+import { ConvexReactClient } from "convex/react";
+import { useEffect, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import { useMutation } from "convex/react";
+import toast from "react-hot-toast";
 
-const domain = import.meta.env.VITE_AUTH0_DOMAIN;
-const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 
-if (!domain || !clientId || !audience) {
-  throw new Error('Missing Auth0 configuration');
-}
-
-console.log('Auth0 Config:', { domain, clientId, audience });
-
-function UserSetup() {
-  const { isAuthenticated, isLoading } = useAuth0();
-  const createUser = useMutation(api.users.getOrCreateUser);
+function UserSetup({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, user: auth0User } = useAuth0();
+  const getOrCreateUser = useMutation(api.users.getOrCreateUser);
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      createUser()
-        .catch(console.error);
-    }
-  }, [isAuthenticated, isLoading, createUser]);
+    if (!isAuthenticated || !auth0User) return;
 
-  return null;
+    // Only try to create/get user when we have auth
+    getOrCreateUser()
+      .catch(error => {
+        console.error("Error in user setup:", error);
+        toast.error("Failed to setup user profile");
+      });
+  }, [isAuthenticated, auth0User, getOrCreateUser]);
+
+  return <>{children}</>;
 }
 
-export function Auth0ConvexProvider({ children }: { children: ReactNode }) {
+export function Auth0ConvexProvider({ children }: { children: React.ReactNode }) {
+  const [redirectUri, setRedirectUri] = useState<string>();
+
+  useEffect(() => {
+    setRedirectUri(window.location.origin);
+  }, []);
+
+  if (!redirectUri) return null;
+
+  const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
+  const domain = import.meta.env.VITE_AUTH0_DOMAIN;
+  const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+
+  if (!clientId || !domain || !audience) {
+    console.error("Missing required Auth0 configuration");
+    return null;
+  }
+
   return (
     <Auth0Provider
       domain={domain}
       clientId={clientId}
       authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience,
+        redirect_uri: redirectUri,
+        audience: audience,
+        scope: "openid profile email offline_access"
       }}
       useRefreshTokens={true}
       cacheLocation="localstorage"
       useRefreshTokensFallback={true}
     >
-      <ConvexProviderWithAuth0 
+      <ConvexProviderWithAuth0
         client={convex}
-        logErrors={true}
+        loggedOut={<div>Please log in</div>}
+        onError={(error) => {
+          console.error("Convex auth error:", error);
+          // Only reload for auth errors, and not too frequently
+          if (error.message?.toLowerCase().includes('auth')) {
+            // Store last reload time
+            const lastReload = localStorage.getItem('lastAuthReload');
+            const now = Date.now();
+            if (!lastReload || now - parseInt(lastReload) > 60000) { // Only reload once per minute max
+              localStorage.setItem('lastAuthReload', now.toString());
+              window.location.reload();
+            }
+          }
+        }}
       >
-        <UserSetup />
-        {children}
+        <UserSetup>{children}</UserSetup>
       </ConvexProviderWithAuth0>
     </Auth0Provider>
   );

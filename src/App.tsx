@@ -12,7 +12,7 @@ import { InvoiceTemplateList } from './components/templates/InvoiceTemplateList'
 import { LandingPage } from './components/Landingpage';
 import { BillsList } from './components/bills/BillsList';
 import { TestAuth } from './components/auth/TestAuth';
-import { UserProfile } from './components/settings/UserProfile';
+import UserProfile from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
 
 // Protected route component
