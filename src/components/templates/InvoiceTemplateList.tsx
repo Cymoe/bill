@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical, FileText } from 'lucide-react';
 import { useQuery, useMutation } from "convex/react";
+import { useAuth0 } from "@auth0/auth0-react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { formatCurrency } from '../../utils/format';
@@ -19,11 +20,23 @@ export const InvoiceTemplateList: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
+  const [userToken, setUserToken] = useState<string>("");
+  const { getAccessTokenSilently } = useAuth0();
 
-  const templates = useQuery(api.templates.getTemplates);
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getAccessTokenSilently();
+      setUserToken(token || "");
+    };
+    fetchToken();
+  }, [getAccessTokenSilently]);
+
+  const templates = useQuery(api.templates.getTemplates, {
+    tokenIdentifier: userToken,
+  });
   const deleteTemplate = useMutation(api.templates.deleteTemplate);
 
-  const isLoading = !templates;
+  const isLoading = !templates || !userToken;
 
   const filteredTemplates = (templates || []).filter((template: Template) => 
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

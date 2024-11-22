@@ -3,7 +3,8 @@ import { v } from "convex/values";
 
 export const getInvoices = query({
   handler: async (ctx) => {
-    return await ctx.db.query("invoices").collect();
+    // Temporarily return empty array for testing
+    return [];
   },
 });
 

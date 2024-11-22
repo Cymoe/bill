@@ -1,20 +1,13 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
-import { ThemeProvider } from './contexts/ThemeContext';
-import App from './App';
-import './index.css';
-import { ConvexProvider } from "convex/react";
-import { convex } from "./lib/database";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./index.css";
 
-createRoot(document.getElementById('root')!).render(
+const element = document.getElementById("root");
+if (!element) throw new Error("Root element not found");
+
+ReactDOM.createRoot(element).render(
   <React.StrictMode>
-    <ConvexProvider client={convex}>
-      <BrowserRouter>
-        <ThemeProvider>
-          <App />
-        </ThemeProvider>
-      </BrowserRouter>
-    </ConvexProvider>
+    <App />
   </React.StrictMode>
 );

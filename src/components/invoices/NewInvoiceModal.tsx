@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { formatCurrency } from '../../utils/format';
+import { useAuth0 } from "@auth0/auth0-react";
 
 interface NewInvoiceModalProps {
   onClose: () => void;
@@ -11,6 +12,7 @@ interface NewInvoiceModalProps {
 }
 
 export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSave }) => {
+  const { user } = useAuth0();
   const [step, setStep] = useState<'select' | 'template' | 'create'>('select');
   const [formData, setFormData] = useState({
     number: `INV-${Date.now()}`,
@@ -48,7 +50,11 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
   const handleTemplateSelect = (template: Doc<"templates">) => {
     setFormData(prev => ({
       ...prev,
-      items: template.items
+      items: template.items.map(item => ({
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price
+      }))
     }));
     setStep('create');
   };

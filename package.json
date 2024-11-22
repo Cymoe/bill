@@ -12,8 +12,9 @@
     "seed": "tsx scripts/seed.ts"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.2.4",
     "clsx": "^2.1.1",
-    "convex": "^1.7.1",
+    "convex": "^1.17.1",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.1",
     "lucide-react": "^0.344.0",

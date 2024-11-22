@@ -9,9 +9,11 @@ import {
   Sun,
   Moon,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth0 } from '@auth0/auth0-react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -19,6 +21,7 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
+  const { logout } = useAuth0();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -40,6 +43,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const handleNavigation = (to: string) => {
     navigate(to);
     setIsMobileMenuOpen(false);
+  };
+
+  const handleLogout = () => {
+    logout({ 
+      logoutParams: {
+        returnTo: window.location.origin
+      }
+    });
   };
 
   return (
@@ -78,12 +89,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <FileText className="w-8 h-8" />
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">InvoiceHub</h1>
             </div>
-            <button
-              onClick={toggleTheme}
-              className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-            >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-            </button>
+            <div className="mt-auto space-y-4">
+              <button
+                onClick={toggleTheme}
+                className="flex items-center w-full px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                {theme === 'dark' ? (
+                  <Sun className="w-5 h-5 mr-3" />
+                ) : (
+                  <Moon className="w-5 h-5 mr-3" />
+                )}
+                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+              </button>
+              
+              <button
+                onClick={handleLogout}
+                className="flex items-center w-full px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <LogOut className="w-5 h-5 mr-3" />
+                Logout
+              </button>
+            </div>
           </div>
 
           <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
