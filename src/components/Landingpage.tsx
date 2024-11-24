@@ -16,26 +16,28 @@ import { AuthButtons } from "./auth/AuthButtons";
 
 export const LandingPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, error } = useAuth0();
+  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
 
   useEffect(() => {
-    console.log("Landing page auth state:", { isAuthenticated, isLoading, error });
-    // Only redirect if we're authenticated and not in a loading state
     if (isAuthenticated && !isLoading) {
-      console.log("Redirecting to dashboard");
       navigate("/dashboard");
     }
-  }, [isAuthenticated, isLoading, navigate, error]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   // Show loading state while checking auth
   if (isLoading) {
-    console.log("Showing loading state");
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
         <div className="text-gray-600">Loading...</div>
       </div>
     );
   }
+
+  const handleLogin = () => {
+    loginWithRedirect({
+      appState: { returnTo: "/dashboard" }
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -60,7 +62,7 @@ export const LandingPage = () => {
           </p>
           <div className="flex justify-center space-x-4">
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={handleLogin}
               className="flex items-center px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Get Started

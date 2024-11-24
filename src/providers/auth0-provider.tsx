@@ -43,11 +43,9 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
   const [redirectUri, setRedirectUri] = useState<string>();
 
   useEffect(() => {
-    // Handle both localhost and Netlify deployments
     const origin = window.location.origin;
-    const callbackUrl = `${origin}/dashboard`;
-    console.log("Setting up Auth0Provider with callback URL:", callbackUrl);
-    setRedirectUri(callbackUrl);
+    console.log("Setting up Auth0Provider with callback URL:", origin);
+    setRedirectUri(origin);
   }, []);
 
   if (!redirectUri) return null;
@@ -79,18 +77,6 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
         loggedOut={<div>Please log in</div>}
         onError={(error) => {
           console.error("Convex auth error:", error);
-          if (error.message?.toLowerCase().includes('auth')) {
-            console.log("Auth error detected, considering reload");
-            const lastReload = localStorage.getItem('lastAuthReload');
-            const now = Date.now();
-            if (!lastReload || now - parseInt(lastReload) > 60000) {
-              console.log("Triggering reload");
-              localStorage.setItem('lastAuthReload', now.toString());
-              window.location.reload();
-            } else {
-              console.log("Skipping reload - too recent");
-            }
-          }
         }}
       >
         <UserSetup>{children}</UserSetup>
