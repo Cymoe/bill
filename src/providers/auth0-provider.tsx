@@ -32,9 +32,11 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
   const [redirectUri, setRedirectUri] = useState<string>();
 
   useEffect(() => {
+    // Use /callback as the redirect URI
     const origin = window.location.origin;
-    console.log("Setting up Auth0Provider with callback URL:", origin);
-    setRedirectUri(origin);
+    const callbackUrl = `${origin}/callback`;
+    console.log("Setting up Auth0Provider with callback URL:", callbackUrl);
+    setRedirectUri(callbackUrl);
   }, []);
 
   if (!redirectUri) return null;
@@ -57,7 +59,7 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
         audience: audience,
         scope: "openid profile email"
       }}
-      cacheLocation="localstorage"
+      cacheLocation="memory"
     >
       <ConvexProviderWithAuth0
         client={convex}

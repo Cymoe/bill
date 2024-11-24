@@ -14,6 +14,7 @@ import { BillsList } from './components/bills/BillsList';
 import { TestAuth } from './components/auth/TestAuth';
 import UserProfile from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
+import { Callback } from './components/auth/Callback';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ function AppRoutes() {
     <Routes>
       {/* Public route */}
       <Route path="/" element={<LandingPage />} />
+      <Route path="/callback" element={<Callback />} />
       <Route
         path="/test"
         element={
