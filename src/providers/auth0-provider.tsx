@@ -9,19 +9,32 @@ import toast from "react-hot-toast";
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL);
 
 function UserSetup({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user: auth0User } = useAuth0();
+  const { isAuthenticated, user: auth0User, getAccessTokenSilently } = useAuth0();
   const getOrCreateUser = useMutation(api.users.getOrCreateUser);
 
   useEffect(() => {
-    if (!isAuthenticated || !auth0User) return;
+    const setupUser = async () => {
+      if (!isAuthenticated || !auth0User) {
+        console.log("Not authenticated or no user", { isAuthenticated, auth0User });
+        return;
+      }
 
-    // Only try to create/get user when we have auth
-    getOrCreateUser()
-      .catch(error => {
+      try {
+        // Try to get a token to verify our auth state
+        const token = await getAccessTokenSilently();
+        console.log("Got access token", { tokenLength: token?.length });
+        
+        // Create or get user
+        await getOrCreateUser();
+        console.log("User setup complete");
+      } catch (error) {
         console.error("Error in user setup:", error);
         toast.error("Failed to setup user profile");
-      });
-  }, [isAuthenticated, auth0User, getOrCreateUser]);
+      }
+    };
+
+    setupUser();
+  }, [isAuthenticated, auth0User, getOrCreateUser, getAccessTokenSilently]);
 
   return <>{children}</>;
 }
@@ -32,8 +45,8 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     // Handle both localhost and Netlify deployments
     const origin = window.location.origin;
-    const path = "/dashboard"; // Redirect to dashboard after login
-    setRedirectUri(`${origin}${path}`);
+    console.log("Setting up Auth0Provider with origin:", origin);
+    setRedirectUri(origin);
   }, []);
 
   if (!redirectUri) return null;
@@ -43,7 +56,7 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
   const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
 
   if (!clientId || !domain || !audience) {
-    console.error("Missing required Auth0 configuration");
+    console.error("Missing required Auth0 configuration", { clientId, domain, audience });
     return null;
   }
 
@@ -67,12 +80,16 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
           console.error("Convex auth error:", error);
           // Only reload for auth errors, and not too frequently
           if (error.message?.toLowerCase().includes('auth')) {
+            console.log("Auth error detected, considering reload");
             // Store last reload time
             const lastReload = localStorage.getItem('lastAuthReload');
             const now = Date.now();
             if (!lastReload || now - parseInt(lastReload) > 60000) { // Only reload once per minute max
+              console.log("Triggering reload");
               localStorage.setItem('lastAuthReload', now.toString());
               window.location.reload();
+            } else {
+              console.log("Skipping reload - too recent");
             }
           }
         }}

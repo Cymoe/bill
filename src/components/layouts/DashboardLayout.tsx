@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -23,10 +23,18 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
-  const { logout, user } = useAuth0();
+  const { logout, user, isAuthenticated, isLoading } = useAuth0();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log("Dashboard auth state:", { isAuthenticated, isLoading, user });
+    if (!isLoading && !isAuthenticated) {
+      console.log("Not authenticated, redirecting to home");
+      navigate("/");
+    }
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleOverlayClick = () => {
     setIsMobileMenuOpen(false);
@@ -48,6 +56,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   };
 
   const handleLogout = () => {
+    console.log("Logging out");
     logout({ 
       logoutParams: {
         returnTo: window.location.origin

@@ -16,17 +16,20 @@ import { AuthButtons } from "./auth/AuthButtons";
 
 export const LandingPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading } = useAuth0();
+  const { isAuthenticated, isLoading, error } = useAuth0();
 
   useEffect(() => {
+    console.log("Landing page auth state:", { isAuthenticated, isLoading, error });
     // Only redirect if we're authenticated and not in a loading state
     if (isAuthenticated && !isLoading) {
+      console.log("Redirecting to dashboard");
       navigate("/dashboard");
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, isLoading, navigate, error]);
 
   // Show loading state while checking auth
   if (isLoading) {
+    console.log("Showing loading state");
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
         <div className="text-gray-600">Loading...</div>
