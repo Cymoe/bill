@@ -3,8 +3,16 @@ import { v } from "convex/values";
 
 export const getTemplates = query({
   handler: async (ctx) => {
-    // Temporarily return empty array for testing
-    return [];
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    return await ctx.db
+      .query("templates")
+      .filter((q) => q.eq(q.field("userId"), identity.subject))
+      .order("desc")
+      .collect();
   },
 });
 

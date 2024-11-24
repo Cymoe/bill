@@ -20,23 +20,11 @@ export const InvoiceTemplateList: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
-  const [userToken, setUserToken] = useState<string>("");
-  const { getAccessTokenSilently } = useAuth0();
 
-  useEffect(() => {
-    const fetchToken = async () => {
-      const token = await getAccessTokenSilently();
-      setUserToken(token || "");
-    };
-    fetchToken();
-  }, [getAccessTokenSilently]);
-
-  const templates = useQuery(api.templates.getTemplates, {
-    tokenIdentifier: userToken,
-  });
+  const templates = useQuery(api.templates.getTemplates);
   const deleteTemplate = useMutation(api.templates.deleteTemplate);
 
-  const isLoading = !templates || !userToken;
+  const isLoading = templates === undefined;
 
   const filteredTemplates = (templates || []).filter((template: Template) => 
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
