@@ -30,7 +30,10 @@ export function Auth0ConvexProvider({ children }: { children: React.ReactNode })
   const [redirectUri, setRedirectUri] = useState<string>();
 
   useEffect(() => {
-    setRedirectUri(window.location.origin);
+    // Handle both localhost and Netlify deployments
+    const origin = window.location.origin;
+    const path = "/dashboard"; // Redirect to dashboard after login
+    setRedirectUri(`${origin}${path}`);
   }, []);
 
   if (!redirectUri) return null;
