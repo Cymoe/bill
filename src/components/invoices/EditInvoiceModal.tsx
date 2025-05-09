@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Minus } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { formatCurrency } from '../../utils/format';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
-type Invoice = Doc<"invoices">;
+interface Invoice {
+  id: string;
+  number: string;
+  client_id: string;
+  date: string;
+  due_date: string;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    price: number;
+  }>;
+  total_amount: number;
+}
 
 interface EditInvoiceModalProps {
   invoice: Invoice;
@@ -26,9 +38,9 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
 
   const [formData, setFormData] = useState({
     number: invoice.number,
-    clientId: invoice.clientId,
+    client_id: invoice.client_id,
     date: formatDateForInput(invoice.date),
-    dueDate: formatDateForInput(invoice.dueDate),
+    due_date: formatDateForInput(invoice.due_date),
     status: invoice.status,
     items: invoice.items
   });
@@ -36,8 +48,26 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
-  const products = useQuery(api.products.getProducts) || [];
-  const updateInvoice = useMutation(api.invoices.updateInvoice);
+  const { user } = useAuth();
+  const [products, setProducts] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching products:', error);
+        return;
+      }
+
+      setProducts(data || []);
+    };
+
+    fetchProducts();
+  }, [user]);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -47,7 +77,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { productId: '' as Id<"products">, quantity: 1, price: 0 }]
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
     }));
   };
 
@@ -58,13 +88,13 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
     }));
   };
 
-  const updateItem = (index: number, field: keyof typeof formData.items[0], value: string | number) => {
+  const updateItem = (index: number, field: keyof typeof formData.items[0], value: any) => {
     const newItems = [...formData.items];
-    if (field === 'productId') {
-      const product = products.find(p => p._id === value);
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
       newItems[index] = {
         ...newItems[index],
-        productId: value as Id<"products">,
+        product_id: value,
         price: product ? product.price : 0
       };
     } else {
@@ -90,11 +120,16 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
       setLoading(true);
       setError(null);
 
-      await updateInvoice({
-        id: invoice._id,
-        ...formData,
-        total_amount: calculateTotal()
-      });
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          ...formData,
+          total_amount: calculateTotal(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', invoice.id);
+
+      if (error) throw error;
 
       setIsClosing(true);
       setTimeout(onSave, 300);
@@ -167,8 +202,8 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                   </label>
                   <input
                     type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData(prev => ({ ...prev, dueDate: e.target.value }))}
+                    value={formData.due_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     required
                   />
@@ -214,15 +249,15 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                           Product
                         </label>
                         <select
-                          value={item.productId}
-                          onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                          value={item.product_id}
+                          onChange={(e) => updateItem(index, 'product_id', e.target.value)}
                           className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           required
                         >
                           <option value="">Select a product</option>
                           {products.map((product) => (
-                            <option key={product._id} value={product._id}>
-                              {product.name} - {formatCurrency(product.price)}
+                            <option key={product.id} value={product.id}>
+                              {product.name}
                             </option>
                           ))}
                         </select>

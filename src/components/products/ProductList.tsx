@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -11,29 +8,66 @@ import { NewProductModal } from './NewProductModal';
 import { EditProductModal } from './EditProductModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { ProductCardSkeleton } from '../skeletons/ProductCardSkeleton';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
-type Product = Doc<"products">;
+type Product = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  unit: string;
+  user_id: string;
+  created_at: string;
+};
 
 export const ProductList: React.FC = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const products = useQuery(api.products.getProducts);
-  const deleteProduct = useMutation(api.products.deleteProduct);
+  useEffect(() => {
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
 
-  const isLoading = !products;
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
 
-  const filteredProducts = (products || []).filter((product: Product) => 
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter((product) => 
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.description.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = async (id: Id<"products">) => {
+  const handleDelete = async (id: string) => {
     try {
-      await deleteProduct({ id });
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
       setDeletingProduct(null);
+      fetchProducts(); // Refresh the list
     } catch (err) {
       console.error('Error deleting product:', err);
     }
@@ -79,7 +113,7 @@ export const ProductList: React.FC = () => {
           ) : (
             filteredProducts.map((product) => (
               <div 
-                key={product._id}
+                key={product.id}
                 className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex justify-between items-start mb-4">
@@ -138,7 +172,7 @@ export const ProductList: React.FC = () => {
             <div className="space-y-4 pb-20">
               {filteredProducts.map((product) => (
                 <div
-                  key={product._id}
+                  key={product.id}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
                 >
                   <div className="flex justify-between">
@@ -187,7 +221,10 @@ export const ProductList: React.FC = () => {
       {showNewModal && (
         <NewProductModal
           onClose={() => setShowNewModal(false)}
-          onSave={() => setShowNewModal(false)}
+          onSave={async () => {
+            setShowNewModal(false);
+            await fetchProducts();
+          }}
         />
       )}
 
@@ -203,7 +240,7 @@ export const ProductList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Product"
           message="Are you sure you want to delete this product? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingProduct._id)}
+          onConfirm={() => handleDelete(deletingProduct.id)}
           onCancel={() => setDeletingProduct(null)}
         />
       )}

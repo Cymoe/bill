@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc } from "../../../convex/_generated/dataModel";
+import { supabase } from '../../lib/supabase';
 
-type Client = Doc<"clients">;
+type Client = {
+  id: string;
+  company_name: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  user_id: string;
+  created_at: string;
+};
 
 interface EditClientModalProps {
   client: Client;
@@ -18,7 +25,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   onSave
 }) => {
   const [formData, setFormData] = useState({
-    company: client.company,
+    company_name: client.company_name,
     name: client.name,
     email: client.email,
     phone: client.phone || '',
@@ -27,8 +34,6 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
-
-  const updateClient = useMutation(api.clients.updateClient);
 
   const handleClose = () => {
     setIsClosing(true);
@@ -41,14 +46,18 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
       setLoading(true);
       setError(null);
 
-      await updateClient({
-        id: client._id,
-        company: formData.company,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined
-      });
+      const { error } = await supabase
+        .from('clients')
+        .update({
+          company_name: formData.company_name,
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone || null,
+          address: formData.address || null
+        })
+        .eq('id', client.id);
+
+      if (error) throw error;
 
       setIsClosing(true);
       setTimeout(onSave, 300);
@@ -107,8 +116,8 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   required
                 />

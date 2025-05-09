@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
+import { useAuth } from "../../contexts/AuthContext";
+import { db } from "../../lib/database";
 import { ClientForm } from './ClientForm';
-import { ClientInput } from '../../lib/database.types';
+import type { Tables } from '../../lib/database';
 
 interface DesktopNewClientModalProps {
   onClose: () => void;
-  onSave: (client: ClientInput) => void;
+  onSave: (client: Omit<Tables['clients'], 'id' | 'created_at'>) => void;
 }
 
 export const DesktopNewClientModal: React.FC<DesktopNewClientModalProps> = ({ onClose, onSave }) => {
   const [isClosing, setIsClosing] = useState(false);
-  const createClient = useMutation(api.clients.createClient);
+  const { user } = useAuth();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -25,16 +25,24 @@ export const DesktopNewClientModal: React.FC<DesktopNewClientModalProps> = ({ on
     setTimeout(onClose, 300);
   };
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: {
+    company_name: string;
+    name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+  }) => {
+    if (!user) return;
+
     try {
-      const clientData: ClientInput = {
-        company: formData.company,
+      const clientData: Omit<Tables['clients'], 'id' | 'created_at'> = {
+        user_id: user.id,
+        company_name: formData.company_name,
         name: formData.name,
         email: formData.email,
         phone: formData.phone || undefined,
         address: formData.address || undefined,
       };
-      await createClient(clientData);
       setIsClosing(true);
       setTimeout(() => onSave(clientData), 300);
     } catch (err) {

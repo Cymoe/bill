@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, MoreVertical, Download, Printer, CheckCircle, Pencil } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import { ArrowLeft, Download, Printer, CheckCircle, Pencil, MoreVertical } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -12,21 +9,69 @@ import { EditInvoiceModal } from './EditInvoiceModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { generatePDF } from '../../utils/pdfGenerator';
 import { DetailSkeleton } from '../skeletons/DetailSkeleton';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invoice, setInvoice] = useState<any>(null);
+  const [client, setClient] = useState<any>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const invoice = useQuery(api.invoices.getInvoiceById, { id: id as Id<"invoices"> });
-  const client = useQuery(api.clients.getClientById, { id: invoice?.clientId as Id<"clients"> });
-  const products = useQuery(api.products.getProducts) || [];
-  const updateInvoice = useMutation(api.invoices.updateInvoice);
-  const deleteInvoice = useMutation(api.invoices.deleteInvoice);
+  useEffect(() => {
+    if (user && id) {
+      fetchData();
+    }
+  }, [user, id]);
 
-  if (!invoice || !client) {
+  const fetchData = async () => {
+    try {
+      const [invoiceRes, productsRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', user?.id)
+          .single(),
+        supabase
+          .from('products')
+          .select('*')
+          .eq('user_id', user?.id)
+      ]);
+
+      if (invoiceRes.error) throw invoiceRes.error;
+      if (productsRes.error) throw productsRes.error;
+
+      if (invoiceRes.data) {
+        setInvoice(invoiceRes.data);
+        // Fetch client data
+        const clientRes = await supabase
+          .from('clients')
+          .select('*')
+          .eq('id', invoiceRes.data.client_id)
+          .eq('user_id', user?.id)
+          .single();
+
+        if (clientRes.error) throw clientRes.error;
+        setClient(clientRes.data);
+      }
+
+      setProducts(productsRes.data || []);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      setError('Failed to load invoice details');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading || !invoice || !client) {
     return (
       <DashboardLayout>
         <div className="space-y-4">
@@ -46,39 +91,29 @@ export const InvoiceDetail: React.FC = () => {
 
   const handleMarkAsPaid = async () => {
     try {
-      await updateInvoice({
-        ...invoice,
-        id: invoice._id,
-        status: 'paid'
-      });
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          status: 'paid'
+        })
+        .eq('id', invoice.id);
+
+      if (error) throw error;
+      await fetchData(); // Refresh the data
     } catch (err) {
       console.error('Error marking invoice as paid:', err);
-    }
-  };
-
-  const handlePrint = () => {
-    if (invoice && client) {
-      const items = invoice.items.map(item => {
-        const product = products.find(p => p._id === item.productId);
-        return {
-          product_name: product?.name || 'Unknown Product',
-          quantity: item.quantity,
-          price: item.price
-        };
-      });
-
-      generatePDF({
-        invoice,
-        client,
-        items,
-        totalAmount: invoice.total_amount
-      });
+      setError('Failed to mark invoice as paid');
     }
   };
 
   const handleDelete = async () => {
     try {
-      await deleteInvoice({ id: invoice._id });
+      const { error } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', invoice.id);
+
+      if (error) throw error;
       navigate('/invoices');
     } catch (err) {
       console.error('Error deleting invoice:', err);
@@ -87,7 +122,7 @@ export const InvoiceDetail: React.FC = () => {
   };
 
   const getStatusStyle = (status: string) => {
-    const baseStyle = "px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ";
+    const baseStyle = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full ";
     switch (status) {
       case 'paid':
         return baseStyle + "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
@@ -104,144 +139,137 @@ export const InvoiceDetail: React.FC = () => {
     {
       label: 'Edit',
       onClick: () => setShowEditModal(true),
-      className: 'flex items-center gap-2',
       icon: <Pencil className="w-4 h-4" />
     },
     {
       label: 'Mark as Paid',
       onClick: handleMarkAsPaid,
-      className: 'flex items-center gap-2',
       icon: <CheckCircle className="w-4 h-4" />,
-      show: invoice.status === 'sent'
+      disabled: invoice.status === 'paid'
     },
     {
       label: 'Download PDF',
-      onClick: handlePrint,
-      className: 'flex items-center gap-2',
+      onClick: () => {
+        const items = invoice.items.map((item: any) => ({
+          product_name: products.find(p => p.id === item.product_id)?.name || 'Unknown Product',
+          quantity: item.quantity,
+          price: item.price
+        }));
+        generatePDF({ invoice, client, items, totalAmount: invoice.total_amount });
+      },
       icon: <Download className="w-4 h-4" />
     },
     {
-      label: 'Print Invoice',
-      onClick: handlePrint,
-      className: 'flex items-center gap-2',
+      label: 'Print',
+      onClick: () => window.print(),
       icon: <Printer className="w-4 h-4" />
     },
     {
       label: 'Delete',
       onClick: () => setShowDeleteModal(true),
-      className: 'text-red-600 hover:text-red-700'
+      icon: <Pencil className="w-4 h-4" />,
+      className: 'text-red-600 dark:text-red-400'
     }
-  ].filter(item => !item.show || item.show === true);
+  ];
 
   return (
     <DashboardLayout>
-      <div>
-        {/* Mobile Back Button */}
-        <button
-          onClick={() => navigate('/invoices')}
-          className="md:hidden flex items-center text-gray-600 dark:text-gray-400"
-        >
-          <ArrowLeft className="w-5 h-5 mr-1" />
-          Back to Invoices
-        </button>
-
-        {/* Desktop Breadcrumbs */}
+      <div className="space-y-4 md:space-y-6">
+        {/* Breadcrumbs */}
         <div className="hidden md:block">
           <Breadcrumbs 
             items={[
               { label: 'Invoices', href: '/invoices' },
-              { label: `Invoice ${invoice.number}` }
+              { label: invoice.number }
             ]} 
           />
         </div>
 
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm">
-          {/* Header */}
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                  Invoice {invoice.number}
-                </h1>
-                <span className={getStatusStyle(invoice.status)}>
-                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                </span>
-              </div>
-              <Dropdown
-                trigger={
-                  <button className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400">
-                    <MoreVertical className="w-6 h-6" />
-                  </button>
-                }
-                items={getDropdownItems()}
-              />
-            </div>
-          </div>
+        {/* Mobile header */}
+        <div className="md:hidden flex items-center justify-between">
+          <button
+            onClick={() => navigate('/invoices')}
+            className="flex items-center text-gray-600 dark:text-gray-400"
+          >
+            <ArrowLeft className="w-5 h-5 mr-1" />
+            Back
+          </button>
+          <Dropdown
+            trigger={<MoreVertical className="w-6 h-6" />}
+            items={getDropdownItems()}
+          />
+        </div>
 
-          {/* Content */}
-          <div className="p-4">
+        {/* Desktop header */}
+        <div className="hidden md:flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Invoice {invoice.number}
+          </h1>
+          <div className="flex items-center gap-4">
+            <span className={getStatusStyle(invoice.status)}>
+              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+            </span>
+            <Dropdown
+            trigger={<MoreVertical className="w-6 h-6" />}
+            items={getDropdownItems()}
+          />
+          </div>
+        </div>
+
+        {/* Invoice details */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="p-6 space-y-6">
+            {/* Client info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                   Bill To
-                </h2>
-                <div className="text-gray-900 dark:text-white">
+                </h3>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
                   <p className="font-medium">{client.company}</p>
                   <p>{client.name}</p>
                   <p>{client.email}</p>
                   {client.phone && <p>{client.phone}</p>}
-                  {client.address && <p className="whitespace-pre-line">{client.address}</p>}
+                  {client.address && <p>{client.address}</p>}
                 </div>
               </div>
-
-              <div>
-                <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
-                  Invoice Details
-                </h2>
-                <div className="space-y-2 text-gray-900 dark:text-white">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Issue Date:</span>
-                    <span>{new Date(invoice.date).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Due Date:</span>
-                    <span>{new Date(invoice.dueDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-gray-400">Amount:</span>
-                    <span className="font-medium">{formatCurrency(invoice.total_amount)}</span>
-                  </div>
+              <div className="md:text-right">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <p>
+                    <span className="font-medium">Invoice Date: </span>
+                    {new Date(invoice.date).toLocaleDateString()}
+                  </p>
+                  <p>
+                    <span className="font-medium">Due Date: </span>
+                    {new Date(invoice.due_date).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
             </div>
 
+            {/* Items */}
             <div className="mt-8">
-              <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
-                Items
-              </h2>
-              
-              {/* Desktop Table View */}
-              <div className="hidden md:block overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                   <thead>
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    <tr className="bg-gray-50 dark:bg-gray-700">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Item
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Quantity
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Price
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                         Total
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {invoice.items.map((item, index) => {
-                      const product = products.find(p => p._id === item.productId);
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {(invoice.items || []).map((item: any, index: number) => {
+                      const product = products.find(p => p.id === item.product_id);
                       return (
                         <tr key={index}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
@@ -254,60 +282,19 @@ export const InvoiceDetail: React.FC = () => {
                             {formatCurrency(item.price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {formatCurrency(item.price * item.quantity)}
+                            {formatCurrency(item.quantity * item.price)}
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
-                  <tfoot>
-                    <tr>
-                      <td colSpan={3} className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white text-right">
-                        Total
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white text-right">
-                        {formatCurrency(invoice.total_amount)}
-                      </td>
-                    </tr>
-                  </tfoot>
                 </table>
               </div>
-
-              {/* Mobile Card View */}
-              <div className="md:hidden space-y-4">
-                {invoice.items.map((item, index) => {
-                  const product = products.find(p => p._id === item.productId);
-                  return (
-                    <div 
-                      key={index}
-                      className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 space-y-2"
-                    >
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {product?.name || 'Unknown Product'}
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">Quantity</span>
-                        <span className="text-gray-900 dark:text-white">{item.quantity}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">Price</span>
-                        <span className="text-gray-900 dark:text-white">{formatCurrency(item.price)}</span>
-                      </div>
-                      <div className="flex justify-between text-sm font-medium">
-                        <span className="text-gray-500 dark:text-gray-400">Total</span>
-                        <span className="text-gray-900 dark:text-white">{formatCurrency(item.price * item.quantity)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Amount</span>
-                    <span className="text-lg font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(invoice.total_amount)}
-                    </span>
-                  </div>
+              <div className="mt-8 flex justify-end">
+                <div className="text-right">
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    Total: {formatCurrency(invoice.total_amount)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -319,7 +306,10 @@ export const InvoiceDetail: React.FC = () => {
         <EditInvoiceModal
           invoice={invoice}
           onClose={() => setShowEditModal(false)}
-          onSave={() => setShowEditModal(false)}
+          onSave={() => {
+            setShowEditModal(false);
+            fetchData();
+          }}
         />
       )}
 
@@ -329,8 +319,13 @@ export const InvoiceDetail: React.FC = () => {
           message="Are you sure you want to delete this invoice? This action cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setShowDeleteModal(false)}
-          error={error}
         />
+      )}
+
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {error}
+        </div>
       )}
     </DashboardLayout>
   );

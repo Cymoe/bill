@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc } from "../../../convex/_generated/dataModel";
 import { UNIT_OPTIONS } from '../../constants';
+import { supabase } from '../../lib/supabase';
 
-type Product = Doc<"products">;
+type Product = {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  unit: string;
+  user_id: string;
+  created_at: string;
+};
 
 interface EditProductModalProps {
   product: Product;
@@ -28,8 +34,6 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
-  const updateProduct = useMutation(api.products.updateProduct);
-
   const handleClose = () => {
     setIsClosing(true);
     setTimeout(onClose, 300);
@@ -41,13 +45,17 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       setLoading(true);
       setError(null);
 
-      await updateProduct({
-        id: product._id,
-        name: formData.name,
-        description: formData.description,
-        price: formData.price,
-        unit: formData.unit
-      });
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name: formData.name,
+          description: formData.description,
+          price: formData.price,
+          unit: formData.unit
+        })
+        .eq('id', product.id);
+
+      if (error) throw error;
 
       setIsClosing(true);
       setTimeout(onSave, 300);

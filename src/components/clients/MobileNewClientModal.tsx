@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { ClientForm } from './ClientForm';
 import { ClientInput } from '../../lib/database.types';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MobileNewClientModalProps {
   onClose: () => void;
@@ -11,7 +11,7 @@ interface MobileNewClientModalProps {
 
 export const MobileNewClientModal: React.FC<MobileNewClientModalProps> = ({ onClose, onSave }) => {
   const [isClosing, setIsClosing] = useState(false);
-  const createClient = useMutation(api.clients.createClient);
+  const { user } = useAuth();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -28,13 +28,14 @@ export const MobileNewClientModal: React.FC<MobileNewClientModalProps> = ({ onCl
   const handleSubmit = async (formData: any) => {
     try {
       const clientData: ClientInput = {
-        company: formData.company,
+        company_name: formData.company,
         name: formData.name,
         email: formData.email,
-        phone: formData.phone || undefined,
-        address: formData.address || undefined,
+        phone: formData.phone || null,
+        address: formData.address || null,
+        user_id: user?.id
       };
-      await createClient(clientData);
+
       setIsClosing(true);
       setTimeout(() => onSave(clientData), 300);
     } catch (err) {

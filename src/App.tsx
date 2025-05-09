@@ -1,9 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
-import { Auth0ConvexProvider } from './providers/auth0-provider';
-import { useAuth0 } from '@auth0/auth0-react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './components/Dashboard';
+import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { ProductList } from './components/products/ProductList';
 import { InvoiceList } from './components/invoices/InvoiceList';
@@ -11,14 +11,20 @@ import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { InvoiceTemplateList } from './components/templates/InvoiceTemplateList';
 import { LandingPage } from './components/Landingpage';
 import { BillsList } from './components/bills/BillsList';
-import { TestAuth } from './components/auth/TestAuth';
+import { Callback } from './components/auth/Callback';
 import UserProfile from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
-import { Callback } from './components/auth/Callback';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth0();
+  const { user, session, isLoading } = useAuth();
+  console.log('ProtectedRoute check:', { 
+    hasUser: !!user, 
+    hasSession: !!session, 
+    isLoading,
+    userEmail: user?.email,
+    sessionStatus: session?.expires_at
+  });
 
   if (isLoading) {
     return (
@@ -28,7 +34,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!session || !user) {
+    console.log('Access denied: No valid session');
     return <Navigate to="/" replace />;
   }
 
@@ -36,20 +43,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  const { user, session, isLoading } = useAuth();
+
+  // If we have a user and session, redirect to dashboard from root
+  const renderLanding = () => {
+    if (user && session && !isLoading) {
+      console.log('User authenticated, redirecting to dashboard');
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <LandingPage />;
+  };
+
   return (
     <Routes>
-      {/* Public route */}
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/callback" element={<Callback />} />
-      <Route
-        path="/test"
-        element={
-          <ProtectedRoute>
-            <TestAuth />
-          </ProtectedRoute>
-        }
-      />
-      
+      {/* Public routes */}
+      <Route path="/" element={renderLanding()} />
+      <Route path="/auth/callback" element={<Callback />} />
+      <Route path="/auth/test" element={<TestAuth />} />
+
       {/* Protected routes */}
       <Route
         path="/dashboard"
@@ -124,13 +135,16 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <Auth0ConvexProvider>
-          <AppRoutes />
+    <BrowserRouter future={{ 
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}>
+      <AuthProvider>
+        <ThemeProvider>
           <Toaster position="top-right" />
-        </Auth0ConvexProvider>
-      </ThemeProvider>
+          <AppRoutes />
+        </ThemeProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

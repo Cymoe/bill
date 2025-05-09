@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Settings, LogOut, Sun, Moon, User } from 'lucide-react';
 
 export const UserProfileDropdown: React.FC = () => {
-  const { user, logout } = useAuth0();
+  const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -23,13 +23,7 @@ export const UserProfileDropdown: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    logout({ 
-      logoutParams: {
-        returnTo: window.location.origin
-      }
-    });
-  };
+
 
   return (
     <div className="relative" ref={dropdownRef}>
@@ -38,10 +32,10 @@ export const UserProfileDropdown: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 transition-colors duration-200"
       >
-        {user?.picture ? (
+        {user?.user_metadata?.avatar_url ? (
           <img
-            src={user.picture}
-            alt={user.name || 'User'}
+            src={user?.user_metadata?.avatar_url || '/default-avatar.png'}
+            alt={user?.user_metadata?.full_name || 'User'}
             className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700"
           />
         ) : (
@@ -51,7 +45,7 @@ export const UserProfileDropdown: React.FC = () => {
         )}
         <div className="text-left hidden md:block">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            {user?.name || 'User'}
+            {user?.user_metadata?.full_name || user?.email}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
             {user?.email || ''}
@@ -91,8 +85,8 @@ export const UserProfileDropdown: React.FC = () => {
           <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
 
           <button
-            onClick={() => {
-              handleLogout();
+            onClick={async () => {
+              await signOut();
               setIsOpen(false);
             }}
             className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"

@@ -1,11 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Minus } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../lib/database';
+import type { Tables } from '../../lib/database';
 import { formatCurrency } from '../../utils/format';
 
-type Template = Doc<"templates">;
+type Template = Tables['invoice_templates'] & {
+  items: Array<{
+    id: string;
+    template_id: string;
+    product_id: string;
+    quantity: number;
+    price: number;
+    created_at?: string;
+  }>;
+};
+
+interface TemplateItem {
+  product_id: string;
+  quantity: number;
+  price: number;
+}
+
+interface FormData {
+  name: string;
+  content: any; // Keep for backward compatibility
+  items: TemplateItem[];
+}
 
 interface EditTemplateModalProps {
   template: Template;
@@ -18,17 +39,37 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
   onClose,
   onSave
 }) => {
-  const [formData, setFormData] = useState({
+  const { user } = useAuth();
+  const [formData, setFormData] = useState<FormData>({
     name: template.name,
-    description: template.description,
-    items: template.items
+    content: template.content || {},
+    items: template.items?.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price
+    })) || []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
-  const products = useQuery(api.products.getProducts) || [];
-  const updateTemplate = useMutation(api.templates.updateTemplate);
+  const [products, setProducts] = useState<Tables['products'][]>([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await db.products.list(user?.id || '');
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to load products');
+    }
+  };
 
   const handleClose = () => {
     setIsClosing(true);
@@ -38,25 +79,25 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { productId: '' as Id<"products">, quantity: 1, price: 0 }]
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
     }));
   };
 
   const removeItem = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      items: prev.items.filter((_, i) => i !== index)
+      items: prev.items.filter((_: TemplateItem, i: number) => i !== index)
     }));
   };
 
-  const updateItem = (index: number, field: keyof typeof formData.items[0], value: string | number) => {
+  const updateItem = (index: number, field: keyof TemplateItem, value: any) => {
     const newItems = [...formData.items];
-    if (field === 'productId') {
-      const product = products.find(p => p._id === value);
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
       newItems[index] = {
         ...newItems[index],
-        productId: value as Id<"products">,
-        price: product ? product.price : 0
+        product_id: value,
+        price: product?.price || 0
       };
     } else {
       newItems[index] = { ...newItems[index], [field]: value };
@@ -72,28 +113,32 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
   };
 
   const calculateTotal = () => {
-    return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return formData.items.reduce((sum: number, item: TemplateItem) => sum + (item.price * item.quantity), 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
-
-      await updateTemplate({
-        id: template._id,
+      await db.invoice_templates.update(template.id, {
         name: formData.name,
-        description: formData.description,
-        items: formData.items,
-        total_amount: calculateTotal()
+        content: {}, // Empty JSONB object since we're using the items table
+        items: formData.items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price
+        }))
       });
-
-      setIsClosing(true);
-      setTimeout(onSave, 300);
+      onSave();
+      handleClose();
     } catch (err) {
       console.error('Error updating template:', err);
       setError('Failed to update template');
+    } finally {
       setLoading(false);
     }
   };
@@ -158,8 +203,8 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                   Description
                 </label>
                 <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  value={formData.content.description || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, content: { ...prev.content, description: e.target.value } }))}
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   rows={3}
                   required
@@ -169,7 +214,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Items</h3>
-                  {formData.items.length > 0 && (
+                  {formData.content.items.length > 0 && (
                     <button
                       type="button"
                       onClick={addItem}
@@ -182,7 +227,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {formData.items.length === 0 ? (
+                  {formData.content.items.length === 0 ? (
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-8 text-center">
                       <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
@@ -203,21 +248,21 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                       </button>
                     </div>
                   ) : (
-                    formData.items.map((item, index) => (
+                    formData.content.items.map((item: TemplateItem, index: number) => (
                       <div key={index} className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Product
                           </label>
                           <select
-                            value={item.productId}
-                            onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                            value={item.product_id}
+                            onChange={(e) => updateItem(index, 'product_id', e.target.value)}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             required
                           >
                             <option value="">Select a product</option>
                             {products.map((product) => (
-                              <option key={product._id} value={product._id}>
+                              <option key={product.id} value={product.id}>
                                 {product.name} - {formatCurrency(product.price)}
                               </option>
                             ))}
@@ -287,7 +332,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                           </div>
                         </div>
 
-                        {index === formData.items.length - 1 && (
+                        {index === formData.content.items.length - 1 && (
                           <button
                             type="button"
                             onClick={addItem}
@@ -301,7 +346,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                     ))
                   )}
 
-                  {formData.items.length > 0 && (
+                  {formData.content.items.length > 0 && (
                     <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

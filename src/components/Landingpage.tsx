@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from "../contexts/AuthContext";
 import { useEffect } from "react";
 import {
   ArrowRight,
@@ -16,13 +16,14 @@ import { AuthButtons } from "./auth/AuthButtons";
 
 export const LandingPage = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, isLoading, loginWithRedirect } = useAuth0();
+  const { user, isLoading } = useAuth();
 
   useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      navigate("/dashboard");
+    if (user && !isLoading) {
+      console.log('User already authenticated, redirecting to dashboard');
+      navigate("/dashboard", { replace: true });
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [user, isLoading, navigate]);
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -33,11 +34,7 @@ export const LandingPage = () => {
     );
   }
 
-  const handleLogin = () => {
-    loginWithRedirect({
-      appState: { returnTo: "/dashboard" }
-    });
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -62,7 +59,12 @@ export const LandingPage = () => {
           </p>
           <div className="flex justify-center space-x-4">
             <button
-              onClick={handleLogin}
+              onClick={() => {
+                const authButtons = document.querySelector('[data-testid="google-signin"]') as HTMLButtonElement;
+                if (authButtons) {
+                  authButtons.click();
+                }
+              }}
               className="flex items-center px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Get Started

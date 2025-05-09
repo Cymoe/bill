@@ -14,7 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useAuth0 } from '@auth0/auth0-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { UserProfileDropdown } from '../common/UserProfileDropdown';
 
 interface DashboardLayoutProps {
@@ -23,7 +23,9 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { theme, toggleTheme } = useTheme();
-  const { logout, user, isAuthenticated, isLoading } = useAuth0();
+  const { user, signOut, session, loading } = useAuth();
+  const isAuthenticated = !!session;
+  const isLoading = loading;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();

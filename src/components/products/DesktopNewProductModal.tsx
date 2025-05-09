@@ -1,18 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { UNIT_OPTIONS } from '../../constants';
 import { ProductForm } from '../products/ProductForm';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DesktopNewProductModalProps {
   onClose: () => void;
   onSave: () => void;
 }
 
+interface ProductFormData {
+  name: string;
+  description: string;
+  price: number;
+  unit: string;
+}
+
 export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ onClose, onSave }) => {
   const [isClosing, setIsClosing] = useState(false);
-  const createProduct = useMutation(api.products.createProduct);
+  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -26,14 +32,48 @@ export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ 
     setTimeout(onClose, 300);
   };
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: ProductFormData) => {
     try {
-      await createProduct(formData);
-      setIsClosing(true);
-      setTimeout(onSave, 300);
+      if (!user?.id) {
+        setError('You must be logged in to create a product');
+        return;
+      }
+
+      console.log('Creating product with data:', {
+        ...formData,
+        user_id: user.id
+      });
+
+      const { data, error: supabaseError } = await supabase
+        .from('products')
+        .insert([
+          {
+            name: formData.name,
+            description: formData.description,
+            price: formData.price,
+            unit: formData.unit,
+            user_id: user.id
+          }
+        ])
+        .select('*');
+
+      if (supabaseError) {
+        console.error('Supabase error:', supabaseError);
+        setError(supabaseError.message);
+        return;
+      }
+
+      console.log('Created product:', data);
+
+      if (!data || data.length === 0) {
+        setError('Failed to create product');
+        return;
+      }
+
+      onSave();
     } catch (err) {
       console.error('Error creating product:', err);
-      throw err;
+      setError(err instanceof Error ? err.message : 'Failed to create product');
     }
   };
 
@@ -45,26 +85,19 @@ export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ 
         }`}
         onClick={handleClose}
       />
-      
       <div 
-        className={`
-          md:relative md:w-full md:max-w-md
-          transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
-          shadow-xl
-          overflow-hidden
-          h-full
-          transform
-          ${isClosing ? 'translate-x-full' : 'translate-x-0'}
-        `}
+        className={`w-full max-w-md bg-white dark:bg-gray-800 shadow-xl h-full ${
+          isClosing ? 'translate-x-full' : 'translate-x-0'
+        } transition-transform duration-300`}
       >
         <ProductForm
           title="New Product"
           onClose={handleClose}
           onSubmit={handleSubmit}
           submitLabel="Create Product"
+          error={error}
         />
       </div>
     </div>
   );
-}; 
+};

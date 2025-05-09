@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, MoreVertical, Download, Filter, ChevronRight } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc } from "../../../convex/_generated/dataModel";
+import { Plus, Search, Download, Filter, ChevronRight } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -12,21 +9,75 @@ import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { Dropdown } from '../common/Dropdown';
 import { exportInvoicesToCSV } from '../../utils/exportData';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
-type Invoice = Doc<"invoices">;
+type Invoice = {
+  id: string;
+  number: string;
+  client_id: string;
+  date: string;
+  due_date: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    price: number;
+  }>;
+  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  total_amount: number;
+  user_id: string;
+  created_at: string;
+};
 type InvoiceStatus = 'all' | 'draft' | 'sent' | 'paid' | 'overdue';
 
 export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>('all');
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const invoices = useQuery(api.invoices.getInvoices);
-  const clients = useQuery(api.clients.getClients);
-  const products = useQuery(api.products.getProducts);
-  
-  const isLoading = !invoices || !clients || !products;
+  useEffect(() => {
+    if (user) {
+      fetchData();
+    }
+  }, [user]);
+
+  const fetchData = async () => {
+    try {
+      const [invoicesRes, clientsRes, productsRes] = await Promise.all([
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('user_id', user?.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('clients')
+          .select('*')
+          .eq('user_id', user?.id),
+        supabase
+          .from('products')
+          .select('*')
+          .eq('user_id', user?.id)
+      ]);
+
+      if (invoicesRes.error) throw invoicesRes.error;
+      if (clientsRes.error) throw clientsRes.error;
+      if (productsRes.error) throw productsRes.error;
+
+      setInvoices(invoicesRes.data || []);
+      setClients(clientsRes.data || []);
+      setProducts(productsRes.data || []);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleExport = () => {
     if (invoices && clients && products) {
@@ -34,7 +85,7 @@ export const InvoiceList: React.FC = () => {
     }
   };
 
-  const filteredInvoices = (invoices || []).filter((invoice: Invoice) => {
+  const filteredInvoices = invoices.filter((invoice) => {
     const matchesSearch = invoice.number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
     return matchesSearch && matchesStatus;
@@ -188,9 +239,9 @@ export const InvoiceList: React.FC = () => {
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredInvoices.map((invoice) => (
                     <tr 
-                      key={invoice._id}
+                      key={invoice.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                      onClick={() => navigate(`/invoices/${invoice._id}`)}
+                      onClick={() => navigate(`/invoices/${invoice.id}`)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -204,7 +255,7 @@ export const InvoiceList: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(invoice.dueDate).toLocaleDateString()}
+                          {new Date(invoice.due_date).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -237,9 +288,9 @@ export const InvoiceList: React.FC = () => {
             <div className="space-y-4 pb-20">
               {filteredInvoices.map((invoice) => (
                 <div
-                  key={invoice._id}
+                  key={invoice.id}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
-                  onClick={() => navigate(`/invoices/${invoice._id}`)}
+                  onClick={() => navigate(`/invoices/${invoice.id}`)}
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
@@ -253,7 +304,7 @@ export const InvoiceList: React.FC = () => {
                       </div>
                       <div className="flex justify-between items-center mt-2">
                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Due: {new Date(invoice.dueDate).toLocaleDateString()}
+                          Due: {new Date(invoice.due_date).toLocaleDateString()}
                         </span>
                         <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
                           {formatCurrency(invoice.total_amount)}

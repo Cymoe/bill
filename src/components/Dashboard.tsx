@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DollarSign, FileText, Users, Package, Target } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../convex/_generated/api";
-import type { Doc } from "../../convex/_generated/dataModel";
 import { formatCurrency } from '../utils/format';
-import { useTheme } from '../contexts/ThemeContext';
+
 import { RevenueProgress } from './dashboard/RevenueProgress';
 import { MetricCard } from './dashboard/MetricCard';
 import { RevenueChart } from './dashboard/RevenueChart';
@@ -14,10 +11,23 @@ import { DashboardLayout } from './layouts/DashboardLayout';
 import { CardSkeleton } from './skeletons/CardSkeleton';
 import { ChartSkeleton } from './skeletons/ChartSkeleton';
 import { SetRevenueGoalModal } from './dashboard/SetRevenueGoalModal';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
-type Invoice = Doc<"invoices">;
-type Client = Doc<"clients">;
-type Product = Doc<"products">;
+interface Invoice {
+  id: string;
+  total_amount: number;
+  status: string;
+  date: string;
+}
+
+interface Client {
+  id: string;
+}
+
+interface Product {
+  id: string;
+}
 
 interface DashboardMetrics {
   totalRevenue: number;
@@ -33,11 +43,39 @@ export const Dashboard: React.FC = () => {
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [revenueTarget, setRevenueTarget] = useState(100000);
 
-  const invoices = useQuery(api.invoices.getInvoices);
-  const clients = useQuery(api.clients.getClients);
-  const products = useQuery(api.products.getProducts);
+  const { user } = useAuth();
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isLoading = !invoices || !clients || !products;
+  useEffect(() => {
+    if (user) {
+      const fetchData = async () => {
+        try {
+          const [invoicesRes, clientsRes, productsRes] = await Promise.all([
+            supabase.from('invoices').select('*').eq('user_id', user.id),
+            supabase.from('clients').select('*').eq('user_id', user.id),
+            supabase.from('products').select('*').eq('user_id', user.id)
+          ]);
+
+          if (invoicesRes.error) throw invoicesRes.error;
+          if (clientsRes.error) throw clientsRes.error;
+          if (productsRes.error) throw productsRes.error;
+
+          setInvoices(invoicesRes.data || []);
+          setClients(clientsRes.data || []);
+          setProducts(productsRes.data || []);
+        } catch (error) {
+          console.error('Error fetching dashboard data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      fetchData();
+    }
+  }, [user]);
 
   const calculateMetrics = (): DashboardMetrics => {
     // Calculate total revenue from paid invoices only

@@ -1,6 +1,6 @@
 export interface Client {
   id?: string;
-  company: string;
+  company_name: string;
   name: string;
   email: string;
   phone?: string;

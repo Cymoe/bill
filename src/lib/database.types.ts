@@ -1,11 +1,10 @@
-import { Doc, Id } from "../../convex/_generated/dataModel";
-
 export interface ClientInput {
-  company: string;
+  company_name: string;
   name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone?: string | null;
+  address?: string | null;
+  user_id?: string;
 }
 
 export interface ProductInput {
@@ -13,37 +12,49 @@ export interface ProductInput {
   description: string;
   price: number;
   unit: string;
+  user_id?: string;
 }
 
 export interface InvoiceInput {
   number: string;
-  clientId: Id<"clients">;
+  client_id: string;
   date: string;
-  dueDate: string;
+  due_date: string;
   items: Array<{
-    productId: Id<"products">;
+    product_id: string;
     quantity: number;
     price: number;
   }>;
   status: "draft" | "sent" | "paid" | "overdue";
   total_amount: number;
+  user_id?: string;
 }
 
 export interface InvoiceItem {
-  productId: Id<"products">;
+  product_id: string;
   quantity: number;
   price: number;
+}
+
+export interface InvoiceTemplateItem {
+  id?: string;
+  template_id: string;
+  product_id: string;
+  quantity: number;
+  price: number;
+  created_at?: string;
 }
 
 export interface TemplateInput {
   name: string;
   description: string;
   items: Array<{
-    productId: Id<"products">;
+    product_id: string;
     quantity: number;
     price: number;
   }>;
   total_amount: number;
+  user_id?: string;
 }
 
 export interface DropdownItem {

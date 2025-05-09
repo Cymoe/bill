@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Minus } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../lib/database';
+import type { Tables } from '../../lib/database';
 import { formatCurrency } from '../../utils/format';
+import { supabase } from '../../lib/supabase';
 
 interface NewTemplateModalProps {
   onClose: () => void;
@@ -18,14 +19,30 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
     name: '',
     description: '',
     items: [] as Array<{
-      productId: Id<"products">;
+      product_id: string;
       quantity: number;
       price: number;
     }>
   });
 
-  const products = useQuery(api.products.getProducts) || [];
-  const createTemplate = useMutation(api.templates.createTemplate);
+  const { user } = useAuth();
+  const [products, setProducts] = useState<Tables['products'][]>([]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProducts();
+    }
+  }, [user]);
+
+  const fetchProducts = async () => {
+    try {
+      const data = await db.products.list(user?.id || '');
+      setProducts(data || []);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to load products');
+    }
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -42,7 +59,7 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { productId: '' as Id<"products">, quantity: 1, price: 0 }]
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
     }));
   };
 
@@ -55,11 +72,11 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
 
   const updateItem = (index: number, field: keyof typeof formData.items[0], value: string | number) => {
     const newItems = [...formData.items];
-    if (field === 'productId') {
-      const product = products.find(p => p._id === value);
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
       newItems[index] = {
         ...newItems[index],
-        productId: value as Id<"products">,
+        product_id: value.toString(),
         price: product ? product.price : 0
       };
     } else {
@@ -81,22 +98,67 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null);
+      // Start a Supabase transaction
+      const { data: template, error: templateError } = await supabase
+        .from('invoice_templates')
+        .insert([{  // Note: Wrap in array for consistent behavior
+          user_id: user.id,
+          name: formData.name,
+          content: JSON.stringify({  // Explicitly stringify JSONB content
+            description: formData.description || '',
+            total_amount: calculateTotal(),
+            created_by: user.id,
+            created_at: new Date().toISOString()
+          })
+        }])
+        .select('id')
+        .single();
 
-      await createTemplate({
-        name: formData.name,
-        description: formData.description,
-        items: formData.items,
-        total_amount: calculateTotal()
-      });
+      if (templateError) {
+        console.error('Template creation error:', templateError);
+        throw new Error(templateError.message);
+      }
 
-      setIsClosing(true);
-      setTimeout(onSave, 300);
+      if (!template?.id) {
+        throw new Error('Template created but no ID returned');
+      }
+
+      // Then create the template items if we have a valid template
+      if (formData.items.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('invoice_template_items')
+          .insert(
+            formData.items.map(item => ({
+              template_id: template.id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price: item.price
+            }))
+          );
+
+        if (itemsError) {
+          console.error('Template items creation error:', itemsError);
+          // Cleanup the template if items fail
+          await supabase
+            .from('invoice_templates')
+            .delete()
+            .eq('id', template.id);
+          throw new Error(itemsError.message);
+        }
+      }
+
+      onSave();
+      handleClose();
     } catch (err) {
       console.error('Error creating template:', err);
-      setError('Failed to create template');
+      setError(err instanceof Error ? err.message : 'Failed to create template');
+    } finally {
       setLoading(false);
     }
   };
@@ -213,14 +275,14 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
                             Product
                           </label>
                           <select
-                            value={item.productId}
-                            onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                            value={item.product_id}
+                            onChange={(e) => updateItem(index, 'product_id', e.target.value)}
                             className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             required
                           >
                             <option value="">Select a product</option>
                             {products.map((product) => (
-                              <option key={product._id} value={product._id}>
+                              <option key={product.id} value={product.id}>
                                 {product.name} - {formatCurrency(product.price)}
                               </option>
                             ))}

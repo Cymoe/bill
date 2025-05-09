@@ -1,39 +1,80 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Minus } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { formatCurrency } from '../../utils/format';
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../lib/supabase";
 
 interface NewInvoiceModalProps {
   onClose: () => void;
-  onSave: () => void;
+  onSave: (invoice: any) => void;
 }
 
 export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSave }) => {
-  const { user } = useAuth0();
+  const { user } = useAuth();
   const [step, setStep] = useState<'select' | 'template' | 'create'>('select');
   const [formData, setFormData] = useState({
     number: `INV-${Date.now()}`,
-    clientId: '' as Id<"clients">,
+    client_id: '',
     date: new Date().toISOString().split('T')[0],
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'draft' as const,
     items: [] as Array<{
-      productId: Id<"products">;
+      product_id: string;
       quantity: number;
       price: number;
     }>
   });
   const [loading, setLoading] = useState(false);
+  const [clients, setClients] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
 
-  const clients = useQuery(api.clients.getClients) || [];
-  const products = useQuery(api.products.getProducts) || [];
-  const templates = useQuery(api.templates.getTemplates) || [];
-  const createInvoice = useMutation(api.invoices.createInvoice);
+  useEffect(() => {
+    console.log('Clients state changed:', clients);
+  }, [clients]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
+  }, [user]);
+
+  const loadData = async () => {
+    if (!user) return;
+    try {
+      console.log('Loading data for user:', user.id);
+      const [clientsRes, productsRes, templatesRes] = await Promise.all([
+        supabase.from('clients').select('*').eq('user_id', user.id),
+        supabase.from('products').select('*').eq('user_id', user.id),
+        supabase.from('invoice_templates').select('*').eq('user_id', user.id)
+      ]);
+
+      if (clientsRes.error) {
+        console.error('Error loading clients:', clientsRes.error);
+        throw clientsRes.error;
+      }
+      if (productsRes.error) {
+        console.error('Error loading products:', productsRes.error);
+        throw productsRes.error;
+      }
+      if (templatesRes.error) {
+        console.error('Error loading templates:', templatesRes.error);
+        throw templatesRes.error;
+      }
+
+      console.log('Loaded clients:', clientsRes.data);
+      console.log('Loaded products:', productsRes.data);
+      console.log('Loaded templates:', templatesRes.data);
+      
+      setClients(clientsRes.data || []);
+      setProducts(productsRes.data || []);
+      setTemplates(templatesRes.data || []);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    }
+  };
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -47,14 +88,26 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
     setTimeout(onClose, 300);
   };
 
-  const handleTemplateSelect = (template: Doc<"templates">) => {
+  const handleTemplateSelect = (template: any) => {
+    if (!template.content) return;
+    
+    const templateContent = template.content as {
+      items: Array<{
+        product_id: string;
+        quantity: number;
+        price: number;
+      }>
+    };
+
+    const templateItems = templateContent.items.map(item => ({
+      product_id: item.product_id,
+      quantity: item.quantity,
+      price: item.price
+    }));
+
     setFormData(prev => ({
       ...prev,
-      items: template.items.map(item => ({
-        productId: item.productId,
-        quantity: item.quantity,
-        price: item.price
-      }))
+      items: templateItems
     }));
     setStep('create');
   };
@@ -62,7 +115,7 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
   const addItem = () => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { productId: '' as Id<"products">, quantity: 1, price: 0 }]
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
     }));
   };
 
@@ -73,14 +126,14 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
     }));
   };
 
-  const updateItem = (index: number, field: keyof typeof formData.items[0], value: string | number) => {
+  const updateItem = (index: number, field: keyof typeof formData.items[0], value: any) => {
     const newItems = [...formData.items];
-    if (field === 'productId') {
-      const product = products.find(p => p._id === value);
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
       newItems[index] = {
         ...newItems[index],
-        productId: value as Id<"products">,
-        price: product ? product.price : 0
+        product_id: value,
+        price: product?.price || 0
       };
     } else {
       newItems[index] = { ...newItems[index], [field]: value };
@@ -96,30 +149,48 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
   };
 
   const calculateTotal = () => {
-    return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return formData.items.reduce((sum, item) => {
+      return sum + (item.price * item.quantity);
+    }, 0);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!user || !formData.client_id) return;
     try {
       setLoading(true);
-      setError(null);
+      const { data: invoice, error } = await supabase
+        .from('invoices')
+        .insert({
+          ...formData,
+          total_amount: calculateTotal(),
+          user_id: user.id
+        })
+        .select()
+        .single();
 
-      await createInvoice({
-        number: formData.number,
-        clientId: formData.clientId,
-        date: formData.date,
-        dueDate: formData.dueDate,
-        status: formData.status,
-        items: formData.items,
-        total_amount: calculateTotal()
-      });
+      if (error) throw error;
 
-      setIsClosing(true);
-      setTimeout(onSave, 300);
-    } catch (err) {
-      console.error('Error creating invoice:', err);
+      await Promise.all(formData.items.map(item =>
+        supabase
+          .from('invoice_items')
+          .insert({
+            invoice_id: invoice.id,
+            product_id: item.product_id,
+            description: products.find(p => p.id === item.product_id)?.description || '',
+            quantity: item.quantity,
+            unit_price: item.price,
+            total_price: item.quantity * item.price
+          })
+      ));
+
+      if (invoice) {
+        onSave(invoice);
+        handleClose();
+      }
+    } catch (error) {
+      console.error('Error creating invoice:', error);
       setError('Failed to create invoice');
+    } finally {
       setLoading(false);
     }
   };
@@ -230,7 +301,7 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
 
             {step === 'create' && (
               <div className="p-4">
-                <form id="invoice-form" onSubmit={handleSubmit} className="space-y-6">
+                <form id="invoice-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
                   {error && (
                     <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
                       <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
@@ -242,15 +313,15 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
                       Client
                     </label>
                     <select
-                      value={formData.clientId}
-                      onChange={(e) => setFormData(prev => ({ ...prev, clientId: e.target.value as Id<"clients"> }))}
+                      value={formData.client_id}
+                      onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
                       className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
                     >
                       <option value="">Select a client</option>
-                      {clients.map((client) => (
-                        <option key={client._id} value={client._id}>
-                          {client.company} - {client.name}
+                      {clients?.map((client) => (
+                        <option key={client.id} value={client.id}>
+                          {client.company_name} - {client.name}
                         </option>
                       ))}
                     </select>
@@ -313,14 +384,14 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
                                 Product
                               </label>
                               <select
-                                value={item.productId}
-                                onChange={(e) => updateItem(index, 'productId', e.target.value)}
+                                value={item.product_id}
+                                onChange={(e) => updateItem(index, 'product_id', e.target.value)}
                                 className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                 required
                               >
                                 <option value="">Select a product</option>
                                 {products.map((product) => (
-                                  <option key={product._id} value={product._id}>
+                                  <option key={product.id} value={product.id}>
                                     {product.name} - {formatCurrency(product.price)}
                                   </option>
                                 ))}

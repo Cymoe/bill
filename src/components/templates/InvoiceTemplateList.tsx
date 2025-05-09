@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical, FileText } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { useAuth0 } from "@auth0/auth0-react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../lib/database';
+import type { Tables } from '../../lib/database';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -13,7 +12,10 @@ import { EditTemplateModal } from './EditTemplateModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { TemplateCardSkeleton } from '../skeletons/TemplateCardSkeleton';
 
-type Template = Doc<"templates">;
+type Template = Tables['invoice_templates'] & {
+  description?: string;
+  total_amount?: number;
+};
 
 export const InvoiceTemplateList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,19 +23,37 @@ export const InvoiceTemplateList: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
 
-  const templates = useQuery(api.templates.getTemplates);
-  const deleteTemplate = useMutation(api.templates.deleteTemplate);
+  const { user } = useAuth();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const isLoading = templates === undefined;
+  useEffect(() => {
+    if (user) {
+      fetchTemplates();
+    }
+  }, [user]);
+
+  const fetchTemplates = async () => {
+    if (!user) return;
+    try {
+      const data = await db.invoice_templates.list(user.id);
+      setTemplates(data);
+    } catch (err) {
+      console.error('Error fetching templates:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredTemplates = (templates || []).filter((template: Template) => 
     template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    template.description.toLowerCase().includes(searchTerm.toLowerCase())
+    (template.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = async (id: Id<"templates">) => {
+  const handleDelete = async (id: string) => {
     try {
-      await deleteTemplate({ id });
+      await db.invoice_templates.delete(id);
+      await fetchTemplates(); // Refresh the list
       setDeletingTemplate(null);
     } catch (err) {
       console.error('Error deleting template:', err);
@@ -105,7 +125,7 @@ export const InvoiceTemplateList: React.FC = () => {
           ) : (
             filteredTemplates.map((template) => (
               <div 
-                key={template._id}
+                key={template.id}
                 className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
               >
                 <div className="flex justify-between items-start mb-4">
@@ -127,7 +147,7 @@ export const InvoiceTemplateList: React.FC = () => {
                       },
                       {
                         label: 'Delete',
-                        onClick: () => setDeletingTemplate(template),
+                        onClick: () => setDeletingTemplate(templates.find(t => t.id === template.id) || null),
                         className: 'text-red-600 hover:text-red-700'
                       }
                     ]}
@@ -139,7 +159,7 @@ export const InvoiceTemplateList: React.FC = () => {
                 </p>
                 
                 <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-                  {formatCurrency(template.total_amount)}
+                  {formatCurrency(template.total_amount || 0)}
                 </div>
               </div>
             ))
@@ -159,7 +179,7 @@ export const InvoiceTemplateList: React.FC = () => {
           ) : (
             filteredTemplates.map((template) => (
               <div
-                key={template._id}
+                key={template.id}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
               >
                 <div className="flex justify-between items-start">
@@ -171,7 +191,7 @@ export const InvoiceTemplateList: React.FC = () => {
                       {template.description}
                     </p>
                     <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-2 block">
-                      {formatCurrency(template.total_amount)}
+                      {formatCurrency(template.total_amount || 0)}
                     </span>
                   </div>
                   <Dropdown
@@ -187,7 +207,7 @@ export const InvoiceTemplateList: React.FC = () => {
                       },
                       {
                         label: 'Delete',
-                        onClick: () => setDeletingTemplate(template),
+                        onClick: () => setDeletingTemplate(templates.find(t => t.id === template.id) || null),
                         className: 'text-red-600 hover:text-red-700'
                       }
                     ]}
@@ -218,7 +238,7 @@ export const InvoiceTemplateList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Template"
           message="Are you sure you want to delete this template? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingTemplate._id)}
+          onConfirm={() => handleDelete(deletingTemplate.id)}
           onCancel={() => setDeletingTemplate(null)}
         />
       )}

@@ -1,13 +1,10 @@
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { useAuth } from "../../contexts/AuthContext";
+import { supabase } from "../../lib/supabase";
 
 export default function UserProfile() {
-  const { user: auth0User } = useAuth0();
-  const convexUser = useQuery(api.users.getCurrentUser);
-  const updateProfile = useMutation(api.users.updateProfile);
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     company: "",
@@ -18,16 +15,35 @@ export default function UserProfile() {
   });
 
   useEffect(() => {
-    if (convexUser) {
-      setFormData({
-        company: convexUser.company || "",
-        title: convexUser.title || "",
-        phone: convexUser.phone || "",
-        address: convexUser.address || "",
-        bio: convexUser.bio || "",
-      });
+    if (user) {
+      fetchUserProfile();
     }
-  }, [convexUser]);
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFormData({
+          company: data.company || "",
+          title: data.title || "",
+          phone: data.phone || "",
+          address: data.address || "",
+          bio: data.bio || "",
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      toast.error('Failed to load profile data');
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -38,7 +54,12 @@ export default function UserProfile() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await updateProfile(formData);
+      const { error } = await supabase
+        .from('users')
+        .update(formData)
+        .eq('id', user?.id);
+
+      if (error) throw error;
       toast.success("Profile updated successfully!");
     } catch (error) {
       console.error("Profile update failed:", error);
@@ -48,7 +69,7 @@ export default function UserProfile() {
     }
   };
 
-  if (!auth0User) {
+  if (!user) {
     return null;
   }
 
@@ -57,16 +78,16 @@ export default function UserProfile() {
       <h1 className="text-2xl font-bold mb-6">Profile Settings</h1>
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center mb-6">
-          {auth0User.picture && (
+          {user?.user_metadata?.avatar_url && (
             <img
-              src={auth0User.picture}
+              src={user.user_metadata.avatar_url}
               alt="Profile"
               className="w-16 h-16 rounded-full mr-4"
             />
           )}
           <div>
-            <h2 className="text-xl font-semibold">{auth0User.name}</h2>
-            <p className="text-gray-600">{auth0User.email}</p>
+            <h2 className="text-xl font-semibold">{user?.user_metadata?.full_name || user?.email}</h2>
+            <p className="text-gray-600">{user?.email}</p>
           </div>
         </div>
 

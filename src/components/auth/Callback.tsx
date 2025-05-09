@@ -1,24 +1,27 @@
-import { useAuth0 } from "@auth0/auth0-react";
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 
 export const Callback = () => {
-  const { isAuthenticated, isLoading } = useAuth0();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading) {
-      if (isAuthenticated) {
+    // Supabase will handle the code exchange automatically
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
         navigate("/dashboard");
       } else {
-        navigate("/");
+        // Optionally handle error or show a message
       }
-    }
-  }, [isAuthenticated, isLoading, navigate]);
+    });
+  }, [navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
-      <div className="text-gray-600">Finalizing login...</div>
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+        <p className="text-gray-600">Completing sign in...</p>
+      </div>
     </div>
   );
 };

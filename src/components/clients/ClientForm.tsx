@@ -7,7 +7,7 @@ export interface ClientFormProps {
   onSubmit: (data: any) => Promise<void>;
   submitLabel: string;
   initialData?: {
-    company: string;
+    company_name: string;
     name: string;
     email: string;
     phone: string;
@@ -21,7 +21,7 @@ export const ClientForm: React.FC<ClientFormProps> = ({
   onSubmit,
   submitLabel,
   initialData = {
-    company: '',
+    company_name: '',
     name: '',
     email: '',
     phone: '',
@@ -67,8 +67,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
             </label>
             <input
               type="text"
-              value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              value={formData.company_name}
+              onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               required
             />

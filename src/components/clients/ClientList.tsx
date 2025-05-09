@@ -1,8 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Search, MoreVertical } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { Dropdown } from '../common/Dropdown';
@@ -12,35 +9,88 @@ import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { ClientInput } from '../../lib/database.types';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
-type Client = Doc<"clients">;
+type Client = {
+  id: string;
+  company_name: string;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  user_id: string;
+  created_at: string;
+};
 
 export const ClientList: React.FC = () => {
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const clients = useQuery(api.clients.getClients);
-  const createClient = useMutation(api.clients.createClient);
-  const deleteClient = useMutation(api.clients.deleteClient);
+  useEffect(() => {
+    if (user) {
+      fetchClients();
+    }
+  }, [user]);
 
-  const isLoading = !clients;
+  const fetchClients = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
 
-  const filteredClients = (clients || []).filter((client: Client) => 
-    client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      if (error) throw error;
+      setClients(data || []);
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const filteredClients = clients.filter((client) => 
+    client.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleSave = async (clientData: ClientInput) => {
-    await createClient(clientData);
-    setShowNewModal(false);
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .insert({
+          ...clientData,
+          user_id: user?.id
+        });
+
+      if (error) throw error;
+      setShowNewModal(false);
+      fetchClients(); // Refresh the list
+    } catch (err) {
+      console.error('Error creating client:', err);
+    }
   };
 
-  const handleDelete = async (id: Id<"clients">) => {
-    await deleteClient({ id });
-    setDeletingClient(null);
+  const handleDelete = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setDeletingClient(null);
+      fetchClients(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting client:', err);
+    }
   };
 
   return (
@@ -98,10 +148,10 @@ export const ClientList: React.FC = () => {
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredClients.map((client) => (
-                      <tr key={client._id}>
+                      <tr key={client.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {client.company}
+                            {client.company_name}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -154,13 +204,13 @@ export const ClientList: React.FC = () => {
             <div className="space-y-4 pb-20">
               {filteredClients.map((client) => (
                 <div
-                  key={client._id}
+                  key={client.id}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
                 >
                   <div className="flex justify-between">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                        {client.company}
+                        {client.company_name}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {client.name}
@@ -219,7 +269,7 @@ export const ClientList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Client"
           message="Are you sure you want to delete this client? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingClient._id)}
+          onConfirm={() => handleDelete(deletingClient.id)}
           onCancel={() => setDeletingClient(null)}
         />
       )}

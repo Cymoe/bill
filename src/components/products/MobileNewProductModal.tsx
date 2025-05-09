@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { ProductForm } from './ProductForm';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MobileNewProductModalProps {
   onClose: () => void;
@@ -10,7 +10,7 @@ interface MobileNewProductModalProps {
 
 export const MobileNewProductModal: React.FC<MobileNewProductModalProps> = ({ onClose, onSave }) => {
   const [isClosing, setIsClosing] = useState(false);
-  const createProduct = useMutation(api.products.createProduct);
+  const { user } = useAuth();
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -26,7 +26,15 @@ export const MobileNewProductModal: React.FC<MobileNewProductModalProps> = ({ on
 
   const handleSubmit = async (formData: any) => {
     try {
-      await createProduct(formData);
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          ...formData,
+          user_id: user?.id
+        });
+
+      if (error) throw error;
+
       setIsClosing(true);
       setTimeout(onSave, 300);
     } catch (err) {
