@@ -182,10 +182,6 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
-    // Implementation of handleChange function
-  };
-
   return (
     <div className="fixed inset-0 z-[60] flex md:justify-start">
       <div 

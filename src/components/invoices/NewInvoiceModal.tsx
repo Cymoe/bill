@@ -1,35 +1,77 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Minus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { useAuth } from "../../contexts/AuthContext";
-import { supabase } from "../../lib/supabase";
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface NewInvoiceModalProps {
-  onClose: () => void;
-  onSave: (invoice: any) => void;
+interface InvoiceItem {
+  product_id: string;
+  quantity: number;
+  price: number;
+  description?: string;
 }
 
-export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSave }) => {
-  const { user } = useAuth();
-  const [step, setStep] = useState<'select' | 'template' | 'create'>('select');
-  const [formData, setFormData] = useState({
-    number: `INV-${Date.now()}`,
-    client_id: '',
-    issue_date: new Date().toISOString().split('T')[0],
-    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    status: 'draft' as const,
-    items: [] as Array<{
+interface Template {
+  id: string;
+  name: string;
+  content: {
+    items: Array<{
       product_id: string;
       quantity: number;
       price: number;
-    }>
+      description?: string;
+    }>;
+  };
+  total_amount: number;
+  description?: string;
+  created_at?: string;
+  created_by?: string;
+  updated_at?: string;
+  items?: Array<{
+    product_id: string;
+    quantity: number;
+    price: number;
+    description?: string;
+  }>;
+}
+
+interface InvoiceFormData {
+  client_id: string;
+  items: InvoiceItem[];
+  total_amount: number;
+  description: string;
+  due_date: string;
+  status: string;
+  issue_date: string;
+}
+
+
+
+interface NewInvoiceModalProps {
+  onClose: () => void;
+  onSave: (data: InvoiceFormData) => void;
+}
+
+export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.Element => {
+  const [step, setStep] = useState<'select' | 'create'>('select');
+  const [isClosing, setIsClosing] = useState(false);
+  const [formData, setFormData] = useState<InvoiceFormData>({
+    client_id: '',
+    items: [] as InvoiceItem[],
+    total_amount: 0,
+    description: '',
+    due_date: '',
+    status: 'draft',
+    issue_date: new Date().toISOString().split('T')[0],
   });
+
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
-  const [templates, setTemplates] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [isClosing, setIsClosing] = useState(false);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [error, setError] = useState('');
+
+  const { user } = useAuth();
 
   useEffect(() => {
     console.log('Clients state changed:', clients);
@@ -49,30 +91,33 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
         supabase.from('clients').select('*').eq('user_id', user.id),
         supabase.from('products').select('*').eq('user_id', user.id),
         supabase.from('invoice_templates').select('*').eq('user_id', user.id)
-      ]);
+      ]) as [any, any, any];
 
-      if (clientsRes.error) {
-        console.error('Error loading clients:', clientsRes.error);
-        throw clientsRes.error;
-      }
-      if (productsRes.error) {
-        console.error('Error loading products:', productsRes.error);
-        throw productsRes.error;
-      }
-      if (templatesRes.error) {
-        console.error('Error loading templates:', templatesRes.error);
-        throw templatesRes.error;
-      }
+      if (clientsRes.error) throw clientsRes.error;
+      if (productsRes.error) throw productsRes.error;
+      if (templatesRes.error) throw templatesRes.error;
 
-      console.log('Loaded clients:', clientsRes.data);
-      console.log('Loaded products:', productsRes.data);
-      console.log('Loaded templates:', templatesRes.data);
-      
+      // Fetch items for each template
+      const templatesWithItems = await Promise.all(
+        (templatesRes.data || []).map(async (template: any) => {
+          const { data: items, error: itemsError } = await supabase
+            .from('invoice_template_items')
+            .select('*')
+            .eq('template_id', template.id);
+          if (itemsError) throw itemsError;
+          return {
+            ...template,
+            items: items || [],
+          };
+        })
+      );
+
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
-      setTemplates(templatesRes.data || []);
-    } catch (error) {
-      console.error('Error loading data:', error);
+      setTemplates(templatesWithItems);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading data:', err);
     }
   };
 
@@ -83,33 +128,50 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
     };
   }, []);
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     setIsClosing(true);
     setTimeout(onClose, 300);
   };
 
-  const handleTemplateSelect = (template: any) => {
-    if (!template.content) return;
-    
-    const templateContent = template.content as {
-      items: Array<{
-        product_id: string;
-        quantity: number;
-        price: number;
-      }>
-    };
+  const handleTemplateSelect = (template: Template): void => {
+    if (!template?.items) {
+      console.error('Template has no items');
+      return;
+    }
+    try {
+      console.log('Selected template:', template);
+      const templateItems = template.items || [];
+      console.log('Template items:', templateItems);
 
-    const templateItems = templateContent.items.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price
-    }));
+      if (!templateItems.length) {
+        console.error('Template has no items');
+        return;
+      }
 
-    setFormData(prev => ({
-      ...prev,
-      items: templateItems
-    }));
-    setStep('create');
+      // Map template items to form data structure
+      const items = templateItems.map((item: any) => {
+        // Find the product to get current price if available
+        const product = products.find((p: { id: string }) => p.id === item.product_id);
+        return {
+          product_id: item.product_id,
+          quantity: item.quantity,
+          price: item.price,
+          description: product?.description || item.description || ''
+        };
+      });
+
+      // Set the form data with template items
+      setFormData(prev => ({
+        ...prev,
+        items,
+        total_amount: template.total_amount
+      }));
+
+      // Move to create step after template selection
+      setStep('create');
+    } catch (error) {
+      console.error('Error selecting template:', error);
+    }
   };
 
   const addItem = () => {
@@ -154,7 +216,46 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
     }, 0);
   };
 
-  const handleSubmit = async () => {
+  const saveAsTemplate = async () => {
+    if (!user) return;
+    
+    try {
+      // Get client name from selected client
+      const selectedClient = clients.find(c => c.id === formData.client_id);
+      const templateName = selectedClient?.name || 'New Template';
+
+      const templateData = {
+        user_id: user.id,
+        name: templateName,
+        content: {
+          items: formData.items.map(item => {
+            const product = products.find(p => p.id === item.product_id);
+            return {
+              product_id: item.product_id,
+              quantity: item.quantity,
+              price: item.price,
+              description: product?.name || 'Custom Item'
+            };
+          })
+        }
+      };
+
+      const { error } = await supabase
+        .from('invoice_templates')
+        .insert(templateData);
+
+      if (error) throw error;
+
+      // Refresh templates list
+      loadData();
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setError('Failed to save template');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!user || !formData.client_id) return;
     try {
       setLoading(true);
@@ -165,7 +266,7 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
           client_id: formData.client_id,
           amount: calculateTotal(),
           status: formData.status,
-          issue_date: formData.issue_date,
+          issue_date: new Date().toISOString().split('T')[0],
           due_date: formData.due_date
         })
         .select()
@@ -236,77 +337,84 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
 
           <div className="flex-1 overflow-y-auto">
             {step === 'select' && (
-              <div className="flex flex-col items-center justify-center py-12 px-4">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">
-                  How would you like to create your invoice?
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-                  <button
-                    onClick={() => {
-                      setFormData(prev => ({ ...prev, items: [] }));
-                      setStep('create');
-                    }}
-                    className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mb-4">
-                      <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Start from Scratch
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                      Create a new invoice by selecting products and services manually
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={() => setStep('template')}
-                    className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
-                  >
-                    <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mb-4">
-                      <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      Use a Template
-                    </h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-                      Start with a pre-configured template to save time
-                    </p>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {step === 'template' && (
-              <div className="p-4">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Select a Template
+              <div className="p-6">
+                <div className="space-y-8">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">
+                    How would you like to create your invoice?
                   </h3>
-                  {templates.map((template) => (
+                  <div className="grid grid-cols-1 gap-4">
+                    {/* Start from Scratch Button */}
                     <button
-                      key={template._id}
-                      onClick={() => handleTemplateSelect(template)}
-                      className="w-full text-left p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-400"
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, items: [] }));
+                        setStep('create');
+                      }}
+                      className="flex items-center justify-between p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
                     >
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                        {template.name}
-                      </h4>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                        {template.description}
-                      </p>
-                      <p className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-                        {formatCurrency(template.total_amount)}
-                      </p>
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                          Start from Scratch
+                        </h4>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          Create a new invoice from scratch
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center">
+                        <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                      </div>
                     </button>
-                  ))}
+
+                    {/* Template List */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        Or Choose a Template
+                      </h3>
+                      {templates.length > 0 ? (
+                        templates.map((template) => {
+                          // Calculate total from template items
+                          const items = template.items || [];
+                          const total = items.reduce((sum: number, item: { price: number; quantity: number }) => {
+                            const itemTotal = Number(item.price || 0) * Number(item.quantity || 0);
+                            return sum + itemTotal;
+                          }, 0);
+
+                          return (
+                            <button
+                              key={template.id}
+                              onClick={() => handleTemplateSelect(template)}
+                              className="flex items-center justify-between w-full p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
+                            >
+                              <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex-1 text-left">
+                                {template.name}
+                              </h4>
+                              <div className="text-right flex flex-col items-end min-w-[180px]">
+                                <div className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
+                                  {formatCurrency(total)}
+                                </div>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                  {`${items.length} item${items.length !== 1 ? 's' : ''}` + (items.length > 0 ? ` - ${items.map((item: { product_id: string; description?: string }) => {
+                                    const product = products.find((p: { id: string }) => p.id === item.product_id);
+                                    return product?.name || item.description || 'Item';
+                                  }).join(', ')}` : '')}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          No templates available. Start from scratch or save an invoice as a template.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
 
             {step === 'create' && (
               <div className="p-4">
-                <form id="invoice-form" onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
+                <form id="invoice-form" onSubmit={handleSubmit} className="space-y-6">
                   {error && (
                     <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
                       <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
@@ -504,6 +612,15 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
                               {formatCurrency(calculateTotal())}
                             </span>
                           </div>
+                          
+                          {/* Save as Template Button */}
+                          <button
+                            type="button"
+                            onClick={saveAsTemplate}
+                            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                          >
+                            Save as Template
+                          </button>
                         </div>
                       )}
                     </div>
