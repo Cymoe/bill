@@ -232,7 +232,10 @@ export const ProductList: React.FC = () => {
         <EditProductModal
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
-          onSave={() => setEditingProduct(null)}
+          onSave={async () => {
+            setEditingProduct(null);
+            await fetchProducts();
+          }}
         />
       )}
 
