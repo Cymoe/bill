@@ -40,7 +40,10 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
     issue_date: formatDateForInput(invoice.issue_date),
     due_date: formatDateForInput(invoice.due_date),
     status: invoice.status,
-    items: invoice.invoice_items || []
+    items: (invoice.invoice_items || []).map(item => ({
+      ...item,
+      price: item.unit_price,
+    }))
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,22 +121,63 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
       setLoading(true);
       setError(null);
 
-      const { error } = await supabase
+      if (!user) {
+        setError('User not authenticated');
+        setLoading(false);
+        return;
+      }
+
+      // 1. Update main invoice record
+      const updatePayload = {
+        number: formData.number, // Using 'number' as shown in the schema
+        client_id: formData.client_id,
+        amount: calculateTotal(), // Changed from total_amount to amount
+        status: formData.status,
+        issue_date: formData.issue_date,
+        due_date: formData.due_date,
+        updated_at: new Date().toISOString(),
+        user_id: user.id
+      };
+      console.log('Updating invoice with:', updatePayload);
+
+      const { error: invoiceError } = await supabase
         .from('invoices')
-        .update({
-          ...formData,
-          total_amount: calculateTotal(),
-          updated_at: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq('id', invoice.id);
 
-      if (error) throw error;
+      if (invoiceError) throw invoiceError;
+
+      // 2. Delete existing invoice items
+      const { error: deleteError } = await supabase
+        .from('invoice_items')
+        .delete()
+        .eq('invoice_id', invoice.id);
+
+      if (deleteError) throw deleteError;
+
+      // 3. Insert new invoice items
+      const newItems = formData.items.map(item => ({
+        invoice_id: invoice.id,
+        product_id: item.product_id || null,
+        description: products.find(p => p.id === item.product_id)?.name || 'Custom Item',
+        quantity: item.quantity,
+        unit_price: item.price,
+        total_price: item.price * item.quantity
+      }));
+
+      const { error: insertError } = await supabase
+        .from('invoice_items')
+        .insert(newItems);
+
+      if (insertError) throw insertError;
 
       setIsClosing(true);
       setTimeout(onSave, 300);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating invoice:', err);
-      setError('Failed to update invoice');
+      setError(err?.message || 'Failed to update invoice');
+      setLoading(false);
+    } finally {
       setLoading(false);
     }
   };
