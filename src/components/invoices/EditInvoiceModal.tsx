@@ -8,14 +8,10 @@ interface Invoice {
   id: string;
   number: string;
   client_id: string;
-  date: string;
+  issue_date: string;
   due_date: string;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
-  items: Array<{
-    product_id: string;
-    quantity: number;
-    price: number;
-  }>;
+  invoice_items: any[];
   total_amount: number;
 }
 
@@ -32,17 +28,19 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
 }) => {
   // Format dates for input fields (YYYY-MM-DD)
   const formatDateForInput = (dateString: string) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
     return date.toISOString().split('T')[0];
   };
 
   const [formData, setFormData] = useState({
     number: invoice.number,
     client_id: invoice.client_id,
-    date: formatDateForInput(invoice.date),
+    issue_date: formatDateForInput(invoice.issue_date),
     due_date: formatDateForInput(invoice.due_date),
     status: invoice.status,
-    items: invoice.items
+    items: invoice.invoice_items || []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +109,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
   };
 
   const calculateTotal = () => {
-    return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return formData.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -140,6 +138,10 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>, i: number) => {
+    // Implementation of handleChange function
+  };
+
   return (
     <div className="fixed inset-0 z-[60] flex md:justify-start">
       <div 
@@ -149,19 +151,18 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
         onClick={handleClose}
       />
       
-      <div 
+      <div
         className={`
-          fixed md:w-[600px] 
-          transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
+          fixed w-full md:w-1/2
+          transition-transform duration-300 ease-out
+          bg-white dark:bg-gray-800
           shadow-xl
           overflow-hidden
           md:left-0 md:top-0 md:bottom-0
-          md:rounded-r-2xl
           bottom-0 left-0 right-0 h-full md:h-auto
           transform
-          ${isClosing 
-            ? 'translate-y-full md:translate-y-0 md:translate-x-[-100%]' 
+          ${isClosing
+            ? 'translate-y-full md:translate-y-0 md:translate-x-[-100%]'
             : 'translate-y-0 md:translate-x-0'
           }
         `}
@@ -189,8 +190,8 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                   </label>
                   <input
                     type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    value={formData.issue_date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     required
                   />
@@ -242,7 +243,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {formData.items.map((item, index) => (
+                  {formData.items.map((item: any, index: number) => (
                     <div key={index} className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

@@ -210,19 +210,18 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
         onClick={handleClose}
       />
       
-      <div 
+      <div
         className={`
-          fixed md:w-[600px] 
-          transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
+          fixed w-full md:w-1/2
+          transition-transform duration-300 ease-out
+          bg-white dark:bg-gray-800
           shadow-xl
           overflow-hidden
-          md:right-0 md:top-0 md:bottom-0
-          md:rounded-l-2xl
+          md:left-0 md:top-0 md:bottom-0
           bottom-0 left-0 right-0 h-full md:h-auto
           transform
-          ${isClosing 
-            ? 'translate-y-full md:translate-y-0 md:-translate-x-full' 
+          ${isClosing
+            ? 'translate-y-full md:translate-y-0 md:translate-x-[-100%]'
             : 'translate-y-0 md:translate-x-0'
           }
         `}
