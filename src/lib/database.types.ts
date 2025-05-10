@@ -57,6 +57,17 @@ export interface TemplateInput {
   user_id?: string;
 }
 
+export interface ProjectInput {
+  name: string;
+  description: string;
+  status: 'active' | 'completed' | 'on-hold' | 'cancelled';
+  budget: number;
+  start_date: string;
+  end_date: string;
+  client_id: string;
+  user_id?: string;
+}
+
 export interface DropdownItem {
   label: string;
   onClick: (e: React.MouseEvent) => void;

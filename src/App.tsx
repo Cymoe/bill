@@ -14,6 +14,7 @@ import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
 import UserProfile from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
+import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -127,6 +128,41 @@ function AppRoutes() {
         }
       />
       
+      {/* Catch all */}
+      {/* Project routes */}
+      <Route
+        path="/projects"
+        element={
+          <ProtectedRoute>
+            <ProjectList />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/new"
+        element={
+          <ProtectedRoute>
+            <ProjectForm />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:id"
+        element={
+          <ProtectedRoute>
+            <ProjectDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:id/edit"
+        element={
+          <ProtectedRoute>
+            <ProjectForm />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Catch all */}
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

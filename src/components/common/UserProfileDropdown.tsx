@@ -4,7 +4,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Settings, LogOut, Sun, Moon, User } from 'lucide-react';
 
-export const UserProfileDropdown: React.FC = () => {
+interface UserProfileDropdownProps {
+  onLogout?: () => void;
+}
+
+export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogout }) => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
@@ -85,8 +89,12 @@ export const UserProfileDropdown: React.FC = () => {
           <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
 
           <button
-            onClick={async () => {
-              await signOut();
+            onClick={() => {
+              const handleLogout = async () => {
+                await signOut();
+                onLogout?.();
+              };
+              handleLogout();
               setIsOpen(false);
             }}
             className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"

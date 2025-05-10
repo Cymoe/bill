@@ -6,14 +6,11 @@ import {
   Package, 
   FileText, 
   FileStack,
-  Sun,
-  Moon,
   Menu,
   X,
-  LogOut,
-  Settings
+  Briefcase
 } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+
 import { useAuth } from '../../contexts/AuthContext';
 import { UserProfileDropdown } from '../common/UserProfileDropdown';
 
@@ -22,18 +19,14 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { theme, toggleTheme } = useTheme();
-  const { user, signOut, session, loading } = useAuth();
+  const { user, session, isLoading, signOut } = useAuth();
   const isAuthenticated = !!session;
-  const isLoading = loading;
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log("Dashboard auth state:", { isAuthenticated, isLoading, user });
     if (!isLoading && !isAuthenticated) {
-      console.log("Not authenticated, redirecting to home");
       navigate("/");
     }
   }, [isAuthenticated, isLoading, navigate]);
@@ -46,10 +39,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
-    { icon: Users, label: 'Clients', to: '/clients' },
-    { icon: Package, label: 'Products', to: '/products' },
+    { icon: Briefcase, label: 'Projects', to: '/projects' },
     { icon: FileText, label: 'Invoices', to: '/invoices' },
+    { icon: Package, label: 'Products', to: '/products' },
     { icon: FileStack, label: 'Templates', to: '/templates' },
+    { icon: Users, label: 'Clients', to: '/clients' },
   ];
 
   const handleNavigation = (to: string) => {
@@ -57,14 +51,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     setIsMobileMenuOpen(false);
   };
 
-  const handleLogout = () => {
-    console.log("Logging out");
-    logout({ 
-      logoutParams: {
-        returnTo: window.location.origin
-      }
-    });
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/');
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -126,7 +128,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           {/* User Profile Dropdown */}
           <div className="p-4 mt-auto border-t border-gray-200 dark:border-gray-700">
-            <UserProfileDropdown />
+            <UserProfileDropdown onLogout={handleLogout} />
           </div>
         </div>
       </aside>
@@ -143,7 +145,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         <nav className="fixed bottom-0 left-0 right-0 flex justify-between items-center bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 md:hidden z-40">
           {navItems.map((item) => (
             <button
-              key={item.to}
+              key={item.label}
               onClick={() => handleNavigation(item.to)}
               className={`flex flex-col items-center ${
                 location.pathname === item.to
@@ -155,9 +157,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <span className="text-xs">{item.label}</span>
             </button>
           ))}
-          <div className="flex flex-col items-center">
-            <UserProfileDropdown />
-          </div>
         </nav>
       )}
     </div>

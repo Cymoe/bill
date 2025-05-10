@@ -1,6 +1,18 @@
 import { supabase } from './supabase';
 
 export type Tables = {
+  projects: {
+    id: string;
+    name: string;
+    description: string;
+    client_id: string;
+    status: 'active' | 'completed' | 'on-hold' | 'cancelled';
+    budget: number;
+    start_date: string;
+    end_date: string;
+    created_at: string;
+    updated_at: string;
+  };
   bills: {
     id: string;
     user_id: string;
@@ -79,6 +91,123 @@ export type Tables = {
 };
 
 export const db = {
+  projects: {
+    async list(clientId?: string) {
+      const query = supabase
+        .from('projects')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (clientId) {
+        query.eq('client_id', clientId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async getById(id: string) {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async create(data: Omit<Tables['projects'], 'id' | 'created_at' | 'updated_at'> & { user_id: string }) {
+      const { error } = await supabase
+        .from('projects')
+        .insert(data);
+      if (error) throw error;
+    },
+
+    async update(id: string, data: Partial<Tables['projects']>) {
+      const { error } = await supabase
+        .from('projects')
+        .update(data)
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+    },
+
+    async delete(id: string) {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+    },
+
+    async getProjectBills(projectId: string): Promise<Tables['bills'][]> {
+      const { data, error } = await supabase
+        .from('project_bills')
+        .select('bills (*)')
+        .eq('project_id', projectId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Handle the nested data structure from Supabase
+      if (!data) return [];
+      
+      return data.reduce<Tables['bills'][]>((acc, item) => {
+        const bill = item.bills;
+        if (
+          bill &&
+          typeof bill === 'object' &&
+          'id' in bill &&
+          'user_id' in bill &&
+          'amount' in bill &&
+          'description' in bill &&
+          'due_date' in bill &&
+          'status' in bill &&
+          'created_at' in bill
+        ) {
+          acc.push(bill as Tables['bills']);
+        }
+        return acc;
+      }, []);
+    },
+
+    async addBillToProject(projectId: string, billId: string) {
+      const { error } = await supabase
+        .from('project_bills')
+        .insert([{ project_id: projectId, bill_id: billId }]);
+
+      if (error) {
+        throw error;
+      }
+    },
+
+    async removeBillFromProject(projectId: string, billId: string) {
+      const { error } = await supabase
+        .from('project_bills')
+        .delete()
+        .eq('project_id', projectId)
+        .eq('bill_id', billId);
+
+      if (error) {
+        throw error;
+      }
+    }
+  },
   users: {
     async getById(id: string) {
       const { data, error } = await supabase
@@ -106,11 +235,14 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async create(data: Omit<Tables['clients'], 'id' | 'created_at'>) {
-      const { error } = await supabase
+    async create(data: Omit<Tables['clients'], 'id' | 'created_at'> & { user_id: string }): Promise<Tables['clients']> {
+      const { data: result, error } = await supabase
         .from('clients')
-        .insert(data);
+        .insert(data)
+        .select()
+        .single();
       if (error) throw error;
+      return result;
     },
     async update(id: string, data: Partial<Tables['clients']>) {
       const { error } = await supabase

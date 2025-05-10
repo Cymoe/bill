@@ -1,27 +1,64 @@
-import type { Id } from "../../convex/_generated/dataModel";
-import { ClientInput, ProductInput, InvoiceInput } from "../lib/database.types";
+import { Tables } from "../lib/database";
+
+type ProjectInput = Omit<Tables['projects'], 'id' | 'created_at' | 'updated_at' | 'user_id'>;
+type ClientInput = Omit<Tables['clients'], 'id' | 'created_at'>;
+type ProductInput = Omit<Tables['products'], 'id' | 'created_at'>;
+type InvoiceInput = Omit<Tables['invoices'], 'id' | 'created_at'>;
+
+export const seedProjects: ProjectInput[] = [
+  {
+    name: "Website Redesign",
+    description: "Complete redesign of company website with modern UI/UX",
+    status: "active",
+    budget: 15000,
+    start_date: new Date().toISOString(),
+    end_date: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+    client_id: ""
+  },
+  {
+    name: "Mobile App Development",
+    description: "Native mobile app development for iOS and Android",
+    status: "on-hold",
+    budget: 25000,
+    start_date: new Date().toISOString(),
+    end_date: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+    client_id: ""
+  },
+  {
+    name: "E-commerce Platform",
+    description: "Custom e-commerce solution with payment integration",
+    status: "completed",
+    budget: 20000,
+    start_date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    end_date: new Date().toISOString(),
+    client_id: ""
+  }
+];
 
 export const seedClients: ClientInput[] = [
   {
-    company: "Acme Corp",
+    company_name: "Acme Corp",
     name: "John Doe",
     email: "john@acme.com",
     phone: "555-0123",
-    address: "123 Main St\nCity, ST 12345"
+    address: "123 Main St\nCity, ST 12345",
+    user_id: ""
   },
   {
-    company: 'TechStart Inc',
+    company_name: 'TechStart Inc',
     name: 'Sarah Johnson',
     email: 'accounts@techstart.com',
     phone: '(555) 987-6543',
-    address: '456 Innovation Blvd'
+    address: '456 Innovation Blvd',
+    user_id: ""
   },
   {
-    company: 'Global Solutions Ltd',
+    company_name: 'Global Solutions Ltd',
     name: 'Michael Chen',
     email: 'finance@globalsolutions.com',
     phone: '(555) 246-8135',
-    address: '789 Enterprise St'
+    address: '789 Enterprise St',
+    user_id: ""
   }
 ];
 
@@ -30,30 +67,29 @@ export const seedProducts: ProductInput[] = [
     name: "Web Development",
     description: "Professional web development services",
     price: 150,
-    unit: "hour"
+    user_id: ""
   },
   {
     name: 'UI/UX Design',
     description: 'User interface and experience design',
     price: 1500.00,
-    unit: 'project'
+    user_id: ""
   },
   {
     name: 'Consulting',
     description: 'Technical consulting services',
     price: 150.00,
-    unit: 'hour'
+    user_id: ""
   }
 ];
 
 export const seedInvoices: InvoiceInput[] = [
   {
-    number: "INV-001",
-    clientId: "" as Id<"clients">,
-    date: new Date().toISOString(),
-    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    items: [],
+    invoice_number: "INV-001",
+    client_id: "",
     status: "draft",
-    total_amount: 0
+    due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    total_amount: 0,
+    user_id: ""
   }
 ];
