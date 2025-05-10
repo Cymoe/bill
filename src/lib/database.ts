@@ -250,7 +250,8 @@ export const db = {
       const { data: templates, error: templatesError } = await supabase
         .from('invoice_templates')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
       
       if (templatesError) throw templatesError;
 
@@ -339,7 +340,8 @@ export const db = {
         .update({
           ...templateData,
           content: {
-            ...templateData.content,
+            ...(templateData.content || {}),
+            description: templateData.content?.description || '',
             updated_at: new Date().toISOString()
           }
         })

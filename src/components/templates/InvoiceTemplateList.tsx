@@ -15,6 +15,14 @@ import { TemplateCardSkeleton } from '../skeletons/TemplateCardSkeleton';
 type Template = Tables['invoice_templates'] & {
   description?: string;
   total_amount?: number;
+  items: Array<{
+    id: string;
+    template_id: string;
+    product_id: string;
+    quantity: number;
+    price: number;
+    created_at?: string;
+  }>;
 };
 
 export const InvoiceTemplateList: React.FC = () => {
@@ -37,6 +45,8 @@ export const InvoiceTemplateList: React.FC = () => {
     if (!user) return;
     try {
       const data = await db.invoice_templates.list(user.id);
+      // Sort newest first
+      data.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setTemplates(data);
     } catch (err) {
       console.error('Error fetching templates:', err);
@@ -143,7 +153,7 @@ export const InvoiceTemplateList: React.FC = () => {
                     items={[
                       {
                         label: 'Edit',
-                        onClick: () => setEditingTemplate(template)
+                        onClick: () => setEditingTemplate({ ...template, items: template.items || [] })
                       },
                       {
                         label: 'Delete',
@@ -154,12 +164,10 @@ export const InvoiceTemplateList: React.FC = () => {
                   />
                 </div>
                 
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  {template.description}
-                </p>
-                
                 <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-                  {formatCurrency(template.total_amount || 0)}
+                  {formatCurrency(
+                    template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
+                  )}
                 </div>
               </div>
             ))
@@ -187,11 +195,10 @@ export const InvoiceTemplateList: React.FC = () => {
                     <h3 className="text-sm font-medium text-gray-900 dark:text-white">
                       {template.name}
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {template.description}
-                    </p>
                     <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400 mt-2 block">
-                      {formatCurrency(template.total_amount || 0)}
+                      {formatCurrency(
+                        template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
+                      )}
                     </span>
                   </div>
                   <Dropdown
@@ -203,7 +210,7 @@ export const InvoiceTemplateList: React.FC = () => {
                     items={[
                       {
                         label: 'Edit',
-                        onClick: () => setEditingTemplate(template)
+                        onClick: () => setEditingTemplate({ ...template, items: template.items || [] })
                       },
                       {
                         label: 'Delete',
@@ -222,7 +229,10 @@ export const InvoiceTemplateList: React.FC = () => {
       {showNewModal && (
         <NewTemplateModal
           onClose={() => setShowNewModal(false)}
-          onSave={() => setShowNewModal(false)}
+          onSave={async () => {
+            setShowNewModal(false);
+            await fetchTemplates();
+          }}
         />
       )}
 
@@ -230,7 +240,10 @@ export const InvoiceTemplateList: React.FC = () => {
         <EditTemplateModal
           template={editingTemplate}
           onClose={() => setEditingTemplate(null)}
-          onSave={() => setEditingTemplate(null)}
+          onSave={() => {
+            setEditingTemplate(null);
+            fetchTemplates();
+          }}
         />
       )}
 
@@ -238,7 +251,10 @@ export const InvoiceTemplateList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Template"
           message="Are you sure you want to delete this template? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingTemplate.id)}
+          onConfirm={async () => {
+            await handleDelete(deletingTemplate.id);
+            fetchTemplates();
+          }}
           onCancel={() => setDeletingTemplate(null)}
         />
       )}

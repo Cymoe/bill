@@ -31,7 +31,7 @@ interface FormData {
 interface EditTemplateModalProps {
   template: Template;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (updatedTemplate: Template) => void;
 }
 
 export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
@@ -43,11 +43,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
   const [formData, setFormData] = useState<FormData>({
     name: template.name,
     content: template.content || {},
-    items: template.items?.map(item => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price: item.price
-    })) || []
+    items: template.items || []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,14 +122,29 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
     try {
       await db.invoice_templates.update(template.id, {
         name: formData.name,
-        content: {}, // Empty JSONB object since we're using the items table
+        content: {
+          ...formData.content,
+          description: formData.content.description || '',
+        },
         items: formData.items.map(item => ({
           product_id: item.product_id,
           quantity: item.quantity,
           price: item.price
         }))
       });
-      onSave();
+      onSave({
+        ...template,
+        name: formData.name,
+        content: {
+          ...formData.content,
+          description: formData.content.description || '',
+        },
+        items: formData.items.map((item, idx) => ({
+          ...template.items[idx], // preserve id, template_id, created_at if present
+          ...item
+        })),
+        // Optionally update total_amount, created_at, etc. if needed
+      });
       handleClose();
     } catch (err) {
       console.error('Error updating template:', err);
@@ -154,13 +165,12 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
       
       <div 
         className={`
-          fixed md:w-[600px] 
+          fixed md:w-[50vw] 
           transition-transform duration-300 ease-out 
           bg-white dark:bg-gray-800 
           shadow-xl
           overflow-hidden
           md:right-0 md:top-0 md:bottom-0
-          md:rounded-l-2xl
           bottom-0 left-0 right-0 h-full md:h-auto
           transform
           ${isClosing 
@@ -214,7 +224,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Items</h3>
-                  {formData.content.items.length > 0 && (
+                  {formData.items.length > 0 && (
                     <button
                       type="button"
                       onClick={addItem}
@@ -227,7 +237,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                  {formData.content.items.length === 0 ? (
+                  {formData.items.length === 0 ? (
                     <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-8 text-center">
                       <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
@@ -248,7 +258,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                       </button>
                     </div>
                   ) : (
-                    formData.content.items.map((item: TemplateItem, index: number) => (
+                    formData.items.map((item: TemplateItem, index: number) => (
                       <div key={index} className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -332,7 +342,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                           </div>
                         </div>
 
-                        {index === formData.content.items.length - 1 && (
+                        {index === formData.items.length - 1 && (
                           <button
                             type="button"
                             onClick={addItem}
@@ -346,7 +356,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
                     ))
                   )}
 
-                  {formData.content.items.length > 0 && (
+                  {formData.items.length > 0 && (
                     <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">

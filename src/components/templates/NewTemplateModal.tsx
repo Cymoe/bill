@@ -8,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 
 interface NewTemplateModalProps {
   onClose: () => void;
-  onSave: () => void;
+  onSave: (optimisticTemplate: any) => void;
 }
 
 export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onSave }) => {
@@ -110,12 +110,12 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
         .insert([{  // Note: Wrap in array for consistent behavior
           user_id: user.id,
           name: formData.name,
-          content: JSON.stringify({  // Explicitly stringify JSONB content
+          content: {
             description: formData.description || '',
             total_amount: calculateTotal(),
             created_by: user.id,
             created_at: new Date().toISOString()
-          })
+          }
         }])
         .select('id')
         .single();
@@ -153,7 +153,29 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
         }
       }
 
-      onSave();
+      // After successful creation, call onSave with optimistic template
+      const optimisticTemplate = {
+        id: template.id || ('temp-' + Date.now()),
+        user_id: user.id,
+        name: formData.name,
+        content: {
+          description: formData.description || '',
+          total_amount: calculateTotal(),
+          created_by: user.id,
+          created_at: new Date().toISOString()
+        },
+        description: formData.description || '',
+        total_amount: calculateTotal(),
+        items: formData.items.map(item => {
+          const product = products.find(p => p.id === item.product_id);
+          return {
+            ...item,
+            price: product ? product.price : item.price,
+          };
+        }),
+        created_at: new Date().toISOString(),
+      };
+      onSave(optimisticTemplate);
       handleClose();
     } catch (err) {
       console.error('Error creating template:', err);
@@ -174,13 +196,12 @@ export const NewTemplateModal: React.FC<NewTemplateModalProps> = ({ onClose, onS
       
       <div 
         className={`
-          fixed md:w-[600px] 
+          fixed md:w-[50vw] 
           transition-transform duration-300 ease-out 
           bg-white dark:bg-gray-800 
           shadow-xl
           overflow-hidden
           md:right-0 md:top-0 md:bottom-0
-          md:rounded-l-2xl
           bottom-0 left-0 right-0 h-full md:h-auto
           transform
           ${isClosing 
