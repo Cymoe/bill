@@ -35,7 +35,7 @@ export const InvoiceDetail: React.FC = () => {
       const [invoiceRes, productsRes] = await Promise.all([
         supabase
           .from('invoices')
-          .select('*')
+          .select('*, invoice_items(*)')
           .eq('id', id)
           .eq('user_id', user?.id)
           .single(),
@@ -150,12 +150,12 @@ export const InvoiceDetail: React.FC = () => {
     {
       label: 'Download PDF',
       onClick: () => {
-        const items = invoice.items.map((item: any) => ({
+        const items = invoice.invoice_items.map((item: any) => ({
           product_name: products.find(p => p.id === item.product_id)?.name || 'Unknown Product',
           quantity: item.quantity,
-          price: item.price
+          price: item.unit_price
         }));
-        generatePDF({ invoice, client, items, totalAmount: invoice.total_amount });
+        generatePDF({ invoice, client, items, totalAmount: invoice.amount });
       },
       icon: <Download className="w-4 h-4" />
     },
@@ -180,7 +180,7 @@ export const InvoiceDetail: React.FC = () => {
           <Breadcrumbs 
             items={[
               { label: 'Invoices', href: '/invoices' },
-              { label: invoice.number }
+              { label: `INV-${invoice.id.slice(0, 8)}` }
             ]} 
           />
         </div>
@@ -200,24 +200,22 @@ export const InvoiceDetail: React.FC = () => {
           />
         </div>
 
-        {/* Desktop header */}
-        <div className="hidden md:flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Invoice {invoice.number}
-          </h1>
-          <div className="flex items-center gap-4">
-            <span className={getStatusStyle(invoice.status)}>
-              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-            </span>
-            <Dropdown
-            trigger={<MoreVertical className="w-6 h-6" />}
-            items={getDropdownItems()}
-          />
-          </div>
-        </div>
-
         {/* Invoice details */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="flex justify-between items-center p-6 pb-0">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              Invoice {`INV-${invoice.id.slice(0, 8)}`}
+            </h1>
+            <div className="flex items-center gap-4">
+              <span className={getStatusStyle(invoice.status)}>
+                {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+              </span>
+              <Dropdown
+                trigger={<MoreVertical className="w-6 h-6" />}
+                items={getDropdownItems()}
+              />
+            </div>
+          </div>
           <div className="p-6 space-y-6">
             {/* Client info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -237,7 +235,7 @@ export const InvoiceDetail: React.FC = () => {
                 <div className="text-sm text-gray-600 dark:text-gray-400">
                   <p>
                     <span className="font-medium">Invoice Date: </span>
-                    {new Date(invoice.date).toLocaleDateString()}
+                    {new Date(invoice.issue_date).toLocaleDateString()}
                   </p>
                   <p>
                     <span className="font-medium">Due Date: </span>
@@ -268,7 +266,7 @@ export const InvoiceDetail: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {(invoice.items || []).map((item: any, index: number) => {
+                    {(invoice.invoice_items || []).map((item: any, index: number) => {
                       const product = products.find(p => p.id === item.product_id);
                       return (
                         <tr key={index}>
@@ -279,10 +277,10 @@ export const InvoiceDetail: React.FC = () => {
                             {item.quantity}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {formatCurrency(item.price)}
+                            {formatCurrency(item.unit_price)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {formatCurrency(item.quantity * item.price)}
+                            {formatCurrency(item.total_price)}
                           </td>
                         </tr>
                       );
@@ -293,7 +291,7 @@ export const InvoiceDetail: React.FC = () => {
               <div className="mt-8 flex justify-end">
                 <div className="text-right">
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    Total: {formatCurrency(invoice.total_amount)}
+                    Total: {formatCurrency(invoice.amount)}
                   </p>
                 </div>
               </div>
