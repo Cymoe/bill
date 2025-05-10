@@ -17,6 +17,7 @@ type Invoice = {
   number: string;
   client_id: string;
   date: string;
+  issue_date: string;
   due_date: string;
   items: Array<{
     product_id: string;
@@ -24,7 +25,7 @@ type Invoice = {
     price: number;
   }>;
   status: 'draft' | 'sent' | 'paid' | 'overdue';
-  total_amount: number;
+  amount: number;
   user_id: string;
   created_at: string;
 };
@@ -86,7 +87,8 @@ export const InvoiceList: React.FC = () => {
   };
 
   const filteredInvoices = invoices.filter((invoice) => {
-    const matchesSearch = invoice.number.toLowerCase().includes(searchTerm.toLowerCase());
+    const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
+    const matchesSearch = displayNumber.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
@@ -245,12 +247,12 @@ export const InvoiceList: React.FC = () => {
                     >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {invoice.number}
+                          {`INV-${invoice.id.slice(0, 8)}`}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(invoice.date).toLocaleDateString()}
+                          {new Date(invoice.issue_date).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -265,7 +267,7 @@ export const InvoiceList: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(invoice.total_amount)}
+                          {formatCurrency(invoice.amount)}
                         </div>
                       </td>
                     </tr>
@@ -295,7 +297,7 @@ export const InvoiceList: React.FC = () => {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                        {invoice.number}
+                        {`INV-${invoice.id.slice(0, 8)}`}
                       </h3>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={getStatusStyle(invoice.status)}>
@@ -307,7 +309,7 @@ export const InvoiceList: React.FC = () => {
                           Due: {new Date(invoice.due_date).toLocaleDateString()}
                         </span>
                         <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                          {formatCurrency(invoice.total_amount)}
+                          {formatCurrency(invoice.amount)}
                         </span>
                       </div>
                     </div>
@@ -323,7 +325,10 @@ export const InvoiceList: React.FC = () => {
       {showNewModal && (
         <NewInvoiceModal
           onClose={() => setShowNewModal(false)}
-          onSave={() => setShowNewModal(false)}
+          onSave={() => {
+            setShowNewModal(false);
+            fetchData();
+          }}
         />
       )}
     </DashboardLayout>

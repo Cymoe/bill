@@ -15,7 +15,7 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
   const [formData, setFormData] = useState({
     number: `INV-${Date.now()}`,
     client_id: '',
-    date: new Date().toISOString().split('T')[0],
+    issue_date: new Date().toISOString().split('T')[0],
     due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: 'draft' as const,
     items: [] as Array<{
@@ -161,9 +161,12 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
       const { data: invoice, error } = await supabase
         .from('invoices')
         .insert({
-          ...formData,
-          total_amount: calculateTotal(),
-          user_id: user.id
+          user_id: user.id,
+          client_id: formData.client_id,
+          amount: calculateTotal(),
+          status: formData.status,
+          issue_date: formData.issue_date,
+          due_date: formData.due_date
         })
         .select()
         .single();
@@ -188,7 +191,10 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
         handleClose();
       }
     } catch (error) {
-      console.error('Error creating invoice:', error);
+      if (error && typeof error === 'object') {
+        console.error('Supabase error details:', error);
+        alert(JSON.stringify(error, null, 2));
+      }
       setError('Failed to create invoice');
     } finally {
       setLoading(false);
@@ -327,17 +333,31 @@ export const NewInvoiceModal: React.FC<NewInvoiceModalProps> = ({ onClose, onSav
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Issue Date
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.date}
-                      onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      required
-                    />
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Issue Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.issue_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        required
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Due Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.due_date}
+                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
