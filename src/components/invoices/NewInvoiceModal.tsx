@@ -46,8 +46,6 @@ interface InvoiceFormData {
   issue_date: string;
 }
 
-
-
 interface NewInvoiceModalProps {
   onClose: () => void;
   onSave: (data: InvoiceFormData) => void;

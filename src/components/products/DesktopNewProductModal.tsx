@@ -39,11 +39,6 @@ export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ 
         return;
       }
 
-      console.log('Creating product with data:', {
-        ...formData,
-        user_id: user.id
-      });
-
       const { data, error: supabaseError } = await supabase
         .from('products')
         .insert([
@@ -58,12 +53,9 @@ export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ 
         .select('*');
 
       if (supabaseError) {
-        console.error('Supabase error:', supabaseError);
         setError(supabaseError.message);
         return;
       }
-
-      console.log('Created product:', data);
 
       if (!data || data.length === 0) {
         setError('Failed to create product');
@@ -72,7 +64,6 @@ export const DesktopNewProductModal: React.FC<DesktopNewProductModalProps> = ({ 
 
       onSave();
     } catch (err) {
-      console.error('Error creating product:', err);
       setError(err instanceof Error ? err.message : 'Failed to create product');
     }
   };

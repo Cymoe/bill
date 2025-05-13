@@ -138,7 +138,6 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
         updated_at: new Date().toISOString(),
         user_id: user.id
       };
-      console.log('Updating invoice with:', updatePayload);
 
       const { error: invoiceError } = await supabase
         .from('invoices')

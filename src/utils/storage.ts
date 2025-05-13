@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 // Initialize local storage with mock data if empty
 export function initializeStorage() {
   // This function is now a no-op since we're using Supabase
-  console.log('Storage initialized with Supabase');
 }
 
 // Clients
@@ -18,7 +17,6 @@ export async function getClients(): Promise<Client[]> {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching clients:', error);
     return [];
   }
 }
@@ -34,7 +32,6 @@ export async function getProducts(): Promise<Product[]> {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching products:', error);
     return [];
   }
 }
@@ -50,7 +47,6 @@ export async function getInvoices(): Promise<Invoice[]> {
     if (error) throw error;
     return data || [];
   } catch (error) {
-    console.error('Error fetching invoices:', error);
     return [];
   }
 }
@@ -62,7 +58,6 @@ export async function saveInvoices(invoices: Invoice[]): Promise<void> {
       .upsert(invoices);
     if (error) throw error;
   } catch (error) {
-    console.error('Error saving invoices:', error);
   }
 }
 
@@ -73,7 +68,6 @@ export async function saveProducts(products: Product[]): Promise<void> {
       .upsert(products);
     if (error) throw error;
   } catch (error) {
-    console.error('Error saving products:', error);
   }
 }
 
@@ -84,7 +78,6 @@ export async function saveClients(clients: Client[]): Promise<void> {
       .upsert(clients);
     if (error) throw error;
   } catch (error) {
-    console.error('Error saving clients:', error);
   }
 }
 

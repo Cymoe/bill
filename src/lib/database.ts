@@ -379,8 +379,6 @@ export const db = {
   },
   invoice_templates: {
     async list(userId: string) {
-      console.log('Fetching templates for user:', userId);
-      
       // Get templates with their content
       const { data: templates, error: templatesError } = await supabase
         .from('invoice_templates')
@@ -417,7 +415,6 @@ export const db = {
         })
       );
       
-      console.log('Processed templates:', templatesWithItems);
       return templatesWithItems;
     },
 

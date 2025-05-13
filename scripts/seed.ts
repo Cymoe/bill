@@ -7,14 +7,10 @@ import { api } from "../convex/_generated/api";
 const convexUrl = process.env.VITE_CONVEX_URL || 'https://default-url.convex.cloud';
 
 async function seed() {
-  console.log("Starting database seeding...");
-  console.log("Using Convex URL:", convexUrl);
-  
   const client = new ConvexClient(convexUrl);
   
   try {
     // Create clients
-    console.log("Creating clients...");
     const clients = await Promise.all([
       client.mutation(api.clients.createClient, {
         company: "Acme Corp",
@@ -47,7 +43,6 @@ async function seed() {
     ]);
 
     // Create products
-    console.log("Creating products...");
     const products = await Promise.all([
       client.mutation(api.products.createProduct, {
         name: "Web Development",
@@ -82,7 +77,6 @@ async function seed() {
     ]);
 
     // Create templates
-    console.log("Creating templates...");
     const templates = await Promise.all([
       client.mutation(api.templates.createTemplate, {
         name: "Web Development Package",
@@ -138,7 +132,6 @@ async function seed() {
     ]);
 
     // Create invoices
-    console.log("Creating invoices...");
     const invoices = await Promise.all([
       client.mutation(api.invoices.createInvoice, {
         number: "INV-001",
@@ -197,9 +190,7 @@ async function seed() {
       })
     ]);
 
-    console.log("Database seeded successfully!");
   } catch (error) {
-    console.error("Error seeding database:", error);
     throw error;
   } finally {
     await client.close();

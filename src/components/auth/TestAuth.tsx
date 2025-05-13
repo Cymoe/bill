@@ -13,17 +13,14 @@ export function TestAuth() {
     const getSession = async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
-        console.log('Session data:', data);
         
         if (error) {
-          console.error('Session error:', error);
           setError(error.message);
         } else {
           setSession(data.session);
           setUser(data.session?.user || null);
         }
       } catch (err) {
-        console.error('Session fetch error:', err);
         setError('Failed to fetch session');
       } finally {
         setLoading(false);
@@ -34,7 +31,6 @@ export function TestAuth() {
 
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-      console.log('Auth event:', event, currentSession?.user?.email);
       setSession(currentSession);
       setUser(currentSession?.user || null);
     });
@@ -55,14 +51,12 @@ export function TestAuth() {
       });
       
       if (error) throw error;
-      console.log('Sign in data:', data);
       
       // Store the auth URL for debugging
       if (data.url) {
         setAuthUrl(data.url);
       }
     } catch (err: any) {
-      console.error('Sign in error:', err);
       setError(err.message || 'Failed to sign in');
     }
   };

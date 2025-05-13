@@ -28,7 +28,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log("Auth state changed:", { event, email: session?.user?.email });
         setUser(session?.user ?? null);
         setSession(session);
       }
@@ -39,11 +38,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      console.log('Starting Google sign in...');
       // Match the exact URL from Supabase settings
       const redirectTo = window.location.origin + '/auth/callback';
       const site = window.location.origin;
-      console.log('Using redirect URL:', redirectTo);
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -59,20 +56,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (error) {
-        console.error('Google sign in error:', error.message);
         throw error;
       }
 
       if (!data) {
-        console.error('No data returned from sign in');
         throw new Error('No data returned from sign in');
       }
 
-      console.log('Sign in successful, redirecting...');
       return data;
     } catch (err: any) {
-      console.error('Error signing in with Google:', err.message);
-      // Add more context to the error
       throw new Error(`Google sign in failed: ${err.message}`);
     }
   };
@@ -82,7 +74,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
     } catch (error) {
-      console.error('Error signing out:', error);
       throw error;
     }
   };

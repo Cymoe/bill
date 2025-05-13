@@ -19,13 +19,6 @@ import { ProjectList, ProjectForm, ProjectDetails } from './components/projects'
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, session, isLoading } = useAuth();
-  console.log('ProtectedRoute check:', { 
-    hasUser: !!user, 
-    hasSession: !!session, 
-    isLoading,
-    userEmail: user?.email,
-    sessionStatus: session?.expires_at
-  });
 
   if (isLoading) {
     return (
@@ -36,7 +29,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!session || !user) {
-    console.log('Access denied: No valid session');
     return <Navigate to="/" replace />;
   }
 
@@ -49,7 +41,6 @@ function AppRoutes() {
   // If we have a user and session, redirect to dashboard from root
   const renderLanding = () => {
     if (user && session && !isLoading) {
-      console.log('User authenticated, redirecting to dashboard');
       return <Navigate to="/dashboard" replace />;
     }
     return <LandingPage />;

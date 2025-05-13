@@ -32,7 +32,6 @@ export const ProductList: React.FC = () => {
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [view, setView] = useState<'grid' | 'table'>('grid');
   const [activeType, setActiveType] = useState<string>('all');
   const [activeSection, setActiveSection] = useState<'line_items' | 'products'>('products');
   const [showNewAssemblyModal, setShowNewAssemblyModal] = useState(false);

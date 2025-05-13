@@ -98,15 +98,12 @@ export const ProjectForm: React.FC = () => {
       try {
         // Get current user session
         const { data: { session } } = await supabase.auth.getSession();
-        console.log('Auth session:', session);
         
         if (!session?.user?.id) {
-          console.error('No authenticated user');
           return;
         }
 
         const userId = session.user.id;
-        console.log('Using user ID:', userId);
         setUserIdInForm(userId);
 
         // Fetch clients, products, and templates
@@ -116,7 +113,6 @@ export const ProjectForm: React.FC = () => {
           db.invoice_templates.list(session.user.id)
         ]);
 
-        console.log('Fetched templates:', templatesData);
         setClients(clientsData);
         setProducts(productsData);
         setTemplates(templatesData);
@@ -133,7 +129,6 @@ export const ProjectForm: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching data:', error);
       }
     };
 
@@ -174,7 +169,6 @@ export const ProjectForm: React.FC = () => {
       }
       navigate('/projects');
     } catch (error) {
-      console.error('Error saving project:', error);
     } finally {
       setLoading(false);
     }
@@ -341,8 +335,6 @@ export const ProjectForm: React.FC = () => {
                       ]}
                       value={selectedTemplateId || ''}
                       onChange={(value) => {
-                        console.log('Selected template value:', value);
-                        console.log('Available templates:', templates);
                         setSelectedTemplateId(value);
                         if (value === 'scratch') {
                           setRawTemplateItems([]);
@@ -353,12 +345,9 @@ export const ProjectForm: React.FC = () => {
                           }));
                         } else {
                           const selected = templates.find(t => t.id === value);
-                          console.log('Selected template:', selected);
-                          console.log('Template content:', selected?.content);
                           
                           // Get items from the template
                           const templateItems = selected?.items || [];
-                          console.log('Template items:', templateItems);
                           setRawTemplateItems(templateItems);
                           
                           if (templateItems.length > 0) {
@@ -373,7 +362,6 @@ export const ProjectForm: React.FC = () => {
                                 price: number;
                               }
                             }) => {
-                              console.log('Mapping item:', item);
                               return {
                                 product_id: item.product_id,
                                 quantity: item.quantity,
