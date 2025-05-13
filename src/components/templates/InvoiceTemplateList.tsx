@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreVertical, FileText } from 'lucide-react';
+import { Plus, Search, MoreVertical, FileText, Table as TableIcon, Grid as GridIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
@@ -30,6 +30,7 @@ export const InvoiceTemplateList: React.FC = () => {
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplate, setDeletingTemplate] = useState<Template | null>(null);
+  const [view, setView] = useState<'grid' | 'table'>('grid');
 
   const { user } = useAuth();
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -91,6 +92,56 @@ export const InvoiceTemplateList: React.FC = () => {
     </div>
   );
 
+  // TableView component
+  const TableView: React.FC<{ templates: Template[] }> = ({ templates }) => (
+    <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"># Items</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created At</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+          </tr>
+        </thead>
+        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+          {templates.map((template) => (
+            <tr key={template.id}>
+              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{template.name}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">{formatCurrency(template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0))}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{template.items?.length ?? 0}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{template.created_at ? new Date(template.created_at).toLocaleDateString() : ''}</td>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <Dropdown
+                  trigger={
+                    <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                      <MoreVertical className="w-5 h-5" />
+                    </button>
+                  }
+                  items={[
+                    {
+                      label: 'Edit',
+                      onClick: () => setEditingTemplate({ ...template, items: template.items || [] })
+                    },
+                    {
+                      label: 'Delete',
+                      onClick: () => setDeletingTemplate(template),
+                      className: 'text-red-600 hover:text-red-700'
+                    }
+                  ]}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {templates.length === 0 && (
+        <div className="p-8 text-center text-gray-500 dark:text-gray-400">No templates found.</div>
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout>
       <div className="space-y-4 md:space-y-6">
@@ -107,72 +158,86 @@ export const InvoiceTemplateList: React.FC = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
             />
           </div>
-          
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Template</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setView(view === 'grid' ? 'table' : 'grid')}
+              className="flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              {view === 'grid' ? <TableIcon className="w-4 h-4" /> : <GridIcon className="w-4 h-4" />}
+              <span className="hidden md:inline">{view === 'grid' ? 'Table View' : 'Grid View'}</span>
+            </button>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
+            >
+              <Plus className="w-5 h-5" />
+              <span>New Template</span>
+            </button>
+          </div>
         </div>
 
         {/* Desktop view */}
-        <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {isLoading ? (
-            <>
-              <TemplateCardSkeleton />
-              <TemplateCardSkeleton />
-              <TemplateCardSkeleton />
-              <TemplateCardSkeleton />
-              <TemplateCardSkeleton />
-              <TemplateCardSkeleton />
-            </>
-          ) : filteredTemplates.length === 0 && !searchTerm ? (
-            <div className="col-span-full">
-              <EmptyState />
-            </div>
-          ) : (
-            filteredTemplates.map((template) => (
-              <div 
-                key={template.id}
-                className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                      {template.name}
-                    </h3>
-                  </div>
-                  <Dropdown
-                    trigger={
-                      <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                        <MoreVertical className="w-5 h-5" />
-                      </button>
-                    }
-                    items={[
-                      {
-                        label: 'Edit',
-                        onClick: () => setEditingTemplate({ ...template, items: template.items || [] })
-                      },
-                      {
-                        label: 'Delete',
-                        onClick: () => setDeletingTemplate(templates.find(t => t.id === template.id) || null),
-                        className: 'text-red-600 hover:text-red-700'
-                      }
-                    ]}
-                  />
-                </div>
-                
-                <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-                  {formatCurrency(
-                    template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
-                  )}
-                </div>
+        {view === 'grid' ? (
+          <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {isLoading ? (
+              <>
+                <TemplateCardSkeleton />
+                <TemplateCardSkeleton />
+                <TemplateCardSkeleton />
+                <TemplateCardSkeleton />
+                <TemplateCardSkeleton />
+                <TemplateCardSkeleton />
+              </>
+            ) : filteredTemplates.length === 0 && !searchTerm ? (
+              <div className="col-span-full">
+                <EmptyState />
               </div>
-            ))
-          )}
-        </div>
+            ) : (
+              filteredTemplates.map((template) => (
+                <div 
+                  key={template.id}
+                  className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                        {template.name}
+                      </h3>
+                    </div>
+                    <Dropdown
+                      trigger={
+                        <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                          <MoreVertical className="w-5 h-5" />
+                        </button>
+                      }
+                      items={[
+                        {
+                          label: 'Edit',
+                          onClick: () => setEditingTemplate({ ...template, items: template.items || [] })
+                        },
+                        {
+                          label: 'Delete',
+                          onClick: () => setDeletingTemplate(templates.find(t => t.id === template.id) || null),
+                          className: 'text-red-600 hover:text-red-700'
+                        }
+                      ]}
+                    />
+                  </div>
+                  
+                  <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
+                    {formatCurrency(
+                      template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0)
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        ) : (
+          <div className="hidden md:block">
+            <TableView templates={filteredTemplates} />
+          </div>
+        )}
 
         {/* Mobile view */}
         <div className="md:hidden space-y-4">

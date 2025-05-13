@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { UNIT_OPTIONS } from '../../constants';
+import { UNIT_OPTIONS, PRODUCT_TYPE_OPTIONS } from '../../constants';
 import { supabase } from '../../lib/supabase';
 
 type Product = {
@@ -11,6 +11,7 @@ type Product = {
   unit: string;
   user_id: string;
   created_at: string;
+  type?: string;
 };
 
 interface EditProductModalProps {
@@ -28,7 +29,8 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     name: product.name,
     description: product.description,
     price: product.price,
-    unit: product.unit
+    unit: product.unit,
+    type: product.type || 'material'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,8 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
           name: formData.name,
           description: formData.description,
           price: formData.price,
-          unit: formData.unit
+          unit: formData.unit,
+          type: formData.type
         })
         .eq('id', product.id);
 
@@ -160,6 +163,24 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
                   required
                 >
                   {UNIT_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Type
+                </label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  required
+                >
+                  {PRODUCT_TYPE_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>

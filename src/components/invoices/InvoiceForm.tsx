@@ -12,12 +12,18 @@ interface Template {
   }>;
 }
 
+interface Invoice {
+  id: string;
+  [key: string]: any;
+}
+
 interface InvoiceFormProps {
   step: 'select' | 'template' | 'create';
   setStep: (step: 'select' | 'template' | 'create') => void;
   templates: Template[];
   onClose: () => void;
-  onSubmit: (data: any) => Promise<void>;
+  onSubmit: (data: any) => Promise<Invoice>;
+  projectId?: string; // Optional project ID if creating from project context
 }
 
 export const InvoiceForm: React.FC<InvoiceFormProps> = ({
@@ -25,32 +31,50 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   setStep,
   templates,
   onClose,
-  onSubmit
+  onSubmit,
+  projectId
 }) => {
   const { user } = useAuth();
   const [clients, setClients] = React.useState<any[]>([]);
   const [products, setProducts] = React.useState<any[]>([]);
+  const [projects, setProjects] = React.useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = React.useState<string | undefined>(projectId);
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return;
 
-      const [clientsRes, productsRes] = await Promise.all([
+      const [clientsRes, productsRes, projectsRes] = await Promise.all([
         supabase.from('clients').select('*').eq('user_id', user.id),
-        supabase.from('products').select('*').eq('user_id', user.id)
+        supabase.from('products').select('*').eq('user_id', user.id),
+        supabase.from('projects').select('*').eq('user_id', user.id)
       ]);
 
       if (clientsRes.error) console.error('Error fetching clients:', clientsRes.error);
       if (productsRes.error) console.error('Error fetching products:', productsRes.error);
+      if (projectsRes.error) console.error('Error fetching projects:', projectsRes.error);
 
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
+      
+      // Only set projects if we're not already in a project context
+      if (!projectId) {
+        setProjects(projectsRes.data || []);
+      }
+      setProjects(projectsRes.data || []);
     };
 
     fetchData();
-  }, [user]);
+
+    // If projectId is provided, update form data
+    if (projectId) {
+      setFormData(prev => ({ ...prev, project_id: projectId }));
+      setSelectedProject(projectId);
+    }
+  }, [user, projectId]);
 
   const [formData, setFormData] = React.useState({
+    project_id: projectId || '',
     number: `INV-${Date.now()}`,
     client_id: '',
     date: new Date().toISOString().split('T')[0],
@@ -106,15 +130,39 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   };
 
+  const handleProjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newProjectId = e.target.value;
+    setSelectedProject(newProjectId);
+    setFormData(prev => ({ ...prev, project_id: newProjectId }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
-      await onSubmit({
+      // Create the invoice
+      const invoice = await onSubmit({
         ...formData,
         total_amount: calculateTotal()
       });
+      
+      // If we have a project ID and the invoice was created successfully,
+      // create the project-invoice relationship
+      if (formData.project_id && invoice?.id) {
+        const { error } = await supabase
+          .from('project_invoices')
+          .insert({
+            project_id: formData.project_id,
+            invoice_id: invoice.id
+          });
+        
+        if (error) {
+          console.error('Error linking invoice to project:', error);
+        }
+      }
+      
+      onClose();
     } catch (err) {
       setError('Failed to submit form');
       setLoading(false);
@@ -160,26 +208,63 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   if (step === 'template') {
     return (
       <div className="p-4">
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Select a Template
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {templates.map((template) => (
-              <button
-                key={template.id}
-                onClick={() => handleTemplateSelect(template)}
-                className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400"
-              >
-                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
-                  Template {template.id}
-                </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {template.items.length} items
-                </p>
-              </button>
+        {!projectId && projects.length > 0 && (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-300">
+            Project (Optional)
+          </label>
+          <select
+            value={selectedProject || ''}
+            onChange={handleProjectChange}
+            className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+          >
+            <option value="">Select a project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
             ))}
-          </div>
+          </select>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-300">
+          Client
+        </label>
+        <select
+          value={formData.client_id}
+          onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
+          className="w-full bg-gray-800 border border-gray-700 rounded-md py-2 px-3 text-gray-300 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+          required
+        >
+          <option value="">Select a client</option>
+          {clients.map((client) => (
+            <option key={client.id} value={client.id}>
+              {client.company_name} - {client.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Select a Template
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {templates.map((template) => (
+            <button
+              key={template.id}
+              onClick={() => handleTemplateSelect(template)}
+              className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400"
+            >
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                Template {template.id}
+              </h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {template.items.length} items
+              </p>
+            </button>
+          ))}
         </div>
       </div>
     );

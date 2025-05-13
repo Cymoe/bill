@@ -14,6 +14,7 @@ export interface Product {
   description?: string;
   price: number;
   unit: string;
+  type: string;
   created_at?: string;
 }
 

@@ -3,6 +3,7 @@ import { X, Plus, Trash2, Minus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { db } from '../../lib/database';
 
 interface InvoiceItem {
   product_id: string;
@@ -87,35 +88,20 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
     if (!user) return;
     try {
       console.log('Loading data for user:', user.id);
-      const [clientsRes, productsRes, templatesRes] = await Promise.all([
+      const [clientsRes, productsRes, templates] = await Promise.all([
         supabase.from('clients').select('*').eq('user_id', user.id),
         supabase.from('products').select('*').eq('user_id', user.id),
-        supabase.from('invoice_templates').select('*').eq('user_id', user.id)
-      ]) as [any, any, any];
+        db.invoice_templates.list(user.id).catch(err => { console.error('TEMPLATE FETCH ERROR:', err); return []; })
+      ]);
 
       if (clientsRes.error) throw clientsRes.error;
       if (productsRes.error) throw productsRes.error;
-      if (templatesRes.error) throw templatesRes.error;
-
-      // Fetch items for each template
-      const templatesWithItems = await Promise.all(
-        (templatesRes.data || []).map(async (template: any) => {
-          const { data: items, error: itemsError } = await supabase
-            .from('invoice_template_items')
-            .select('*')
-            .eq('template_id', template.id);
-          if (itemsError) throw itemsError;
-          return {
-            ...template,
-            items: items || [],
-          };
-        })
-      );
 
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
-      setTemplates(templatesWithItems);
+      setTemplates(templates || []);
       setLoading(false);
+      console.log('Loaded templates:', templates);
     } catch (err) {
       console.error('Error loading data:', err);
     }

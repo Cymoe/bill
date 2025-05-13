@@ -4,9 +4,18 @@ import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
+import { Combobox } from '../ui/Combobox';
 
 type Client = Tables['clients'];
+type LineItem = {
+  product_id: string;
+  quantity: number;
+  price: number;
+  description?: string;
+};
+
 type ProjectFormData = Omit<Tables['projects'], 'id' | 'created_at' | 'updated_at'> & {
+  user_id: string;
   name: string;
   description: string;
   status: 'active' | 'completed' | 'on-hold' | 'cancelled';
@@ -14,7 +23,9 @@ type ProjectFormData = Omit<Tables['projects'], 'id' | 'created_at' | 'updated_a
   budget: number;
   start_date: string;
   end_date: string;
-}
+  items: LineItem[];
+  template_id: string;
+};
 
 export const ProjectForm: React.FC = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -28,6 +39,44 @@ export const ProjectForm: React.FC = () => {
   const { id } = useParams();
   const [loading, setLoading] = React.useState(false);
   const [clients, setClients] = React.useState<Client[]>([]);
+  const [products, setProducts] = React.useState<any[]>([]);
+  const [templates, setTemplates] = React.useState<any[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = React.useState('');
+  const [rawTemplateItems, setRawTemplateItems] = React.useState<any[]>([]);
+
+  const addItem = () => {
+    setFormData(prev => ({
+      ...prev,
+      items: [...prev.items, { product_id: '', quantity: 1, price: 0 }]
+    }));
+  };
+
+  const removeItem = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateItem = (index: number, field: keyof LineItem, value: any) => {
+    const newItems = [...formData.items];
+    if (field === 'product_id') {
+      const product = products.find(p => p.id === value);
+      newItems[index] = {
+        ...newItems[index],
+        product_id: value,
+        price: product ? product.price : 0
+      };
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
+    setFormData(prev => ({ ...prev, items: newItems }));
+  };
+
+  const calculateTotal = () => {
+    return formData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  };
+
   const [formData, setFormData] = React.useState<ProjectFormData>({
     name: '',
     description: '',
@@ -36,26 +85,52 @@ export const ProjectForm: React.FC = () => {
     budget: 0,
     start_date: '',
     end_date: '',
+    items: [{ product_id: '', quantity: 1, price: 0 }],
+    user_id: '',
+    template_id: '',
   });
 
   React.useEffect(() => {
+    const setUserIdInForm = (userId: string) => {
+      setFormData(prev => ({ ...prev, user_id: userId }));
+    };
     const fetchData = async () => {
       try {
         // Get current user session
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('Auth session:', session);
+        
         if (!session?.user?.id) {
           console.error('No authenticated user');
           return;
         }
-        
-        // Fetch clients list
-        const clientsData = await db.clients.list(session.user.id);
+
+        const userId = session.user.id;
+        console.log('Using user ID:', userId);
+        setUserIdInForm(userId);
+
+        // Fetch clients, products, and templates
+        const [clientsData, productsData, templatesData] = await Promise.all([
+          db.clients.list(session.user.id),
+          db.products.list(session.user.id),
+          db.invoice_templates.list(session.user.id)
+        ]);
+
+        console.log('Fetched templates:', templatesData);
         setClients(clientsData);
+        setProducts(productsData);
+        setTemplates(templatesData);
 
         // If editing, fetch project data
         if (id) {
           const projectData = await db.projects.getById(id);
           setFormData(projectData);
+          setSelectedTemplateId(projectData.template_id || '');
+          // If editing, also set rawTemplateItems if template_id exists
+          if (projectData.template_id) {
+            const selected = templatesData.find((t: any) => t.id === projectData.template_id);
+            setRawTemplateItems(selected?.items || []);
+          }
         }
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -65,10 +140,33 @@ export const ProjectForm: React.FC = () => {
     fetchData();
   }, [id]);
 
+  // Reactively map template items to products when both are available
+  React.useEffect(() => {
+    if (selectedTemplateId && products.length > 0 && rawTemplateItems.length > 0) {
+      // Update prices from products if they exist
+      setFormData(prev => ({
+        ...prev,
+        items: prev.items.map(item => {
+          if (item.product_id) {
+            const product = products.find(p => p.id === item.product_id);
+            return {
+              ...item,
+              price: product?.price || item.price
+            };
+          }
+          return item;
+        })
+      }));
+    }
+  }, [selectedTemplateId, products, rawTemplateItems]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
+      // Update budget with calculated total from line items
+      const total = calculateTotal();
+      setFormData(prev => ({ ...prev, budget: total }));
       if (id) {
         await db.projects.update(id, formData);
       } else {
@@ -227,6 +325,141 @@ export const ProjectForm: React.FC = () => {
                   />
                   <p className="mt-2 text-xs text-gray-400">Expected completion date</p>
                 </div>
+              </div>
+
+              {/* Line Items Section */}
+              <div className="sm:col-span-6 mt-6">
+                <div className="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.08)] p-4 rounded-xl backdrop-blur-md">
+                  <div className="flex items-center gap-4">
+                    <Combobox
+                      options={[
+                        { value: 'scratch', label: 'Empty Project' },
+                        ...templates.map(t => ({
+                          value: t.id,
+                          label: `${t.name} — $${(t.total_amount ?? 0).toLocaleString()}`
+                        }))
+                      ]}
+                      value={selectedTemplateId || ''}
+                      onChange={(value) => {
+                        console.log('Selected template value:', value);
+                        console.log('Available templates:', templates);
+                        setSelectedTemplateId(value);
+                        if (value === 'scratch') {
+                          setRawTemplateItems([]);
+                          setFormData(prev => ({
+                            ...prev,
+                            template_id: '',
+                            items: [{ product_id: '', quantity: 1, price: 0 }]
+                          }));
+                        } else {
+                          const selected = templates.find(t => t.id === value);
+                          console.log('Selected template:', selected);
+                          console.log('Template content:', selected?.content);
+                          
+                          // Get items from the template
+                          const templateItems = selected?.items || [];
+                          console.log('Template items:', templateItems);
+                          setRawTemplateItems(templateItems);
+                          
+                          if (templateItems.length > 0) {
+                            // Map template items using their product data
+                            const mappedItems = templateItems.map((item: { 
+                              product_id: string; 
+                              quantity: number; 
+                              price: number;
+                              product?: {
+                                id: string;
+                                name: string;
+                                price: number;
+                              }
+                            }) => {
+                              console.log('Mapping item:', item);
+                              return {
+                                product_id: item.product_id,
+                                quantity: item.quantity,
+                                price: item.product?.price || item.price
+                              };
+                            });
+                            setFormData(prev => ({
+                              ...prev,
+                              template_id: value,
+                              items: mappedItems
+                            }));
+                          }
+                        }
+                      }}
+                      placeholder="Choose template..."
+                    />
+                  </div>
+                  <div className="text-lg font-medium text-white">
+                    Total Budget: ${calculateTotal().toFixed(2)}
+                  </div>
+                </div>
+                <div className="space-y-4">
+
+                  {formData.items.map((item, index) => (
+                    <div key={index} className="flex gap-4 items-start">
+                      <div className="flex-1">
+                        <select
+                          value={item.product_id}
+                          onChange={(e) => updateItem(index, 'product_id', e.target.value)}
+                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                        >
+                          <option value="">Choose product...</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name} (${product.price}/{product.unit})
+                            </option>
+                          ))}
+                          {/* Fallback for unknown product_id */}
+                          {item.product_id &&
+                            !products.some((p) => p.id === item.product_id) && (
+                              <option value={item.product_id}>
+                                Unknown product ({item.product_id})
+                              </option>
+                            )}
+                        </select>
+                      </div>
+                      <div className="w-24">
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
+                          min="1"
+                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                          placeholder="Qty"
+                        />
+                      </div>
+                      <div className="w-32">
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))}
+                          step="0.01"
+                          min="0"
+                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                          placeholder="Price"
+                        />
+                      </div>
+                      {formData.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index)}
+                          className="p-2 text-gray-400 hover:text-red-500"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="mt-4 inline-flex items-center h-[40px] px-4 text-sm font-medium rounded-full text-white bg-[rgba(255,59,48,0.48)] hover:bg-[rgba(255,59,48,0.64)] focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
+                >
+                  Add Line Item
+                </button>
               </div>
             </div>
           </div>

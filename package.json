@@ -12,6 +12,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@floating-ui/react-dom": "^2.1.2",
     "@googlemaps/js-api-loader": "^1.16.8",
     "@react-google-maps/api": "^2.20.6",
     "@supabase/auth-ui-react": "^0.4.7",
@@ -36,11 +37,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
     "@types/jest": "^29.5.14",
     "@types/jsdom": "^21.1.7",
     "@types/node": "^22.9.0",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.3.0",
+    "@types/react": "^18.3.21",
+    "@types/react-dom": "^18.3.7",
+    "@types/testing-library__jest-dom": "^5.14.9",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
     "dotenv": "^16.4.5",

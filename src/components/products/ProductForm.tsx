@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { UNIT_OPTIONS } from '../../constants';
+import { UNIT_OPTIONS, PRODUCT_TYPE_OPTIONS } from '../../constants';
 
 export interface ProductFormData {
   name: string;
   description: string;
   price: number;
   unit: string;
+  type: string;
 }
 
 export interface ProductFormProps {
@@ -28,14 +29,16 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     name: '',
     description: '',
     price: 0,
-    unit: 'hour'
+    unit: 'hour',
+    type: 'material'
   }
 }) => {
   const [formData, setFormData] = useState({
     name: initialData.name || '',
     description: initialData.description || '',
     price: initialData.price || 0,
-    unit: initialData.unit || 'hour'
+    unit: initialData.unit || 'hour',
+    type: initialData.type || 'material'
   });
   const [loading, setLoading] = useState(false);
 
@@ -47,7 +50,8 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price.toString()),
-        unit: formData.unit
+        unit: formData.unit,
+        type: formData.type
       });
       onClose();
     } catch (err) {
@@ -132,6 +136,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
             >
               {UNIT_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Type
+            </label>
+            <select
+              id="type"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+            >
+              {PRODUCT_TYPE_OPTIONS.map(option => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>

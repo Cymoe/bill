@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, FileText, Package, Users, Database, Sun, Moon, Copy, Menu, X, FolderKanban } from 'lucide-react';
+import { LayoutDashboard, FileText, Package, Users, Database, Sun, Moon, Copy, Menu, X, FolderKanban, Book } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { seedDatabase } from '../utils/seedDatabase';
 import { useTheme } from '../contexts/ThemeContext';
@@ -32,7 +32,7 @@ const Sidebar: React.FC = () => {
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: FolderKanban, label: 'Projects', path: '/projects' },
     { icon: Users, label: 'Clients', path: '/clients' },
-    { icon: Package, label: 'Products', path: '/products' },
+    { icon: Book, label: 'Price Book', path: '/products' },
     { icon: FileText, label: 'Invoices', path: '/invoices' },
     { icon: Copy, label: 'Templates', path: '/templates' },
     { icon: Database, label: 'Seed Database', action: handleSeedData },

@@ -379,33 +379,45 @@ export const db = {
   },
   invoice_templates: {
     async list(userId: string) {
+      console.log('Fetching templates for user:', userId);
+      
+      // Get templates with their content
       const { data: templates, error: templatesError } = await supabase
         .from('invoice_templates')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-      
+
       if (templatesError) throw templatesError;
 
-      // Fetch items for each template
+      // Fetch items for each template from the items table
       const templatesWithItems = await Promise.all(
         templates.map(async (template) => {
-          const { data: items, error: itemsError } = await supabase
+          const { data: tableItems, error: itemsError } = await supabase
             .from('invoice_template_items')
-            .select('*')
+            .select('*, product:products(*)')
             .eq('template_id', template.id);
-          
+
           if (itemsError) throw itemsError;
-          
+
+          // Convert table items to the expected format
+          const items = (tableItems || []).map(item => ({
+            product_id: item.product_id,
+            quantity: item.quantity,
+            price: item.price,
+            product: item.product
+          }));
+
           return {
             ...template,
             description: template.content?.description || '',
             total_amount: template.content?.total_amount || 0,
-            items: items || []
+            items: items
           };
         })
       );
       
+      console.log('Processed templates:', templatesWithItems);
       return templatesWithItems;
     },
 

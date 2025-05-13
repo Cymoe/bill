@@ -8,7 +8,8 @@ import {
   FileStack,
   Menu,
   X,
-  Briefcase
+  Briefcase,
+  Book
 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -41,7 +42,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
     { icon: Briefcase, label: 'Projects', to: '/projects' },
     { icon: FileText, label: 'Invoices', to: '/invoices' },
-    { icon: Package, label: 'Products', to: '/products' },
+    { icon: Book, label: 'Price Book', to: '/products' },
     { icon: FileStack, label: 'Templates', to: '/templates' },
     { icon: Users, label: 'Clients', to: '/clients' },
   ];
