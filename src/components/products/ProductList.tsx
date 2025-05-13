@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreVertical, Table as TableIcon, Grid as GridIcon } from 'lucide-react';
+import { Plus, Search, MoreVertical, Table as TableIcon, Grid as GridIcon, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -11,6 +11,7 @@ import { ProductCardSkeleton } from '../skeletons/ProductCardSkeleton';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PRODUCT_TYPE_OPTIONS } from '../../constants';
+import ProductAssemblyForm from './ProductAssemblyForm';
 
 type Product = {
   id: string;
@@ -33,6 +34,8 @@ export const ProductList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [activeType, setActiveType] = useState<string>('all');
+  const [activeSection, setActiveSection] = useState<'line_items' | 'products'>('products');
+  const [showNewAssemblyModal, setShowNewAssemblyModal] = useState(false);
 
   const typeTabs = [
     { value: 'all', label: 'All' },
@@ -157,166 +160,199 @@ export const ProductList: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setView(view === 'grid' ? 'table' : 'grid')}
-              className="flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              {view === 'grid' ? <TableIcon className="w-4 h-4" /> : <GridIcon className="w-4 h-4" />}
-              <span className="hidden md:inline">{view === 'grid' ? 'Table View' : 'Grid View'}</span>
-            </button>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Product</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Tabs for filtering by type */}
-        <div className="flex gap-2 mb-4">
-          {typeTabs.map(tab => (
-            <button
-              key={tab.value}
-              onClick={() => setActiveType(tab.value)}
-              className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-                activeType === tab.value
-                  ? 'bg-indigo-600 text-white border-indigo-600'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Desktop grid/table view */}
-        {view === 'grid' ? (
-          <div className="hidden md:grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {isLoading ? (
-              <>
-                <ProductCardSkeleton />
-                <ProductCardSkeleton />
-                <ProductCardSkeleton />
-                <ProductCardSkeleton />
-                <ProductCardSkeleton />
-                <ProductCardSkeleton />
-              </>
-            ) : (
-              filteredProducts.map((product) => (
-                <div 
-                  key={product.id}
-                  className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {product.unit}
-                      </p>
-                      <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                        {getTypeLabel(product.type)}
-                      </span>
-                    </div>
-                    <Dropdown
-                      trigger={
-                        <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-                      }
-                      items={[
-                        {
-                          label: 'Edit',
-                          onClick: () => setEditingProduct(product)
-                        },
-                        {
-                          label: 'Delete',
-                          onClick: () => setDeletingProduct(product),
-                          className: 'text-red-600 hover:text-red-700'
-                        }
-                      ]}
-                    />
-                  </div>
-                
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {product.description}
-                  </p>
-                
-                  <div className="text-xl font-semibold text-indigo-600 dark:text-indigo-400">
-                    {formatCurrency(product.price)}
-                    <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-                      {' '}/ {product.unit}
-                    </span>
-                  </div>
-                </div>
-              ))
+            {activeSection === 'line_items' && (
+              <button
+                onClick={() => setShowNewModal(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
+              >
+                <Plus className="w-5 h-5" />
+                <span>New Line Item</span>
+              </button>
             )}
           </div>
-        ) : (
-          <div className="hidden md:block">
-            <TableView products={filteredProducts} />
-          </div>
-        )}
+        </div>
 
-        {/* Mobile list */}
-        <div className="md:hidden space-y-4">
-          {isLoading ? (
-            <>
-              <ProductCardSkeleton />
-              <ProductCardSkeleton />
-              <ProductCardSkeleton />
-            </>
-          ) : (
-            <div className="space-y-4 pb-20">
-              {filteredProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
+        <div className="flex gap-2 mb-6">
+          <button
+            className={`px-6 py-2 rounded-full text-base font-medium transition-colors focus:outline-none border
+              ${activeSection === 'products' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-transparent text-gray-400 border-gray-600 hover:bg-gray-800'}`}
+            onClick={() => setActiveSection('products')}
+          >
+            Products
+          </button>
+          <button
+            className={`px-6 py-2 rounded-full text-base font-medium transition-colors focus:outline-none border
+              ${activeSection === 'line_items' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-transparent text-gray-400 border-gray-600 hover:bg-gray-800'}`}
+            onClick={() => setActiveSection('line_items')}
+          >
+            Line Items
+          </button>
+        </div>
+
+        {activeSection === 'line_items' && (
+          <>
+            <div className="flex gap-4 mb-4 border-b border-gray-700">
+              {typeTabs.map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveType(tab.value)}
+                  className={`relative px-1 pb-2 text-sm font-medium transition-colors focus:outline-none
+                    ${activeType === tab.value ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-300'}`}
                 >
-                  <div className="flex justify-between">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                        {product.name}
-                      </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        {product.description}
-                      </p>
-                      <div className="flex items-center mt-2">
-                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                          {formatCurrency(product.price)}
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                          / {product.unit}
-                        </span>
-                      </div>
-                    </div>
-                    <Dropdown
-                      trigger={
-                        <button className="ml-4 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-                      }
-                      items={[
-                        {
-                          label: 'Edit',
-                          onClick: () => setEditingProduct(product)
-                        },
-                        {
-                          label: 'Delete',
-                          onClick: () => setDeletingProduct(product),
-                          className: 'text-red-600 hover:text-red-700'
-                        }
-                      ]}
-                    />
-                  </div>
-                </div>
+                  {tab.label}
+                  {activeType === tab.value && (
+                    <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-indigo-500 rounded-full" />
+                  )}
+                </button>
               ))}
             </div>
-          )}
-        </div>
+            {/* Only show table view for line items */}
+            <div className="hidden md:block">
+              <TableView products={filteredProducts} />
+            </div>
+            {/* Mobile list */}
+            <div className="md:hidden space-y-4">
+              {isLoading ? (
+                <>
+                  <ProductCardSkeleton />
+                  <ProductCardSkeleton />
+                  <ProductCardSkeleton />
+                </>
+              ) : (
+                <div className="space-y-4 pb-20">
+                  {filteredProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
+                    >
+                      <div className="flex justify-between">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                            {product.name}
+                          </h3>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            {product.description}
+                          </p>
+                          <div className="flex items-center mt-2">
+                            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
+                              {formatCurrency(product.price)}
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                              / {product.unit}
+                            </span>
+                          </div>
+                        </div>
+                        <Dropdown
+                          trigger={
+                            <button className="ml-4 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: 'Edit',
+                              onClick: () => setEditingProduct(product)
+                            },
+                            {
+                              label: 'Delete',
+                              onClick: () => setDeletingProduct(product),
+                              className: 'text-red-600 hover:text-red-700'
+                            }
+                          ]}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeSection === 'products' && (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Products / Assemblies</h2>
+              <button
+                onClick={() => setShowNewAssemblyModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                <Plus className="w-5 h-5" />
+                <span>New Product</span>
+              </button>
+            </div>
+            {products.length === 0 ? (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-20">No products/assemblies found.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product) => (
+                  <div key={product.id} className="bg-white dark:bg-gray-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 relative">
+                    <div className="absolute top-2 right-2">
+                      <Dropdown
+                        trigger={
+                          <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                        }
+                        items={[
+                          {
+                            label: 'Edit',
+                            onClick: () => {
+                              setEditingProduct(product);
+                              setShowNewAssemblyModal(true);
+                            }
+                          },
+                          {
+                            label: 'Delete',
+                            onClick: () => setDeletingProduct(product),
+                            className: 'text-red-600 hover:text-red-700'
+                          }
+                        ]}
+                      />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-1">{product.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{product.description}</p>
+                    <div className="text-indigo-600 dark:text-indigo-400 font-semibold text-xl">{formatCurrency(product.price)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* New Product/Assembly Modal */}
+            {showNewAssemblyModal && (
+              <div className="fixed inset-0 z-[60] flex md:justify-end">
+                <div 
+                  className={`absolute inset-0 bg-black transition-opacity duration-300 opacity-50`} 
+                  onClick={() => { setShowNewAssemblyModal(false); setEditingProduct(null); }}
+                />
+                <div 
+                  className={`fixed md:w-[50vw] transition-transform duration-300 ease-out bg-white dark:bg-gray-800 shadow-xl overflow-hidden md:right-0 md:top-0 md:bottom-0 bottom-0 left-0 right-0 h-full md:h-auto transform translate-y-0 md:translate-x-0`}
+                >
+                  <div className="flex flex-col h-full">
+                    <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{editingProduct ? 'Edit Product / Assembly' : 'New Product / Assembly'}</h2>
+                      <button onClick={() => { setShowNewAssemblyModal(false); setEditingProduct(null); }} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                        <X className="w-6 h-6" />
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <ProductAssemblyForm
+                        editingProduct={editingProduct}
+                        lineItems={products.filter(p => p.type !== 'assembly').map(p => ({ id: p.id, name: p.name, unit: p.unit, price: p.price }))}
+                        onClose={() => { setShowNewAssemblyModal(false); setEditingProduct(null); }}
+                        onSave={async (data) => {
+                          setShowNewAssemblyModal(false);
+                          setEditingProduct(null);
+                          // TODO: backend integration for add/edit
+                          await fetchProducts();
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showNewModal && (
@@ -329,7 +365,7 @@ export const ProductList: React.FC = () => {
         />
       )}
 
-      {editingProduct && (
+      {editingProduct && activeSection === 'line_items' && (
         <EditProductModal
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
