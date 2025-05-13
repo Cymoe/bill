@@ -11,6 +11,7 @@ import { NewTemplateModal } from './NewTemplateModal';
 import { EditTemplateModal } from './EditTemplateModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { TemplateCardSkeleton } from '../skeletons/TemplateCardSkeleton';
+import TableHeader from '../products/TableHeader';
 
 type Template = Tables['invoice_templates'] & {
   description?: string;
@@ -95,24 +96,16 @@ export const InvoiceTemplateList: React.FC = () => {
   // TableView component
   const TableView: React.FC<{ templates: Template[] }> = ({ templates }) => (
     <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-800">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider"># Items</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created At</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
+      <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+        <TableHeader />
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
           {templates.map((template) => (
             <tr key={template.id}>
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{template.name}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">{formatCurrency(template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0))}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{template.items?.length ?? 0}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{template.created_at ? new Date(template.created_at).toLocaleDateString() : ''}</td>
-              <td className="px-4 py-3 whitespace-nowrap">
+              <td className="px-4 py-3 w-1/5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{template.name}</td>
+              <td className="px-4 py-3 w-2/5 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">{formatCurrency(template.items.reduce((sum, item) => sum + (item.price * (item.quantity || 1)), 0))}</td>
+              <td className="px-4 py-3 w-1/6 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{template.items?.length ?? 0}</td>
+              <td className="px-4 py-3 w-1/8 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{template.created_at ? new Date(template.created_at).toLocaleDateString() : ''}</td>
+              <td className="px-4 py-3 w-1/12 whitespace-nowrap">
                 <Dropdown
                   trigger={
                     <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">

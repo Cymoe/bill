@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreVertical, Table as TableIcon, Grid as GridIcon, X } from 'lucide-react';
+import { Plus, Search, MoreVertical, X } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PRODUCT_TYPE_OPTIONS } from '../../constants';
 import ProductAssemblyForm from './ProductAssemblyForm';
+import TableHeader from './TableHeader';
 
 type Product = {
   id: string;
@@ -90,28 +91,17 @@ export const ProductList: React.FC = () => {
   // TableView component
   const TableView: React.FC<{ products: Product[] }> = ({ products }) => (
     <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-800">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unit</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created At</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
-          </tr>
-        </thead>
+      <table className="w-[1100px] table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+        <TableHeader />
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
           {products.map((product) => (
             <tr key={product.id}>
-              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{product.name}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate">{product.description}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">{formatCurrency(product.price)}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{product.unit}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{getTypeLabel(product.type)}</td>
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{product.created_at ? new Date(product.created_at).toLocaleDateString() : ''}</td>
-              <td className="px-4 py-3 whitespace-nowrap">
+              <td className="px-4 py-3 w-[200px] whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{product.name}</td>
+              <td className="px-4 py-3 w-[400px] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate">{product.description}</td>
+              <td className="px-4 py-3 w-[120px] whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">{formatCurrency(product.price)}</td>
+              <td className="px-4 py-3 w-[120px] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{product.unit}</td>
+              <td className="px-4 py-3 w-[180px] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">{getTypeLabel(product.type)}</td>
+              <td className="px-4 py-3 w-[80px] whitespace-nowrap">
                 <Dropdown
                   trigger={
                     <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
