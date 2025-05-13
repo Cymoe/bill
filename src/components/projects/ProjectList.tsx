@@ -76,7 +76,7 @@ export const ProjectList: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center">
+        <div className="px-8 pt-8 flex justify-between items-center">
           <div className="sm:flex-auto">
             <h1 className="text-xl font-medium text-white">Projects</h1>
             <p className="mt-2 text-sm text-gray-400">

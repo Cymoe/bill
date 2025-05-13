@@ -118,12 +118,58 @@ export const InvoiceList: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 md:space-y-6">
-        <Breadcrumbs items={[{ label: 'Invoices', href: '/invoices' }]} />
-        
-        {/* Desktop Header */}
-        <div className="hidden md:flex md:justify-between md:items-center gap-4">
-          <div className="flex gap-4 flex-1">
-            <div className="relative w-64">
+        <div className="px-8 pt-8">
+          <Breadcrumbs items={[{ label: 'Invoices', href: '/invoices' }]} />
+          {/* Desktop Header */}
+          <div className="hidden md:flex md:justify-between md:items-center gap-4">
+            <div className="flex gap-4 flex-1">
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search invoices..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+
+              <Dropdown
+                trigger={
+                  <button className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <Filter className="w-5 h-5" />
+                    <span>{statusFilters.find(f => f.value === selectedStatus)?.label}</span>
+                  </button>
+                }
+                items={statusFilters.map(filter => ({
+                  label: filter.label,
+                  onClick: () => setSelectedStatus(filter.value),
+                  className: selectedStatus === filter.value ? 'bg-gray-100 dark:bg-gray-700' : ''
+                }))}
+              />
+
+              <button
+                onClick={handleExport}
+                className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                title="Export to CSV"
+              >
+                <Download className="w-5 h-5" />
+                <span>Export</span>
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              <Plus className="w-5 h-5" />
+              <span>New Invoice</span>
+            </button>
+          </div>
+
+          {/* Mobile Header */}
+          <div className="md:hidden flex flex-col gap-4">
+            <div className="relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -133,82 +179,37 @@ export const InvoiceList: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
               />
             </div>
-
-            <Dropdown
-              trigger={
-                <button className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <Filter className="w-5 h-5" />
-                  <span>{statusFilters.find(f => f.value === selectedStatus)?.label}</span>
-                </button>
-              }
-              items={statusFilters.map(filter => ({
-                label: filter.label,
-                onClick: () => setSelectedStatus(filter.value),
-                className: selectedStatus === filter.value ? 'bg-gray-100 dark:bg-gray-700' : ''
-              }))}
-            />
-
+            
             <button
-              onClick={handleExport}
-              className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              title="Export to CSV"
+              onClick={() => setShowNewModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full"
             >
-              <Download className="w-5 h-5" />
-              <span>Export</span>
+              <Plus className="w-5 h-5" />
+              <span>New Invoice</span>
             </button>
-          </div>
-          
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Invoice</span>
-          </button>
-        </div>
 
-        {/* Mobile Header */}
-        <div className="md:hidden flex flex-col gap-4">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search invoices..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Invoice</span>
-          </button>
+            <div className="flex gap-2">
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
+                className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                {statusFilters.map(filter => (
+                  <option key={filter.value} value={filter.value}>
+                    {filter.label}
+                  </option>
+                ))}
+              </select>
 
-          <div className="flex gap-2">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
-              className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              {statusFilters.map(filter => (
-                <option key={filter.value} value={filter.value}>
-                  {filter.label}
-                </option>
-              ))}
-            </select>
-
-            <button
-              onClick={handleExport}
-              className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              title="Export to CSV"
-            >
-              <Download className="w-5 h-5" />
-              <span className="hidden md:inline">Export</span>
-            </button>
+              <button
+                onClick={handleExport}
+                className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                title="Export to CSV"
+              >
+                <Download className="w-5 h-5" />
+                <span className="hidden md:inline">Export</span>
+              </button>
+            </div>
           </div>
         </div>
 

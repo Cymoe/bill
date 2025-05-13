@@ -138,34 +138,35 @@ export const InvoiceTemplateList: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 md:space-y-6">
-        <Breadcrumbs items={[{ label: 'Templates', href: '/templates' }]} />
-        
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search templates..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setView(view === 'grid' ? 'table' : 'grid')}
-              className="flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              {view === 'grid' ? <TableIcon className="w-4 h-4" /> : <GridIcon className="w-4 h-4" />}
-              <span className="hidden md:inline">{view === 'grid' ? 'Table View' : 'Grid View'}</span>
-            </button>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Template</span>
-            </button>
+        <div className="px-8 pt-8">
+          <Breadcrumbs items={[{ label: 'Templates', href: '/templates' }]} />
+          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+            <div className="relative w-full md:w-64">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search templates..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setView(view === 'grid' ? 'table' : 'grid')}
+                className="flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                {view === 'grid' ? <TableIcon className="w-4 h-4" /> : <GridIcon className="w-4 h-4" />}
+                <span className="hidden md:inline">{view === 'grid' ? 'Table View' : 'Grid View'}</span>
+              </button>
+              <button
+                onClick={() => setShowNewModal(true)}
+                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
+              >
+                <Plus className="w-5 h-5" />
+                <span>New Template</span>
+              </button>
+            </div>
           </div>
         </div>
 

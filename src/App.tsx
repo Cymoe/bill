@@ -6,6 +6,7 @@ import { Dashboard } from './components/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { ProductList } from './components/products/ProductList';
+import { ProductsPage } from './components/products/ProductsPage';
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { InvoiceTemplateList } from './components/templates/InvoiceTemplateList';
@@ -74,7 +75,7 @@ function AppRoutes() {
         path="/products"
         element={
           <ProtectedRoute>
-            <ProductList />
+            <ProductsPage />
           </ProtectedRoute>
         }
       />
@@ -155,6 +156,14 @@ function AppRoutes() {
       />
 
       {/* Catch all */}
+      <Route
+        path="/price-book"
+        element={
+          <ProtectedRoute>
+            <ProductList />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );

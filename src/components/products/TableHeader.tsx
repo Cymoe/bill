@@ -3,12 +3,12 @@ import React from 'react';
 const TableHeader: React.FC = () => (
   <thead className="bg-gray-50 dark:bg-gray-800">
     <tr>
-      <th className="px-4 py-3 w-[200px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Name</th>
-      <th className="px-4 py-3 w-[400px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
-      <th className="px-4 py-3 w-[120px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Price</th>
-      <th className="px-4 py-3 w-[120px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Unit</th>
-      <th className="px-4 py-3 w-[180px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-      <th className="px-4 py-3 w-[80px] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+      <th className="pl-8 pr-4 py-3 w-[25%] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">Name</th>
+      <th className="pl-8 pr-4 py-3 w-[35%] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">Description</th>
+      <th className="pl-8 pr-4 py-3 w-[12%] text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">Price</th>
+      <th className="px-4 py-3 w-[10%] text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">Unit</th>
+      <th className="px-4 py-3 w-[12%] text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">Type</th>
+      <th className="p-1 w-[5%] text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider border border-gray-200 dark:border-gray-700">&nbsp;</th>
     </tr>
   </thead>
 );

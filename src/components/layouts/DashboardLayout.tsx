@@ -42,7 +42,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
     { icon: Briefcase, label: 'Projects', to: '/projects' },
     { icon: FileText, label: 'Invoices', to: '/invoices' },
-    { icon: Book, label: 'Price Book', to: '/products' },
+    { icon: Book, label: 'Price Book', to: '/price-book' },
+    { icon: Book, label: 'Products', to: '/products' },
     { icon: FileStack, label: 'Templates', to: '/templates' },
     { icon: Users, label: 'Clients', to: '/clients' },
   ];
@@ -136,7 +137,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
       {/* Main content */}
       <div className="flex-1 md:ml-64">
-        <main className="p-4 md:p-8 pb-32 md:pb-8">
+        <main className="pb-32 md:pb-8">
           {children}
         </main>
       </div>
