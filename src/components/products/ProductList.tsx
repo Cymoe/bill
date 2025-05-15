@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, MoreVertical } from 'lucide-react';
+import { Plus, MoreVertical } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { Breadcrumbs } from '../common/Breadcrumbs';
+
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { Dropdown } from '../common/Dropdown';
 import { NewProductModal } from './NewProductModal';
@@ -25,7 +25,7 @@ type Product = {
 
 export const ProductList: React.FC = () => {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -59,9 +59,7 @@ export const ProductList: React.FC = () => {
   };
 
   const filteredProducts = products.filter((product) =>
-    (activeType === 'all' || product.type === activeType) &&
-    (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    activeType === 'all' || product.type === activeType
   );
 
   const handleDelete = async (id: string) => {
@@ -126,43 +124,30 @@ export const ProductList: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4 md:space-y-6">
-        <div className="px-8 pt-8">
-          <Breadcrumbs items={[{ label: 'Price Book', href: '/price-book' }]} />
-          <div className="flex gap-4 pb-2">
-            {typeTabs.map(tab => (
-              <button
-                key={tab.value}
-                onClick={() => setActiveType(tab.value)}
-                className={`relative px-1 pb-2 text-sm font-medium transition-colors focus:outline-none
-                  ${activeType === tab.value ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-300'}`}
-              >
-                {tab.label}
-                {activeType === tab.value && (
-                  <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-indigo-500 rounded-full" />
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mt-2">
-            <div className="relative w-full md:w-64">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search price book..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-              />
+        <div className="px-8">
+          <div className="flex justify-between items-center pb-2">
+            <div className="flex space-x-4">
+              {typeTabs.map(tab => (
+                <button
+                  key={tab.value}
+                  onClick={() => setActiveType(tab.value)}
+                  className={`relative px-1 pb-2 text-sm font-medium transition-colors focus:outline-none
+                    ${activeType === tab.value ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-300'}`}
+                >
+                  {tab.label}
+                  {activeType === tab.value && (
+                    <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-indigo-500 rounded-full" />
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowNewModal(true)}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full md:w-auto"
-              >
-                <Plus className="w-5 h-5" />
-                <span>New Line Item</span>
-              </button>
-            </div>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              <Plus className="w-5 h-5" />
+              <span>New Line Item</span>
+            </button>
           </div>
         </div>
         <div>
