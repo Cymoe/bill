@@ -6,7 +6,7 @@ import { DashboardLayout } from '../layouts/DashboardLayout';
 import { LineItemModal } from './LineItemModal';
 import { EditProductModal } from './EditProductModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { CreateModal } from '../common/CreateModal';
+import { CreateDropdown } from '../common/CreateModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import TableHeader from './TableHeader';
@@ -377,8 +377,7 @@ export const ProductList: React.FC = () => {
         </div>
       </div>
       {showCreateModal && (
-        <CreateModal
-          onClose={() => setShowCreateModal(false)}
+        <CreateDropdown
           onCreateLineItem={() => {
             setShowCreateModal(false);
             setShowLineItemModal(true);

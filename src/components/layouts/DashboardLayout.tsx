@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import { 
@@ -18,7 +18,15 @@ import {
   Plus,
   ChevronUp
 } from 'lucide-react';
-import { CreateModal } from '../common/CreateModal';
+import { CreateDropdown } from '../common/CreateModal';
+import { NewClientModal } from '../clients/NewClientModal';
+import ProductModal from '../products/ProductModal';
+import { EditProductModal } from '../products/EditProductModal';
+import ProductAssemblyForm from '../products/ProductAssemblyForm';
+import { LineItemModal } from '../products/LineItemModal';
+import ProductForm from '../products/ProductForm';
+import { supabase } from '../../lib/supabase';
+import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
 
 interface SidebarItem {
   icon?: LucideIcon;
@@ -48,14 +56,50 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [showNewProductDrawer, setShowNewProductDrawer] = useState(false);
+  const [showLineItemDrawer, setShowLineItemDrawer] = useState(false);
+  const [isClosingLineItemDrawer, setIsClosingLineItemDrawer] = useState(false);
+  const [products, setProducts] = useState<any[]>([]);
+  const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const createDropdownRef = useRef<HTMLDivElement>(null);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate("/");
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  useEffect(() => {
+    if (showNewProductDrawer) {
+      (async () => {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error) setProducts(data || []);
+      })();
+    }
+  }, [showNewProductDrawer]);
+
+  useEffect(() => {
+    if (!showCreateModal) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        createDropdownRef.current &&
+        !createDropdownRef.current.contains(event.target as Node) &&
+        createButtonRef.current &&
+        !createButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowCreateModal(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showCreateModal]);
 
   const navItems = [
     { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
@@ -140,42 +184,56 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <div className="flex items-center">
                 <div className="relative">
                   <button
+                    ref={createButtonRef}
                     aria-label="create-new"
                     className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                    onClick={() => setShowCreateModal(true)}
+                    onClick={() => setShowCreateModal((v) => !v)}
                     data-testid="create-new-btn"
                   >
                     <Plus className="w-5 h-5" />
                     <span className="text-sm font-medium">Create</span>
                   </button>
                   {showCreateModal && (
-                    <CreateModal
-                      onClose={() => setShowCreateModal(false)}
-                      onCreateLineItem={() => {
-                        setShowCreateModal(false);
-                        navigate('/price-book/line-items/new');
-                      }}
-                      onCreateCategory={() => {
-                        setShowCreateModal(false);
-                        navigate('/price-book/categories/new');
-                      }}
-                      onCreateClient={() => {
-                        setShowCreateModal(false);
-                        navigate('/clients/new');
-                      }}
-                      onCreateProject={() => {
-                        setShowCreateModal(false);
-                        navigate('/projects/new');
-                      }}
-                      onCreateInvoice={() => {
-                        setShowCreateModal(false);
-                        navigate('/invoices/new');
-                      }}
-                      onCreateProduct={() => {
-                        setShowCreateModal(false);
-                        navigate('/price-book/products/new');
-                      }}
-                    />
+                    <div ref={createDropdownRef}>
+                      <CreateDropdown
+                        onCreateLineItem={() => {
+                          setShowCreateModal(false);
+                          setShowLineItemDrawer(true);
+                        }}
+                        onCreateCategory={() => {
+                          setShowCreateModal(false);
+                          navigate('/price-book/categories/new');
+                        }}
+                        onCreateClient={() => {
+                          setShowCreateModal(false);
+                          setShowNewClientModal(true);
+                        }}
+                        onCreateProject={() => {
+                          setShowCreateModal(false);
+                          navigate('/projects/new');
+                        }}
+                        onCreateInvoice={() => {
+                          setShowCreateModal(false);
+                          setShowNewInvoiceDrawer(true);
+                        }}
+                        onCreateProduct={() => {
+                          setShowCreateModal(false);
+                          setShowNewProductDrawer(true);
+                        }}
+                        onCreatePriceBookTemplate={() => {
+                          setShowCreateModal(false);
+                          navigate('/templates/price-book/new');
+                        }}
+                        onCreateProjectTemplate={() => {
+                          setShowCreateModal(false);
+                          navigate('/templates/project/new');
+                        }}
+                        onCreateContractTemplate={() => {
+                          setShowCreateModal(false);
+                          navigate('/templates/contract/new');
+                        }}
+                      />
+                    </div>
                   )}
                 </div>
               </div>
@@ -330,6 +388,97 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
       </div>
+
+      {/* NewClientModal drawer */}
+      {showNewClientModal && (
+        <NewClientModal
+          onClose={() => setShowNewClientModal(false)}
+          onSave={() => setShowNewClientModal(false)}
+        />
+      )}
+      {/* New Product/Assembly Drawer */}
+      {showNewProductDrawer && (
+        <div className="fixed inset-0 z-[60] flex md:justify-end">
+          <div 
+            className="absolute inset-0 bg-black transition-opacity duration-300 opacity-50"
+            onClick={() => setShowNewProductDrawer(false)}
+          />
+          <div 
+            className="fixed md:w-[50vw] transition-transform duration-300 ease-out bg-white dark:bg-gray-800 shadow-xl overflow-hidden md:right-0 md:top-0 md:bottom-0 bottom-0 left-0 right-0 h-full md:h-auto transform translate-y-0 md:translate-x-0"
+          >
+            <div className="flex flex-col h-full">
+              <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">New Product / Assembly</h2>
+                <button onClick={() => setShowNewProductDrawer(false)} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto p-4">
+                <ProductAssemblyForm
+                  editingProduct={null}
+                  lineItems={products.filter(p => p.type !== 'assembly').map(p => ({ id: p.id, name: p.name, unit: p.unit, price: p.price }))}
+                  onClose={() => setShowNewProductDrawer(false)}
+                  onSave={() => setShowNewProductDrawer(false)}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* New Line Item Drawer */}
+      {showLineItemDrawer && (
+        <div className="fixed inset-0 z-[60] flex justify-end">
+          <div 
+            className="absolute inset-0 bg-black transition-opacity duration-300 opacity-50"
+            onClick={() => {
+              setIsClosingLineItemDrawer(true);
+              setTimeout(() => {
+                setShowLineItemDrawer(false);
+                setIsClosingLineItemDrawer(false);
+              }, 300);
+            }}
+          />
+          <div
+            className={`
+              md:w-full md:max-w-md
+              transition-transform duration-300 ease-out 
+              bg-white dark:bg-gray-800 
+              shadow-xl
+              overflow-hidden
+              h-full
+              transform
+              ${isClosingLineItemDrawer ? 'translate-x-full' : 'translate-x-0'}
+            `}
+          >
+            <ProductForm
+              title="New Line Item"
+              submitLabel="Save"
+              onClose={() => {
+                setIsClosingLineItemDrawer(true);
+                setTimeout(() => {
+                  setShowLineItemDrawer(false);
+                  setIsClosingLineItemDrawer(false);
+                }, 300);
+              }}
+              onSubmit={async (data) => {
+                setIsClosingLineItemDrawer(true);
+                setTimeout(() => {
+                  setShowLineItemDrawer(false);
+                  setIsClosingLineItemDrawer(false);
+                }, 300);
+                // handle save logic here if needed
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {/* New Invoice Drawer */}
+      {showNewInvoiceDrawer && (
+        <NewInvoiceModal
+          onClose={() => setShowNewInvoiceDrawer(false)}
+          onSave={() => setShowNewInvoiceDrawer(false)}
+        />
+      )}
     </div>
   );
 };
