@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { UNIT_OPTIONS, PRODUCT_TYPE_OPTIONS } from '../../constants';
-import { supabase } from '../../lib/supabase';
 
 type Product = {
   id: string;
@@ -17,7 +16,7 @@ type Product = {
 interface EditProductModalProps {
   product: Product;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (data: Partial<Product>) => void;
 }
 
 export const EditProductModal: React.FC<EditProductModalProps> = ({
@@ -46,25 +45,11 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
     try {
       setLoading(true);
       setError(null);
-
-      const { error } = await supabase
-        .from('products')
-        .update({
-          name: formData.name,
-          description: formData.description,
-          price: formData.price,
-          unit: formData.unit,
-          type: formData.type
-        })
-        .eq('id', product.id);
-
-      if (error) throw error;
-
-      setIsClosing(true);
-      setTimeout(onSave, 300);
-    } catch (err) {
-      console.error('Error updating product:', err);
-      setError('Failed to update product');
+      onSave(formData);
+      handleClose();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'An error occurred');
+    } finally {
       setLoading(false);
     }
   };

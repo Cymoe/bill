@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MoreVertical, Plus } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { NewProductModal } from './NewProductModal';
+import { LineItemModal } from './LineItemModal';
 import { EditProductModal } from './EditProductModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
+import { CreateModal } from '../common/CreateModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import TableHeader from './TableHeader';
@@ -24,23 +25,33 @@ type Product = {
 export const ProductList: React.FC = () => {
   const { user } = useAuth();
 
-  const [showNewModal, setShowNewModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showLineItemModal, setShowLineItemModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [activeType, setActiveType] = useState<string>('all');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterType, setFilterType] = useState('all');
+  const [priceRange, setPriceRange] = useState<{min: string; max: string}>({ min: '', max: '' });
+  const [filterUnit, setFilterUnit] = useState('any');
   const menuRef = useRef<HTMLDivElement>(null);
-  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
-  const createDropdownRef = useRef<HTMLDivElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
+
+
+  const getTypeCount = (type: string) => {
+    if (type === 'all') return products.length;
+    return products.filter(product => product.type === type).length;
+  };
 
   const tabs = [
-    { value: 'all', label: 'All' },
-    { value: 'material', label: 'Material' },
-    { value: 'labor', label: 'Labor' },
-    { value: 'equipment', label: 'Equipment' },
-    { value: 'service', label: 'Service' },
-    { value: 'subcontractor', label: 'Subcontractor' }
+    { value: 'all', label: 'All', count: getTypeCount('all') },
+    { value: 'material', label: 'Material', count: getTypeCount('material') },
+    { value: 'labor', label: 'Labor', count: getTypeCount('labor') },
+    { value: 'equipment', label: 'Equipment', count: getTypeCount('equipment') },
+    { value: 'service', label: 'Service', count: getTypeCount('service') },
+    { value: 'subcontractor', label: 'Subcontractor', count: getTypeCount('subcontractor') }
   ];
 
   useEffect(() => {
@@ -49,29 +60,19 @@ export const ProductList: React.FC = () => {
     }
   }, [user]);
 
-  // Close dropdown on click outside
   useEffect(() => {
-    if (!menuOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [menuOpen]);
-
-  // Close create dropdown on click outside
-  useEffect(() => {
-    if (!showCreateDropdown) return;
-    function handleClick(e: MouseEvent) {
-      if (createDropdownRef.current && !createDropdownRef.current.contains(e.target as Node)) {
-        setShowCreateDropdown(false);
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) {
+        setShowFilter(false);
       }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showCreateDropdown]);
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchProducts = async () => {
     try {
@@ -80,30 +81,46 @@ export const ProductList: React.FC = () => {
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
+
       if (error) throw error;
       setProducts(data || []);
-    } catch (err) {
-      console.error('Error fetching products:', err);
+    } catch (error) {
+      console.error('Error fetching products:', error);
     }
   };
 
-  const filteredProducts = products.filter((product) =>
-    activeType === 'all' || product.type === activeType
-  );
-
-  const handleDelete = async (id: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', id);
+        .eq('id', productId);
+
       if (error) throw error;
-      setDeletingProduct(null);
-      fetchProducts();
-    } catch (err) {
-      console.error('Error deleting product:', err);
+      await fetchProducts();
+    } catch (error) {
+      console.error('Error deleting product:', error);
     }
   };
+
+  const applyFilters = () => {
+    setShowFilter(false);
+    setActiveType(filterType); // Sync the tab selection with filter type
+  };
+
+  const filteredProducts = products.filter(product => {
+    // Type filter
+    if (filterType !== 'all' && product.type !== filterType) return false;
+
+    // Price range filter
+    if (priceRange.min && parseFloat(priceRange.min) > product.price) return false;
+    if (priceRange.max && parseFloat(priceRange.max) < product.price) return false;
+
+    // Unit filter
+    if (filterUnit !== 'any' && product.unit !== filterUnit) return false;
+
+    return true;
+  });
 
   const TableView: React.FC<{ products: Product[] }> = ({ products }) => (
     <div className="overflow-x-auto w-full">
@@ -133,6 +150,153 @@ export const ProductList: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-0 md:space-y-0">
+        {/* Header Section */}
+        <div className="p-4 flex items-center justify-between border-b border-gray-800">
+          <div className="flex flex-col justify-center">
+            <h1 className="text-2xl font-semibold text-white mb-1">Price Book</h1>
+            <p className="text-gray-400">Manage all your pricing items in one place</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search items..."
+                className="w-[300px] bg-[#232632] text-white placeholder-gray-400 rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+              <svg
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+            </div>
+            <button
+              className="flex items-center gap-2 bg-[#232632] text-white px-4 py-2.5 rounded-xl hover:bg-[#2A2E39] transition-colors relative"
+              onClick={() => setShowFilter(!showFilter)}
+            >
+              <svg
+                className="h-4 w-4 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                />
+              </svg>
+              Filter
+            </button>
+            {showFilter && (
+              <div 
+                className="absolute right-0 top-full mt-2 w-[320px] bg-[#1a1d24] rounded-xl shadow-lg z-50 p-4"
+                ref={filterRef}
+              >
+                <h2 className="text-lg font-semibold text-white mb-6">Filter By</h2>
+                
+                {/* Type Filter */}
+                <div className="mb-6">
+                  <label className="block text-gray-400 mb-2">Type</label>
+                  <div className="relative">
+                    <select
+                      value={filterType}
+                      onChange={(e) => setFilterType(e.target.value)}
+                      className="w-full bg-[#232632] text-white rounded-xl py-2.5 px-4 appearance-none cursor-pointer"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="material">Material</option>
+                      <option value="labor">Labor</option>
+                      <option value="equipment">Equipment</option>
+                      <option value="service">Service</option>
+                      <option value="subcontractor">Subcontractor</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Price Range */}
+                <div className="mb-6">
+                  <label className="block text-gray-400 mb-2">Price Range</label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="text"
+                      placeholder="Min"
+                      value={priceRange.min}
+                      onChange={(e) => setPriceRange(prev => ({ ...prev, min: e.target.value }))}
+                      className="flex-1 bg-[#232632] text-white rounded-xl py-2.5 px-4 placeholder-gray-500"
+                    />
+                    <span className="text-gray-400">to</span>
+                    <input
+                      type="text"
+                      placeholder="Max"
+                      value={priceRange.max}
+                      onChange={(e) => setPriceRange(prev => ({ ...prev, max: e.target.value }))}
+                      className="flex-1 bg-[#232632] text-white rounded-xl py-2.5 px-4 placeholder-gray-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Unit Filter */}
+                <div className="mb-6">
+                  <label className="block text-gray-400 mb-2">Unit</label>
+                  <div className="relative">
+                    <select
+                      value={filterUnit}
+                      onChange={(e) => setFilterUnit(e.target.value)}
+                      className="w-full bg-[#232632] text-white rounded-xl py-2.5 px-4 appearance-none cursor-pointer"
+                    >
+                      <option value="any">Any Unit</option>
+                      <option value="hour">Hour</option>
+                      <option value="sqft">Square Foot</option>
+                      <option value="linear">Linear Foot</option>
+                      <option value="unit">Unit</option>
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <svg className="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-4">
+                  <button
+                    onClick={() => {
+                      setFilterType('all');
+                      setPriceRange({ min: '', max: '' });
+                      setFilterUnit('any');
+                    }}
+                    className="flex-1 py-2.5 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={applyFilters}
+                    className="flex-1 bg-blue-500 text-white py-2.5 rounded-xl hover:bg-blue-600 transition-colors text-sm font-medium"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sub Navigation */}
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             {tabs.map(tab => (
@@ -143,7 +307,12 @@ export const ProductList: React.FC = () => {
                 }`}
                 onClick={() => setActiveType(tab.value)}
               >
-                {tab.label}
+                <span className="flex items-center gap-2">
+                  {tab.label}
+                  <span className="px-2 py-0.5 text-xs rounded-full bg-gray-800">
+                    {tab.count}
+                  </span>
+                </span>
                 <span
                   className={`absolute left-0 right-0 bottom-0 h-0.5 transition-colors duration-150
                     ${activeType === tab.value ? 'bg-blue-500' : 'bg-transparent group-hover:bg-blue-500'}`}
@@ -151,9 +320,9 @@ export const ProductList: React.FC = () => {
               </button>
             ))}
           </div>
-          {/* Top right actions: ellipsis only */}
+          {/* Top right actions */}
           <div className="flex items-center gap-2">
-            <div className="relative pr-4" ref={menuRef}>
+            <div className="relative" ref={menuRef}>
               <button
                 aria-label="menu"
                 className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800"
@@ -164,20 +333,6 @@ export const ProductList: React.FC = () => {
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-56 bg-[#232632] rounded-xl shadow-lg z-50 py-2 flex flex-col min-w-[200px]">
-                  <button
-                    className="flex items-center gap-3 px-5 py-3 text-white text-base font-medium hover:bg-[#2A2E39] rounded-xl transition-colors"
-                    onClick={() => { setShowNewModal(true); setMenuOpen(false); }}
-                  >
-                    <Plus className="w-5 h-5" />
-                    New Line Item
-                  </button>
-                  <button
-                    className="flex items-center gap-3 px-5 py-3 text-white text-base font-medium hover:bg-[#2A2E39] rounded-xl transition-colors"
-                    onClick={() => setMenuOpen(false)}
-                  >
-                    <Plus className="w-5 h-5" />
-                    New Category
-                  </button>
                   <button
                     className="px-5 py-3 text-white text-base text-left hover:bg-[#2A2E39] rounded-xl transition-colors"
                     onClick={() => setMenuOpen(false)}
@@ -200,12 +355,48 @@ export const ProductList: React.FC = () => {
           <TableView products={filteredProducts} />
         </div>
       </div>
-      {showNewModal && (
-        <NewProductModal
-          onClose={() => setShowNewModal(false)}
-          onSave={async () => {
-            setShowNewModal(false);
-            await fetchProducts();
+      {showCreateModal && (
+        <CreateModal
+          onClose={() => setShowCreateModal(false)}
+          onCreateLineItem={() => {
+            setShowCreateModal(false);
+            setShowLineItemModal(true);
+          }}
+          onCreateCategory={() => {
+            // TODO: Implement category creation
+            setShowCreateModal(false);
+          }}
+          onCreateClient={() => {
+            // TODO: Navigate to client creation
+            setShowCreateModal(false);
+          }}
+          onCreateProject={() => {
+            // TODO: Navigate to project creation
+            setShowCreateModal(false);
+          }}
+          onCreateInvoice={() => {
+            // TODO: Navigate to invoice creation
+            setShowCreateModal(false);
+          }}
+          onCreateProduct={() => {
+            // TODO: Navigate to product creation
+            setShowCreateModal(false);
+          }}
+        />
+      )}
+      {showLineItemModal && (
+        <LineItemModal
+          onClose={() => setShowLineItemModal(false)}
+          onSave={async (data) => {
+            try {
+              await supabase
+                .from('products')
+                .insert([{ ...data, user_id: user?.id }]);
+              setShowLineItemModal(false);
+              await fetchProducts();
+            } catch (error) {
+              console.error('Error saving product:', error);
+            }
           }}
         />
       )}
@@ -213,9 +404,17 @@ export const ProductList: React.FC = () => {
         <EditProductModal
           product={editingProduct}
           onClose={() => setEditingProduct(null)}
-          onSave={async () => {
-            setEditingProduct(null);
-            await fetchProducts();
+          onSave={async (data: Partial<Product>) => {
+            try {
+              await supabase
+                .from('products')
+                .update(data)
+                .eq('id', editingProduct.id);
+              setEditingProduct(null);
+              await fetchProducts();
+            } catch (error) {
+              console.error('Error updating product:', error);
+            }
           }}
         />
       )}
@@ -223,7 +422,10 @@ export const ProductList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Product"
           message="Are you sure you want to delete this product? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingProduct.id)}
+          onConfirm={async () => {
+            await handleDeleteProduct(deletingProduct.id);
+            setDeletingProduct(null);
+          }}
           onCancel={() => setDeletingProduct(null)}
         />
       )}
