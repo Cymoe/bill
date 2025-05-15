@@ -1,15 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, MoreVertical } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MoreVertical, Plus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Dropdown } from '../common/Dropdown';
 import { NewProductModal } from './NewProductModal';
 import { EditProductModal } from './EditProductModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { PRODUCT_TYPE_OPTIONS } from '../../constants';
 import TableHeader from './TableHeader';
 
 type Product = {
@@ -30,12 +28,19 @@ export const ProductList: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
-
   const [activeType, setActiveType] = useState<string>('all');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [showCreateDropdown, setShowCreateDropdown] = useState(false);
+  const createDropdownRef = useRef<HTMLDivElement>(null);
 
-  const typeTabs = [
+  const tabs = [
     { value: 'all', label: 'All' },
-    ...PRODUCT_TYPE_OPTIONS
+    { value: 'material', label: 'Material' },
+    { value: 'labor', label: 'Labor' },
+    { value: 'equipment', label: 'Equipment' },
+    { value: 'service', label: 'Service' },
+    { value: 'subcontractor', label: 'Subcontractor' }
   ];
 
   useEffect(() => {
@@ -43,6 +48,30 @@ export const ProductList: React.FC = () => {
       fetchProducts();
     }
   }, [user]);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
+
+  // Close create dropdown on click outside
+  useEffect(() => {
+    if (!showCreateDropdown) return;
+    function handleClick(e: MouseEvent) {
+      if (createDropdownRef.current && !createDropdownRef.current.contains(e.target as Node)) {
+        setShowCreateDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showCreateDropdown]);
 
   const fetchProducts = async () => {
     try {
@@ -76,81 +105,98 @@ export const ProductList: React.FC = () => {
     }
   };
 
-  const getTypeLabel = (type: string) => PRODUCT_TYPE_OPTIONS.find(opt => opt.value === type)?.label || type;
-
-  // TableView for line items
   const TableView: React.FC<{ products: Product[] }> = ({ products }) => (
     <div className="overflow-x-auto w-full">
-      <table className="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
+      <table className="w-full table-fixed">
         <TableHeader />
-        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+        <tbody className="bg-gray-900 divide-y divide-gray-800">
           {products.map((product) => (
-            <tr key={product.id}>
-              <td className="pl-8 pr-4 py-3 w-[25%] whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700">{product.name}</td>
-              <td className="pl-8 pr-4 py-3 w-[35%] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate border border-gray-200 dark:border-gray-700">{product.description}</td>
-              <td className="pl-8 pr-4 py-3 w-[12%] whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400 border border-gray-200 dark:border-gray-700 text-right">{formatCurrency(product.price)}</td>
-              <td className="px-4 py-3 w-[10%] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-left">{product.unit}</td>
-              <td className="px-4 py-3 w-[12%] whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-center">{getTypeLabel(product.type)}</td>
-              <td className="p-1 w-[5%] whitespace-nowrap border border-gray-200 dark:border-gray-700 text-center">
-                <Dropdown
-                  trigger={
-                    <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                  }
-                  items={[
-                    {
-                      label: 'Edit',
-                      onClick: () => setEditingProduct(product)
-                    },
-                    {
-                      label: 'Delete',
-                      onClick: () => setDeletingProduct(product),
-                      className: 'text-red-600 hover:text-red-700'
-                    }
-                  ]}
-                />
-              </td>
+            <tr
+              key={product.id}
+              className="hover:bg-[#232632] cursor-pointer transition-colors"
+              onClick={() => setEditingProduct(product)}
+            >
+              <td className="pl-8 pr-4 py-4 w-[20%] whitespace-nowrap text-sm font-semibold text-white/80 align-middle" data-testid="product-name">{product.name}</td>
+              <td className="pl-8 pr-4 py-4 w-[55%] whitespace-nowrap text-base text-gray-300 align-middle">{product.description}</td>
+              <td className="py-4 pr-3 whitespace-nowrap text-base text-white/80 align-middle text-right">{formatCurrency(product.price)}</td>
+              <td className="py-4 pl-2 w-[120px] whitespace-nowrap text-base text-gray-300 align-middle text-left">{product.unit}</td>
             </tr>
           ))}
         </tbody>
       </table>
       {products.length === 0 && (
-        <div className="p-8 text-center text-gray-500 dark:text-gray-400">No line items found.</div>
+        <div className="p-8 text-center text-gray-500">No line items found.</div>
       )}
     </div>
   );
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 md:space-y-6">
-        <div className="px-8">
-          <div className="flex justify-between items-center pb-2">
-            <div className="flex space-x-4">
-              {typeTabs.map(tab => (
-                <button
-                  key={tab.value}
-                  onClick={() => setActiveType(tab.value)}
-                  className={`relative px-1 pb-2 text-sm font-medium transition-colors focus:outline-none
-                    ${activeType === tab.value ? 'text-indigo-400' : 'text-gray-400 hover:text-indigo-300'}`}
-                >
-                  {tab.label}
-                  {activeType === tab.value && (
-                    <span className="absolute left-0 right-0 -bottom-[2px] h-1 bg-indigo-500 rounded-full" />
-                  )}
-                </button>
-              ))}
+      <div className="space-y-0 md:space-y-0">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            {tabs.map(tab => (
+              <button
+                key={tab.value}
+                className={`group relative px-6 py-3 text-sm font-medium ${
+                  activeType === tab.value ? 'text-blue-500' : 'text-gray-400 hover:text-gray-300'
+                }`}
+                onClick={() => setActiveType(tab.value)}
+              >
+                {tab.label}
+                <span
+                  className={`absolute left-0 right-0 bottom-0 h-0.5 transition-colors duration-150
+                    ${activeType === tab.value ? 'bg-blue-500' : 'bg-transparent group-hover:bg-blue-500'}`}
+                />
+              </button>
+            ))}
+          </div>
+          {/* Top right actions: ellipsis only */}
+          <div className="flex items-center gap-2">
+            <div className="relative pr-4" ref={menuRef}>
+              <button
+                aria-label="menu"
+                className="p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setMenuOpen((v) => !v)}
+              >
+                <MoreVertical className="w-6 h-6" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-[#232632] rounded-xl shadow-lg z-50 py-2 flex flex-col min-w-[200px]">
+                  <button
+                    className="flex items-center gap-3 px-5 py-3 text-white text-base font-medium hover:bg-[#2A2E39] rounded-xl transition-colors"
+                    onClick={() => { setShowNewModal(true); setMenuOpen(false); }}
+                  >
+                    <Plus className="w-5 h-5" />
+                    New Line Item
+                  </button>
+                  <button
+                    className="flex items-center gap-3 px-5 py-3 text-white text-base font-medium hover:bg-[#2A2E39] rounded-xl transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    <Plus className="w-5 h-5" />
+                    New Category
+                  </button>
+                  <button
+                    className="px-5 py-3 text-white text-base text-left hover:bg-[#2A2E39] rounded-xl transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Import Items
+                  </button>
+                  <button
+                    className="px-5 py-3 text-white text-base text-left hover:bg-[#2A2E39] rounded-xl transition-colors"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    Export Price Book
+                  </button>
+                </div>
+              )}
             </div>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Line Item</span>
-            </button>
           </div>
         </div>
-        <div>
+        {/* Table */}
+        <div className="pt-0">
           <TableView products={filteredProducts} />
         </div>
       </div>
