@@ -4,14 +4,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { formatCurrency } from '../../utils/format';
-import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { Dropdown } from '../common/Dropdown';
 import { NewTemplateModal } from './NewTemplateModal';
 import { EditTemplateModal } from './EditTemplateModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { TemplateCardSkeleton } from '../skeletons/TemplateCardSkeleton';
-import TableHeader from '../products/TableHeader';
+import PageHeader from '../common/PageHeader';
 
 type Template = Tables['invoice_templates'] & {
   description?: string;
@@ -97,7 +96,15 @@ export const InvoiceTemplateList: React.FC = () => {
   const TableView: React.FC<{ templates: Template[] }> = ({ templates }) => (
     <div className="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
       <table className="min-w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
-        <TableHeader />
+        <thead className="bg-gray-50 dark:bg-gray-800">
+          <tr>
+            <th className="px-4 py-3 w-1/5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">Name</th>
+            <th className="px-4 py-3 w-2/5 whitespace-nowrap text-sm text-indigo-600 dark:text-indigo-400">Total</th>
+            <th className="px-4 py-3 w-1/6 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">Items</th>
+            <th className="px-4 py-3 w-1/8 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">Created</th>
+            <th className="px-4 py-3 w-1/12 whitespace-nowrap">Actions</th>
+          </tr>
+        </thead>
         <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
           {templates.map((template) => (
             <tr key={template.id}>
@@ -139,7 +146,6 @@ export const InvoiceTemplateList: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-4 md:space-y-6">
         <div className="px-8 pt-8">
-          <Breadcrumbs items={[{ label: 'Templates', href: '/templates' }]} />
           <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />

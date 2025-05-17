@@ -11,6 +11,7 @@ import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { ClientInput } from '../../lib/database.types';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import PageHeader from '../common/PageHeader';
 
 type Client = {
   id: string;
@@ -31,6 +32,8 @@ export const ClientList: React.FC = () => {
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -95,6 +98,14 @@ export const ClientList: React.FC = () => {
 
   return (
     <DashboardLayout>
+      <PageHeader
+        title="Clients"
+        subtitle="Manage all your clients in one place"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onFilter={() => setShowFilter(true)}
+        onMenu={() => setShowMenu(true)}
+      />
       <div className="space-y-4 md:space-y-6">
         <div className="px-8 pt-8">
           <Breadcrumbs items={[{ label: 'Clients', href: '/clients' }]} />

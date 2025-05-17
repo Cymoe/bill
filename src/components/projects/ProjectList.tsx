@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { DashboardLayout } from '../layouts/DashboardLayout';
+import PageHeader from '../common/PageHeader';
 
 type Project = Tables['projects'];
 
@@ -32,6 +33,9 @@ export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -75,6 +79,14 @@ export const ProjectList: React.FC = () => {
 
   return (
     <DashboardLayout>
+      <PageHeader
+        title="Projects"
+        subtitle="Manage all your projects in one place"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onFilter={() => setShowFilter(true)}
+        onMenu={() => setShowMenu(true)}
+      />
       <div className="max-w-7xl mx-auto">
         <div className="px-8 pt-8 flex justify-between items-center">
           <div className="sm:flex-auto">

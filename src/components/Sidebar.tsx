@@ -35,7 +35,7 @@ const Sidebar: React.FC = () => {
     { icon: Book, label: 'Price Book', path: '/price-book' },
     { icon: Book, label: 'Products', path: '/products' },
     { icon: FileText, label: 'Invoices', path: '/invoices' },
-    { icon: Copy, label: 'Templates', path: '/templates' },
+    { icon: Copy, label: 'Packages', path: '/templates' },
     { icon: Database, label: 'Seed Database', action: handleSeedData },
   ];
 

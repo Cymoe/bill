@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Minus } from 'lucide-react';
+import { X, Plus, Trash2, Minus, Edit2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/database';
+import { EditProductModal } from '../products/EditProductModal';
 
 interface InvoiceItem {
   product_id: string;
@@ -52,7 +53,7 @@ interface NewInvoiceModalProps {
 }
 
 export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.Element => {
-  const [step, setStep] = useState<'select' | 'create'>('select');
+  const [step, setStep] = useState<'create' | 'select-packages'>('select-packages');
   const [isClosing, setIsClosing] = useState(false);
   const [formData, setFormData] = useState<InvoiceFormData>({
     client_id: '',
@@ -70,6 +71,24 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
   const [templates, setTemplates] = useState<Template[]>([]);
   const [error, setError] = useState('');
 
+  // Add state for search and previewed package
+  const [packageSearch, setPackageSearch] = useState('');
+  const [previewPackage, setPreviewPackage] = useState<Template | null>(null);
+
+  // Add state for editable preview items
+  const [previewItems, setPreviewItems] = useState<any[]>([]);
+
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+
+  const [selectedPackages, setSelectedPackages] = useState<Template[]>([]);
+
+  // Add state for editing a package and edited values
+  const [editingPackage, setEditingPackage] = useState<Template | null>(null);
+  const [editedPackages, setEditedPackages] = useState<Record<string, any[]>>({});
+
+  // Add state for category filter
+  const [selectedCategory, setSelectedCategory] = useState('All Categories');
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -81,6 +100,14 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
       loadData();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (previewPackage) {
+      setPreviewItems((previewPackage.items || []).map(item => ({ ...item })));
+    } else {
+      setPreviewItems([]);
+    }
+  }, [previewPackage]);
 
   const loadData = async () => {
     if (!user) return;
@@ -320,324 +347,334 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {step === 'select' && (
-              <div className="p-6">
-                <div className="space-y-8">
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">
-                    How would you like to create your invoice?
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Start from Scratch Button */}
-                    <button
-                      onClick={() => {
-                        setFormData(prev => ({ ...prev, items: [] }));
-                        setStep('create');
-                      }}
-                      className="flex items-center justify-between p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
-                    >
-                      <div>
-                        <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                          Start from Scratch
-                        </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Create a new invoice from scratch
-                        </p>
-                      </div>
-                      <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center">
-                        <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                      </div>
-                    </button>
-
-                    {/* Template List */}
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                        Or Choose a Template
-                      </h3>
-                      {templates.length > 0 ? (
-                        templates.map((template) => {
-                          // Calculate total from template items
-                          const items = template.items || [];
-                          const total = items.reduce((sum: number, item: { price: number; quantity: number }) => {
-                            const itemTotal = Number(item.price || 0) * Number(item.quantity || 0);
-                            return sum + itemTotal;
-                          }, 0);
-
-                          return (
-                            <button
-                              key={template.id}
-                              onClick={() => handleTemplateSelect(template)}
-                              className="flex items-center justify-between w-full p-6 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
-                            >
-                              <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2 flex-1 text-left">
-                                {template.name}
-                              </h4>
-                              <div className="text-right flex flex-col items-end min-w-[180px]">
-                                <div className="text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-                                  {formatCurrency(total)}
-                                </div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                  {`${items.length} item${items.length !== 1 ? 's' : ''}` + (items.length > 0 ? ` - ${items.map((item: { product_id: string; description?: string }) => {
-                                    const product = products.find((p: { id: string }) => p.id === item.product_id);
-                                    return product?.name || item.description || 'Item';
-                                  }).join(', ')}` : '')}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          No templates available. Start from scratch or save an invoice as a template.
-                        </p>
-                      )}
-                    </div>
-                  </div>
+            {step === 'select-packages' && (
+              <div className="relative h-full flex flex-col">
+                <button
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, items: [] }));
+                    setStep('create');
+                  }}
+                  className="mb-6 w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
+                >
+                  <span className="text-lg font-medium text-gray-900 dark:text-white">Start from Scratch</span>
+                  <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+                </button>
+                <h3 className="text-lg font-semibold mb-2">Select Packages</h3>
+                <div className="flex gap-3 mb-3 px-6">
+                  <input
+                    type="text"
+                    placeholder="Search packages..."
+                    value={packageSearch}
+                    onChange={e => setPackageSearch(e.target.value)}
+                    className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <select
+                    value={selectedCategory}
+                    onChange={e => setSelectedCategory(e.target.value)}
+                    className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+                  >
+                    <option>All Categories</option>
+                    {Array.from(new Set(templates.map(t => (t as any).category).filter(Boolean))).map(cat => (
+                      <option key={cat}>{cat}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
-            )}
-
-            {step === 'create' && (
-              <div className="p-4">
-                <form id="invoice-form" onSubmit={handleSubmit} className="space-y-6">
-                  {error && (
-                    <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
-                      <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Client
-                    </label>
-                    <select
-                      value={formData.client_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      required
-                    >
-                      <option value="">Select a client</option>
-                      {clients?.map((client) => (
-                        <option key={client.id} value={client.id}>
-                          {client.company_name} - {client.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Issue Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.issue_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        required
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Due Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.due_date}
-                        onChange={(e) => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
-                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Items</h3>
-                      {formData.items.length > 0 && (
+                <div className="flex-1 overflow-y-auto pb-20">
+                  <ul className="space-y-2">
+                    {templates.filter(pkg =>
+                      (selectedCategory === 'All Categories' || (pkg as any).category === selectedCategory) &&
+                      (pkg.name.toLowerCase().includes(packageSearch.toLowerCase()) ||
+                        (pkg.description || '').toLowerCase().includes(packageSearch.toLowerCase())
+                      )
+                    ).map(pkg => {
+                      const isSelected = selectedPackages.some(p => p.id === pkg.id);
+                      const items = editedPackages[pkg.id] || pkg.items || [];
+                      const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                      return (
+                        <li key={pkg.id} className="flex items-center gap-2 bg-gray-800 rounded px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => {
+                              setSelectedPackages(prev =>
+                                isSelected
+                                  ? prev.filter(p => p.id !== pkg.id)
+                                  : [...prev, pkg]
+                              );
+                            }}
+                          />
+                          <span className="flex-1 flex items-center gap-2">
+                            <span className="font-medium text-white">{pkg.name}</span>
+                            <button
+                              type="button"
+                              className="text-blue-400 hover:text-blue-600"
+                              onClick={() => setEditingPackage(pkg)}
+                              aria-label="Edit package"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                          </span>
+                          <span className="text-xs text-gray-400">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+                          <span className="text-blue-400 font-semibold ml-2">{formatCurrency(total)}</span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+                {step === 'select-packages' && (
+                  <div className="absolute left-0 right-0 bottom-0 z-20" style={{ pointerEvents: 'auto' }}>
+                    <div className="flex items-center justify-between px-6 py-3 bg-gray-800 border-t border-gray-700 rounded-b-lg">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-medium text-white">Selected: {selectedPackages.length}</span>
+                        <span className="text-base font-medium text-white">{formatCurrency(selectedPackages.reduce((sum, pkg) => {
+                          const items = editedPackages[pkg.id] || pkg.items || [];
+                          return sum + items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                        }, 0))}</span>
+                      </div>
+                      <div className="flex gap-3">
                         <button
-                          type="button"
-                          onClick={addItem}
-                          className="flex items-center gap-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                          className="px-6 py-2 border border-gray-500 text-white bg-transparent hover:bg-gray-700 rounded-lg font-medium text-base"
+                          onClick={() => {
+                            setStep('create');
+                            setEditingPackage(null);
+                            setPackageSearch('');
+                            setSelectedPackages([]);
+                          }}
                         >
-                          <Plus className="w-5 h-5" />
-                          Add Item
+                          Cancel
                         </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      {formData.items.length === 0 ? (
-                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-8 text-center">
-                          <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                          </div>
-                          <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                            Add Your First Item
-                          </h4>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                            Start building your invoice by adding products or services
-                          </p>
-                          <button
-                            type="button"
-                            onClick={addItem}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
-                          >
-                            <Plus className="w-4 h-4" />
-                            Add Item
-                          </button>
-                        </div>
-                      ) : (
-                        formData.items.map((item, index) => (
-                          <div key={index} className="space-y-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Product
-                              </label>
-                              <select
-                                value={item.product_id}
-                                onChange={(e) => updateItem(index, 'product_id', e.target.value)}
-                                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                required
-                              >
-                                <option value="">Select a product</option>
-                                {products.map((product) => (
-                                  <option key={product.id} value={product.id}>
-                                    {product.name} - {formatCurrency(product.price)}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-
-                            <div className="grid grid-cols-12 gap-4 items-center">
-                              <div className="col-span-4">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                  Quantity
-                                </label>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => adjustQuantity(index, -1)}
-                                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg"
-                                  >
-                                    <Minus className="w-4 h-4" />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    value={item.quantity}
-                                    onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
-                                    className="w-20 text-center border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                    min="1"
-                                    required
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => adjustQuantity(index, 1)}
-                                    className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div className="col-span-3">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                  Price
-                                </label>
-                                <input
-                                  type="number"
-                                  value={item.price}
-                                  onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))}
-                                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                  min="0"
-                                  step="0.01"
-                                  required
-                                />
-                              </div>
-
-                              <div className="col-span-3 flex items-end">
-                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                  Total: {formatCurrency(item.price * item.quantity)}
-                                </p>
-                              </div>
-
-                              <div className="col-span-2 flex items-end justify-end">
-                                <button
-                                  type="button"
-                                  onClick={() => removeItem(index)}
-                                  className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                                >
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </div>
-                            </div>
-
-                            {index === formData.items.length - 1 && (
-                              <button
-                                type="button"
-                                onClick={addItem}
-                                className="w-full flex items-center justify-center gap-2 p-2 mt-2 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-                              >
-                                <Plus className="w-5 h-5" />
-                                Add Item Below
-                              </button>
-                            )}
-                          </div>
-                        ))
-                      )}
-
-                      {formData.items.length > 0 && (
-                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Total
-                            </span>
-                            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                              {formatCurrency(calculateTotal())}
-                            </span>
-                          </div>
-                          
-                          {/* Save as Template Button */}
-                          <button
-                            type="button"
-                            onClick={saveAsTemplate}
-                            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                          >
-                            Save as Template
-                          </button>
-                        </div>
-                      )}
+                        <button
+                          className="px-6 py-2 rounded-lg text-white font-medium text-base bg-blue-600 hover:bg-blue-700 transition-colors"
+                          disabled={selectedPackages.length === 0}
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              items: [
+                                ...prev.items,
+                                ...selectedPackages.flatMap(pkg =>
+                                  (editedPackages[pkg.id] || pkg.items || []).map(item => ({
+                                    product_id: item.product_id,
+                                    quantity: item.quantity,
+                                    price: item.price,
+                                    description: products.find(p => p.id === item.product_id)?.description || item.description || ''
+                                  }))
+                                )
+                              ]
+                            }));
+                            setSelectedPackages([]);
+                            setEditingPackage(null);
+                            setPackageSearch('');
+                            setStep('create');
+                          }}
+                        >
+                          Add to Invoice
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </form>
+                )}
               </div>
             )}
           </div>
 
           {step === 'create' && (
-            <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
-              <div className="grid grid-cols-2 gap-4">
+            <form id="invoice-form" onSubmit={handleSubmit} className="flex flex-col px-6 py-4 gap-6">
+              {/* Client Selector */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Client</label>
+                <select
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  value={formData.client_id}
+                  onChange={e => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
+                  required
+                >
+                  <option value="">Select a client...</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Items List */}
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Line Items</label>
+                <div className="flex flex-col gap-3">
+                  {formData.items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                      <select
+                        className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white"
+                        value={item.product_id}
+                        onChange={e => updateItem(idx, 'product_id', e.target.value)}
+                        required
+                      >
+                        <option value="">Select product...</option>
+                        {products.map(product => (
+                          <option key={product.id} value={product.id}>{product.name}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="number"
+                        min={1}
+                        className="w-16 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white text-right"
+                        value={item.quantity}
+                        onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white text-right"
+                        value={item.price}
+                        onChange={e => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                      />
+                      <button
+                        type="button"
+                        className="text-red-400 hover:text-red-600"
+                        onClick={() => removeItem(idx)}
+                        aria-label="Remove item"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="mt-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium w-fit"
+                    onClick={addItem}
+                  >
+                    + Add Item
+                  </button>
+                </div>
+              </div>
+              {/* Dates and Description */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Issue Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    value={formData.issue_date}
+                    onChange={e => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-white mb-2">Due Date</label>
+                  <input
+                    type="date"
+                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    value={formData.due_date}
+                    onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Description</label>
+                <textarea
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  rows={2}
+                  value={formData.description}
+                  onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              {/* Total */}
+              <div className="flex items-center justify-end text-lg font-medium text-white">
+                Total: {formatCurrency(calculateTotal())}
+              </div>
+              {/* Action Buttons */}
+              <div className="grid grid-cols-2 gap-4 border-t border-gray-700 pt-4">
                 <button
                   type="button"
                   onClick={handleClose}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                  className="w-full px-4 py-2 border border-gray-500 rounded-lg hover:bg-gray-700 text-white font-medium"
                   disabled={loading}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  form="invoice-form"
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
                   disabled={loading}
                 >
                   {loading ? 'Creating...' : 'Create Invoice'}
                 </button>
               </div>
-            </div>
+            </form>
           )}
+        </div>
+      </div>
+
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onSave={() => {
+            setEditingProduct(null);
+            loadData();
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+function EditPackageModal({ pkg, items, onSave, onCancel, products }: { pkg: Template, items: any[], onSave: (items: any[]) => void, onCancel: () => void, products: any[] }) {
+  const [localItems, setLocalItems] = useState(() => items.map(i => ({ ...i })));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-lg border border-gray-700">
+        <div className="flex justify-between items-center mb-4">
+          <div className="font-semibold text-white text-lg">Edit {pkg.name}</div>
+          <button onClick={onCancel} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <ul className="space-y-2 mb-4">
+          {localItems.map((item, idx) => {
+            const product = products.find(p => p.id === item.product_id);
+            return (
+              <li key={idx} className="flex items-center gap-2">
+                <span className="flex-1">{product?.name || item.description || 'Item'}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 1;
+                    setLocalItems(items => items.map((it, i) => i === idx ? { ...it, quantity: val } : it));
+                  }}
+                  className="w-16 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-white text-xs"
+                />
+                <input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={item.price}
+                  onChange={e => {
+                    const val = parseFloat(e.target.value) || 0;
+                    setLocalItems(items => items.map((it, i) => i === idx ? { ...it, price: val } : it));
+                  }}
+                  className="w-20 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-white text-xs"
+                />
+                <span className="w-20 text-right">{formatCurrency(item.price * item.quantity)}</span>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="font-semibold text-blue-400 mb-4">
+          Total: {formatCurrency(localItems.reduce((sum, item) => sum + (item.price * item.quantity), 0))}
+        </div>
+        <div className="flex gap-2">
+          <button
+            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            onClick={() => onSave(localItems)}
+          >
+            Save
+          </button>
         </div>
       </div>
     </div>
   );
-};
+}

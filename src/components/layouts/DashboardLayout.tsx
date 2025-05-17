@@ -106,8 +106,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { icon: Users, label: 'Clients', to: '/clients' },
     { icon: FolderKanban, label: 'Projects', to: '/projects' },
     { icon: FileText, label: 'Invoices', to: '/invoices' },
+    { icon: Copy, label: 'Packages', to: '/templates' },
     { icon: Book, label: 'Products', to: '/products' },
-    { icon: Copy, label: 'Templates', to: '/templates' },
     { icon: Book, label: 'Price Book', to: '/price-book' },
   ];
 
@@ -149,7 +149,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
       {/* Top Navigation Bar */}
       <div className="fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex justify-between items-center h-16 px-4">
+        <div className="flex justify-between items-center h-16 px-6">
           {/* Logo and Navigation */}
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -179,65 +179,48 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           {/* Right side */}
           <div className="flex items-center">
-            {/* Only show + button on /price-book */}
-            {location.pathname === '/price-book' && (
-              <div className="flex items-center">
-                <div className="relative">
-                  <button
-                    ref={createButtonRef}
-                    aria-label="create-new"
-                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-                    onClick={() => setShowCreateModal((v) => !v)}
-                    data-testid="create-new-btn"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="text-sm font-medium">Create</span>
-                  </button>
-                  {showCreateModal && (
-                    <div ref={createDropdownRef}>
-                      <CreateDropdown
-                        onCreateLineItem={() => {
-                          setShowCreateModal(false);
-                          setShowLineItemDrawer(true);
-                        }}
-                        onCreateCategory={() => {
-                          setShowCreateModal(false);
-                          navigate('/price-book/categories/new');
-                        }}
-                        onCreateClient={() => {
-                          setShowCreateModal(false);
-                          setShowNewClientModal(true);
-                        }}
-                        onCreateProject={() => {
-                          setShowCreateModal(false);
-                          navigate('/projects/new');
-                        }}
-                        onCreateInvoice={() => {
-                          setShowCreateModal(false);
-                          setShowNewInvoiceDrawer(true);
-                        }}
-                        onCreateProduct={() => {
-                          setShowCreateModal(false);
-                          setShowNewProductDrawer(true);
-                        }}
-                        onCreatePriceBookTemplate={() => {
-                          setShowCreateModal(false);
-                          navigate('/templates/price-book/new');
-                        }}
-                        onCreateProjectTemplate={() => {
-                          setShowCreateModal(false);
-                          navigate('/templates/project/new');
-                        }}
-                        onCreateContractTemplate={() => {
-                          setShowCreateModal(false);
-                          navigate('/templates/contract/new');
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
+            {/* Show + button globally */}
+            <div className="flex items-center">
+              <div className="relative">
+                <button
+                  ref={createButtonRef}
+                  aria-label="create-new"
+                  className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors pr-6"
+                  onClick={() => setShowCreateModal((v) => !v)}
+                  data-testid="create-new-btn"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="text-sm font-medium">Create</span>
+                </button>
+                {showCreateModal && (
+                  <div ref={createDropdownRef}>
+                    <CreateDropdown
+                      onCreateLineItem={() => {
+                        setShowCreateModal(false);
+                        setShowLineItemDrawer(true);
+                      }}
+                      onCreateCategory={() => setShowCreateModal(false)}
+                      onCreateClient={() => {
+                        setShowCreateModal(false);
+                        setShowNewClientModal(true);
+                      }}
+                      onCreateProject={() => setShowCreateModal(false)}
+                      onCreateInvoice={() => {
+                        setShowCreateModal(false);
+                        setShowNewInvoiceDrawer(true);
+                      }}
+                      onCreateProduct={() => {
+                        setShowCreateModal(false);
+                        setShowNewProductDrawer(true);
+                      }}
+                      onCreatePriceBookTemplate={() => setShowCreateModal(false)}
+                      onCreateProjectTemplate={() => setShowCreateModal(false)}
+                      onCreateContractTemplate={() => setShowCreateModal(false)}
+                    />
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

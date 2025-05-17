@@ -11,6 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import PageHeader from '../common/PageHeader';
 
 type Invoice = {
   id: string;
@@ -41,6 +42,9 @@ export const InvoiceList: React.FC = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -115,168 +119,146 @@ export const InvoiceList: React.FC = () => {
     { value: 'overdue', label: 'Overdue' }
   ];
 
+  // Bulk select logic
+  const allSelected = filteredInvoices.length > 0 && selectedRows.length === filteredInvoices.length;
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedRows([]);
+    else setSelectedRows(filteredInvoices.map(inv => inv.id));
+  };
+  const toggleSelectRow = (id: string) => {
+    setSelectedRows((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   return (
     <DashboardLayout>
+      <PageHeader
+        title="Invoices"
+        subtitle="Manage all your invoices in one place"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onFilter={() => setShowFilter(true)}
+        onMenu={() => setShowMenu(true)}
+      />
       <div className="space-y-4 md:space-y-6">
-        <div className="px-8 pt-8">
-          <Breadcrumbs items={[{ label: 'Invoices', href: '/invoices' }]} />
-          {/* Desktop Header */}
-          <div className="hidden md:flex md:justify-between md:items-center gap-4">
-            <div className="flex gap-4 flex-1">
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder="Search invoices..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-                />
-              </div>
-
-              <Dropdown
-                trigger={
-                  <button className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <Filter className="w-5 h-5" />
-                    <span>{statusFilters.find(f => f.value === selectedStatus)?.label}</span>
-                  </button>
-                }
-                items={statusFilters.map(filter => ({
-                  label: filter.label,
-                  onClick: () => setSelectedStatus(filter.value),
-                  className: selectedStatus === filter.value ? 'bg-gray-100 dark:bg-gray-700' : ''
-                }))}
-              />
-
-              <button
-                onClick={handleExport}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                title="Export to CSV"
-              >
-                <Download className="w-5 h-5" />
-                <span>Export</span>
-              </button>
-            </div>
-            
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Invoice</span>
-            </button>
+        {/* Invoice summary cards */}
+        <div className="hidden md:flex gap-6 px-6 pb-2">
+          {/* Total Outstanding */}
+          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
+            <span className="text-base text-gray-400 mb-1">Total Outstanding</span>
+            <span className="text-2xl font-bold text-white">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
+            <span className="text-sm text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
           </div>
-
-          {/* Mobile Header */}
-          <div className="md:hidden flex flex-col gap-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search invoices..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
-            
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 w-full"
-            >
-              <Plus className="w-5 h-5" />
-              <span>New Invoice</span>
-            </button>
-
-            <div className="flex gap-2">
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
-                className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                {statusFilters.map(filter => (
-                  <option key={filter.value} value={filter.value}>
-                    {filter.label}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={handleExport}
-                className="flex items-center justify-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                title="Export to CSV"
-              >
-                <Download className="w-5 h-5" />
-                <span className="hidden md:inline">Export</span>
-              </button>
-            </div>
+          {/* Draft Invoices */}
+          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
+            <span className="text-base text-gray-400 mb-1">Draft Invoices</span>
+            <span className="text-2xl font-bold text-white">{invoices.filter(inv => inv.status === 'draft').length}</span>
+            <button className="mt-2 bg-[#35384A] text-gray-400 text-sm font-medium rounded-full px-6 py-1.5 cursor-not-allowed" disabled>Finalize</button>
+          </div>
+          {/* Overdue */}
+          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
+            <span className="text-base text-gray-400 mb-1">Overdue</span>
+            <span className="text-2xl font-bold text-white">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</span>
+            <span className="text-sm text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
           </div>
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block">
-          {isLoading ? (
-            <TableSkeleton rows={5} columns={5} />
-          ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Invoice #
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Due Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredInvoices.map((invoice) => (
-                    <tr 
-                      key={invoice.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                      onClick={() => navigate(`/invoices/${invoice.id}`)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {`INV-${invoice.id.slice(0, 8)}`}
+        <div className="hidden md:flex flex-col min-h-[calc(100vh-64px)]">
+          <div className="flex-1 flex flex-col">
+            {isLoading ? (
+              <TableSkeleton rows={5} columns={7} />
+            ) : (
+              <div className="bg-transparent overflow-hidden shadow-[0_2px_8px_0_rgba(20,20,40,0.12)] border border-[#232635]">
+                <table className="min-w-full bg-transparent">
+                  <thead>
+                    <tr className="bg-[#232635] sticky top-0 z-10">
+                      <th className="w-12 px-2 py-3 align-middle">
+                        <div className="flex items-center h-full">
+                          <input
+                            type="checkbox"
+                            className="form-checkbox h-5 w-5 text-[#6C6FE4] bg-transparent border-[#6C6FE4]"
+                            checked={allSelected}
+                            onChange={toggleSelectAll}
+                          />
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(invoice.issue_date).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {new Date(invoice.due_date).toLocaleDateString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusStyle(invoice.status)}>
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(invoice.amount)}
-                        </div>
-                      </td>
+                      </th>
+                      <th className="text-left px-2 py-3 font-bold">INVOICE #</th>
+                      <th className="text-left px-2 py-3 font-bold">CLIENT</th>
+                      <th className="text-left px-2 py-3 font-bold">DATE</th>
+                      <th className="text-left px-2 py-3 font-bold">DUE</th>
+                      <th className="text-left px-2 py-3 font-bold">STATUS</th>
+                      <th className="text-right px-2 py-3 font-bold">AMOUNT</th>
+                      <th className="w-8 px-2 py-3"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody>
+                    {filteredInvoices.map((invoice) => (
+                      <tr
+                        key={invoice.id}
+                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232635]' : 'hover:bg-[#232635]/80'}`}
+                      >
+                        <td className="px-2 py-3 align-middle">
+                          <div className="flex items-center h-full">
+                            <input
+                              type="checkbox"
+                              className="form-checkbox h-5 w-5 text-[#6C6FE4] bg-transparent border-[#6C6FE4]"
+                              checked={selectedRows.includes(invoice.id)}
+                              onChange={() => toggleSelectRow(invoice.id)}
+                            />
+                          </div>
+                        </td>
+                        <td className="px-2 py-3 font-medium">{`INV-${invoice.id.slice(0, 8)}`}</td>
+                        <td className="px-2 py-3">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
+                        <td className="px-2 py-3">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                        <td className="px-2 py-3">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                        <td className="px-2 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center">
+                              <span className="w-5 h-5 bg-[#35384A] rounded-full flex items-center justify-center mr-2">
+                                <span className="block w-2 h-2 bg-[#6C6FE4] rounded-full"></span>
+                              </span>
+                              <span className="text-gray-400 text-sm">{invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-2 py-3 text-right font-bold">{formatCurrency(invoice.amount)}</td>
+                        <td className="px-2 py-3">
+                          <button>
+                            <span className="sr-only">Actions</span>
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Fixed bottom bulk actions bar */}
+            {selectedRows.length > 0 && (
+              <div
+                className="fixed bottom-0 z-50 bg-[#232635] border-t border-[#35384A] flex items-center px-8 py-4 gap-4 shadow-lg"
+                style={{ left: 256, width: 'calc(100vw - 256px)' }}
+              >
+                <span className="text-white font-medium">{selectedRows.length} invoice{selectedRows.length > 1 ? 's' : ''} selected</span>
+                <button className="bg-[#35384A] text-white font-medium rounded-md px-6 py-2">Finalize</button>
+                <button className="bg-[#35384A] text-white font-medium rounded-md px-6 py-2">Download</button>
+                <button className="bg-[#FF4B4B] text-white font-medium rounded-md px-6 py-2">Delete</button>
+                <button className="ml-auto text-[#6C6FE4] font-medium" onClick={() => setSelectedRows([])}>Clear</button>
+              </div>
+            )}
+          </div>
+          <div className="flex-grow" />
+          <div className="flex flex-col items-center mt-auto pb-8">
+            <div className="text-lg font-medium text-gray-400 mb-2">Ready to create more invoices?</div>
+            <div className="text-sm text-gray-500 mb-6">Use the "+ New Invoice" button to get started.</div>
+            <button
+              className="bg-[#232635] text-[#6C6FE4] px-8 py-3 rounded-lg font-medium"
+              onClick={() => navigate('/templates')}
+            >
+              View Invoice Templates
+            </button>
+          </div>
         </div>
 
         {/* Mobile list */}
