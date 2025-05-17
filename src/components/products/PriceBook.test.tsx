@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { ProductList } from './ProductList';
+import { PriceBook } from './PriceBook';
 
 // Mock DashboardLayout to just render children
 jest.mock('../layouts/DashboardLayout', () => ({
@@ -13,9 +13,9 @@ jest.mock('../common/Dropdown', () => ({
   Dropdown: ({ trigger }: any) => <div>{trigger}</div>,
 }));
 
-describe('ProductList UI', () => {
+describe('PriceBook UI', () => {
   it('renders nav, tabs, search, table header, and rows as in screenshot', () => {
-    render(<ProductList />);
+    render(<PriceBook />);
 
     // Tabs
     expect(screen.getByText('All')).toBeInTheDocument();

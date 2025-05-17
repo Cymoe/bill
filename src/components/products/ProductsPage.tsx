@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, MoreVertical, X, Search, Home, Layers, Wrench, Hammer, ChevronDown, ChevronRight, Filter, Wind, Shield } from 'lucide-react';
+import { MoreVertical, Home, Layers, Wrench, Hammer, ChevronDown, Wind, Shield } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import { Dropdown } from '../common/Dropdown';
-import { EditProductModal } from './EditProductModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { ProductCardSkeleton } from '../skeletons/ProductCardSkeleton';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import ProductAssemblyForm from './ProductAssemblyForm';
-import { CreateDropdown } from '../common/CreateModal';
-import PageHeader from '../common/PageHeader';
+import { PageHeader } from '../common/PageHeader';
 
 // Product type
 type Product = {
@@ -28,14 +22,6 @@ type Product = {
   lineItems?: any[];
 };
 
-const CATEGORY_TABS = [
-  { label: 'All', value: 'all' },
-  { label: 'Interior', value: 'interior', icon: <Layers className="w-4 h-4" /> },
-  { label: 'Exterior', value: 'exterior', icon: <Home className="w-4 h-4" /> },
-  { label: 'Installation', value: 'installation', icon: <Wrench className="w-4 h-4" /> },
-  { label: 'Construction', value: 'construction', icon: <Hammer className="w-4 h-4" /> },
-];
-
 const CATEGORY_COLORS = {
   interior: 'bg-purple-700',
   exterior: 'bg-blue-700',
@@ -43,36 +29,24 @@ const CATEGORY_COLORS = {
   construction: 'bg-yellow-700',
 };
 
-const SORT_OPTIONS = [
-  { label: 'Price: Low to High', value: 'price-asc' },
-  { label: 'Price: High to Low', value: 'price-desc' },
-  { label: 'Name: A-Z', value: 'name-asc' },
-  { label: 'Name: Z-A', value: 'name-desc' },
-];
-
 export const ProductsPage: React.FC = () => {
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
-  const [showNewAssemblyModal, setShowNewAssemblyModal] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
-  const [showFilter, setShowFilter] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
-  const [sortBy, setSortBy] = useState('price-asc');
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [status, setStatus] = useState('all');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [sortBy] = useState('price-asc');
 
   const CATEGORY_OPTIONS = [
     { value: 'all', label: 'All Categories (40)' },
@@ -227,7 +201,6 @@ export const ProductsPage: React.FC = () => {
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         showSearch
-        showFilter
         onFilter={() => setShowFilter(true)}
         onMenu={() => setShowMenu(true)}
         searchPlaceholder="Search products by name, type, or price range..."

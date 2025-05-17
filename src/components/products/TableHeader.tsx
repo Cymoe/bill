@@ -9,8 +9,8 @@ interface TableHeaderProps {
 const TableHeader: React.FC<TableHeaderProps> = ({ priceSort, onPriceSort }) => (
   <thead className="bg-gray-800">
     <tr>
-      <th className="pl-8 pr-4 py-3 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-widest w-[20%]" data-testid="header-name">Name</th>
-      <th className="pl-8 pr-4 py-3 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-widest w-[40%]" data-testid="header-description">Description</th>
+      <th className="pl-4 pr-4 py-3 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-widest w-[20%]" data-testid="header-name">Name</th>
+      <th className="pl-4 pr-4 py-3 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-widest w-[40%]" data-testid="header-description">Description</th>
       <th className="py-3 pr-3 text-right text-xs font-medium text-[#A0AEC0] uppercase tracking-widest cursor-pointer select-none" data-testid="header-price">
         <button onClick={onPriceSort} className="flex items-center gap-1 justify-end w-full text-[#A0AEC0] uppercase font-medium text-xs focus:outline-none">
           <span>Price</span>

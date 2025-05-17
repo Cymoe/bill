@@ -23,10 +23,11 @@ import { NewClientModal } from '../clients/NewClientModal';
 import ProductModal from '../products/ProductModal';
 import { EditProductModal } from '../products/EditProductModal';
 import ProductAssemblyForm from '../products/ProductAssemblyForm';
-import { LineItemModal } from '../products/LineItemModal';
+import { LineItemModal } from '../modals/LineItemModal';
 import ProductForm from '../products/ProductForm';
 import { supabase } from '../../lib/supabase';
 import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
+import { NewPackageModal } from '../modals/NewPackageModal';
 
 interface SidebarItem {
   icon?: LucideIcon;
@@ -58,10 +59,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showNewProductDrawer, setShowNewProductDrawer] = useState(false);
+  const [showNewClientDrawer, setShowNewClientDrawer] = useState(false);
+  const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
+  const [showNewPackageDrawer, setShowNewPackageDrawer] = useState(false);
   const [showLineItemDrawer, setShowLineItemDrawer] = useState(false);
   const [isClosingLineItemDrawer, setIsClosingLineItemDrawer] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
-  const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const createDropdownRef = useRef<HTMLDivElement>(null);
@@ -106,7 +109,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { icon: Users, label: 'Clients', to: '/clients' },
     { icon: FolderKanban, label: 'Projects', to: '/projects' },
     { icon: FileText, label: 'Invoices', to: '/invoices' },
-    { icon: Copy, label: 'Packages', to: '/templates' },
+    { icon: Copy, label: 'Packages', to: '/packages' },
     { icon: Book, label: 'Products', to: '/products' },
     { icon: Book, label: 'Price Book', to: '/price-book' },
   ];
@@ -212,6 +215,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       onCreateProduct={() => {
                         setShowCreateModal(false);
                         setShowNewProductDrawer(true);
+                      }}
+                      onCreatePackage={() => {
+                        setShowCreateModal(false);
+                        setShowNewPackageDrawer(true);
                       }}
                       onCreatePriceBookTemplate={() => setShowCreateModal(false)}
                       onCreateProjectTemplate={() => setShowCreateModal(false)}
@@ -377,6 +384,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         <NewClientModal
           onClose={() => setShowNewClientModal(false)}
           onSave={() => setShowNewClientModal(false)}
+        />
+      )}
+      {/* NewClientModal drawer */}
+      {showNewClientDrawer && (
+        <NewClientModal
+          onClose={() => setShowNewClientDrawer(false)}
+          onSave={() => {
+            setShowNewClientDrawer(false);
+          }}
+        />
+      )}
+      {/* New Package Modal */}
+      {showNewPackageDrawer && (
+        <NewPackageModal
+          onClose={() => setShowNewPackageDrawer(false)}
+          onSave={() => {
+            setShowNewPackageDrawer(false);
+          }}
         />
       )}
       {/* New Product/Assembly Drawer */}

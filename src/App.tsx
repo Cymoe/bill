@@ -5,15 +5,15 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Dashboard } from './components/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
-import { ProductList } from './components/products/ProductList';
+import { PriceBook } from './components/price-book/PriceBook';
 import { ProductsPage } from './components/products/ProductsPage';
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
-import { InvoiceTemplateList } from './components/templates/InvoiceTemplateList';
-import { LandingPage } from './components/Landingpage';
+import { PackagesPage } from './components/packages/PackagesPage';
+import { LandingPage } from './components/LandingPage';
 import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
-import UserProfile from './components/settings/UserProfile';
+import { UserProfile } from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 
@@ -96,10 +96,10 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/templates"
+        path="/packages"
         element={
           <ProtectedRoute>
-            <InvoiceTemplateList />
+            <PackagesPage />
           </ProtectedRoute>
         }
       />
@@ -160,7 +160,7 @@ function AppRoutes() {
         path="/price-book"
         element={
           <ProtectedRoute>
-            <ProductList />
+            <PriceBook />
           </ProtectedRoute>
         }
       />

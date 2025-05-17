@@ -11,7 +11,7 @@ type MenuItem = {
   action?: () => void;
 };
 
-const Sidebar: React.FC = () => {
+export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -35,7 +35,7 @@ const Sidebar: React.FC = () => {
     { icon: Book, label: 'Price Book', path: '/price-book' },
     { icon: Book, label: 'Products', path: '/products' },
     { icon: FileText, label: 'Invoices', path: '/invoices' },
-    { icon: Copy, label: 'Packages', path: '/templates' },
+    { icon: Copy, label: 'Packages', path: '/packages' },
     { icon: Database, label: 'Seed Database', action: handleSeedData },
   ];
 
@@ -116,4 +116,4 @@ const Sidebar: React.FC = () => {
   );
 };
 
-export default Sidebar;
+

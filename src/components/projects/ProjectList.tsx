@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { DashboardLayout } from '../layouts/DashboardLayout';
-import PageHeader from '../common/PageHeader';
+import { PageHeader } from '../common/PageHeader';
 
 type Project = Tables['projects'];
 
@@ -33,8 +33,6 @@ export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showFilter, setShowFilter] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
@@ -79,32 +77,26 @@ export const ProjectList: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <PageHeader
-        title="Projects"
-        subtitle="Manage all your projects in one place"
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-        onFilter={() => setShowFilter(true)}
-        onMenu={() => setShowMenu(true)}
-      />
-      <div className="max-w-7xl mx-auto">
-        <div className="px-8 pt-8 flex justify-between items-center">
-          <div className="sm:flex-auto">
-            <h1 className="text-xl font-medium text-white">Projects</h1>
-            <p className="mt-2 text-sm text-gray-400">
-              A list of all projects including their name, status, and key details.
-            </p>
-          </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-            <button
-              type="button"
-              onClick={() => navigate('/projects/new')}
-              className="inline-flex items-center h-10 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              <PlusIcon className="h-5 w-5" />
-              <span className="ml-3">New Project</span>
-            </button>
-          </div>
+      <div className="space-y-0">
+        <PageHeader
+          title="Projects"
+          subtitle="Manage all your projects in one place"
+          searchValue={searchTerm}
+          onSearchChange={setSearchTerm}
+          showSearch
+          searchPlaceholder="Search projects..."
+          onFilter={() => {}}
+          onMenu={() => navigate('/projects/new')}
+        />
+        <div className="flex justify-end px-8 pt-4">
+          <button
+            type="button"
+            onClick={() => navigate('/projects/new')}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+          >
+            <PlusIcon className="h-5 w-5" />
+            <span>New Project</span>
+          </button>
         </div>
         <div className="mt-8 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">

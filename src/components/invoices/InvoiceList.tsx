@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Download, Filter, ChevronRight, Share2, Copy } from 'lucide-react';
+import { Download, ChevronRight, Share2, Copy } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { Breadcrumbs } from '../common/Breadcrumbs';
+import TabMenu from '../common/TabMenu';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { NewInvoiceModal } from './NewInvoiceModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
@@ -11,7 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import PageHeader from '../common/PageHeader';
+import { PageHeader } from '../common/PageHeader';
 import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
 
 type Invoice = {
@@ -43,8 +43,8 @@ export const InvoiceList: React.FC = () => {
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showFilter, setShowFilter] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
@@ -84,12 +84,6 @@ export const InvoiceList: React.FC = () => {
       console.error('Error fetching data:', err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleExport = () => {
-    if (invoices && clients && products) {
-      exportInvoicesToCSV(invoices, clients, products);
     }
   };
 
@@ -215,11 +209,93 @@ export const InvoiceList: React.FC = () => {
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         showSearch
-        showFilter
-        onFilter={() => setShowFilter(true)}
-        onMenu={() => setShowMenu(true)}
+        onFilter={() => setShowFilterMenu(!showFilterMenu)}
+        onMenu={() => setIsMenuOpen(!isMenuOpen)}
         searchPlaceholder="Search invoices by number..."
       />
+      {/* Filter Menu */}
+      {showFilterMenu && (
+        <div className="p-4 bg-[#1E2130] border border-gray-800 rounded-lg mx-4 mt-4 shadow-lg">
+          <h3 className="text-lg font-medium text-white mb-4">Filter By</h3>
+          
+          <div className="space-y-6">
+            {/* Status Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                {statusFilters.map((filter) => (
+                  <button
+                    key={filter.value}
+                    onClick={() => setSelectedStatus(filter.value)}
+                    className={`px-3 py-2 text-sm rounded-lg ${selectedStatus === filter.value ? 'bg-blue-600 text-white' : 'bg-[#232635] text-gray-400 hover:bg-[#2A2F40]'}`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date Range Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Date Range</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">From</label>
+                  <input 
+                    type="date" 
+                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">To</label>
+                  <input 
+                    type="date" 
+                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Amount Range Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Price Range</label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <input 
+                    type="number" 
+                    placeholder="Min" 
+                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <input 
+                    type="number" 
+                    placeholder="Max" 
+                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Filter Actions */}
+            <div className="flex justify-between pt-2">
+              <button 
+                className="px-6 py-2 bg-[#232635] text-gray-400 rounded-lg hover:bg-[#2A2F40]"
+                onClick={() => setShowFilterMenu(false)}
+              >
+                Reset
+              </button>
+              <button 
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={() => setShowFilterMenu(false)}
+              >
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Invoice summary cards */}
       <div className="hidden md:flex gap-0">
         {/* Total Outstanding */}
@@ -260,29 +336,17 @@ export const InvoiceList: React.FC = () => {
         </div>
       </div>
       {/* Global subnav tabs (now below summary cards, above table) */}
-      <div className="flex w-full border-b border-[#232635] bg-transparent px-8 pt-2">
-        <div className="flex gap-2">
-          {statusFilters.map((filter) => (
-            <button
-              key={filter.value}
-              className={`relative flex items-center px-0 py-2 text-base font-medium focus:outline-none transition-colors
-                ${selectedStatus === filter.value ? 'text-blue-400' : 'text-gray-400 hover:text-white/80'}`}
-              style={{ background: 'none', border: 'none' }}
-              onClick={() => setSelectedStatus(filter.value)}
-            >
-              <span>{filter.label}</span>
-              <span className="ml-2 rounded-full bg-[#232F5B] text-blue-200 px-2 py-0.5 text-xs font-semibold">
-                {filter.value === 'all'
-                  ? invoices.length
-                  : invoices.filter(inv => inv.status === filter.value).length}
-              </span>
-              {selectedStatus === filter.value && (
-                <span className="absolute left-0 right-0 -bottom-1 h-0.5 bg-blue-400 rounded-full" />
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
+      <TabMenu
+        items={statusFilters.map(filter => ({
+          id: filter.value,
+          label: filter.label,
+          count: filter.value === 'all' 
+            ? invoices.length 
+            : invoices.filter(inv => inv.status === filter.value).length
+        }))}
+        activeItemId={selectedStatus}
+        onItemClick={(id) => setSelectedStatus(id as InvoiceStatus)}
+      />
       <div>
         {/* Desktop table */}
         <div className="hidden md:flex flex-col min-h-[calc(100vh-64px)]">
@@ -298,7 +362,7 @@ export const InvoiceList: React.FC = () => {
                         <div className="flex items-center h-full">
                           <input
                             type="checkbox"
-                            className="form-checkbox h-5 w-5 text-[#6C6FE4] bg-transparent border-[#6C6FE4]"
+                            className="form-checkbox h-4 w-4 text-[#6C6FE4] bg-transparent border-[#6C6FE4] rounded-sm"
                             checked={allSelected}
                             onChange={toggleSelectAll}
                           />
@@ -317,13 +381,14 @@ export const InvoiceList: React.FC = () => {
                     {filteredInvoices.map((invoice) => (
                       <tr
                         key={invoice.id}
-                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232635]' : 'hover:bg-[#232635]/80'}`}
+                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232635]' : 'hover:bg-[#232635]/80'} cursor-pointer`}
+                        onClick={() => toggleSelectRow(invoice.id)}
                       >
                         <td className="px-2 py-3 align-middle">
-                          <div className="flex items-center h-full">
+                          <div className="flex items-center h-full" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
-                              className="form-checkbox h-5 w-5 text-[#6C6FE4] bg-transparent border-[#6C6FE4]"
+                              className="form-checkbox h-4 w-4 text-[#6C6FE4] bg-transparent border-[#6C6FE4] rounded-sm"
                               checked={selectedRows.includes(invoice.id)}
                               onChange={() => toggleSelectRow(invoice.id)}
                             />
@@ -345,15 +410,17 @@ export const InvoiceList: React.FC = () => {
                         </td>
                         <td className="px-2 py-3 text-right font-bold">{formatCurrency(invoice.amount)}</td>
                         <td className="px-2 py-3">
-                          <Dropdown
-                            trigger={
-                              <button>
-                                <span className="sr-only">Actions</span>
-                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                              </button>
-                            }
-                            items={rowDropdownItems(invoice)}
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Dropdown
+                              trigger={
+                                <button>
+                                  <span className="sr-only">Actions</span>
+                                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                                </button>
+                              }
+                              items={rowDropdownItems(invoice)}
+                            />
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -381,7 +448,7 @@ export const InvoiceList: React.FC = () => {
             <div className="text-sm text-gray-500 mb-6">Use the "+ New Invoice" button to get started.</div>
             <button
               className="bg-[#232635] text-[#6C6FE4] px-8 py-3 rounded-lg font-medium"
-              onClick={() => navigate('/templates')}
+              onClick={() => navigate('/packages')}
             >
               View Invoice Templates
             </button>

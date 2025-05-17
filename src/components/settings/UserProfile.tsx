@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
 
-export default function UserProfile() {
+export function UserProfile() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({

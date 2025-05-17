@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import PageHeader from '../common/PageHeader';
+import { PageHeader } from '../common/PageHeader';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 
 export const TemplateList: React.FC = () => {
