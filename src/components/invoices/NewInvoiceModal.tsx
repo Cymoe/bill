@@ -339,7 +339,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
         `}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-center pt-6 pb-4 px-6 border-b border-gray-200 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">New Invoice</h2>
             <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
               <X className="w-6 h-6" />
@@ -349,37 +349,50 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
           <div className="flex-1 overflow-y-auto">
             {step === 'select-packages' && (
               <div className="relative h-full flex flex-col">
-                <button
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, items: [] }));
-                    setStep('create');
-                  }}
-                  className="mb-6 w-full flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors"
-                >
-                  <span className="text-lg font-medium text-gray-900 dark:text-white">Start from Scratch</span>
-                  <Plus className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-                </button>
-                <h3 className="text-lg font-semibold mb-2">Select Packages</h3>
-                <div className="flex gap-3 mb-3 px-6">
-                  <input
-                    type="text"
-                    placeholder="Search packages..."
-                    value={packageSearch}
-                    onChange={e => setPackageSearch(e.target.value)}
-                    className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <select
-                    value={selectedCategory}
-                    onChange={e => setSelectedCategory(e.target.value)}
-                    className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
-                  >
-                    <option>All Categories</option>
-                    {Array.from(new Set(templates.map(t => (t as any).category).filter(Boolean))).map(cat => (
-                      <option key={cat}>{cat}</option>
-                    ))}
-                  </select>
+                <div className="px-6 mb-6">
+                  <div className="flex items-center justify-between bg-[#232635] rounded-xl px-6 py-8">
+                    <span className="text-2xl font-bold text-white">Start from Scratch</span>
+                    <button
+                      onClick={() => {
+                        setFormData(prev => ({ ...prev, items: [] }));
+                        setStep('create');
+                      }}
+                      className="bg-[#4B5AEF] text-white font-bold rounded-xl px-8 py-4 text-lg shadow hover:bg-[#3a47c6] transition"
+                    >
+                      Create Empty
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 overflow-y-auto pb-20">
+                {/* Divider with OR */}
+                <div className="flex items-center my-10 px-6">
+                  <div className="flex-1 border-t border-gray-700" />
+                  <span className="mx-4 text-gray-400 font-medium">OR</span>
+                  <div className="flex-1 border-t border-gray-700" />
+                </div>
+                {/* Header and controls with matching padding */}
+                <div className="px-6">
+                  <h3 className="text-lg font-semibold mb-2">Select Packages</h3>
+                  <div className="flex gap-3 mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search packages..."
+                      value={packageSearch}
+                      onChange={e => setPackageSearch(e.target.value)}
+                      className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <select
+                      value={selectedCategory}
+                      onChange={e => setSelectedCategory(e.target.value)}
+                      className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+                    >
+                      <option>All Categories</option>
+                      {Array.from(new Set(templates.map(t => (t as any).category).filter(Boolean))).map(cat => (
+                        <option key={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="pb-20">
                   <ul className="space-y-2">
                     {templates.filter(pkg =>
                       (selectedCategory === 'All Categories' || (pkg as any).category === selectedCategory) &&
@@ -391,10 +404,21 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                       const items = editedPackages[pkg.id] || pkg.items || [];
                       const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
                       return (
-                        <li key={pkg.id} className="flex items-center gap-2 bg-gray-800 rounded px-3 py-2">
+                        <li
+                          key={pkg.id}
+                          className="flex items-center gap-2 bg-gray-800 rounded px-3 py-2 cursor-pointer select-none hover:bg-[#232635] transition-colors"
+                          onClick={() => {
+                            setSelectedPackages(prev =>
+                              isSelected
+                                ? prev.filter(p => p.id !== pkg.id)
+                                : [...prev, pkg]
+                            );
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            onClick={e => e.stopPropagation()}
                             onChange={() => {
                               setSelectedPackages(prev =>
                                 isSelected
@@ -405,14 +429,6 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                           />
                           <span className="flex-1 flex items-center gap-2">
                             <span className="font-medium text-white">{pkg.name}</span>
-                            <button
-                              type="button"
-                              className="text-blue-400 hover:text-blue-600"
-                              onClick={() => setEditingPackage(pkg)}
-                              aria-label="Edit package"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
                           </span>
                           <span className="text-xs text-gray-400">{items.length} item{items.length !== 1 ? 's' : ''}</span>
                           <span className="text-blue-400 font-semibold ml-2">{formatCurrency(total)}</span>
@@ -422,54 +438,47 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                   </ul>
                 </div>
                 {step === 'select-packages' && (
-                  <div className="absolute left-0 right-0 bottom-0 z-20" style={{ pointerEvents: 'auto' }}>
-                    <div className="flex items-center justify-between px-6 py-3 bg-gray-800 border-t border-gray-700 rounded-b-lg">
-                      <div className="flex items-center gap-3">
-                        <span className="text-base font-medium text-white">Selected: {selectedPackages.length}</span>
-                        <span className="text-base font-medium text-white">{formatCurrency(selectedPackages.reduce((sum, pkg) => {
-                          const items = editedPackages[pkg.id] || pkg.items || [];
-                          return sum + items.reduce((s, i) => s + (i.price * i.quantity), 0);
-                        }, 0))}</span>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          className="px-6 py-2 border border-gray-500 text-white bg-transparent hover:bg-gray-700 rounded-lg font-medium text-base"
-                          onClick={() => {
-                            setStep('create');
-                            setEditingPackage(null);
-                            setPackageSearch('');
-                            setSelectedPackages([]);
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className="px-6 py-2 rounded-lg text-white font-medium text-base bg-blue-600 hover:bg-blue-700 transition-colors"
-                          disabled={selectedPackages.length === 0}
-                          onClick={() => {
-                            setFormData(prev => ({
-                              ...prev,
-                              items: [
-                                ...prev.items,
-                                ...selectedPackages.flatMap(pkg =>
-                                  (editedPackages[pkg.id] || pkg.items || []).map(item => ({
-                                    product_id: item.product_id,
-                                    quantity: item.quantity,
-                                    price: item.price,
-                                    description: products.find(p => p.id === item.product_id)?.description || item.description || ''
-                                  }))
-                                )
-                              ]
-                            }));
-                            setSelectedPackages([]);
-                            setEditingPackage(null);
-                            setPackageSearch('');
-                            setStep('create');
-                          }}
-                        >
-                          Add to Invoice
-                        </button>
-                      </div>
+                  <div className="fixed left-0 right-0 bottom-0 z-30 bg-[#232635] border-t border-gray-700 px-6 py-4 flex items-center justify-between" style={{ pointerEvents: 'auto' }}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-base font-medium text-white">Selected: {selectedPackages.length}</span>
+                      <span className="text-base font-medium text-white">{formatCurrency(selectedPackages.reduce((sum, pkg) => {
+                        const items = editedPackages[pkg.id] || pkg.items || [];
+                        return sum + items.reduce((s, i) => s + (i.price * i.quantity), 0);
+                      }, 0))}</span>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        className="px-6 py-2 border border-gray-500 text-white bg-transparent hover:bg-gray-700 rounded-lg font-medium text-base"
+                        onClick={handleClose}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="px-6 py-2 rounded-lg text-white font-medium text-base bg-blue-600 hover:bg-blue-700 transition-colors"
+                        disabled={selectedPackages.length === 0}
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            items: [
+                              ...prev.items,
+                              ...selectedPackages.flatMap(pkg =>
+                                (editedPackages[pkg.id] || pkg.items || []).map(item => ({
+                                  product_id: item.product_id,
+                                  quantity: item.quantity,
+                                  price: item.price,
+                                  description: products.find(p => p.id === item.product_id)?.description || item.description || ''
+                                }))
+                              )
+                            ]
+                          }));
+                          setSelectedPackages([]);
+                          setEditingPackage(null);
+                          setPackageSearch('');
+                          setStep('create');
+                        }}
+                      >
+                        Add to Invoice
+                      </button>
                     </div>
                   </div>
                 )}
@@ -583,11 +592,11 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
               <div className="grid grid-cols-2 gap-4 border-t border-gray-700 pt-4">
                 <button
                   type="button"
-                  onClick={handleClose}
+                  onClick={() => setStep('select-packages')}
                   className="w-full px-4 py-2 border border-gray-500 rounded-lg hover:bg-gray-700 text-white font-medium"
                   disabled={loading}
                 >
-                  Cancel
+                  Back
                 </button>
                 <button
                   type="submit"
