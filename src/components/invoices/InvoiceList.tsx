@@ -214,50 +214,76 @@ export const InvoiceList: React.FC = () => {
         subtitle="Manage all your invoices in one place"
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
+        showSearch
+        showFilter
         onFilter={() => setShowFilter(true)}
         onMenu={() => setShowMenu(true)}
+        searchPlaceholder="Search invoices by number..."
       />
-      <div>
-        {/* Invoice summary cards */}
-        <div className="hidden md:flex gap-0">
-          {/* Total Outstanding */}
-          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-            <span className="text-sm text-gray-400 mb-1">Total Outstanding</span>
-            <span className="text-2xl font-bold text-white">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
-            <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
-          </div>
-          {/* Draft Invoices */}
-          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-            <span className="text-sm text-gray-400 mb-1">Draft Invoices</span>
-            <span className="text-2xl font-bold text-white">{invoices.filter(inv => inv.status === 'draft').length}</span>
-            <button className="mt-2 bg-[#35384A] text-gray-400 text-xs font-medium rounded-full px-4 py-1 cursor-not-allowed" disabled>Finalize</button>
-          </div>
-          {/* Overdue */}
-          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-            <span className="text-sm text-gray-400 mb-1">Overdue</span>
-            <span className="text-2xl font-bold text-white">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</span>
-            <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
-          </div>
-          {/* Paid */}
-          <div className="flex-1 border border-[#35384A] p-4 flex flex-col justify-center min-w-[180px]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">Paid</span>
-              <select
-                value={paidPeriod}
-                onChange={e => setPaidPeriod(e.target.value as any)}
-                className="bg-[#35384A] text-xs text-[#6BFF90] rounded px-2 py-1 outline-none border-none"
-              >
-                <option value="month">This Month</option>
-                <option value="quarter">This Quarter</option>
-                <option value="year">This Year</option>
-                <option value="all">All Time</option>
-              </select>
-            </div>
-            <span className="text-2xl font-bold" style={{ color: '#6BFF90' }}>{formatCurrency(paidAmountForPeriod)}</span>
-            <span className="text-xs text-gray-500">{paidInvoicesForPeriod.length} invoices</span>
-          </div>
+      {/* Invoice summary cards */}
+      <div className="hidden md:flex gap-0">
+        {/* Total Outstanding */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1">Total Outstanding</span>
+          <span className="text-2xl font-bold text-white">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
+          <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
         </div>
-
+        {/* Draft Invoices */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1">Draft Invoices</span>
+          <span className="text-2xl font-bold text-white">{invoices.filter(inv => inv.status === 'draft').length}</span>
+          <button className="mt-2 bg-[#35384A] text-gray-400 text-xs font-medium rounded-full px-4 py-1 cursor-not-allowed" disabled>Finalize</button>
+        </div>
+        {/* Overdue */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1">Overdue</span>
+          <span className="text-2xl font-bold text-white">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</span>
+          <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
+        </div>
+        {/* Paid */}
+        <div className="flex-1 border border-[#35384A] p-4 flex flex-col justify-center min-w-[180px]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-400">Paid</span>
+            <select
+              value={paidPeriod}
+              onChange={e => setPaidPeriod(e.target.value as any)}
+              className="bg-[#35384A] text-xs text-[#6BFF90] rounded px-2 py-1 outline-none border-none"
+            >
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
+              <option value="year">This Year</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+          <span className="text-2xl font-bold" style={{ color: '#6BFF90' }}>{formatCurrency(paidAmountForPeriod)}</span>
+          <span className="text-xs text-gray-500">{paidInvoicesForPeriod.length} invoices</span>
+        </div>
+      </div>
+      {/* Global subnav tabs (now below summary cards, above table) */}
+      <div className="flex w-full border-b border-[#232635] bg-transparent px-8 pt-2">
+        <div className="flex gap-2">
+          {statusFilters.map((filter) => (
+            <button
+              key={filter.value}
+              className={`relative flex items-center px-0 py-2 text-base font-medium focus:outline-none transition-colors
+                ${selectedStatus === filter.value ? 'text-blue-400' : 'text-gray-400 hover:text-white/80'}`}
+              style={{ background: 'none', border: 'none' }}
+              onClick={() => setSelectedStatus(filter.value)}
+            >
+              <span>{filter.label}</span>
+              <span className="ml-2 rounded-full bg-[#232F5B] text-blue-200 px-2 py-0.5 text-xs font-semibold">
+                {filter.value === 'all'
+                  ? invoices.length
+                  : invoices.filter(inv => inv.status === filter.value).length}
+              </span>
+              {selectedStatus === filter.value && (
+                <span className="absolute left-0 right-0 -bottom-1 h-0.5 bg-blue-400 rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
         {/* Desktop table */}
         <div className="hidden md:flex flex-col min-h-[calc(100vh-64px)]">
           <div className="flex-1 flex flex-col">

@@ -14,8 +14,11 @@ export const PriceBookPage: React.FC = () => {
         subtitle="Manage all your pricing items in one place"
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
+        showSearch
+        showFilter
         onFilter={() => setShowFilter(true)}
         onMenu={() => setShowMenu(true)}
+        searchPlaceholder="Search price book items..."
       />
       {/* ...rest of the page... */}
     </DashboardLayout>

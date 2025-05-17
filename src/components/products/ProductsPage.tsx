@@ -226,67 +226,15 @@ export const ProductsPage: React.FC = () => {
         subtitle="Manage all your products and assemblies in one place"
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
+        showSearch
+        showFilter
         onFilter={() => setShowFilter(true)}
         onMenu={() => setShowMenu(true)}
-      />
-      {/* INSERT new search/filter/category/subcategory UI here */}
-      <div className="px-8 pt-6">
-        <div className="flex items-center mb-8">
-          <div className="relative flex-1 max-w-2xl">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search size={20} className="text-gray-500" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search products by name, type, or price range..."
-              className="block w-full pl-10 pr-4 py-3 bg-gray-800 border border-gray-700 rounded-l-lg focus:ring-blue-500 focus:border-blue-500 text-gray-200"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="relative">
-            <button
-              className="flex items-center bg-gray-800 border border-gray-700 border-l-0 px-5 py-3 rounded-r-lg hover:bg-gray-700 transition-colors"
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              type="button"
-            >
-              <Filter size={20} className="text-blue-400 mr-2" />
-              <span className="text-gray-200">Filter</span>
-            </button>
-            {isFilterOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-20">
-                <div className="p-4">
-                  <h3 className="font-medium mb-3">Filter By:</h3>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm mb-1">Price Range</label>
-                      <div className="flex items-center">
-                        <input className="w-full bg-gray-700 rounded p-2 text-sm" placeholder="Min" value={priceMin} onChange={e => setPriceMin(e.target.value)} />
-                        <span className="mx-2">-</span>
-                        <input className="w-full bg-gray-700 rounded p-2 text-sm" placeholder="Max" value={priceMax} onChange={e => setPriceMax(e.target.value)} />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-sm mb-1">Status</label>
-                      <select className="w-full bg-gray-700 rounded p-2 text-sm" value={status} onChange={e => setStatus(e.target.value)}>
-                        <option value="all">All</option>
-                        <option value="active">Active</option>
-                        <option value="archived">Archived</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <button className="bg-gray-700 px-3 py-1 rounded mr-2 text-sm" onClick={() => { setPriceMin(''); setPriceMax(''); setStatus('all'); }}>Reset</button>
-                    <button className="bg-blue-600 px-3 py-1 rounded text-sm" onClick={() => setIsFilterOpen(false)}>Apply</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center space-x-3 mb-4">
-          <h3 className="text-base font-medium text-gray-300">Category:</h3>
-          <div className="relative flex-1 max-w-xs">
+        searchPlaceholder="Search products by name, type, or price range..."
+      >
+        {/* Category and Subcategory Selectors */}
+        <div className="flex items-center gap-3 ml-6">
+          <div className="relative max-w-xs">
             <select
               className="appearance-none w-full bg-gray-800 border border-gray-700 px-4 py-2 pr-8 rounded-md text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
               value={selectedCategory}
@@ -321,7 +269,7 @@ export const ProductsPage: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </PageHeader>
       {/* Product Cards with Expand/Collapse */}
       <div className="px-8 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -10,6 +10,7 @@ import { CreateDropdown } from '../common/CreateModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import TableHeader from './TableHeader';
+import PageHeader from '../common/PageHeader';
 
 type Product = {
   id: string;
