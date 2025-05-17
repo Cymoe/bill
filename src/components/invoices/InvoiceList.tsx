@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, Download, Filter, ChevronRight } from 'lucide-react';
+import { Plus, Search, Download, Filter, ChevronRight, Share2, Copy } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -12,6 +12,7 @@ import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import PageHeader from '../common/PageHeader';
+import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
 
 type Invoice = {
   id: string;
@@ -45,6 +46,8 @@ export const InvoiceList: React.FC = () => {
   const [showFilter, setShowFilter] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
+  const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
+  const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
 
   useEffect(() => {
     if (user) {
@@ -129,6 +132,81 @@ export const InvoiceList: React.FC = () => {
     setSelectedRows((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const rowDropdownItems = (invoice: any) => [
+    {
+      label: 'View Details',
+      onClick: () => setViewInvoiceId(invoice.id),
+      className: 'font-bold text-white',
+    },
+    {
+      label: '',
+      onClick: () => {},
+      className: 'pointer-events-none border-t border-[#35384A] my-1',
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2 font-bold text-white">
+          <Copy className="w-4 h-4" />
+          Duplicate
+        </span>
+      ),
+      onClick: () => {/* duplicate logic placeholder */},
+      className: '',
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2 font-bold text-white">
+          <Download className="w-4 h-4" />
+          Download
+        </span>
+      ),
+      onClick: () => {/* download logic placeholder */},
+      className: '',
+    },
+    {
+      label: (
+        <span className="flex items-center gap-2 font-bold text-white">
+          <Share2 className="w-4 h-4" />
+          Share
+        </span>
+      ),
+      onClick: () => {
+        navigator.clipboard.writeText(`${window.location.origin}/invoices/${invoice.id}`);
+      },
+      className: '',
+    },
+    {
+      label: '',
+      onClick: () => {},
+      className: 'pointer-events-none border-t border-[#35384A] my-1',
+    },
+    {
+      label: 'Delete',
+      onClick: () => {/* delete logic placeholder */},
+      className: 'font-bold text-[#FF4B4B]',
+    },
+  ];
+
+  // Helper to get start date for each period
+  const getPeriodStart = (period: 'month' | 'quarter' | 'year' | 'all') => {
+    const now = new Date();
+    if (period === 'all') return new Date(0);
+    if (period === 'year') return new Date(now.getFullYear(), 0, 1);
+    if (period === 'quarter') {
+      const q = Math.floor(now.getMonth() / 3);
+      return new Date(now.getFullYear(), q * 3, 1);
+    }
+    if (period === 'month') return new Date(now.getFullYear(), now.getMonth(), 1);
+    return new Date(0);
+  };
+
+  const paidInvoices = useMemo(() => invoices.filter(inv => inv.status === 'paid'), [invoices]);
+  const paidInvoicesForPeriod = useMemo(() => {
+    const start = getPeriodStart(paidPeriod);
+    return paidInvoices.filter(inv => new Date(inv.issue_date) >= start);
+  }, [paidInvoices, paidPeriod]);
+  const paidAmountForPeriod = paidInvoicesForPeriod.reduce((sum, inv) => sum + inv.amount, 0);
+
   return (
     <DashboardLayout>
       <PageHeader
@@ -139,26 +217,44 @@ export const InvoiceList: React.FC = () => {
         onFilter={() => setShowFilter(true)}
         onMenu={() => setShowMenu(true)}
       />
-      <div className="space-y-4 md:space-y-6">
+      <div>
         {/* Invoice summary cards */}
-        <div className="hidden md:flex gap-6 px-6 pb-2">
+        <div className="hidden md:flex gap-0">
           {/* Total Outstanding */}
-          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
-            <span className="text-base text-gray-400 mb-1">Total Outstanding</span>
+          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+            <span className="text-sm text-gray-400 mb-1">Total Outstanding</span>
             <span className="text-2xl font-bold text-white">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
-            <span className="text-sm text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
+            <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
           </div>
           {/* Draft Invoices */}
-          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
-            <span className="text-base text-gray-400 mb-1">Draft Invoices</span>
+          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+            <span className="text-sm text-gray-400 mb-1">Draft Invoices</span>
             <span className="text-2xl font-bold text-white">{invoices.filter(inv => inv.status === 'draft').length}</span>
-            <button className="mt-2 bg-[#35384A] text-gray-400 text-sm font-medium rounded-full px-6 py-1.5 cursor-not-allowed" disabled>Finalize</button>
+            <button className="mt-2 bg-[#35384A] text-gray-400 text-xs font-medium rounded-full px-4 py-1 cursor-not-allowed" disabled>Finalize</button>
           </div>
           {/* Overdue */}
-          <div className="flex-1 bg-[#232635] rounded-lg p-6 flex flex-col justify-center">
-            <span className="text-base text-gray-400 mb-1">Overdue</span>
+          <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+            <span className="text-sm text-gray-400 mb-1">Overdue</span>
             <span className="text-2xl font-bold text-white">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</span>
-            <span className="text-sm text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
+            <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
+          </div>
+          {/* Paid */}
+          <div className="flex-1 border border-[#35384A] p-4 flex flex-col justify-center min-w-[180px]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-gray-400">Paid</span>
+              <select
+                value={paidPeriod}
+                onChange={e => setPaidPeriod(e.target.value as any)}
+                className="bg-[#35384A] text-xs text-[#6BFF90] rounded px-2 py-1 outline-none border-none"
+              >
+                <option value="month">This Month</option>
+                <option value="quarter">This Quarter</option>
+                <option value="year">This Year</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+            <span className="text-2xl font-bold" style={{ color: '#6BFF90' }}>{formatCurrency(paidAmountForPeriod)}</span>
+            <span className="text-xs text-gray-500">{paidInvoicesForPeriod.length} invoices</span>
           </div>
         </div>
 
@@ -168,7 +264,7 @@ export const InvoiceList: React.FC = () => {
             {isLoading ? (
               <TableSkeleton rows={5} columns={7} />
             ) : (
-              <div className="bg-transparent overflow-hidden shadow-[0_2px_8px_0_rgba(20,20,40,0.12)] border border-[#232635]">
+              <div className="bg-transparent shadow-[0_2px_8px_0_rgba(20,20,40,0.12)] border border-[#232635]">
                 <table className="min-w-full bg-transparent">
                   <thead>
                     <tr className="bg-[#232635] sticky top-0 z-10">
@@ -223,10 +319,15 @@ export const InvoiceList: React.FC = () => {
                         </td>
                         <td className="px-2 py-3 text-right font-bold">{formatCurrency(invoice.amount)}</td>
                         <td className="px-2 py-3">
-                          <button>
-                            <span className="sr-only">Actions</span>
-                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                          </button>
+                          <Dropdown
+                            trigger={
+                              <button>
+                                <span className="sr-only">Actions</span>
+                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                              </button>
+                            }
+                            items={rowDropdownItems(invoice)}
+                          />
                         </td>
                       </tr>
                     ))}
@@ -312,6 +413,15 @@ export const InvoiceList: React.FC = () => {
             setShowNewModal(false);
             fetchData();
           }}
+        />
+      )}
+
+      {/* Invoice Details Drawer */}
+      {viewInvoiceId && (
+        <InvoiceDetailsDrawer
+          invoice={invoices.find(inv => inv.id === viewInvoiceId)}
+          client={clients.find(c => c.id === invoices.find(inv => inv.id === viewInvoiceId)?.client_id)}
+          onClose={() => setViewInvoiceId(null)}
         />
       )}
     </DashboardLayout>

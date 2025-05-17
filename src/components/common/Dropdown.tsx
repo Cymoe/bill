@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 interface DropdownItem {
-  label: string;
+  label: React.ReactNode;
   onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
 }
@@ -35,20 +35,29 @@ export const Dropdown: React.FC<DropdownProps> = ({ trigger, items }) => {
         >
           <div className="py-1" role="menu" aria-orientation="vertical">
             {items.map((item, index) => (
-              <button
-                key={index}
-                onClick={(e) => {
-                  item.onClick(e);
-                  setIsOpen(false);
-                }}
-                className={`block w-full text-left px-4 py-2 text-sm ${
-                  item.className ||
-                  'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-                role="menuitem"
-              >
-                {item.label}
-              </button>
+              typeof item.label === 'string' && item.label === '' ? (
+                <div
+                  key={index}
+                  className={item.className || ''}
+                  style={{ height: '1px', background: '#35384A', margin: '4px 0' }}
+                  aria-hidden="true"
+                />
+              ) : (
+                <button
+                  key={index}
+                  onClick={(e) => {
+                    item.onClick(e);
+                    setIsOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2 text-sm ${
+                    item.className ||
+                    'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                  role="menuitem"
+                >
+                  {item.label}
+                </button>
+              )
             ))}
           </div>
         </div>
