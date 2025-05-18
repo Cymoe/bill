@@ -62,15 +62,6 @@ export const PackagesPage: React.FC = () => {
         showSearch={true}
         onFilter={() => setShowFilter(!showFilter)}
         searchPlaceholder="Search packages..."
-        actionButton={
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-full hover:bg-indigo-700"
-          >
-            <Plus className="w-4 h-4" />
-            New Package
-          </button>
-        }
       />
       
       {showFilter && (

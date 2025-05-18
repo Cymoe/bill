@@ -16,6 +16,7 @@ import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
+import LineItemTestPage from './pages/LineItemTestPage';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -161,6 +162,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <PriceBook />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/line-item-test"
+        element={
+          <ProtectedRoute>
+            <LineItemTestPage />
           </ProtectedRoute>
         }
       />

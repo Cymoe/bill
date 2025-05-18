@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { formatCurrency } from '../../utils/format';
-import { DashboardLayout } from '../layouts/DashboardLayout';
+import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../common/PageHeader';
 import TabMenu from '../common/TabMenu';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
+import { MoreVertical, Upload, Download, Printer, Filter } from 'lucide-react';
 
 interface Product {
   id: string;
@@ -31,11 +32,43 @@ export const PriceBook = () => {
   const [priceSort, setPriceSort] = useState<'asc' | 'desc'>('desc');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductMenu, setShowProductMenu] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   
   const togglePriceSort = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
   };
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  // Functions for the new menu options
+  const handleImportItems = () => {
+    // TODO: Implement import functionality
+    console.log('Import items clicked');
+  };
+
+  const handleExportToCSV = () => {
+    // TODO: Implement export to CSV functionality
+    console.log('Export to CSV clicked');
+  };
+
+  const handlePrintPriceBook = () => {
+    // TODO: Implement print price book functionality
+    console.log('Print price book clicked');
+  };
+
+  // Close options menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
+        setShowOptionsMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     fetchProducts();
@@ -106,16 +139,76 @@ export const PriceBook = () => {
   return (
     <DashboardLayout>
       <div className="space-y-0">
-        <PageHeader
-          title="Price Book"
-          subtitle="Manage all your pricing items in one place"
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          showSearch
-          onFilter={() => setShowFilterMenu(!showFilterMenu)}
-          searchPlaceholder="Search pricing items by name, type, or price range..."
-          onMenu={() => setMenuOpen(!menuOpen)}
-        />
+        <div className="relative flex items-center justify-between px-8 py-6">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Price Book</h1>
+            <p className="text-gray-400">Manage all your pricing items in one place</p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search pricing items by name, type, or price range..."
+                className="w-64 px-4 py-2 bg-[#1E2130] border border-gray-700 rounded-full text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+            >
+              <Filter size={16} />
+              <span>Filter</span>
+            </button>
+            
+            <div className="relative" ref={optionsMenuRef}>
+              <button
+                className="p-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              >
+                <MoreVertical size={20} />
+              </button>
+              
+              {showOptionsMenu && (
+                <div className="absolute right-0 top-12 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
+                  <button 
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleImportItems();
+                    }}
+                  >
+                    <Upload size={16} className="text-gray-400" />
+                    Import items
+                  </button>
+                  <button 
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handleExportToCSV();
+                    }}
+                  >
+                    <Download size={16} className="text-gray-400" />
+                    Export to CSV
+                  </button>
+                  <button 
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                    onClick={() => {
+                      setShowOptionsMenu(false);
+                      handlePrintPriceBook();
+                    }}
+                  >
+                    <Printer size={16} className="text-gray-400" />
+                    Print price book
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
         
         {/* Filter Menu */}
         {showFilterMenu && (
@@ -227,10 +320,8 @@ export const PriceBook = () => {
           onItemClick={setActiveCategory}
         />
 
-
-
         {/* Products Table */}
-        <div>
+        <div className="px-8 pt-8">
           {filteredProducts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No pricing items found. Try adjusting your filters.
