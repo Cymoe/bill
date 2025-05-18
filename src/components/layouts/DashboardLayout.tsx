@@ -51,7 +51,7 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Industries', setSelectedIndustry: () => {} });
+export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Work Types', setSelectedIndustry: () => {} });
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
@@ -71,13 +71,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const location = useLocation();
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
-  const [selectedIndustry, setSelectedIndustry] = useState('All Industries');
+  const [selectedIndustry, setSelectedIndustry] = useState('All Work Types');
   const industries = [
-    'All Industries',
-    'Remodelers',
-    'New Construction',
-    'Service',
-    'Luxury Villas',
+    'All Work Types',
+    'General Construction',
+    'Plumbing',
+    'Electrical',
+    'HVAC',
+    'Carpentry',
+    'Painting',
+    'Flooring',
+    'Roofing',
+    'Landscaping',
+    'Masonry',
   ];
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
   const orgDropdownRef = useRef<HTMLDivElement>(null);
@@ -93,49 +99,95 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   ];
   const [selectedOrg, setSelectedOrg] = useState(mockOrgs[0]);
 
-  // For sidebar industry/subcategory section
-  const { selectedIndustry: contextSelectedIndustry } = useContext(IndustryContext);
+  // For sidebar industry/subcategory section - no longer needed as we're using the state directly
   const subcategoriesByIndustry: { [key: string]: { name: string; count: number }[] } = {
-    'Remodelers': [
-      { name: 'All Remodeler Items', count: 98 },
-      { name: 'Painting', count: 15 },
-      { name: 'Carpentry', count: 22 },
-      { name: 'Plumbing', count: 14 },
-      { name: 'HVAC', count: 9 },
-    ],
-    'New Construction': [
-      { name: 'All New Construction Items', count: 98 },
+    'General Construction': [
+      { name: 'All General Construction Items', count: 98 },
       { name: 'Foundation', count: 15 },
       { name: 'Framing', count: 22 },
-      { name: 'Roofing', count: 14 },
-      { name: 'Plumbing', count: 18 },
-      { name: 'Electrical', count: 20 },
-      { name: 'HVAC', count: 9 },
+      { name: 'Drywall', count: 18 },
+      { name: 'Insulation', count: 12 },
+      { name: 'Siding', count: 14 },
+      { name: 'Windows & Doors', count: 17 },
     ],
-    'Service': [
-      { name: 'All Service Items', count: 89 },
-      { name: 'Maintenance', count: 35 },
-      { name: 'Repair', count: 42 },
-      { name: 'Inspection', count: 12 },
+    'Plumbing': [
+      { name: 'All Plumbing Items', count: 76 },
+      { name: 'Fixtures', count: 25 },
+      { name: 'Pipes & Fittings', count: 30 },
+      { name: 'Water Heaters', count: 8 },
+      { name: 'Drainage', count: 13 },
     ],
-    'Luxury Villas': [
-      { name: 'All Luxury Villa Items', count: 40 },
-      { name: 'Design', count: 10 },
-      { name: 'Landscaping', count: 15 },
-      { name: 'Pools', count: 15 },
+    'Electrical': [
+      { name: 'All Electrical Items', count: 82 },
+      { name: 'Wiring', count: 20 },
+      { name: 'Panels & Breakers', count: 15 },
+      { name: 'Lighting', count: 25 },
+      { name: 'Outlets & Switches', count: 12 },
+      { name: 'Smart Home', count: 10 },
     ],
-    'All Industries': [
+    'HVAC': [
+      { name: 'All HVAC Items', count: 65 },
+      { name: 'Heating', count: 18 },
+      { name: 'Cooling', count: 22 },
+      { name: 'Ventilation', count: 15 },
+      { name: 'Ductwork', count: 10 },
+    ],
+    'Carpentry': [
+      { name: 'All Carpentry Items', count: 70 },
+      { name: 'Rough Carpentry', count: 25 },
+      { name: 'Finish Carpentry', count: 30 },
+      { name: 'Cabinetry', count: 15 },
+    ],
+    'Painting': [
+      { name: 'All Painting Items', count: 45 },
+      { name: 'Interior', count: 20 },
+      { name: 'Exterior', count: 15 },
+      { name: 'Specialty Finishes', count: 10 },
+    ],
+    'Flooring': [
+      { name: 'All Flooring Items', count: 55 },
+      { name: 'Hardwood', count: 15 },
+      { name: 'Tile', count: 18 },
+      { name: 'Carpet', count: 12 },
+      { name: 'Vinyl/Laminate', count: 10 },
+    ],
+    'Roofing': [
+      { name: 'All Roofing Items', count: 40 },
+      { name: 'Shingles', count: 15 },
+      { name: 'Metal', count: 10 },
+      { name: 'Flat Roof', count: 8 },
+      { name: 'Gutters', count: 7 },
+    ],
+    'Landscaping': [
+      { name: 'All Landscaping Items', count: 50 },
+      { name: 'Hardscaping', count: 15 },
+      { name: 'Planting', count: 20 },
+      { name: 'Irrigation', count: 10 },
+      { name: 'Lighting', count: 5 },
+    ],
+    'Masonry': [
+      { name: 'All Masonry Items', count: 35 },
+      { name: 'Brick', count: 12 },
+      { name: 'Stone', count: 15 },
+      { name: 'Concrete', count: 8 },
+    ],
+    'All Work Types': [
       { name: 'All Items', count: 0 },
     ],
   };
-  const [selectedSubcategory, setSelectedSubcategory] = useState(subcategoriesByIndustry[contextSelectedIndustry][0].name);
-  const subcategories = subcategoriesByIndustry[contextSelectedIndustry] || [{ name: 'All Items', count: 0 }];
-
+  const [selectedSubcategory, setSelectedSubcategory] = useState('');
+  const [subcategories, setSubcategories] = useState<any[]>([]);
   const industryList = [
-    'Remodelers',
-    'New Construction',
-    'Service',
-    'Luxury Villas',
+    'General Construction',
+    'Plumbing',
+    'Electrical',
+    'HVAC',
+    'Carpentry',
+    'Painting',
+    'Flooring',
+    'Roofing',
+    'Landscaping',
+    'Masonry'
   ];
 
   useEffect(() => {
@@ -332,67 +384,90 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         </div>
 
         <div className="flex h-[calc(100vh-4rem)] mt-16">
-          {/* Sidebar */}
-          <div className="fixed top-16 w-64 h-[calc(100vh-4rem)] overflow-y-auto bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex flex-col">
-            {/* Industry/Subcategory section for Price Book only */}
-            {location.pathname === '/price-book' && (
-              <div className="mb-6 px-4 pt-4">
-                <div className="relative mb-1" ref={industryDropdownRef}>
-                  {contextSelectedIndustry === 'All Industries' ? (
-                    <>
-                      <button
-                        className="text-lg font-bold text-blue-400 flex items-center w-full text-left"
-                        onClick={() => setIndustryDropdownOpen((v) => !v)}
-                        aria-haspopup="listbox"
-                        aria-expanded={industryDropdownOpen}
-                      >
-                        All Industries
-                        <ChevronDown className={`w-5 h-5 ml-2 transition-transform ${industryDropdownOpen ? 'rotate-180' : ''}`} />
-                      </button>
-                      {industryDropdownOpen && (
-                        <div className="absolute left-0 top-full mt-1 w-full bg-[#232323] rounded shadow-lg z-50 border border-[#232323]" style={{ minWidth: 180 }}>
-                          {industryList.map((industry) => (
-                            <button
-                              key={industry}
-                              className={`w-full text-left px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors`}
-                              onClick={() => {
-                                setSelectedIndustry(industry);
-                                setIndustryDropdownOpen(false);
-                              }}
-                              type="button"
-                              role="option"
-                            >
-                              {industry}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="text-lg font-bold text-blue-400">{contextSelectedIndustry}</div>
-                  )}
-                </div>
-                <div className="text-gray-400 text-sm mb-4">Browse by category</div>
-                <div className="uppercase text-xs text-gray-400 font-bold mb-2 tracking-wider">{contextSelectedIndustry === 'All Industries' ? 'Industries' : 'Categories'}</div>
-                <div className="flex flex-col gap-1">
-                  {contextSelectedIndustry !== 'All Industries' && subcategories.map((sub) => (
+          {/* Sidebar - reduced width */}
+          <div className="fixed top-16 w-48 h-[calc(100vh-4rem)] overflow-y-auto bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex flex-col">
+            {/* Sidebar header action for each main section */}
+            {(() => {
+              if (location.pathname === '/price-book') {
+                return (
+                  <div className="mb-6 px-4 pt-4">
                     <button
-                      key={sub.name}
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors ${selectedSubcategory === sub.name ? 'bg-blue-700 text-white font-semibold' : 'text-gray-100 hover:bg-[#232323]'}`}
-                      onClick={() => setSelectedSubcategory(sub.name)}
+                      onClick={() => setShowLineItemDrawer(true)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
                     >
-                      <span>{sub.name}</span>
-                      <span className="ml-2 px-2 py-0.5 text-xs rounded bg-gray-700 text-gray-200 font-medium">{sub.count}</span>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Line Item
                     </button>
-                  ))}
-                </div>
-                {contextSelectedIndustry !== 'All Industries' && (
-                  <button className="mt-6 text-blue-500 hover:underline text-base font-medium flex items-center">
-                    <span className="mr-1">+</span> Add New Item
-                  </button>
-                )}
-              </div>
-            )}
+                  </div>
+                );
+              }
+              if (location.pathname.startsWith('/products')) {
+                return (
+                  <div className="mb-6 px-4 pt-4">
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('openNewProductDrawer'))}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Product
+                    </button>
+                  </div>
+                );
+              }
+              if (location.pathname.startsWith('/projects')) {
+                return (
+                  <div className="mb-6 px-4 pt-4">
+                    <button
+                      onClick={() => window.dispatchEvent(new CustomEvent('openNewProjectDrawer'))}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Project
+                    </button>
+                  </div>
+                );
+              }
+              if (location.pathname.startsWith('/clients')) {
+                return (
+                  <div className="mb-6 px-4 pt-4">
+                    <button
+                      onClick={() => setShowNewClientDrawer(true)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Client
+                    </button>
+                  </div>
+                );
+              }
+              if (location.pathname.startsWith('/invoices')) {
+                return (
+                  <div className="mb-6 px-4 pt-4">
+                    <button
+                      onClick={() => setShowNewInvoiceDrawer(true)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Invoice
+                    </button>
+                  </div>
+                );
+              }
+              if (location.pathname.startsWith('/packages')) {
+                return (
+                  <div className="mb-6 px-4 pt-4">
+                    <button
+                      onClick={() => setShowNewPackageDrawer(true)}
+                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Package
+                    </button>
+                  </div>
+                );
+              }
+              return null;
+            })()}
             <div className="flex-1 overflow-y-auto px-4">
               {sidebarItems.map((section, idx) => (
                 <div key={section.title} className={idx > 0 ? 'mt-8' : ''}>
@@ -497,10 +572,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </div>
 
-          {/* Main Content */}
-          <main className="flex-1 ml-64 bg-gray-900">
+          {/* Main Content - adjusted for narrower sidebar */}
+          <div className="flex-1 ml-48 p-4 bg-gray-900">
             {children}
-          </main>
+          </div>
+
         </div>
 
         {/* Mobile Menu Toggle */}

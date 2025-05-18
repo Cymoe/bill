@@ -97,12 +97,13 @@ export const ProductsPage: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('products')
-        .select('*')
-        .eq('type', 'material')
+        .select('id, name, unit, price, type, trade:trades(name)')
         .order('name', { ascending: true });
-
       if (error) throw error;
-      setLineItems(data || []);
+      setLineItems((data || []).map((li: any) => ({
+        ...li,
+        trade: li.trade?.name || null
+      })));
     } catch (error) {
       console.error('Error fetching line items:', error);
     }

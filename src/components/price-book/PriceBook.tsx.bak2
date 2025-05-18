@@ -1,12 +1,9 @@
-import { useState, useEffect, useMemo, useRef, useContext } from 'react';
-import { formatCurrency } from '../../utils/format';
-import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
-import { supabase } from '../../lib/supabase';
+import { useState, useEffect, useRef, useContext, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../common/PageHeader';
+import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
 import TabMenu from '../common/TabMenu';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
-import { LineItemModal } from '../modals/LineItemModal';
+import { supabase } from '../../lib/supabase';
 import { MoreVertical, Upload, Download, Printer, Filter } from 'lucide-react';
 
 interface Product {
@@ -15,9 +12,12 @@ interface Product {
   description: string;
   price: number;
   unit: string;
+  type: string;
   user_id: string;
   created_at: string;
-  type: string;
+  category?: string;
+  subcategory?: string;
+  trade?: string;
 }
 
 // Define the subcategory interface
@@ -26,39 +26,21 @@ interface Subcategory {
   count: number;
 }
 
-// Add TypeScript declaration for the window object
-declare global {
-  interface Window {
-    openLineItemModal?: () => void;
-  }
-}
-
 export const PriceBook = () => {
   const { user } = useAuth();
   // Initialize with 'All Trades' instead of 'All Work Types'
   const { selectedIndustry, setSelectedIndustry } = useContext(IndustryContext);
-  const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
   
   // Update the context if it's still using the old value
   useEffect(() => {
     if (selectedIndustry === 'All Work Types') {
       setSelectedIndustry('All Trades');
     }
-    
-    // Expose a function to open the line item modal globally
-    // This allows the sidebar button to open the modal
-    window.openLineItemModal = () => {
-      setShowNewLineItemModal(true);
-    };
-    
-    // Clean up function
-    return () => {
-      delete window.openLineItemModal;
-    };
   }, [selectedIndustry, setSelectedIndustry]);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Removing unused state variables
+  // const [menuOpen, setMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -71,7 +53,6 @@ export const PriceBook = () => {
   const [workTypeDropdownOpen, setWorkTypeDropdownOpen] = useState(false);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All Items');
-  const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
   
   const togglePriceSort = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
@@ -212,91 +193,93 @@ export const PriceBook = () => {
       console.error('Error fetching products:', error);
     }
   };
-
-  // Helper function to determine the trade for a product based on name and description
-  const getTrade = (product: Product): string => {
-    // Combine name and description for better matching
-    const searchText = (product.name + ' ' + product.description).toLowerCase();
+  
+  
+  // Get appropriate badge color for each trade
+  const getTradeBadgeColor = (trade: string): string => {
+    const tradeColors: Record<string, string> = {
+      'Plumbing': 'bg-blue-700',
+      'Electrical': 'bg-yellow-600',
+      'HVAC': 'bg-green-700',
+      'Carpentry': 'bg-amber-700',
+      'Painting': 'bg-purple-700',
+      'Flooring': 'bg-teal-700',
+      'Roofing': 'bg-red-700',
+      'Landscaping': 'bg-emerald-700',
+      'Masonry': 'bg-orange-700',
+      'General Construction': 'bg-gray-700'
+    };
     
-    // Map product names and descriptions to trades
-    if (searchText.includes('plumb')) return 'Plumbing';
-    if (searchText.includes('electric') || searchText.includes('wire') || searchText.includes('circuit')) return 'Electrical';
-    if (searchText.includes('hvac') || searchText.includes('air') || searchText.includes('heat') || searchText.includes('cool')) return 'HVAC';
-    if (searchText.includes('carpent') || searchText.includes('wood') || searchText.includes('timber')) return 'Carpentry';
-    if (searchText.includes('paint') || searchText.includes('finish')) return 'Painting';
-    if (searchText.includes('floor') || searchText.includes('tile')) return 'Flooring';
-    if (searchText.includes('roof')) return 'Roofing';
-    if (searchText.includes('landscape') || searchText.includes('garden') || searchText.includes('yard')) return 'Landscaping';
-    if (searchText.includes('mason') || searchText.includes('brick') || searchText.includes('stone')) return 'Masonry';
-    
-    // Default to the selected industry if it's not 'All Trades'
-    if (selectedIndustry !== 'All Trades') return selectedIndustry;
-    
-    // If no match and no selected industry, default to General Construction
-    return 'General Construction';
+    return tradeColors[trade] || 'bg-gray-700';
   };
   
-  // Fetch trades from DB
-  useEffect(() => {
-    const fetchTrades = async () => {
-      const { data, error } = await supabase
-        .from('trades')
-        .select('id, name')
-        .order('name');
-      if (!error && data) setTrades(data);
+  // Determine trade for a product based on its properties
+  const getDerivedTrade = (product: Product): string => {
+    // If the product already has a trade property, use that
+    if (product.trade) return product.trade;
+    
+    // Otherwise derive trade from category or other properties
+    if (product.category) {
+      // Map categories to trades
+      const categoryToTradeMap: Record<string, string> = {
+        'Plumbing Fixtures': 'Plumbing',
+        'Pipes': 'Plumbing',
+        'Valves': 'Plumbing',
+        'Electrical Components': 'Electrical',
+        'Wiring': 'Electrical',
+        'HVAC Equipment': 'HVAC',
+        'Ductwork': 'HVAC',
+        'Lumber': 'Carpentry',
+        'Framing': 'Carpentry',
+        'Paint': 'Painting',
+        'Flooring Materials': 'Flooring',
+        'Roofing Materials': 'Roofing',
+        'Plants': 'Landscaping',
+        'Irrigation': 'Landscaping',
+        'Bricks': 'Masonry',
+        'Stone': 'Masonry',
+        'Concrete': 'Masonry',
+      };
+      
+      if (categoryToTradeMap[product.category]) {
+        return categoryToTradeMap[product.category];
+      }
+    }
+    
+    // If no match found in category, try to derive from name or description
+    const tradeKeywords: Record<string, string[]> = {
+      'Plumbing': ['pipe', 'plumb', 'water', 'drain', 'toilet', 'sink', 'faucet'],
+      'Electrical': ['wire', 'electric', 'circuit', 'panel', 'outlet', 'switch', 'light'],
+      'HVAC': ['hvac', 'heat', 'air', 'vent', 'duct', 'furnace', 'ac', 'conditioning'],
+      'Carpentry': ['wood', 'frame', 'trim', 'cabinet', 'door', 'window', 'lumber'],
+      'Painting': ['paint', 'primer', 'brush', 'roller', 'finish', 'coat', 'color'],
+      'Flooring': ['floor', 'tile', 'carpet', 'laminate', 'vinyl', 'hardwood'],
+      'Roofing': ['roof', 'shingle', 'gutter', 'flashing'],
+      'Landscaping': ['landscape', 'garden', 'plant', 'tree', 'shrub', 'lawn', 'irrigation'],
+      'Masonry': ['brick', 'stone', 'concrete', 'block', 'mortar', 'mason']
     };
-    fetchTrades();
-  }, []);
+    
+    const searchText = `${product.name.toLowerCase()} ${product.description.toLowerCase()}`;
+    
+    for (const [trade, keywords] of Object.entries(tradeKeywords)) {
+      if (keywords.some(keyword => searchText.includes(keyword))) {
+        return trade;
+      }
+    }
+    
+    // Default if no match found
+    return 'General Construction';
+  };
 
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
     // Filter by trade (if not 'All Trades')
     if (selectedIndustry !== 'All Trades') {
-      // Map work types to product types or categories
-      // This is a simplified mapping - in a real implementation, you might want to add a work_type field to products
-      const workTypeMap: Record<string, string[]> = {
-        'General Construction': ['material', 'equipment'],
-        'Plumbing': ['material', 'service'],
-        'Electrical': ['material', 'service'],
-        'HVAC': ['material', 'service', 'equipment'],
-        'Carpentry': ['material', 'labor'],
-        'Painting': ['material', 'labor'],
-        'Flooring': ['material', 'labor'],
-        'Roofing': ['material', 'labor', 'equipment'],
-        'Landscaping': ['material', 'service', 'equipment'],
-        'Masonry': ['material', 'labor']
-      };
-      
-      // For now, we'll just filter by product type as a demonstration
-      // In a real implementation, you might want to add a specific work_type field to products
-      if (selectedIndustry === 'Plumbing') {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes('plumb') || 
-          product.description.toLowerCase().includes('plumb') ||
-          product.name.toLowerCase().includes('pipe') || 
-          product.description.toLowerCase().includes('pipe') ||
-          product.name.toLowerCase().includes('water') || 
-          product.description.toLowerCase().includes('water') ||
-          product.name.toLowerCase().includes('fixture') || 
-          product.description.toLowerCase().includes('fixture')
-        );
-      } else if (selectedIndustry === 'Electrical') {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes('electric') || 
-          product.description.toLowerCase().includes('electric') ||
-          product.name.toLowerCase().includes('wire') || 
-          product.description.toLowerCase().includes('wire') ||
-          product.name.toLowerCase().includes('light') || 
-          product.description.toLowerCase().includes('light')
-        );
-      } else {
-        // For other work types, use the type mapping as a fallback
-        const relevantTypes = workTypeMap[selectedIndustry] || [];
-        if (relevantTypes.length > 0) {
-          filtered = filtered.filter(product => relevantTypes.includes(product.type.toLowerCase()));
-        }
-      }
+      filtered = filtered.filter(product => {
+        const productTrade = product.trade || getDerivedTrade(product);
+        return productTrade === selectedIndustry;
+      });
     }
 
     // Filter by search term
@@ -333,15 +316,85 @@ export const PriceBook = () => {
       filtered = filtered.filter(product => product.unit.toLowerCase() === selectedUnit.toLowerCase());
     }
 
-    // Sort by price
-    return filtered.sort((a, b) => {
-      if (priceSort === 'asc') {
-        return a.price - b.price;
-      } else {
-        return b.price - a.price;
+    return filtered;
+  }, [products, selectedIndustry, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit]);
+
+  
+  // Get appropriate badge color for each trade
+  const getTradeBadgeColor = (trade: string): string => {
+    const tradeColors: Record<string, string> = {
+      'Plumbing': 'bg-blue-700',
+      'Electrical': 'bg-yellow-600',
+      'HVAC': 'bg-green-700',
+      'Carpentry': 'bg-amber-700',
+      'Painting': 'bg-purple-700',
+      'Flooring': 'bg-teal-700',
+      'Roofing': 'bg-red-700',
+      'Landscaping': 'bg-emerald-700',
+      'Masonry': 'bg-orange-700',
+      'General Construction': 'bg-gray-700'
+    };
+    
+    return tradeColors[trade] || 'bg-gray-700';
+  };
+  
+  // Determine trade for a product based on its properties
+  const getDerivedTrade = (product: Product): string => {
+    // If the product already has a trade property, use that
+    if (product.trade) return product.trade;
+    
+    // Otherwise derive trade from category or other properties
+    if (product.category) {
+      // Map categories to trades
+      const categoryToTradeMap: Record<string, string> = {
+        'Plumbing Fixtures': 'Plumbing',
+        'Pipes': 'Plumbing',
+        'Valves': 'Plumbing',
+        'Electrical Components': 'Electrical',
+        'Wiring': 'Electrical',
+        'HVAC Equipment': 'HVAC',
+        'Ductwork': 'HVAC',
+        'Lumber': 'Carpentry',
+        'Framing': 'Carpentry',
+        'Paint': 'Painting',
+        'Flooring Materials': 'Flooring',
+        'Roofing Materials': 'Roofing',
+        'Plants': 'Landscaping',
+        'Irrigation': 'Landscaping',
+        'Bricks': 'Masonry',
+        'Stone': 'Masonry',
+        'Concrete': 'Masonry',
+      };
+      
+      if (categoryToTradeMap[product.category]) {
+        return categoryToTradeMap[product.category];
       }
-    });
-  }, [products, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
+    }
+    
+    // If no match found in category, try to derive from name or description
+    const tradeKeywords: Record<string, string[]> = {
+      'Plumbing': ['pipe', 'plumb', 'water', 'drain', 'toilet', 'sink', 'faucet'],
+      'Electrical': ['wire', 'electric', 'circuit', 'panel', 'outlet', 'switch', 'light'],
+      'HVAC': ['hvac', 'heat', 'air', 'vent', 'duct', 'furnace', 'ac', 'conditioning'],
+      'Carpentry': ['wood', 'frame', 'trim', 'cabinet', 'door', 'window', 'lumber'],
+      'Painting': ['paint', 'primer', 'brush', 'roller', 'finish', 'coat', 'color'],
+      'Flooring': ['floor', 'tile', 'carpet', 'laminate', 'vinyl', 'hardwood'],
+      'Roofing': ['roof', 'shingle', 'gutter', 'flashing'],
+      'Landscaping': ['landscape', 'garden', 'plant', 'tree', 'shrub', 'lawn', 'irrigation'],
+      'Masonry': ['brick', 'stone', 'concrete', 'block', 'mortar', 'mason']
+    };
+    
+    const searchText = `${product.name.toLowerCase()} ${product.description.toLowerCase()}`;
+    
+    for (const [trade, keywords] of Object.entries(tradeKeywords)) {
+      if (keywords.some(keyword => searchText.includes(keyword))) {
+        return trade;
+      }
+    }
+    
+    // Default if no match found
+    return 'General Construction';
+  };
 
   return (
     <DashboardLayout>
@@ -533,29 +586,17 @@ export const PriceBook = () => {
                   </div>
                 </button>
                 {workTypeDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-full bg-[#1A1E2E] rounded-lg shadow-lg z-50 border border-[#2A3A8F] py-1 max-h-[400px] overflow-y-auto">
-                    <button
-                      key="All Trades"
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedIndustry === 'All Trades' ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedIndustry('All Trades');
-                        setWorkTypeDropdownOpen(false);
-                      }}
-                    >
-                      All Trades
-                    </button>
-                    {trades.map((trade) => (
+                  <div className="absolute left-0 top-full mt-1 w-full bg-[#1A1E2E] rounded-lg shadow-lg z-50 border border-[#2A3A8F] py-1">
+                    {['All Trades', 'General Construction', 'Plumbing', 'Electrical', 'HVAC', 'Carpentry', 'Painting', 'Flooring', 'Roofing', 'Landscaping', 'Masonry'].map((workType) => (
                       <button
-                        key={trade.id}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedIndustry === trade.name ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedIndustry(trade.name);
+                        key={workType}
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedIndustry === workType ? 'text-blue-400' : 'text-white'}`}
+                        onClick={() => {
+                          setSelectedIndustry(workType);
                           setWorkTypeDropdownOpen(false);
                         }}
                       >
-                        {trade.name}
+                        {workType}
                       </button>
                     ))}
                   </div>
@@ -578,11 +619,11 @@ export const PriceBook = () => {
           <TabMenu
             items={[
               { id: 'all', label: 'All', count: filteredProducts.length },
-              { id: 'material', label: 'Material', count: filteredProducts.filter(p => p.type === 'material').length },
-              { id: 'labor', label: 'Labor', count: filteredProducts.filter(p => p.type === 'labor').length },
-              { id: 'equipment', label: 'Equipment', count: filteredProducts.filter(p => p.type === 'equipment').length },
-              { id: 'service', label: 'Service', count: filteredProducts.filter(p => p.type === 'service').length },
-              { id: 'subcontractor', label: 'Subcontractor', count: filteredProducts.filter(p => p.type === 'subcontractor').length },
+              { id: 'material', label: 'Material', count: filteredProducts.filter((p: Product) => p.type === 'material').length },
+              { id: 'labor', label: 'Labor', count: filteredProducts.filter((p: Product) => p.type === 'labor').length },
+              { id: 'equipment', label: 'Equipment', count: filteredProducts.filter((p: Product) => p.type === 'equipment').length },
+              { id: 'service', label: 'Service', count: filteredProducts.filter((p: Product) => p.type === 'service').length },
+              { id: 'subcontractor', label: 'Subcontractor', count: filteredProducts.filter((p: Product) => p.type === 'subcontractor').length },
             ]}
             activeItemId={activeCategory}
             onItemClick={setActiveCategory}
@@ -610,8 +651,8 @@ export const PriceBook = () => {
           </div>
         )}
 
-        {/* Products Table - full width */}
-        <div className="pt-8">
+        {/* Products Table */}
+        <div className="px-8 pt-8">
           {filteredProducts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               No pricing items found. Try adjusting your filters.
@@ -620,17 +661,17 @@ export const PriceBook = () => {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="bg-[#1E2130] text-left text-xs uppercase tracking-wider text-gray-500 border-b border-gray-800">
-                  <th className="py-3 px-4 w-[20%]">NAME</th>
+                  <th className="py-3 px-4 w-[15%]">NAME</th>
                   <th className="py-3 px-4 w-[30%]">DESCRIPTION</th>
                   <th 
-                    className="py-3 px-4 pr-0 text-right w-[15%] cursor-pointer"
+                    className="py-3 px-4 text-right w-[15%] cursor-pointer"
                     onClick={togglePriceSort}
                   >
                     PRICE {priceSort === 'desc' ? '▼' : '▲'}
                   </th>
-                  <th className="py-3 pl-0 pr-4 w-[10%] text-center">UNIT</th>
+                  <th className="py-3 px-4 w-[10%] text-center">UNIT</th>
                   <th className="py-3 px-4 w-[10%] text-center">TYPE</th>
-                  <th className="py-3 px-4 w-[15%] text-center">TRADE</th>
+                  <th className="py-3 px-4 w-[20%] text-center">TRADE</th>
                 </tr>
               </thead>
               <tbody>
@@ -645,8 +686,8 @@ export const PriceBook = () => {
                   >
                     <td className="py-4 px-4">{product.name}</td>
                     <td className="py-4 px-4">{product.description}</td>
-                    <td className="py-4 px-4 pr-0 text-right font-medium">{formatCurrency(product.price)}</td>
-                    <td className="py-4 pl-0 pr-4 text-center">
+                    <td className="py-4 px-4 text-right font-medium">{formatCurrency(product.price)}</td>
+                    <td className="py-4 px-4 text-center">
                       <span className="px-2 py-1 bg-gray-800 text-xs text-gray-300 rounded-full badge-unit">
                         {product.unit}
                       </span>
@@ -656,8 +697,10 @@ export const PriceBook = () => {
                         {product.type === 'subcontractor' ? 'Sub' : product.type.charAt(0).toUpperCase() + product.type.slice(1)}
                       </span>
                     </td>
-                    <td className="py-4 px-4 text-center text-white text-xs">
-                      {getTrade(product)}
+                    <td className="py-4 px-4 text-center">
+                      <span className={`px-2 py-1 text-xs text-white rounded-full badge-trade ${getTradeBadgeColor(product.trade || getDerivedTrade(product))}`}>
+                        {product.trade || getDerivedTrade(product)}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -666,14 +709,13 @@ export const PriceBook = () => {
           )}
         </div>
 
-        {/* Edit Line Item Modal - for editing existing items */}
+        {/* Edit Product Modal */}
         {showProductMenu && selectedProduct && (
           <EditLineItemModal
             product={selectedProduct}
             onClose={() => setShowProductMenu(false)}
             onSave={async (updatedProduct) => {
               try {
-                // Update existing product
                 const { error } = await supabase
                   .from('products')
                   .update(updatedProduct)
@@ -686,32 +728,6 @@ export const PriceBook = () => {
                 setShowProductMenu(false);
               } catch (error) {
                 console.error('Error updating product:', error);
-              }
-            }}
-          />
-        )}
-        
-        {/* New Line Item Modal - for adding new items */}
-        {showNewLineItemModal && (
-          <LineItemModal
-            onClose={() => setShowNewLineItemModal(false)}
-            onSave={async (newProduct) => {
-              try {
-                // Create new product
-                const { error } = await supabase
-                  .from('products')
-                  .insert({
-                    ...newProduct,
-                    user_id: user?.id
-                  });
-                
-                if (error) throw error;
-                
-                // Refresh products list
-                fetchProducts();
-                setShowNewLineItemModal(false);
-              } catch (error) {
-                console.error('Error creating product:', error);
               }
             }}
           />

@@ -14,7 +14,7 @@ type Product = {
 };
 
 interface EditLineItemModalProps {
-  product: Product;
+  product: Product | null; // Allow null for new items
   onClose: () => void;
   onSave: (data: Partial<Product>) => void;
 }
@@ -25,11 +25,11 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
   onSave
 }) => {
   const [formData, setFormData] = useState({
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    unit: product.unit,
-    type: product.type || 'material'
+    name: product?.name || '',
+    description: product?.description || '',
+    price: product?.price || 0,
+    unit: product?.unit || 'ea',
+    type: product?.type || 'material'
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
