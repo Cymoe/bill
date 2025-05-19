@@ -10,7 +10,7 @@ import { ProductsPage } from './components/products/ProductsPage';
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { PackagesPage } from './components/packages/PackagesPage';
-import { LandingPage } from './components/LandingPage.tsx';
+import { LandingPage } from './components/LandingPage';
 import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
