@@ -14,11 +14,20 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+        },
+      },
+    },
   },
   base: '/',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
-    }
+    },
+    extensions: ['.mjs', '.js', '.ts', '.jsx', '.tsx', '.json']
   },
 });
