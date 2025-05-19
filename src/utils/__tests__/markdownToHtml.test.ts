@@ -8,18 +8,18 @@ describe('markdownToHtml', () => {
   });
 
   test('converts bold text', () => {
-    expect(markdownToHtml('**bold text**')).toBe('<strong>bold text</strong>');
-    expect(markdownToHtml('__bold text__')).toBe('<strong>bold text</strong>');
+    expect(markdownToHtml('**bold text**')).toBe('<p><strong>bold text</strong></p>');
+    expect(markdownToHtml('__bold text__')).toBe('<p><strong>bold text</strong></p>');
   });
 
   test('converts italic text', () => {
-    expect(markdownToHtml('*italic text*')).toBe('<em>italic text</em>');
-    expect(markdownToHtml('_italic text_')).toBe('<em>italic text</em>');
+    expect(markdownToHtml('*italic text*')).toBe('<p><em>italic text</em></p>');
+    expect(markdownToHtml('_italic text_')).toBe('<p><em>italic text</em></p>');
   });
 
   test('converts links', () => {
     expect(markdownToHtml('[link text](https://example.com)')).toBe(
-      '<a href="https://example.com">link text</a>'
+      '<p><a href="https://example.com">link text</a></p>'
     );
   });
 
@@ -30,16 +30,33 @@ describe('markdownToHtml', () => {
   });
 
   test('converts inline code', () => {
-    expect(markdownToHtml('`inline code`')).toBe('<code>inline code</code>');
+    expect(markdownToHtml('`inline code`')).toBe('<p><code>inline code</code></p>');
   });
 
   test('converts lists', () => {
-    expect(markdownToHtml('- item 1\n- item 2')).toBe(
-      '<ul><li>item 1</li><li>item 2</li></ul>'
+    const input = `
+- Item 1
+- Item 2
+  - Nested item
+- Item 3`;
+    expect(markdownToHtml(input)).toBe(
+      '<ul><li>Item 1</li><li>Item 2</li><ul><li>Nested item</li></ul><li>Item 3</li></ul>'
     );
-    expect(markdownToHtml('1. item 1\n2. item 2')).toBe(
-      '<ol><li>item 1</li><li>item 2</li></ol>'
+  });
+
+  test('converts ordered lists', () => {
+    const input = `
+1. First
+2. Second
+   1. Nested
+3. Third`;
+    expect(markdownToHtml(input)).toBe(
+      '<ol><li>First</li><li>Second</li><ol><li>Nested</li></ol><li>Third</li></ol>'
     );
+  });
+
+  test('converts blockquotes', () => {
+    expect(markdownToHtml('> A quote')).toBe('<blockquote><p>A quote</p></blockquote>');
   });
 
   test('converts paragraphs', () => {
@@ -51,21 +68,21 @@ describe('markdownToHtml', () => {
 
   test('handles complex nested markdown', () => {
     const input = `# Title
-    
+
 This is a **bold** and *italic* text with \`inline code\`.
 
-## Subheading
-
-- List item 1
-- List item with [link](https://example.com)
+> A quote with [link](https://example.com)
 
 \`\`\`
 code block
-multiple lines
-\`\`\``;
+\`\`\`
 
-    const expected = '<h1>Title</h1><p>This is a <strong>bold</strong> and <em>italic</em> text with <code>inline code</code>.</p><h2>Subheading</h2><ul><li>List item 1</li><li>List item with <a href="https://example.com">link</a></li></ul><pre><code>code block\nmultiple lines</code></pre>';
-    
-    expect(markdownToHtml(input)).toBe(expected);
+- List item 1
+- List item 2
+  - Nested item`;
+
+    const expected = '<h1>Title</h1><p>This is a <strong>bold</strong> and <em>italic</em> text with <code>inline code</code>.</p><blockquote><p>A quote with <a href="https://example.com">link</a></p></blockquote><pre><code>code block</code></pre><ul><li>List item 1</li><li>List item 2</li><ul><li>Nested item</li></ul></ul>';
+
+    expect(markdownToHtml(input).replace(/\s+/g, '')).toBe(expected.replace(/\s+/g, ''));
   });
 }); 

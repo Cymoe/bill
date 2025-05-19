@@ -18,6 +18,7 @@ interface Product {
   user_id: string;
   created_at: string;
   type: string;
+  trade_id?: string;
 }
 
 // Define the subcategory interface
@@ -41,10 +42,6 @@ export const PriceBook = () => {
   
   // Update the context if it's still using the old value
   useEffect(() => {
-    if (selectedIndustry === 'All Work Types') {
-      setSelectedIndustry('All Trades');
-    }
-    
     // Expose a function to open the line item modal globally
     // This allows the sidebar button to open the modal
     window.openLineItemModal = () => {
@@ -55,7 +52,7 @@ export const PriceBook = () => {
     return () => {
       delete window.openLineItemModal;
     };
-  }, [selectedIndustry, setSelectedIndustry]);
+  }, []);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,6 +69,7 @@ export const PriceBook = () => {
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All Items');
   const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTradeId, setSelectedTradeId] = useState<string>('all');
   
   const togglePriceSort = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
@@ -159,7 +157,7 @@ export const PriceBook = () => {
   useEffect(() => {
     setActiveCategory('all');
     // Select the first subcategory when changing work types
-    if (selectedIndustry !== 'All Work Types' && subcategoriesByIndustry[selectedIndustry]?.length > 0) {
+    if (selectedIndustry !== 'All Trades' && subcategoriesByIndustry[selectedIndustry]?.length > 0) {
       setSelectedSubcategory(subcategoriesByIndustry[selectedIndustry][0].name);
     }
   }, [selectedIndustry]);
@@ -229,10 +227,7 @@ export const PriceBook = () => {
     if (searchText.includes('landscape') || searchText.includes('garden') || searchText.includes('yard')) return 'Landscaping';
     if (searchText.includes('mason') || searchText.includes('brick') || searchText.includes('stone')) return 'Masonry';
     
-    // Default to the selected industry if it's not 'All Trades'
-    if (selectedIndustry !== 'All Trades') return selectedIndustry;
-    
-    // If no match and no selected industry, default to General Construction
+    // If no match, default to General Construction
     return 'General Construction';
   };
   
@@ -251,52 +246,9 @@ export const PriceBook = () => {
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Filter by trade (if not 'All Trades')
-    if (selectedIndustry !== 'All Trades') {
-      // Map work types to product types or categories
-      // This is a simplified mapping - in a real implementation, you might want to add a work_type field to products
-      const workTypeMap: Record<string, string[]> = {
-        'General Construction': ['material', 'equipment'],
-        'Plumbing': ['material', 'service'],
-        'Electrical': ['material', 'service'],
-        'HVAC': ['material', 'service', 'equipment'],
-        'Carpentry': ['material', 'labor'],
-        'Painting': ['material', 'labor'],
-        'Flooring': ['material', 'labor'],
-        'Roofing': ['material', 'labor', 'equipment'],
-        'Landscaping': ['material', 'service', 'equipment'],
-        'Masonry': ['material', 'labor']
-      };
-      
-      // For now, we'll just filter by product type as a demonstration
-      // In a real implementation, you might want to add a specific work_type field to products
-      if (selectedIndustry === 'Plumbing') {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes('plumb') || 
-          product.description.toLowerCase().includes('plumb') ||
-          product.name.toLowerCase().includes('pipe') || 
-          product.description.toLowerCase().includes('pipe') ||
-          product.name.toLowerCase().includes('water') || 
-          product.description.toLowerCase().includes('water') ||
-          product.name.toLowerCase().includes('fixture') || 
-          product.description.toLowerCase().includes('fixture')
-        );
-      } else if (selectedIndustry === 'Electrical') {
-        filtered = filtered.filter(product => 
-          product.name.toLowerCase().includes('electric') || 
-          product.description.toLowerCase().includes('electric') ||
-          product.name.toLowerCase().includes('wire') || 
-          product.description.toLowerCase().includes('wire') ||
-          product.name.toLowerCase().includes('light') || 
-          product.description.toLowerCase().includes('light')
-        );
-      } else {
-        // For other work types, use the type mapping as a fallback
-        const relevantTypes = workTypeMap[selectedIndustry] || [];
-        if (relevantTypes.length > 0) {
-          filtered = filtered.filter(product => relevantTypes.includes(product.type.toLowerCase()));
-        }
-      }
+    // Filter by trade_id (if not 'all')
+    if (selectedTradeId !== 'all') {
+      filtered = filtered.filter(product => product.trade_id === selectedTradeId);
     }
 
     // Filter by search term
@@ -341,7 +293,7 @@ export const PriceBook = () => {
         return b.price - a.price;
       }
     });
-  }, [products, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
+  }, [products, selectedTradeId, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
 
   return (
     <DashboardLayout>
@@ -517,7 +469,7 @@ export const PriceBook = () => {
         <div className="px-8 pt-4 pb-2">
           <div className="flex items-center">
             <div className="mr-3">
-              <span className="text-white font-medium">Trade:</span>
+              <span className="text-white font-medium">Trades:</span>
             </div>
             <div className="relative">
               <div className="inline-flex items-center">
@@ -525,7 +477,9 @@ export const PriceBook = () => {
                   className="bg-[#121824] border border-[#2A3A8F] text-white rounded-full py-1.5 pl-4 pr-10 text-sm font-medium flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] relative"
                   onClick={() => setWorkTypeDropdownOpen(!workTypeDropdownOpen)}
                 >
-                  {selectedIndustry}
+                  {selectedTradeId === 'all'
+                    ? 'All Trades'
+                    : trades.find(t => t.id === selectedTradeId)?.name || 'Unknown'}
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                     <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
@@ -535,23 +489,23 @@ export const PriceBook = () => {
                 {workTypeDropdownOpen && (
                   <div className="absolute left-0 top-full mt-1 w-full bg-[#1A1E2E] rounded-lg shadow-lg z-50 border border-[#2A3A8F] py-1 max-h-[400px] overflow-y-auto">
                     <button
-                      key="All Trades"
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedIndustry === 'All Trades' ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                      onClick={(e) => {
+                      key="all"
+                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedTradeId === 'all' ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
+                      onClick={e => {
                         e.stopPropagation();
-                        setSelectedIndustry('All Trades');
+                        setSelectedTradeId('all');
                         setWorkTypeDropdownOpen(false);
                       }}
                     >
                       All Trades
                     </button>
-                    {trades.map((trade) => (
+                    {trades.map(trade => (
                       <button
                         key={trade.id}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedIndustry === trade.name ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                        onClick={(e) => {
+                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedTradeId === trade.id ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
+                        onClick={e => {
                           e.stopPropagation();
-                          setSelectedIndustry(trade.name);
+                          setSelectedTradeId(trade.id);
                           setWorkTypeDropdownOpen(false);
                         }}
                       >
@@ -562,9 +516,9 @@ export const PriceBook = () => {
                 )}
               </div>
             </div>
-            {selectedIndustry !== 'All Trades' && (
-              <button 
-                onClick={() => setSelectedIndustry('All Trades')}
+            {selectedTradeId !== 'all' && (
+              <button
+                onClick={() => setSelectedTradeId('all')}
                 className="ml-4 text-sm text-blue-400 hover:text-blue-300"
               >
                 Clear
@@ -590,7 +544,7 @@ export const PriceBook = () => {
         </div>
         
         {/* Show subcategories if a specific work type is selected */}
-        {selectedIndustry !== 'All Work Types' && (
+        {selectedIndustry !== 'All Trades' && (
           <div className="px-8 py-4 bg-gray-900/30">
             <div className="flex flex-wrap gap-2 items-center">
               <span className="text-sm text-gray-400">Subcategories:</span>
@@ -657,7 +611,7 @@ export const PriceBook = () => {
                       </span>
                     </td>
                     <td className="py-4 px-4 text-center text-white text-xs">
-                      {getTrade(product)}
+                      {trades.find(t => t.id === product.trade_id)?.name || 'Unassigned'}
                     </td>
                   </tr>
                 ))}

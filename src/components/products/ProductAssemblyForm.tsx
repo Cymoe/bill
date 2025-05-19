@@ -13,6 +13,14 @@ export interface LineItem {
   type?: string;
 }
 
+interface LineItemWithQuantity {
+  lineItemId: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  type?: string;
+}
+
 export interface ProductAssemblyFormProps {
   lineItems: LineItem[];
   onClose: () => void;
@@ -200,16 +208,41 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   const sortedTradeNames = Object.keys(groupedByTrade).sort((a, b) => a.localeCompare(b));
 
   useEffect(() => {
-    if (editingProduct) {
+    if (editingProduct && editingProduct.id) {
+      // Fetch line items for this product from product_line_items
+      (async () => {
+        const { data: pliData, error: pliError } = await supabase
+          .from('product_line_items')
+          .select('*')
+          .eq('product_id', editingProduct.id);
+        if (pliError) {
+          setItems([]);
+        } else {
+          setItems((pliData || []).map((pli: any) => ({
+            lineItemId: pli.line_item_id,
+            quantity: pli.quantity,
+            unit: pli.unit,
+            price: pli.price,
+            type: '' // type can be filled in if needed from lineItems
+          })));
+        }
+        setName(editingProduct.name || '');
+        setDescription(editingProduct.description || '');
+        setItemFilters((pliData || []).map(() => ({ trade: 'all', type: 'all', unit: 'all' })));
+        setComboBoxInputs((pliData || []).map((pli: any) => {
+          const li = lineItems.find((li) => li.id === pli.line_item_id);
+          return li ? `${li.name} (${formatCurrency(li.price)}/${li.unit})` : '';
+        }));
+        setDraftId(editingProduct.id || null);
+        console.log('Setting up form with items:', pliData);
+      })();
+    } else if (editingProduct) {
       setName(editingProduct.name || '');
       setDescription(editingProduct.description || '');
-      setItems(editingProduct.items || []);
-      setItemFilters((editingProduct.items || []).map(() => ({ trade: 'all', type: 'all', unit: 'all' })));
-      setComboBoxInputs((editingProduct.items || []).map((item: any) => {
-        const li = lineItems.find((li) => li.id === item.lineItemId);
-        return li ? `${li.name} (${formatCurrency(li.price)}/${li.unit})` : '';
-      }));
-      setDraftId(editingProduct.id || null);
+      setItems([]);
+      setItemFilters([]);
+      setComboBoxInputs([]);
+      setDraftId(null);
     }
   }, [editingProduct, lineItems]);
 

@@ -1,123 +1,117 @@
 export function markdownToHtml(markdown: string): string {
-  // Split into lines for processing
-  let lines = markdown.split('\n');
-  let html = '';
-  let inCodeBlock = false;
-  let codeBlockContent = '';
-  let inList = false;
-  let listType = '';
+  if (!markdown) return '';
 
-  for (let i = 0; i < lines.length; i++) {
-    let line = lines[i].trim();
+  // Process inline markdown first
+  let html = processInlineMarkdown(markdown);
 
-    // Skip empty lines
-    if (line === '') {
+  // Split into blocks
+  const blocks = html.split(/\n\s*\n/);
+  const processedBlocks = blocks.map(block => {
+    let content = block.trim();
+
+    // Skip if block is empty
+    if (!content) return '';
+
+    // Convert code blocks
+    if (content.match(/^```[\s\S]+```$/)) {
+      content = content.replace(/^```\n?|\n?```$/g, '').trim();
+      return `<pre><code>${content}</code></pre>`;
+    }
+
+    // Convert headings
+    const headingMatch = content.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      return `<h${level}>${headingMatch[2]}</h${level}>`;
+    }
+
+    // Convert blockquotes
+    if (content.startsWith('> ')) {
+      content = content.replace(/^>\s+/gm, '');
+      return `<blockquote><p>${content}</p></blockquote>`;
+    }
+
+    // Convert lists
+    if (content.match(/^[-*]|\d+\./m)) {
+      const lines = content.split('\n');
+      let inList = false;
+      let listType = '';
+      let currentIndent = 0;
+      let result = '';
+      let listStack: Array<{ type: string; indent: number }> = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const match = line.match(/^(\s*)([-*]|\d+\.)\s(.+)/);
+        if (match) {
+          const [, indent, marker, text] = match;
+          const indentLevel = indent.length;
+          const isOrdered = /\d+\./.test(marker);
+          const newListType = isOrdered ? 'ol' : 'ul';
+
+          if (!inList) {
+            inList = true;
+            listType = newListType;
+            result += `<${listType}>`;
+            listStack.push({ type: listType, indent: indentLevel });
+          } else if (indentLevel > currentIndent) {
+            result = result.replace(/<\/li>$/, ''); // Remove the last closing li tag
+            result += `<${newListType}>`;
+            listStack.push({ type: newListType, indent: indentLevel });
+          } else if (indentLevel < currentIndent) {
+            while (listStack.length > 0 && listStack[listStack.length - 1].indent > indentLevel) {
+              const lastList = listStack.pop();
+              if (lastList) {
+                result += `</li></${lastList.type}>`;
+              }
+            }
+            result += '</li>';
+          } else if (i > 0) {
+            result += '</li>';
+          }
+
+          currentIndent = indentLevel;
+          result += `<li>${text}`;
+        }
+      }
+
+      // Close all remaining tags
       if (inList) {
-        html += listType === 'ul' ? '</ul>' : '</ol>';
-        inList = false;
+        result += '</li>';
+        while (listStack.length > 0) {
+          const lastList = listStack.pop();
+          if (lastList) {
+            result += `</${lastList.type}>`;
+          }
+        }
       }
-      continue;
+
+      return result;
     }
 
-    // Handle code blocks
-    if (line.startsWith('```')) {
-      if (!inCodeBlock) {
-        inCodeBlock = true;
-        continue;
-      } else {
-        html += `<pre><code>${codeBlockContent.trim()}</code></pre>`;
-        inCodeBlock = false;
-        codeBlockContent = '';
-        continue;
-      }
-    }
+    // Regular paragraph
+    return `<p>${content}</p>`;
+  });
 
-    if (inCodeBlock) {
-      codeBlockContent += line + '\n';
-      continue;
-    }
-
-    // Handle lists
-    if (line.match(/^[0-9]+\./)) {
-      if (!inList || listType !== 'ol') {
-        if (inList) html += `</ul>`;
-        html += '<ol>';
-        inList = true;
-        listType = 'ol';
-      }
-      line = line.replace(/^[0-9]+\.\s*/, '');
-      html += `<li>${processInlineMarkdown(line)}</li>`;
-      continue;
-    }
-
-    if (line.startsWith('- ')) {
-      if (!inList || listType !== 'ul') {
-        if (inList) html += `</ol>`;
-        html += '<ul>';
-        inList = true;
-        listType = 'ul';
-      }
-      line = line.substring(2);
-      html += `<li>${processInlineMarkdown(line)}</li>`;
-      continue;
-    }
-
-    // Handle headings
-    if (line.startsWith('#')) {
-      const match = line.match(/^#+/);
-      if (match) {
-        const level = match[0].length;
-        const text = line.substring(level).trim();
-        html += `<h${level}>${processInlineMarkdown(text)}</h${level}>`;
-        continue;
-      }
-    }
-
-    // Check if line contains only inline markdown
-    const isInlineOnly = isInlineMarkdown(line);
-    if (isInlineOnly) {
-      html += processInlineMarkdown(line);
-    } else {
-      html += `<p>${processInlineMarkdown(line)}</p>`;
-    }
-  }
-
-  // Close any open lists
-  if (inList) {
-    html += listType === 'ul' ? '</ul>' : '</ol>';
-  }
-
-  return html;
-}
-
-function isInlineMarkdown(text: string): boolean {
-  // Check if the text is purely inline markdown (bold, italic, link, or code)
-  const inlinePatterns = [
-    /^\*\*[^*]+\*\*$/,  // bold with **
-    /^__[^_]+__$/,      // bold with __
-    /^\*[^*]+\*$/,      // italic with *
-    /^_[^_]+_$/,        // italic with _
-    /^`[^`]+`$/,        // inline code
-    /^\[[^\]]+\]\([^)]+\)$/  // link
-  ];
-
-  return inlinePatterns.some(pattern => pattern.test(text));
+  return processedBlocks.filter(block => block).join('');
 }
 
 function processInlineMarkdown(text: string): string {
-  // Handle inline code
-  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  let html = text;
 
-  // Handle bold
-  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  // Convert inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-  // Handle italic
-  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // Convert bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
 
-  // Handle links
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  // Convert italic
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
 
-  return text;
+  // Convert links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+
+  return html;
 } 

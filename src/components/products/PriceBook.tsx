@@ -17,6 +17,8 @@ interface Product {
   user_id: string;
   created_at: string;
   type: string;
+  trade_id: string;
+  trade?: string | { id: string; name: string };
 }
 
 export const PriceBook = () => {
@@ -31,17 +33,26 @@ export const PriceBook = () => {
   const [selectedUnit, setSelectedUnit] = useState('any');
   const [priceSort, setPriceSort] = useState<'asc' | 'desc'>('desc');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
+  const [selectedTrade, setSelectedTrade] = useState<string>('all');
 
   useEffect(() => {
     fetchProducts();
   }, [user?.id]);
+
+  useEffect(() => {
+    const fetchTrades = async () => {
+      const { data, error } = await supabase.from('trades').select('id, name').order('name');
+      if (!error) setTrades(data || []);
+    };
+    fetchTrades();
+  }, []);
 
   const fetchProducts = async () => {
     try {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -61,6 +72,11 @@ export const PriceBook = () => {
           product.description.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
+    }
+
+    // Only filter by trade_id
+    if (selectedTrade !== 'all') {
+      filtered = filtered.filter(product => product.trade_id === selectedTrade);
     }
 
     if (activeCategory !== 'all') {
@@ -93,7 +109,7 @@ export const PriceBook = () => {
         return b.price - a.price;
       }
     });
-  }, [products, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
+  }, [products, searchTerm, selectedTrade, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
 
   return (
     <DashboardLayout>
@@ -108,6 +124,24 @@ export const PriceBook = () => {
           searchPlaceholder="Search pricing items by name, type, or price range..."
           onMenu={() => setMenuOpen(!menuOpen)}
         />
+        
+        {/* Trade Dropdown */}
+        <div className="mb-4 flex items-center gap-2">
+          <label className="text-gray-400">Trades:</label>
+          <select
+            className="bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
+            value={selectedTrade}
+            onChange={e => {
+              setSelectedTrade(e.target.value);
+              console.log('Selected trade:', e.target.value);
+            }}
+          >
+            <option value="all">All Trades</option>
+            {trades.map(trade => (
+              <option key={trade.id} value={trade.id}>{trade.name}</option>
+            ))}
+          </select>
+        </div>
         
         {/* Filter Menu */}
         {showFilterMenu && (

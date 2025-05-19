@@ -51,7 +51,7 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Work Types', setSelectedIndustry: () => {} });
+export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Trades', setSelectedIndustry: () => {} });
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
@@ -71,9 +71,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const location = useLocation();
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
-  const [selectedIndustry, setSelectedIndustry] = useState('All Work Types');
+  const [selectedIndustry, setSelectedIndustry] = useState('All Trades');
   const industries = [
-    'All Work Types',
+    'All Trades',
     'General Construction',
     'Plumbing',
     'Electrical',
@@ -171,7 +171,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       { name: 'Stone', count: 15 },
       { name: 'Concrete', count: 8 },
     ],
-    'All Work Types': [
+    'All Trades': [
       { name: 'All Items', count: 0 },
     ],
   };
@@ -270,7 +270,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   return (
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
+      <div className="min-h-screen bg-[#121212]">
 
         
         {/* Top Navigation Bar */}
@@ -593,7 +593,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
 
           {/* Main Content - responsive for all screen sizes */}
-          <div className="flex-1 md:ml-48 p-4 bg-gray-900">
+          <div className="flex-1 md:ml-48 p-4 bg-[#121212]">
             {children}
           </div>
 
@@ -602,7 +602,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         {/* Mobile Menu Toggle */}
         <button
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden fixed top-4 right-4 z-20 p-2 rounded-md bg-gray-900 text-white"
+          className="md:hidden fixed top-4 right-4 z-20 p-2 rounded-md bg-[#121212] text-white"
         >
           {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>

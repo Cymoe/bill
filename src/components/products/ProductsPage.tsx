@@ -5,7 +5,7 @@ import { DashboardLayout } from '../layouts/DashboardLayout';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import ProductAssemblyForm from './ProductAssemblyForm';
+import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { PageHeader } from '../common/PageHeader';
 
 // Product type
@@ -22,7 +22,22 @@ interface Product {
   category?: string;
   premium?: boolean;
   lineItems?: any[];
+  packages?: any[];
 };
+
+interface LineItem {
+  lineItemId: string;
+  quantity: number;
+  unit: string;
+  price: number;
+  type?: string;
+}
+
+interface SaveData {
+  name: string;
+  description: string;
+  items: LineItem[];
+}
 
 const CATEGORY_COLORS = {
   interior: 'bg-purple-700',
@@ -44,6 +59,7 @@ export const ProductsPage: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
   const [priceMin, setPriceMin] = useState('');
@@ -118,7 +134,10 @@ export const ProductsPage: React.FC = () => {
         .from('products')
         .select('id, name, unit, price, type, trade:trades(name)')
         .order('name', { ascending: true });
+      
       if (error) throw error;
+      
+      console.log('Fetched line items:', data);
       setLineItems((data || []).map((li: any) => ({
         ...li,
         trade: li.trade?.name || null
@@ -144,8 +163,10 @@ export const ProductsPage: React.FC = () => {
   }, [showCreateModal]);
 
   useEffect(() => {
-    function handleClick() {
-      if (openMenuId) setOpenMenuId(null);
+    function handleClick(event: MouseEvent) {
+      if (openMenuId && menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
     }
     window.addEventListener('mousedown', handleClick);
     return () => window.removeEventListener('mousedown', handleClick);
@@ -153,14 +174,26 @@ export const ProductsPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch all products
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
-      if (error) throw error;
-      setProducts(data || []);
-      console.log('Fetched products:', data);
+      if (productsError) throw productsError;
+
+      // Fetch all product_line_items
+      const { data: pliData, error: pliError } = await supabase
+        .from('product_line_items')
+        .select('*');
+      if (pliError) throw pliError;
+
+      // Attach line items to each product
+      const productsWithItems = (productsData || []).map((product) => ({
+        ...product,
+        items: pliData.filter((pli) => pli.product_id === product.id)
+      }));
+      setProducts(productsWithItems);
+      console.log('Fetched products:', productsWithItems);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -275,6 +308,14 @@ export const ProductsPage: React.FC = () => {
     window.addEventListener('openNewProductDrawer', handler);
     return () => window.removeEventListener('openNewProductDrawer', handler);
   }, []);
+
+  useEffect(() => {
+    console.log('Current editingProduct state:', editingProduct);
+  }, [editingProduct]);
+
+  useEffect(() => {
+    console.log('Current lineItems state:', lineItems);
+  }, [lineItems]);
 
   return (
     <DashboardLayout>
@@ -569,61 +610,69 @@ export const ProductsPage: React.FC = () => {
 
                   {/* Three-dot menu button */}
                   <div className="absolute top-3 right-3 z-10">
-                    <button
-                      className="text-gray-400 hover:text-white p-1 rounded-full hover:bg-gray-700"
-                      onClick={e => {
-                        e.stopPropagation();
-                        setOpenMenuId(openMenuId === product.id ? null : product.id);
-                      }}
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                    {openMenuId === product.id && (
-                      <div
-                        className="absolute right-0 top-8 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-1 border border-gray-600"
-                        onClick={e => e.stopPropagation()}
+                    <div className="relative">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenMenuId(openMenuId === product.id ? null : product.id);
+                        }}
+                        className="p-2 text-gray-400 hover:text-gray-300 rounded-full hover:bg-gray-800"
                       >
-                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { 
-                          setOpenMenuId(null); 
-                          // Ensure we're passing the complete product data to the edit modal
-                          setEditingProduct({...product});
-                        }}>
-                          Edit
-                        </button>
-                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); /* TODO: Add to invoice */ }}>
-                          Add to package
-                        </button>
-                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); handleDuplicate(product); }}>
-                          Duplicate
-                        </button>
-                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); /* TODO: Change category */ }}>
-                          Change category
-                        </button>
-                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); /* TODO: View usage stats */ }}>
-                          View usage stats
-                        </button>
-                        <div className="border-t border-gray-600 my-1"></div>
-                        <button className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); setDeletingProduct(product); }}>
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="w-full overflow-hidden">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{product.name}</h2>
-                      {product.description && (
-                        <div className="text-gray-400 w-full overflow-hidden h-[48px]">
-                          <p className="text-xs sm:text-sm line-clamp-2 break-words leading-5 sm:leading-6">{product.description}</p>
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      {openMenuId === product.id && (
+                        <div
+                          ref={menuRef}
+                          className="absolute right-0 top-8 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-1 border border-gray-600"
+                          onClick={e => {
+                            console.log('Dropdown menu clicked');
+                            e.stopPropagation();
+                          }}
+                        >
+                          <button 
+                            className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" 
+                            onClick={(e) => { 
+                              console.log('Edit button clicked for product:', product);
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setOpenMenuId(null); 
+                              setEditingProduct(product);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-600"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setOpenMenuId(null);
+                              setDeletingProduct(product);
+                            }}
+                          >
+                            Delete
+                          </button>
                         </div>
                       )}
                     </div>
                   </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-full overflow-hidden">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{product.name}</h2>
+                    </div>
+                  </div>
+
+                  {product.description && (
+                    <div className="text-gray-400 w-full overflow-hidden h-[48px] mb-2">
+                      <p className="text-xs sm:text-sm line-clamp-2 break-words leading-5 sm:leading-6">{product.description}</p>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-400 text-xs sm:text-sm mb-2 sm:mb-4">
-                    <span>{product.items?.length || 1} items</span>
-                    <span>In <span className="text-blue-400 font-semibold">{Math.floor(Math.random() * 5) + 1} packages</span></span>
+                    <span>{product.items?.length || 0} items</span>
+                    <span>In <span className="text-blue-400 font-semibold">{product.packages?.length || 0} packages</span></span>
                   </div>
+
                   <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-0 mt-auto">
                     <div>
                       <span className="text-lg sm:text-xl font-bold text-white">{formatCurrency(product.price)}</span>
@@ -650,60 +699,89 @@ export const ProductsPage: React.FC = () => {
         {/* Edit/Create Product/Assembly Drawer */}
         {(editingProduct || editingProduct === 'new') && (
           <>
-            <div className="fixed inset-0 z-[60] bg-black bg-opacity-50" onClick={() => setEditingProduct(null)}></div>
+            <div 
+              className="fixed inset-0 z-[60] bg-black bg-opacity-50" 
+              onClick={() => setEditingProduct(null)}
+            />
             <div
-              className={`fixed top-0 right-0 h-full w-[50vw] max-w-full z-[70] bg-[#121212] shadow-xl transition-transform duration-300 ease-in-out ${(editingProduct || editingProduct === 'new') ? 'translate-x-0' : 'translate-x-full'}`}
+              className="fixed top-0 right-0 h-full w-[50vw] max-w-full z-[70] bg-[#121212] shadow-xl overflow-y-auto"
             >
-              <div className="h-full overflow-y-auto p-6">
+              <div className="p-4">
                 <ProductAssemblyForm
                   lineItems={lineItems}
-                  editingProduct={editingProduct === 'new' ? null : editingProduct}
-                  onClose={() => setEditingProduct(null)}
-                  onSave={async (data) => {
+                  onClose={() => {
+                    console.log('Closing form');
+                    setEditingProduct(null);
+                  }}
+                  onSave={async (data: SaveData) => {
+                    console.log('Saving product:', data);
                     try {
-                      let price = 0, unit = 'unit', type = 'material';
-                      if (data.items && data.items.length > 0) {
-                        price = data.items[0].price;
-                        unit = data.items[0].unit;
-                        type = data.items[0].type || 'material';
-                      }
-                      if (editingProduct === 'new') {
-                        if (!user) {
-                          console.error('No user found, cannot create product');
-                          return;
-                        }
-                        const { error } = await supabase
-                          .from('products')
-                          .insert([
-                            {
-                              name: data.name,
-                              description: data.description,
-                              user_id: user.id,
-                              price,
-                              unit,
-                              type,
-                            },
-                          ]);
-                        if (error) throw error;
-                      } else {
-                        const { error } = await supabase
+                      // Transform items data for the database
+                      const transformedItems = data.items.map((item: LineItem) => ({
+                        line_item_id: item.lineItemId,
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        price: item.price
+                      }));
+
+                      if (editingProduct && editingProduct !== 'new') {
+                        // Update existing product
+                        const { error: deleteError } = await supabase
+                          .from('product_line_items')
+                          .delete()
+                          .eq('product_id', editingProduct.id);
+                        if (deleteError) throw deleteError;
+
+                        const { error: productError } = await supabase
                           .from('products')
                           .update({
                             name: data.name,
                             description: data.description,
-                            price,
-                            unit,
-                            type,
+                            status: 'published'
                           })
                           .eq('id', editingProduct.id);
-                        if (error) throw error;
+                        if (productError) throw productError;
+
+                        if (transformedItems.length > 0) {
+                          const { error: itemsError } = await supabase
+                            .from('product_line_items')
+                            .insert(transformedItems.map((item) => ({
+                              ...item,
+                              product_id: editingProduct.id
+                            })));
+                          if (itemsError) throw itemsError;
+                        }
+                      } else {
+                        // Create new product
+                        const { data: newProduct, error: productError } = await supabase
+                          .from('products')
+                          .insert([{
+                            name: data.name,
+                            description: data.description,
+                            user_id: user?.id,
+                            status: 'published'
+                          }])
+                          .select()
+                          .single();
+                        if (productError) throw productError;
+
+                        if (transformedItems.length > 0) {
+                          const { error: itemsError } = await supabase
+                            .from('product_line_items')
+                            .insert(transformedItems.map((item) => ({
+                              ...item,
+                              product_id: newProduct.id
+                            })));
+                          if (itemsError) throw itemsError;
+                        }
                       }
                       fetchProducts();
                       setEditingProduct(null);
-                    } catch (err) {
-                      console.error('Error saving product:', err);
+                    } catch (error) {
+                      console.error('Error saving product:', error);
                     }
                   }}
+                  editingProduct={editingProduct === 'new' ? null : editingProduct}
                 />
               </div>
             </div>
