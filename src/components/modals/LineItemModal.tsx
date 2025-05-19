@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { X } from 'lucide-react';
+import { UNIT_OPTIONS, PRODUCT_TYPE_OPTIONS } from '../../constants';
 
 interface LineItemModalProps {
   onClose: () => void;
@@ -14,15 +15,29 @@ interface LineItemModalProps {
 }
 
 export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm();
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    defaultValues: {
+      name: '',
+      description: '',
+      price: '0',
+      unit: 'hour',
+      type: 'material'
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = async (data: any) => {
     setIsLoading(true);
     try {
+      // Ensure price is a valid number and never null
+      const price = data.price ? parseFloat(data.price) : 0;
+      
       await onSave({
-        ...data,
-        price: parseFloat(data.price),
+        name: data.name,
+        description: data.description,
+        price: isNaN(price) ? 0 : price, // Default to 0 if NaN
+        unit: data.unit,
+        type: data.type
       });
     } finally {
       setIsLoading(false);
@@ -76,6 +91,7 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
                     value: /^\d*\.?\d*$/,
                     message: 'Please enter a valid number',
                   },
+                  setValueAs: value => value === '' ? '0' : value, // Ensure empty values become '0'
                 })}
                 type="text"
                 id="price"
@@ -91,13 +107,17 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
               <label htmlFor="unit" className="block text-sm font-medium text-gray-400">
                 Unit
               </label>
-              <input
+              <select
                 {...register('unit', { required: 'Unit is required' })}
-                type="text"
                 id="unit"
-                className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white placeholder-gray-400"
-                placeholder="e.g., sqft, linear foot"
-              />
+                className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white"
+              >
+                {UNIT_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
               {errors.unit && (
                 <p className="mt-1 text-sm text-red-500">{errors.unit.message as string}</p>
               )}
@@ -113,11 +133,11 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
               id="type"
               className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white"
             >
-              <option value="material">Material</option>
-              <option value="labor">Labor</option>
-              <option value="equipment">Equipment</option>
-              <option value="service">Service</option>
-              <option value="subcontractor">Subcontractor</option>
+              {PRODUCT_TYPE_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
             {errors.type && (
               <p className="mt-1 text-sm text-red-500">{errors.type.message as string}</p>

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 export interface LineItem {
   id: string;
@@ -19,6 +21,7 @@ export interface ProductAssemblyFormProps {
 }
 
 export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineItems, onClose, onSave, editingProduct }) => {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<{ lineItemId: string; quantity: number; unit: string; price: number; type?: string }[]>([]);
@@ -26,31 +29,79 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   const [comboBoxInputs, setComboBoxInputs] = useState<string[]>([]);
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
   const [activeOption, setActiveOption] = useState<number>(-1);
+  const [draftId, setDraftId] = useState<string | null>(null);
 
+  // Debounce timer ref
+  const debounceRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Unique localStorage key per user
+  const draftKey = user ? `productAssemblyDraft_${user.id}` : 'productAssemblyDraft_anon';
+
+  // Save draft to localStorage and backend (debounced)
   useEffect(() => {
-    if (editingProduct) {
-      setName(editingProduct.name || '');
-      setDescription(editingProduct.description || '');
-      setItems((editingProduct.items || []).map((item: any) => ({
-        lineItemId: item.lineItemId,
-        quantity: item.quantity,
-        unit: item.unit || '',
-        price: item.price || 0,
-        type: item.type || ''
-      })));
-      setItemFilters((editingProduct.items || []).map(() => ({ trade: 'all', type: 'all', unit: 'all' })));
-      setComboBoxInputs((editingProduct.items || []).map((item: any) => {
-        const li = lineItems.find((li) => li.id === item.lineItemId);
-        return li ? `${li.name} (${formatCurrency(li.price)}/${li.unit})` : '';
-      }));
-    } else {
-      setName('');
-      setDescription('');
-      setItems([]);
-      setItemFilters([]);
-      setComboBoxInputs([]);
+    if (!user) return;
+    const draft = { name, description, items, itemFilters, comboBoxInputs };
+    localStorage.setItem(draftKey, JSON.stringify(draft));
+    // Debounce backend save
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      await supabase.from('products').upsert([
+        {
+          user_id: user.id,
+          name: name || 'Draft Product',
+          description,
+          items,
+          status: 'draft',
+        }
+      ], { onConflict: 'user_id,status' });
+    }, 1000);
+  }, [name, description, items, itemFilters, comboBoxInputs, user]);
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!user) return;
+    const localDraft = localStorage.getItem(draftKey);
+    if (localDraft) {
+      try {
+        const { name, description, items, itemFilters, comboBoxInputs } = JSON.parse(localDraft);
+        setName(name);
+        setDescription(description);
+        setItems(items);
+        setItemFilters(itemFilters);
+        setComboBoxInputs(comboBoxInputs);
+        setDraftId(null);
+        return;
+      } catch {}
     }
-  }, [editingProduct, lineItems]);
+    // If no local draft, fetch from backend
+    (async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'draft')
+        .single();
+      if (data) {
+        setDraftId(data.id);
+        setName(data.name || '');
+        setDescription(data.description || '');
+        setItems(data.items || []);
+        setItemFilters((data.items || []).map(() => ({ trade: 'all', type: 'all', unit: 'all' })));
+        setComboBoxInputs((data.items || []).map((item: any) => {
+          const li = lineItems.find((li) => li.id === item.lineItemId);
+          return li ? `${li.name} (${formatCurrency(li.price)}/${li.unit})` : '';
+        }));
+      }
+    })();
+  }, [user]);
+
+  // Clear draft from both localStorage and backend
+  const clearDraft = async () => {
+    if (user) {
+      await supabase.from('products').delete().eq('user_id', user.id).eq('status', 'draft');
+    }
+    localStorage.removeItem(draftKey);
+  };
 
   const addItem = () => {
     setItems([...items, { lineItemId: '', quantity: 1, unit: '', price: 0, type: '' }]);
@@ -93,7 +144,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
           : v
       ));
     } else {
-      setItems(items.map((item, i) => i === idx ? { ...item, [key]: value } : item));
+    setItems(items.map((item, i) => i === idx ? { ...item, [key]: value } : item));
     }
   };
   const updateFilter = (idx: number, key: 'trade' | 'type' | 'unit', value: string) => {
@@ -109,9 +160,34 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   // Helper to get the display label for a line item
   const getLineItemLabel = (li: LineItem) => `${li.name} (${formatCurrency(li.price)}/${li.unit})`;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // On save, clear draft and save as published
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSave({ name, description, items, id: editingProduct?.id });
+    if (!user) return;
+    await clearDraft();
+    if (draftId) {
+      // Update draft row to published
+      await supabase.from('products').update({
+        name, description, items, status: 'published'
+      }).eq('id', draftId);
+      onSave({ name, description, items, id: draftId, status: 'published' });
+    } else {
+      // Insert new product
+      const { data, error } = await supabase.from('products').insert({
+        user_id: user.id,
+        name,
+        description,
+        items,
+        status: 'published'
+      }).select().single();
+      onSave({ name, description, items, id: data?.id, status: 'published' });
+    }
+  };
+
+  // On cancel/discard, clear draft
+  const handleCancel = async () => {
+    await clearDraft();
+    onClose();
   };
 
   // Group by trade name (alphabetically), fallback to 'Unassigned' for null/undefined
@@ -122,6 +198,20 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
     groupedByTrade[tradeName].push(li);
   });
   const sortedTradeNames = Object.keys(groupedByTrade).sort((a, b) => a.localeCompare(b));
+
+  useEffect(() => {
+    if (editingProduct) {
+      setName(editingProduct.name || '');
+      setDescription(editingProduct.description || '');
+      setItems(editingProduct.items || []);
+      setItemFilters((editingProduct.items || []).map(() => ({ trade: 'all', type: 'all', unit: 'all' })));
+      setComboBoxInputs((editingProduct.items || []).map((item: any) => {
+        const li = lineItems.find((li) => li.id === item.lineItemId);
+        return li ? `${li.name} (${formatCurrency(li.price)}/${li.unit})` : '';
+      }));
+      setDraftId(editingProduct.id || null);
+    }
+  }, [editingProduct, lineItems]);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -197,11 +287,13 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                       setActiveOption(-1);
                     }}
                     onFocus={() => {
-                      // If the input matches the selected item, clear it and then open dropdown after state update
                       const selectedLi = item.lineItemId ? getLineItem(item.lineItemId) : null;
                       const selectedLabel = selectedLi ? getLineItemLabel(selectedLi) : '';
                       if (comboBoxValue === selectedLabel) {
                         setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
+                        setItemFilters(itemFilters.map((f, i) =>
+                          i === idx ? { trade: 'all', type: 'all', unit: 'all' } : f
+                        ));
                         setTimeout(() => {
                           setDropdownOpen(idx);
                           setActiveOption(-1);
@@ -210,6 +302,18 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                         setDropdownOpen(idx);
                         setActiveOption(-1);
                       }
+                    }}
+                    onClick={() => {
+                      const selectedLi = item.lineItemId ? getLineItem(item.lineItemId) : null;
+                      const selectedLabel = selectedLi ? getLineItemLabel(selectedLi) : '';
+                      if (comboBoxValue === selectedLabel) {
+                        setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
+                        setItemFilters(itemFilters.map((f, i) =>
+                          i === idx ? { trade: 'all', type: 'all', unit: 'all' } : f
+                        ));
+                      }
+                      setDropdownOpen(idx);
+                      setActiveOption(-1);
                     }}
                     onBlur={e => { setTimeout(() => setDropdownOpen(null), 150); }}
                     className="w-full rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600 px-2 py-1 text-xs"
@@ -246,24 +350,24 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                     {getLineItem(item.lineItemId)?.type}
                   </span>
                 )}
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-                  className="w-16 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
-                  required
-                />
-                <span className="text-gray-500 text-xs">
+            <input
+              type="number"
+              min={1}
+              value={item.quantity}
+              onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
+              className="w-16 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+              required
+            />
+            <span className="text-gray-500 text-xs">
                   {item.unit}
-                </span>
-                <span className="text-gray-700 dark:text-gray-200 text-sm font-mono ml-2">
+            </span>
+            <span className="text-gray-700 dark:text-gray-200 text-sm font-mono ml-2">
                   {formatCurrency(item.price * item.quantity)}
-                </span>
-                <button type="button" onClick={() => removeItem(idx)} className="ml-2 text-red-500 hover:text-red-700">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
+            </span>
+            <button type="button" onClick={() => removeItem(idx)} className="ml-2 text-red-500 hover:text-red-700">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
             </div>
           );
         })}
@@ -273,7 +377,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
         <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(total)}</span>
       </div>
       <div className="flex gap-2 mt-4">
-        <button type="button" onClick={onClose} className="w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
+        <button type="button" onClick={handleCancel} className="w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
         <button type="submit" className="w-1/2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
       </div>
     </form>

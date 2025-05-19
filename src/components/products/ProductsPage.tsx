@@ -49,7 +49,26 @@ export const ProductsPage: React.FC = () => {
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [sortBy] = useState('price-asc');
+  const [sortBy, setSortBy] = useState('created-desc');
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Helper function to get the label for the current sort option
+  const getSortLabel = (sortOption: string): string => {
+    switch (sortOption) {
+      case 'name-asc': return 'Name';
+      case 'price-desc': return 'Price (High-Low)';
+      case 'price-asc': return 'Price (Low-High)';
+      case 'most-used': return 'Most Used';
+      case 'created-desc': return 'Recently Used';
+      case 'created-asc': return 'Oldest First';
+      default: return 'Recently Used';
+    }
+  };
 
   const CATEGORY_OPTIONS = [
     { value: 'all', label: 'All Categories (40)' },
@@ -141,6 +160,7 @@ export const ProductsPage: React.FC = () => {
         .order('created_at', { ascending: false });
       if (error) throw error;
       setProducts(data || []);
+      console.log('Fetched products:', data);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -176,6 +196,8 @@ export const ProductsPage: React.FC = () => {
       if (sortBy === 'price-desc') return b.price - a.price;
       if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
       if (sortBy === 'name-desc') return b.name.localeCompare(a.name);
+      if (sortBy === 'created-desc') return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      if (sortBy === 'created-asc') return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       return 0;
     });
 
@@ -228,14 +250,17 @@ export const ProductsPage: React.FC = () => {
     console.log('Print price book clicked');
   };
 
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const optionsMenuRef = useRef<HTMLDivElement>(null);
-
-  // Close options menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
         setShowOptionsMenu(false);
+      }
+      if (sortMenuRef.current && !sortMenuRef.current.contains(event.target as Node)) {
+        setShowSortMenu(false);
+      }
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(event.target as Node)) {
+        setShowCategoryMenu(false);
       }
     };
 
@@ -253,14 +278,179 @@ export const ProductsPage: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="bg-[#121212] min-h-screen relative flex flex-col px-8 py-6">
-        <div className="relative flex items-center justify-between px-8 py-6">
+      <div className="bg-[#121212] min-h-screen relative flex flex-col px-0 py-0">
+        {/* Mobile header - only visible on mobile */}
+        <div className="md:hidden relative flex flex-col space-y-4 pb-4 border-b border-gray-800 px-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold text-white">Products</h1>
+            <div className="flex space-x-2">
+              <button 
+                className="p-2 rounded-full bg-[#232635] text-white"
+                onClick={() => setShowFilter(!showFilter)}
+              >
+                <Filter size={20} />
+              </button>
+              <button 
+                className="p-2 rounded-full bg-[#232635] text-white"
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              >
+                <MoreVertical size={20} />
+              </button>
+            </div>
+          </div>
+          <p className="text-gray-400">Manage all your products and assemblies in one place</p>
+        </div>
+        
+        {/* Mobile filter and sort options - only visible on mobile */}
+        <div className="md:hidden flex flex-col space-y-4 mt-4 px-2 sm:px-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-4">
+            {/* Category Filter Dropdown - Mobile */}
+            <div className="w-full relative" ref={categoryMenuRef}>
+              <button 
+                className="w-full flex items-center justify-between px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white"
+                onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+              >
+                <span className="truncate">All Categories (40)</span>
+                <ChevronDown size={16} />
+              </button>
+              
+              {showCategoryMenu && (
+                <div className="absolute left-0 right-0 top-12 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
+                  <button 
+                    className="w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2"
+                    onClick={() => {
+                      setSelectedCategory('all');
+                      setShowCategoryMenu(false);
+                    }}
+                  >
+                    <span className="ml-2">All Categories</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Sort Dropdown - Mobile */}
+            <div className="w-full relative" ref={sortMenuRef}>
+              <button 
+                className="w-full flex items-center justify-between px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white"
+                onClick={() => setShowSortMenu(!showSortMenu)}
+              >
+                <span className="truncate">Sort by: {getSortLabel(sortBy)}</span>
+                <ChevronDown size={16} />
+              </button>
+              
+              {showSortMenu && (
+                <div className="absolute left-0 right-0 top-12 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'name-asc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('name-asc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'name-asc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'name-asc' ? 'ml-2' : 'ml-6'}>Sort by: Name</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'price-desc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('price-desc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'price-desc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'price-desc' ? 'ml-2' : 'ml-6'}>Sort by: Price (High-Low)</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'most-used' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('most-used');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'most-used' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'most-used' ? 'ml-2' : 'ml-6'}>Sort by: Recently Used</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop header - hidden on mobile */}
+        <div className="hidden md:flex relative items-center justify-between px-4 py-4">
           <div>
             <h1 className="text-2xl font-bold text-white">Products</h1>
             <p className="text-gray-400">Manage all your products and assemblies in one place</p>
           </div>
           
           <div className="flex items-center gap-3">
+            {/* Sort By Dropdown */}
+            <div className="relative" ref={sortMenuRef}>
+              <button 
+                className="flex items-center gap-2 px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
+                onClick={() => setShowSortMenu(!showSortMenu)}
+              >
+                <span>Sort by: {getSortLabel(sortBy)}</span>
+                <ChevronDown size={16} />
+              </button>
+              
+              {showSortMenu && (
+                <div className="absolute left-0 top-12 w-64 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'name-asc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('name-asc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'name-asc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'name-asc' ? 'ml-2' : 'ml-6'}>Sort by: Name</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'price-desc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('price-desc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'price-desc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'price-desc' ? 'ml-2' : 'ml-6'}>Sort by: Price (High-Low)</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'price-asc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('price-asc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'price-asc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'price-asc' ? 'ml-2' : 'ml-6'}>Sort by: Price (Low-High)</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'most-used' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('most-used');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'most-used' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'most-used' ? 'ml-2' : 'ml-6'}>Sort by: Most Used</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'created-desc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('created-desc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'created-desc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'created-desc' ? 'ml-2' : 'ml-6'}>Sort by: Recently Used</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            
             <div className="relative">
               <input
                 type="text"
@@ -325,8 +515,8 @@ export const ProductsPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Category and Subcategory Selectors */}
-        <div className="px-8 pt-6 pb-2">
+        {/* Category and Subcategory Selectors - hidden on mobile */}
+        <div className="hidden md:block px-4 pt-4 pb-2">
           <div className="flex items-center gap-3">
             <div className="relative max-w-xs">
               <select
@@ -365,22 +555,18 @@ export const ProductsPage: React.FC = () => {
           </div>
         </div>
         
-        {/* Product Cards with Expand/Collapse */}
-        <div className="px-8 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* Product Grid */}
+        <div className="px-2 sm:px-4 py-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {filteredProducts.length === 0 ? (
               <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-20">No products/assemblies found.</div>
             ) : (
               filteredProducts.map(product => (
                 <div
                   key={product.id}
-                  className="bg-[#121212] rounded-lg overflow-hidden border border-gray-700 hover:border-blue-500 transition-all shadow-lg hover:shadow-blue-900/20 relative group flex flex-col justify-between min-h-[240px]"
+                  className="bg-[#232635] rounded-xl border border-[#2A3A8F] p-3 sm:p-6 flex flex-col h-[220px] w-full min-w-0 relative"
                 >
-                  {/* Premium badge */}
-                  {product.premium && (
-                    <div className="absolute left-0 top-0 bg-amber-600 text-white px-3 py-1 text-xs font-semibold rounded-br z-10">Premium</div>
-                  )}
-                  
+
                   {/* Three-dot menu button */}
                   <div className="absolute top-3 right-3 z-10">
                     <button
@@ -397,7 +583,13 @@ export const ProductsPage: React.FC = () => {
                         className="absolute right-0 top-8 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-1 border border-gray-600"
                         onClick={e => e.stopPropagation()}
                       >
-
+                        <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { 
+                          setOpenMenuId(null); 
+                          // Ensure we're passing the complete product data to the edit modal
+                          setEditingProduct({...product});
+                        }}>
+                          Edit
+                        </button>
                         <button className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" onClick={() => { setOpenMenuId(null); /* TODO: Add to invoice */ }}>
                           Add to package
                         </button>
@@ -417,46 +609,26 @@ export const ProductsPage: React.FC = () => {
                       </div>
                     )}
                   </div>
-                  
-                  <div className="flex-1 p-5 flex flex-col">
-                    <h3 className="text-lg font-semibold mb-1 text-white">{product.name}</h3>
-                    {product.description && (
-                      <p className="text-gray-400 text-sm">{product.description}</p>
-                    )}
-                    {/* Package count indicator */}
-                    <div className="mt-2 mb-2">
-                      <span className="text-indigo-400 text-xs">In {Math.floor(Math.random() * 5) + 1} packages</span>
-                    </div>
-                    <div className="flex justify-between items-end mt-auto">
-                      <div className="text-2xl font-bold text-[#0050FF]">
-                        ${product.price.toFixed(2)}
-                        <span className="text-sm text-gray-400 font-normal ml-1">/{product.unit}</span>
-                      </div>
-                      {/* Item count indicator */}
-                      <div className="bg-[#232635] px-3 py-1 rounded-md text-center">
-                        <div className="text-white font-medium">{Math.floor(Math.random() * 10) + 1}</div>
-                        <div className="text-gray-400 text-xs">items</div>
-                      </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-full overflow-hidden">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{product.name}</h2>
+                      {product.description && (
+                        <div className="text-gray-400 w-full overflow-hidden h-[48px]">
+                          <p className="text-xs sm:text-sm line-clamp-2 break-words leading-5 sm:leading-6">{product.description}</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  {/* Quick actions bar */}
-                  <div className="flex justify-between items-center px-4 py-3 border-t border-gray-700">
-                    <button
-                      className="text-sm text-gray-300 hover:underline focus:outline-none"
-                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 400 }}
-                      onClick={() => setEditingProduct(product)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="text-sm text-gray-400 hover:underline focus:outline-none"
-                      style={{ background: 'none', border: 'none', padding: 0, fontWeight: 400 }}
-                      onClick={() => {
-                        // TODO: Implement add to package functionality
-                        setOpenMenuId(null);
-                      }}
-                    >
+
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-400 text-xs sm:text-sm mb-2 sm:mb-4">
+                    <span>{product.items?.length || 1} items</span>
+                    <span>In <span className="text-blue-400 font-semibold">{Math.floor(Math.random() * 5) + 1} packages</span></span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-0 mt-auto">
+                    <div>
+                      <span className="text-lg sm:text-xl font-bold text-white">{formatCurrency(product.price)}</span>
+                    </div>
+                    <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded transition-colors whitespace-nowrap w-full sm:w-auto sm:min-w-[120px] text-center">
                       Add to package
                     </button>
                   </div>
@@ -489,23 +661,29 @@ export const ProductsPage: React.FC = () => {
                   onClose={() => setEditingProduct(null)}
                   onSave={async (data) => {
                     try {
+                      let price = 0, unit = 'unit', type = 'material';
+                      if (data.items && data.items.length > 0) {
+                        price = data.items[0].price;
+                        unit = data.items[0].unit;
+                        type = data.items[0].type || 'material';
+                      }
                       if (editingProduct === 'new') {
                         if (!user) {
                           console.error('No user found, cannot create product');
                           return;
                         }
-                        const { error } = await supabase.from('products').insert([
-                          {
-                            name: data.name,
-                            description: data.description,
-                            items: data.items,
-                            user_id: user.id,
-                            price: data.price,
-                            unit: data.unit,
-                            type: data.type,
-                            category: data.category,
-                          },
-                        ]);
+                        const { error } = await supabase
+                          .from('products')
+                          .insert([
+                            {
+                              name: data.name,
+                              description: data.description,
+                              user_id: user.id,
+                              price,
+                              unit,
+                              type,
+                            },
+                          ]);
                         if (error) throw error;
                       } else {
                         const { error } = await supabase
@@ -513,11 +691,9 @@ export const ProductsPage: React.FC = () => {
                           .update({
                             name: data.name,
                             description: data.description,
-                            items: data.items,
-                            price: data.price,
-                            unit: data.unit,
-                            type: data.type,
-                            category: data.category,
+                            price,
+                            unit,
+                            type,
                           })
                           .eq('id', editingProduct.id);
                         if (error) throw error;
@@ -536,4 +712,4 @@ export const ProductsPage: React.FC = () => {
       </div>
     </DashboardLayout>
   );
-}; 
+};

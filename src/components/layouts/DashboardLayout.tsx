@@ -271,11 +271,31 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   return (
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
+
+        
         {/* Top Navigation Bar */}
         <div className="fixed top-0 left-0 right-0 z-20 bg-[#121212] border-b border-gray-200 dark:border-gray-800">
           <div className="flex justify-between items-center h-16 px-6">
-            {/* Organization Dropdown - moved to far left */}
-            <div className="flex items-center">
+            {/* Mobile Page Title - only visible on mobile */}
+            <div className="md:hidden flex items-center">
+              <h1 className="text-xl font-bold text-white">
+                {(() => {
+                  const path = location.pathname;
+                  if (path === '/dashboard') return 'Dashboard';
+                  if (path.startsWith('/clients')) return 'Clients';
+                  if (path.startsWith('/projects')) return 'Projects';
+                  if (path.startsWith('/invoices')) return 'Invoices';
+                  if (path.startsWith('/packages')) return 'Packages';
+                  if (path.startsWith('/products')) return 'Products';
+                  if (path.startsWith('/price-book')) return 'Price Book';
+                  if (path.startsWith('/contracts')) return 'Contracts';
+                  return 'Dashboard';
+                })()}
+              </h1>
+            </div>
+            
+            {/* Organization Dropdown - hidden on mobile, visible on desktop */}
+            <div className="hidden md:flex items-center">
               <div className="relative mr-4" ref={orgDropdownRef}>
                 <button
                   className="flex items-center min-h-[40px] px-4 rounded bg-[#181818] text-white text-sm font-medium hover:bg-[#232323] focus:bg-[#232323] transition-colors"
@@ -333,8 +353,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
             {/* Right side */}
             <div className="flex items-center">
-              {/* Show + button globally */}
-              <div className="flex items-center">
+              {/* Show + button globally - hidden on mobile */}
+              <div className="hidden md:flex items-center">
                 <div className="relative">
                   <button
                     ref={createButtonRef}
@@ -384,8 +404,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         </div>
 
         <div className="flex h-[calc(100vh-4rem)] mt-16">
-          {/* Sidebar - reduced width */}
-          <div className="fixed top-16 w-48 h-[calc(100vh-4rem)] overflow-y-auto bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex flex-col">
+          {/* Sidebar - reduced width - hidden on mobile */}
+          <div className="hidden md:flex fixed top-16 w-48 h-[calc(100vh-4rem)] overflow-y-auto bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex-col">
             {/* Sidebar header action for each main section */}
             {(() => {
               if (location.pathname === '/price-book') {
@@ -572,8 +592,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </div>
 
-          {/* Main Content - adjusted for narrower sidebar */}
-          <div className="flex-1 ml-48 p-4 bg-gray-900">
+          {/* Main Content - responsive for all screen sizes */}
+          <div className="flex-1 md:ml-48 p-4 bg-gray-900">
             {children}
           </div>
 
@@ -586,29 +606,123 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         >
           {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
+        
 
-        {/* Mobile Navigation Menu */}
+
+        {/* Mobile Navigation Menu - Notion Style */}
         <div className={`md:hidden fixed inset-0 z-10 ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-white dark:bg-gray-900 overflow-y-auto">
-            <div className="p-4 space-y-6">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className={({ isActive }) =>
-                    `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                      isActive
-                        ? 'text-indigo-600 dark:text-indigo-500'
-                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-                    }`
-                  }
-                >
-                  <item.icon className="h-4 w-4 mr-2" />
-                  <span>{item.label}</span>
-                </NavLink>
-              ))}
+          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-[#121212] overflow-y-auto">
+            {/* Mobile Header with Close Button */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+              <span className="text-lg font-medium text-white">Menu</span>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            {/* Organization Selector */}
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center">
+                <div className="bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center text-white font-bold mr-3">
+                  A
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-white font-medium">{selectedOrg.name}</span>
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <p className="text-xs text-gray-400">View and switch organizations</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Search Bar */}
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center bg-[#232323] rounded-md px-3 py-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search"
+                  className="bg-transparent border-none w-full text-sm text-white focus:outline-none ml-2"
+                />
+              </div>
+            </div>
+            
+            {/* Main Navigation */}
+            <div className="p-4 border-b border-gray-800">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-gray-500 uppercase">Main Navigation</span>
+              </div>
+              <div className="space-y-1">
+                {navItems.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                        isActive
+                          ? 'text-blue-500 bg-[#232323]'
+                          : 'text-gray-400 hover:text-white hover:bg-[#232323]'
+                      }`
+                    }
+                  >
+                    <item.icon className="h-4 w-4 mr-3" />
+                    <span>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+            
+            {/* Secondary Navigation Sections */}
+            {sidebarItems.map((section, idx) => (
+              <div key={section.title} className="p-4 border-b border-gray-800">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
+                  {section.badge && (
+                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-900 text-green-300">
+                      {section.badge}
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  {section.items.map((item, itemIdx) => (
+                    <NavLink
+                      key={`${section.title}-${itemIdx}`}
+                      to={item.to}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className={({ isActive }) =>
+                        `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                          item.isAction
+                            ? 'text-blue-500'
+                            : isActive || item.highlighted
+                            ? 'text-blue-500 bg-[#232323]'
+                            : 'text-gray-400 hover:text-white hover:bg-[#232323]'
+                        }`
+                      }
+                    >
+                      {item.icon && <item.icon className="h-4 w-4 mr-3" />}
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </div>
+              </div>
+            ))}
+            
+            {/* User Section */}
+            <div className="p-4 border-t border-gray-800 mt-auto">
+              <div className="flex items-center">
+                <div className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white mr-3">
+                  <User className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">{user?.email}</p>
+                  <p className="text-xs text-gray-400">Account Settings</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -692,6 +806,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             onSave={() => setShowNewInvoiceDrawer(false)}
           />
         )}
+        
+        {/* Mobile Create Button - Floating Action Button */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#232635] border border-[#2A3A8F] shadow-xl flex items-center justify-center text-white"
+            style={{ boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)' }}
+            aria-label="Create new"
+          >
+            <Plus className="w-7 h-7 text-white" />
+          </button>
+        </div>
       </div>
     </IndustryContext.Provider>
   );
