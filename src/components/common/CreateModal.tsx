@@ -47,13 +47,13 @@ export const CreateDropdown: React.FC<CreateDropdownProps> = ({
           <FileText className="w-4 h-4 text-[#A3A6AE]" />
           Invoice
         </button>
-        <button onClick={onCreateProduct} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <Package className="w-4 h-4 text-[#A3A6AE]" />
-          Product
-        </button>
         <button onClick={onCreatePackage} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
           <FileBox className="w-4 h-4 text-[#A3A6AE]" />
           Package
+        </button>
+        <button onClick={onCreateProduct} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
+          <Package className="w-4 h-4 text-[#A3A6AE]" />
+          Product
         </button>
       </div>
       <div className="border-t border-[#35373F] pt-2">
