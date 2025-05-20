@@ -32,9 +32,13 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [items, setItems] = useState<{ lineItemId: string; quantity: number; unit: string; price: number; type?: string }[]>([]);
-  const [itemFilters, setItemFilters] = useState<{ trade: string; type: string; unit: string }[]>([]);
-  const [comboBoxInputs, setComboBoxInputs] = useState<string[]>([]);
+  const [items, setItems] = useState<{ lineItemId: string; quantity: number; unit: string; price: number; type?: string }[]>([
+    { lineItemId: '', quantity: 1, unit: '', price: 0, type: '' }
+  ]);
+  const [itemFilters, setItemFilters] = useState<{ trade: string; type: string; unit: string }[]>([
+    { trade: 'all', type: 'all', unit: 'all' }
+  ]);
+  const [comboBoxInputs, setComboBoxInputs] = useState<string[]>(['']);
   const [dropdownOpen, setDropdownOpen] = useState<number | null>(null);
   const [activeOption, setActiveOption] = useState<number>(-1);
   const [draftId, setDraftId] = useState<string | null>(null);
@@ -187,6 +191,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   };
 
   const addItem = () => {
+    // Always add a new empty line item when the button is clicked
     setItems([...items, { lineItemId: '', quantity: 1, unit: '', price: 0, type: '' }]);
     setItemFilters([...itemFilters, { trade: 'all', type: 'all', unit: 'all' }]);
     setComboBoxInputs([...comboBoxInputs, '']);
@@ -485,12 +490,11 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
           const comboBoxValue = comboBoxInputs[idx] || '';
           const trades = Array.from(new Set(lineItems.map(li => li.trade).filter((x): x is string => Boolean(x))));
 
-          // Show all line items for each trade, only filter by name if search is present
+          // Show all items if we're clicking a selected item, otherwise filter by search
           let filtered = lineItems;
-          if (comboBoxValue) {
+          if (comboBoxValue && !item.lineItemId) {
             filtered = filtered.filter(li => li.name.toLowerCase().includes(comboBoxValue.toLowerCase()));
           }
-          // No type/unit filtering here
 
           // Group by trade
           const grouped = trades.reduce((acc, trade) => {
@@ -523,35 +527,86 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                       setActiveOption(-1);
                     }}
                     onFocus={() => {
-                      const selectedLi = item.lineItemId ? getLineItem(item.lineItemId) : null;
-                      const selectedLabel = selectedLi ? getLineItemLabel(selectedLi) : '';
-                      if (comboBoxValue === selectedLabel) {
-                        setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
-                        setItemFilters(itemFilters.map((f, i) =>
-                          i === idx ? { trade: 'all', type: 'all', unit: 'all' } : f
-                        ));
-                        setTimeout(() => {
-                          setDropdownOpen(idx);
-                          setActiveOption(-1);
-                        }, 0);
-                      } else {
-                        setDropdownOpen(idx);
-                        setActiveOption(-1);
-                      }
-                    }}
-                    onClick={() => {
-                      const selectedLi = item.lineItemId ? getLineItem(item.lineItemId) : null;
-                      const selectedLabel = selectedLi ? getLineItemLabel(selectedLi) : '';
-                      if (comboBoxValue === selectedLabel) {
-                        setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
-                        setItemFilters(itemFilters.map((f, i) =>
-                          i === idx ? { trade: 'all', type: 'all', unit: 'all' } : f
-                        ));
-                      }
                       setDropdownOpen(idx);
                       setActiveOption(-1);
                     }}
-                    onBlur={e => { setTimeout(() => setDropdownOpen(null), 150); }}
+                    onClick={() => {
+                      // Always show dropdown on click, even for selected items
+                      setDropdownOpen(idx);
+                      setActiveOption(-1);
+                      // Clear the search if we have a selected item
+                      if (item.lineItemId) {
+                        setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
+                      }
+                    }}
+                    onBlur={e => { 
+                      // If no item is selected, reset the input
+                      setTimeout(() => {
+                        if (!items[idx].lineItemId) {
+                          setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? '' : v));
+                        }
+                        setDropdownOpen(null);
+                      }, 150);
+                    }}
+                    onKeyDown={e => {
+                      if (dropdownOpen === idx) {
+                        // Flatten all visible items for easier navigation
+                        const flattenedItems = filteredTradeNames.reduce((acc, tradeName) => {
+                          const tradeItems = filteredGrouped[tradeName] || [];
+                          return [...acc, ...tradeItems];
+                        }, [] as LineItem[]);
+                        
+                        switch (e.key) {
+                          case 'ArrowDown':
+                            e.preventDefault();
+                            setActiveOption(prev => 
+                              prev < flattenedItems.length - 1 ? prev + 1 : prev
+                            );
+                            break;
+                          case 'ArrowUp':
+                            e.preventDefault();
+                            setActiveOption(prev => prev > 0 ? prev - 1 : 0);
+                            break;
+                          case 'Enter':
+                            e.preventDefault();
+                            if (activeOption >= 0 && activeOption < flattenedItems.length) {
+                              const li = flattenedItems[activeOption];
+                              const selectedItem = lineItems.find(item => item.id === li.id);
+                              const displayValue = selectedItem ? `${selectedItem.name} (${formatCurrency(selectedItem.price)}/${selectedItem.unit})` : '';
+                              
+                              const newItems = [...items];
+                              newItems[idx] = {
+                                lineItemId: li.id,
+                                quantity: items[idx].quantity || 1,
+                                unit: li.unit || '',
+                                price: li.price || 0,
+                                type: li.type || ''
+                              };
+                              
+                              // Add a new blank line item
+                              newItems.push({ lineItemId: '', quantity: 1, unit: '', price: 0, type: '' });
+                              
+                              setItems(newItems);
+                              setComboBoxInputs([
+                                ...comboBoxInputs.map((v, i) => i === idx ? displayValue : v),
+                                '' // Add empty input for new line item
+                              ]);
+                              setItemFilters([
+                                ...itemFilters,
+                                { trade: 'all', type: 'all', unit: 'all' } // Add filter for new line item
+                              ]);
+                              setDropdownOpen(null);
+                              setActiveOption(-1);
+                            }
+                            break;
+                          case 'Escape':
+                            e.preventDefault();
+                            setDropdownOpen(null);
+                            setActiveOption(-1);
+                            break;
+                        }
+                      }
+                    }}
                     className="w-full rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600 px-2 py-1 text-xs"
                   />
                   {dropdownOpen === idx && (
@@ -578,24 +633,50 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                                 <div className="px-3 py-2 text-[10px] uppercase tracking-wide font-medium bg-white bg-opacity-8 text-white text-opacity-64">{typeName}</div>
                                 {itemsByType[typeName].map((li, i) => {
                                   const flatIdx = filteredOptions.findIndex(opt => opt.li.id === li.id);
+                                  const isSelected = item.lineItemId === li.id;
                                   return (
                                     <div
                                       key={li.id}
-                                      className={`px-4 py-1 cursor-pointer text-xs truncate ${item.lineItemId === li.id ? 'bg-indigo-700 text-white' : flatIdx === activeOption ? 'bg-gray-700 text-white' : 'hover:bg-gray-800 text-gray-200'}`}
-                                      onMouseDown={() => { 
-                                        updateItem(idx, 'lineItemId', li.id); 
+                                      onMouseDown={() => {
+                                        const selectedItem = lineItems.find(item => item.id === li.id);
+                                        const displayValue = selectedItem ? `${selectedItem.name} (${formatCurrency(selectedItem.price)}/${selectedItem.unit})` : '';
+
+                                        const newItems = [...items];
+                                        newItems[idx] = {
+                                          lineItemId: li.id,
+                                          quantity: items[idx].quantity || 1,
+                                          unit: li.unit || '',
+                                          price: li.price || 0,
+                                          type: li.type || ''
+                                        };
                                         
-                                        // Close dropdown after selection
-                                        setTimeout(() => {
-                                          setDropdownOpen(null);
-                                          
-                                          // Automatically add a new empty line item if this is the last item
-                                          if (idx === items.length - 1) {
-                                            addItem();
-                                          }
-                                        }, 200); // Short delay so user can see what was selected
+                                        // Add a new blank line item
+                                        newItems.push({ lineItemId: '', quantity: 1, unit: '', price: 0, type: '' });
+                                        
+                                        setItems(newItems);
+                                        setComboBoxInputs([
+                                          ...comboBoxInputs.map((v, i) => i === idx ? displayValue : v),
+                                          '' // Add empty input for new line item
+                                        ]);
+                                        setItemFilters([
+                                          ...itemFilters,
+                                          { trade: 'all', type: 'all', unit: 'all' } // Add filter for new line item
+                                        ]);
+                                        setDropdownOpen(null);
+                                        setActiveOption(-1);
                                       }}
-                                      onMouseEnter={() => setActiveOption(flatIdx)}
+                                      onMouseEnter={() => {
+                                        const currentIndex = Object.values(grouped).flat().findIndex(item => item.id === li.id);
+                                        setActiveOption(currentIndex);
+                                      }}
+                                      onMouseLeave={() => setActiveOption(-1)}
+                                      className={`px-4 py-1 cursor-pointer text-xs truncate ${
+                                        isSelected 
+                                          ? 'bg-indigo-700 text-white' 
+                                          : Object.values(filteredGrouped).flat().findIndex((item: LineItem) => item.id === li.id) === activeOption
+                                            ? 'bg-gray-700 text-white'
+                                            : 'hover:bg-gray-800 text-gray-200'
+                                      }`}
                                     >
                                       {li.name} ({formatCurrency(li.price)}/{li.unit})
                                     </div>
