@@ -37,3 +37,27 @@ export interface InvoiceItem {
   price: number;
   created_at?: string;
 }
+
+export interface Project {
+  id?: string;
+  user_id?: string;
+  name: string;
+  description?: string;
+  client_id: string;
+  status: 'planning' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
+  budget?: number;
+  start_date?: string;
+  end_date?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProjectBill {
+  project_id: string;
+  bill_id: string;
+}
+
+export interface ProjectInvoice {
+  project_id: string;
+  invoice_id: string;
+}

@@ -7,6 +7,7 @@ import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { PriceBook } from './components/price-book/PriceBook';
 import { ProductsPage } from './components/products/ProductsPage';
+// ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { PackagesPage } from './components/packages/PackagesPage';
@@ -17,6 +18,7 @@ import { UserProfile } from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 import LineItemTestPage from './pages/LineItemTestPage';
+import ProductCardViewDemo from './components/products/ProductCardViewDemo';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -77,6 +79,38 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/demo"
+        element={
+          <ProtectedRoute>
+            <ProductCardViewDemo />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/new"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/products" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/edit/:id"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/products" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/variant/new"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/products" replace />
           </ProtectedRoute>
         }
       />

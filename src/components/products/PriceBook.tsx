@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Upload, Download } from 'lucide-react';
+import ProductComparisonModal from './ProductComparisonModal';
 import { formatCurrency } from '../../utils/format';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../common/PageHeader';
 import TableHeader from './TableHeader';
 import TabMenu from '../common/TabMenu';
@@ -19,10 +19,10 @@ interface Product {
   type: string;
   trade_id: string;
   trade?: string | { id: string; name: string };
+  trades?: { id: string; name: string };
 }
 
 export const PriceBook = () => {
-  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -35,52 +35,158 @@ export const PriceBook = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
   const [selectedTrade, setSelectedTrade] = useState<string>('all');
+  const [comparingProduct, setComparingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
+    console.log('PriceBook component mounted');
     fetchProducts();
-  }, [user?.id]);
+  }, []);
+  
+  // Debug function to inspect all products
+  useEffect(() => {
+    if (products.length > 0) {
+      console.log('=== DETAILED PRODUCT INSPECTION ===');
+      console.log('Total products:', products.length);
+      
+      // Count products by trade
+      const tradeCount: Record<string, number> = {};
+      products.forEach(product => {
+        const tradeName = product.trades?.name || 'unknown';
+        tradeCount[tradeName] = (tradeCount[tradeName] || 0) + 1;
+      });
+      console.log('Products by trade:', tradeCount);
+      
+      // Inspect Carpentry products specifically
+      const carpentryProducts = products.filter(p => 
+        (p.trades && p.trades.name === 'Carpentry') || 
+        (p.trade_id && p.trade_id === trades.find(t => t.name === 'Carpentry')?.id)
+      );
+      console.log('Carpentry products found:', carpentryProducts.length);
+      console.log('Carpentry products:', carpentryProducts.map(p => ({ 
+        id: p.id, 
+        name: p.name, 
+        trade_id: p.trade_id,
+        trade_obj: p.trades ? { id: p.trades.id, name: p.trades.name } : null
+      })));
+      
+      // Find the Carpentry trade ID
+      const carpentryTrade = trades.find(t => t.name === 'Carpentry');
+      console.log('Carpentry trade object:', carpentryTrade);
+    }
+  }, [products, trades]);
 
   useEffect(() => {
     const fetchTrades = async () => {
       const { data, error } = await supabase.from('trades').select('id, name').order('name');
-      if (!error) setTrades(data || []);
+      if (!error) {
+        console.log('Fetched trades:', data?.length);
+        console.log('Trades:', data);
+        setTrades(data || []);
+        
+        // Store the Carpentry trade ID for special handling
+        const carpentryTrade = data?.find(t => t.name === 'Carpentry');
+        if (carpentryTrade) {
+          console.log('Found Carpentry trade ID:', carpentryTrade.id);
+          window.localStorage.setItem('carpentryTradeId', carpentryTrade.id);
+        }
+      }
     };
     fetchTrades();
   }, []);
 
   const fetchProducts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProducts(data || []);
+      console.log('Starting products fetch...');
+      
+      // Get ALL products globally from the view
+      const { data: globalProducts, error: globalError } = await supabase
+        .from('global_products')
+        .select('*, trades(id, name)')
+        .order('name');
+        
+      if (globalError) {
+        console.error('Global products query error:', globalError);
+        setProducts([]);
+        return;
+      }
+      
+      console.log('Global products fetched:', globalProducts?.length);
+      
+      // Count carpentry items for debugging
+      const { data: tradesData } = await supabase
+        .from('trades')
+        .select('id, name')
+        .eq('name', 'Carpentry');
+      
+      const carpentryTradeId = tradesData?.[0]?.id;
+      if (carpentryTradeId) {
+        const carpentryCount = globalProducts?.filter(p => p.trade_id === carpentryTradeId).length || 0;
+        console.log('Carpentry products in set:', carpentryCount);
+      }
+      
+      // Use all global products
+      setProducts(globalProducts || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error in fetchProducts:', error);
     }
   };
 
-  const filteredProducts = useMemo<Product[]>(() => {
+  const filteredProducts = useMemo(() => {
+    console.log('Filtering products...');
+    console.log('Current state:', {
+      totalProducts: products.length,
+      selectedTrade,
+      activeCategory,
+      searchTerm,
+      minPrice,
+      maxPrice,
+      selectedType,
+      selectedUnit
+    });
+    
     let filtered = [...products];
 
+    // Filter by trade
+    if (selectedTrade !== 'all') {
+      filtered = filtered.filter(product => {
+        // Check direct trade_id
+        if (product.trade_id === selectedTrade) {
+          return true;
+        }
+        
+        // Check nested trades object
+        if (product.trades && product.trades.id === selectedTrade) {
+          return true;
+        }
+        
+        // Check nested trade object
+        if (product.trade && typeof product.trade === 'object' && product.trade.id === selectedTrade) {
+          return true;
+        }
+        
+        return false;
+      });
+      
+      console.log('Products after trade filter:', filtered.length);
+    }
+    
+    console.log('Products after trade filter:', filtered.length);
+
+    // Filter by category
+    if (activeCategory !== 'all') {
+      filtered = filtered.filter(product => product.type === activeCategory);
+    }
+    console.log('Products after category filter:', filtered.length);
+
+    // Filter by search term
     if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(product => {
         return (
-          product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchTerm.toLowerCase())
+          product.name.toLowerCase().includes(searchLower) ||
+          (product.description || '').toLowerCase().includes(searchLower)
         );
       });
-    }
-
-    // Only filter by trade_id
-    if (selectedTrade !== 'all') {
-      filtered = filtered.filter(product => product.trade_id === selectedTrade);
-    }
-
-    if (activeCategory !== 'all') {
-      filtered = filtered.filter(product => product.type.toLowerCase() === activeCategory);
     }
 
     // Apply price filter
@@ -94,14 +200,15 @@ export const PriceBook = () => {
 
     // Apply type filter from dropdown (if not using the tab menu)
     if (selectedType !== 'all' && activeCategory === 'all') {
-      filtered = filtered.filter(product => product.type.toLowerCase() === selectedType);
+      filtered = filtered.filter(product => product.type === selectedType);
     }
 
     // Apply unit filter
     if (selectedUnit !== 'any') {
-      filtered = filtered.filter(product => product.unit.toLowerCase() === selectedUnit.toLowerCase());
+      filtered = filtered.filter(product => product.unit === selectedUnit);
     }
 
+    // Sort by price
     return filtered.sort((a, b) => {
       if (priceSort === 'asc') {
         return a.price - b.price;
@@ -109,7 +216,7 @@ export const PriceBook = () => {
         return b.price - a.price;
       }
     });
-  }, [products, searchTerm, selectedTrade, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
+  }, [products, selectedTrade, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
 
   return (
     <DashboardLayout>
@@ -132,8 +239,10 @@ export const PriceBook = () => {
             className="bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
             value={selectedTrade}
             onChange={e => {
-              setSelectedTrade(e.target.value);
-              console.log('Selected trade:', e.target.value);
+              const newTradeId = e.target.value;
+              setSelectedTrade(newTradeId);
+              // Close any open filter menu to keep the interface clean
+              setShowFilterMenu(false);
             }}
           >
             <option value="all">All Trades</option>
@@ -241,15 +350,77 @@ export const PriceBook = () => {
         
         <TabMenu
           items={[
-            { id: 'all', label: 'All', count: products.length },
-            { id: 'material', label: 'Material', count: products.filter(p => p.type.toLowerCase() === 'material').length },
-            { id: 'labor', label: 'Labor', count: products.filter(p => p.type.toLowerCase() === 'labor').length },
-            { id: 'equipment', label: 'Equipment', count: products.filter(p => p.type.toLowerCase() === 'equipment').length },
-            { id: 'service', label: 'Service', count: products.filter(p => p.type.toLowerCase() === 'service').length },
-            { id: 'subcontractor', label: 'Subcontractor', count: products.filter(p => p.type.toLowerCase() === 'subcontractor').length }
+            { 
+              id: 'all', 
+              label: 'All', 
+              count: products.filter(p => {
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
+            { 
+              id: 'material', 
+              label: 'Material', 
+              count: products.filter(p => {
+                if (p.type !== 'material') return false;
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
+            { 
+              id: 'labor', 
+              label: 'Labor', 
+              count: products.filter(p => {
+                if (p.type !== 'labor') return false;
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
+            { 
+              id: 'equipment', 
+              label: 'Equipment', 
+              count: products.filter(p => {
+                if (p.type !== 'equipment') return false;
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
+            { 
+              id: 'service', 
+              label: 'Service', 
+              count: products.filter(p => {
+                if (p.type !== 'service') return false;
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
+            { 
+              id: 'subcontractor', 
+              label: 'Subcontractor', 
+              count: products.filter(p => {
+                if (p.type !== 'subcontractor') return false;
+                if (selectedTrade === 'all') return true;
+                return p.trade_id === selectedTrade || 
+                       (p.trades && p.trades.id === selectedTrade) || 
+                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
+              }).length 
+            },
           ]}
           activeItemId={activeCategory}
-          onItemClick={setActiveCategory}
+          onItemClick={category => {
+            console.log('Selected category:', category);
+            setActiveCategory(category);
+          }}
         />
         
         {menuOpen && (
@@ -294,6 +465,14 @@ export const PriceBook = () => {
                         {product.type === 'subcontractor' ? 'Sub' : product.type.charAt(0).toUpperCase() + product.type.slice(1)}
                       </span>
                     </td>
+                    <td className="py-4 pr-3 w-[120px] whitespace-nowrap text-sm text-center">
+                      <button 
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-full text-xs font-medium transition-colors"
+                        onClick={() => setComparingProduct(product)}
+                      >
+                        Compare
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -305,6 +484,14 @@ export const PriceBook = () => {
           </div>
         )}
       </div>
+      
+      {/* Product Comparison Modal */}
+      {comparingProduct && (
+        <ProductComparisonModal
+          baseProduct={comparingProduct}
+          onClose={() => setComparingProduct(null)}
+        />
+      )}
     </DashboardLayout>
   );
 };

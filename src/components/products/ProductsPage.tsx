@@ -1,28 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { MoreVertical, ChevronDown, Upload, Download, Printer, Filter, X } from 'lucide-react';
+import React, { useState, useEffect, useRef, FC } from 'react';
+import ProductComparisonModal from './ProductComparisonModal';
+import { MoreVertical, ChevronDown, Plus, Filter, Upload, Download, Printer, ChevronRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
-import { PageHeader } from '../common/PageHeader';
+import { ProductOptionsDemo } from './ProductOptionsDemo';
 
 // Product type
 interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;
-  unit: string;
+  price?: number;
+  unit?: string;
   user_id: string;
-  created_at: string;
+  created_at?: string;
   type?: string;
   items?: { lineItemId: string; quantity: number }[];
   category?: string;
   premium?: boolean;
   lineItems?: any[];
   packages?: any[];
+  is_base_product?: boolean;
+  parent_product_id?: string;
+  variant_name?: string;
+  trade?: { id: string; name: string };
+  trade_id?: string;
+  status?: string;
+  variant?: boolean;
+  parent_name?: string;
+  variants?: Product[];
 };
 
 interface LineItem {
@@ -39,7 +50,7 @@ interface SaveData {
   items: LineItem[];
 }
 
-const CATEGORY_COLORS = {
+const CATEGORY_COLORS: Record<string, string> = {
   interior: 'bg-purple-700',
   exterior: 'bg-blue-700',
   installation: 'bg-green-700',
@@ -48,83 +59,77 @@ const CATEGORY_COLORS = {
 
 export const ProductsPage: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [showFilter, setShowFilter] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null | 'new'>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const createDropdownRef = useRef<HTMLDivElement>(null);
-  const createButtonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [isClosingDrawer, setIsClosingDrawer] = useState(false);
+  
+  // Handle closing the product form drawer with animation
+  const handleCloseProductForm = () => {
+    setIsClosingDrawer(true);
+    setTimeout(() => {
+      setEditingProduct(null);
+      setIsClosingDrawer(false);
+    }, 300); // Match the animation duration in tailwind.config.js
+  };
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState('all');
-  const [priceMin, setPriceMin] = useState('');
-  const [priceMax, setPriceMax] = useState('');
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState('created-desc');
-  const [showSortMenu, setShowSortMenu] = useState(false);
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
+  // Using only priceMin/priceMax without setters since they're only used for filtering
+  const [priceMin] = useState<number | undefined>();
+  const [priceMax] = useState<number | undefined>();
+  const [sortBy, setSortBy] = useState('most-used');
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'cards'
+  const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
+  const [comparingProduct, setComparingProduct] = useState<any>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const sortMenuRef = useRef<HTMLDivElement>(null);
   const categoryMenuRef = useRef<HTMLDivElement>(null);
-  
+  const menuRef = useRef<HTMLDivElement>(null);
+  const createDropdownRef = useRef<HTMLDivElement>(null);
+  const createButtonRef = useRef<HTMLButtonElement>(null);
+
   // Helper function to get the label for the current sort option
   const getSortLabel = (sortOption: string): string => {
     switch (sortOption) {
-      case 'name-asc': return 'Name';
-      case 'price-desc': return 'Price (High-Low)';
-      case 'price-asc': return 'Price (Low-High)';
-      case 'most-used': return 'Most Used';
-      case 'created-desc': return 'Recently Used';
-      case 'created-asc': return 'Oldest First';
-      default: return 'Recently Used';
+      case 'name-asc':
+        return 'Name';
+      case 'price-desc':
+        return 'Price (High-Low)';
+      case 'price-asc':
+        return 'Price (Low-High)';
+      case 'most-used':
+        return 'Most Used';
+      case 'created-desc':
+        return 'Recently Used';
+      case 'created-asc':
+        return 'Oldest First';
+      default:
+        return 'Recently Used';
     }
   };
 
-  const CATEGORY_OPTIONS = [
-    { value: 'all', label: 'All Categories (40)' },
-    { value: 'interior', label: 'Interior (9)' },
-    { value: 'exterior', label: 'Exterior (8)' },
-    { value: 'installation', label: 'Installation (12)' },
-    { value: 'construction', label: 'Construction (6)' },
-    { value: 'plumbing', label: 'Plumbing (5)' },
-    { value: 'hvac', label: 'HVAC (4)' },
-  ];
-  const SUBCATEGORY_OPTIONS: Record<string, { value: string, label: string }[]> = {
-    installation: [
-      { value: 'floor', label: 'Floor Installation' },
-      { value: 'window', label: 'Window Installation' },
-      { value: 'door', label: 'Door Installation' },
-      { value: 'cabinet', label: 'Cabinet Installation' },
-    ],
-    interior: [
-      { value: 'painting', label: 'Painting' },
-      { value: 'flooring', label: 'Flooring' },
-      { value: 'tiling', label: 'Tiling' },
-      { value: 'cabinetry', label: 'Cabinetry' },
-    ],
-    exterior: [
-      { value: 'siding', label: 'Siding' },
-      { value: 'roofing', label: 'Roofing' },
-      { value: 'gutters', label: 'Gutters' },
-      { value: 'deck', label: 'Deck Building' },
-    ],
-    hvac: [
-      { value: 'ac', label: 'Air Conditioning' },
-      { value: 'heating', label: 'Heating' },
-      { value: 'ventilation', label: 'Ventilation' },
-    ],
+  // Get the name of the selected trade
+  const getSelectedTradeName = () => {
+    if (selectedCategory === 'all') return `All Trades (${trades.length})`;
+    return trades.find(t => t.id === selectedCategory)?.name || 'All Trades';
   };
 
   useEffect(() => {
     if (user) {
       fetchProducts();
       fetchLineItems();
+      fetchTrades();
     }
   }, [user]);
 
@@ -144,6 +149,23 @@ export const ProductsPage: React.FC = () => {
       })));
     } catch (error) {
       console.error('Error fetching line items:', error);
+    }
+  };
+  
+  // Fetch trades from the database
+  const fetchTrades = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('*')
+        .order('name', { ascending: true });
+      
+      if (error) throw error;
+      
+      console.log('Fetched trades:', data);
+      setTrades(data || []);
+    } catch (error) {
+      console.error('Error fetching trades:', error);
     }
   };
 
@@ -174,10 +196,10 @@ export const ProductsPage: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
-      // Fetch all products
+      // Fetch all products with trade information
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('*')
+        .select('*, trade:trades(id, name)')
         .order('created_at', { ascending: false });
       if (productsError) throw productsError;
 
@@ -186,14 +208,36 @@ export const ProductsPage: React.FC = () => {
         .from('product_line_items')
         .select('*');
       if (pliError) throw pliError;
-
+      
       // Attach line items to each product
       const productsWithItems = (productsData || []).map((product) => ({
         ...product,
         items: pliData.filter((pli) => pli.product_id === product.id)
       }));
-      setProducts(productsWithItems);
-      console.log('Fetched products:', productsWithItems);
+      
+      // Separate base products and variants
+      const baseProducts = productsWithItems.filter(p => p.is_base_product === true);
+      const variants = productsWithItems.filter(p => p.is_base_product === false && p.parent_product_id);
+      
+      // Group variants by their parent product
+      const baseProductsWithVariants = baseProducts.map(baseProduct => {
+        const productVariants = variants.filter(v => v.parent_product_id === baseProduct.id);
+        return {
+          ...baseProduct,
+          variants: productVariants
+        };
+      });
+      
+      // Add standalone products (those without variants) to the list
+      const standaloneProducts = productsWithItems.filter(
+        p => p.is_base_product !== true && !p.parent_product_id
+      );
+      
+      // Combine base products with variants and standalone products
+      const allProducts = [...baseProductsWithVariants, ...standaloneProducts];
+      
+      setProducts(allProducts);
+      console.log('Fetched products:', allProducts.length);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -201,10 +245,19 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
+  // Use isLoading to show loading state
+  // This function is currently unused but may be needed in the future
+  // const showLoadingState = () => {
+  //   if (isLoading) {
+  //     return <div className="text-center py-10">Loading products...</div>;
+  //   }
+  //   return null;
+  // };
+
   const filteredProducts = products
     .filter((product) => {
-      // Category
-      if (selectedCategory !== 'all' && product.category?.toLowerCase() !== selectedCategory) return false;
+      // Filter by trade
+      if (selectedCategory !== 'all' && product.trade?.id !== selectedCategory) return false;
       // Subcategory (if present on Product type)
       // if (selectedCategory !== 'all' && selectedSubcategory !== 'all' && product.subcategory && product.subcategory.toLowerCase() !== selectedSubcategory) return false;
       // Search
@@ -215,13 +268,13 @@ export const ProductsPage: React.FC = () => {
           !product.description?.toLowerCase().includes(s) &&
           !product.type?.toLowerCase().includes(s) &&
           !(product.price && product.price.toString().includes(s))
-        ) return false;
+        ) {
+          return false;
+        }
       }
-      // Price
-      if (priceMin && product.price < parseFloat(priceMin)) return false;
-      if (priceMax && product.price > parseFloat(priceMax)) return false;
-      // Status (if present on Product type)
-      // if (status !== 'all' && product.status !== status) return false;
+      // Price range
+      if (priceMin !== undefined && product.price < Number(priceMin)) return false;
+      if (priceMax !== undefined && product.price > Number(priceMax)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -248,23 +301,119 @@ export const ProductsPage: React.FC = () => {
     }
   };
 
-  const handleDuplicate = async (product: Product) => {
-    // Remove id, created_at, etc. Add 'Copy' to name.
-    const { id, created_at, ...rest } = product;
-    const newProduct = { ...rest, name: product.name + ' (Copy)' };
+  // Used when duplicating a product or variant
+  const handleDuplicate = async (productId: string) => {
     try {
-      const { error } = await supabase.from('products').insert([newProduct]);
+      const productToDuplicate = products.find(p => p.id === productId);
+      if (!productToDuplicate) return;
+
+      // Create a new product with the same data but a new ID
+      const { data, error } = await supabase
+        .from('products')
+        .insert({
+          name: `${productToDuplicate.name} (Copy)`,
+          description: productToDuplicate.description,
+          price: productToDuplicate.price,
+          unit: productToDuplicate.unit,
+          user_id: user?.id,
+          type: productToDuplicate.type,
+          category: productToDuplicate.category,
+          is_base_product: productToDuplicate.is_base_product,
+          parent_product_id: productToDuplicate.parent_product_id,
+          variant_name: productToDuplicate.variant_name ? `${productToDuplicate.variant_name} (Copy)` : null,
+        })
+        .select()
+        .single();
+
       if (error) throw error;
+
+      // Duplicate the line items if any
+      if (productToDuplicate.items && productToDuplicate.items.length > 0) {
+        const newItems = productToDuplicate.items.map(item => ({
+          product_id: data.id,
+          line_item_id: item.lineItemId,
+          quantity: item.quantity,
+        }));
+
+        const { error: itemsError } = await supabase
+          .from('product_line_items')
+          .insert(newItems);
+
+        if (itemsError) throw itemsError;
+      }
+
+      // Refresh products list
       fetchProducts();
+      
+      // Show success message
+      alert('Product duplicated successfully!');
+
     } catch (err) {
       console.error('Error duplicating product:', err);
+      alert('Failed to duplicate product. Please try again.');
     }
   };
 
-  const getCategoryColor = (cat?: string) => {
-    if (!cat) return 'bg-gray-700';
-    const key = cat.toLowerCase() as keyof typeof CATEGORY_COLORS;
-    return CATEGORY_COLORS[key] || 'bg-gray-700';
+  // Get background color class for category badges
+  const getCategoryColor = (category?: string) => {
+    if (!category) return 'bg-gray-700';
+    const categoryKey = category.toLowerCase() as keyof typeof CATEGORY_COLORS;
+    return CATEGORY_COLORS[categoryKey] || 'bg-gray-700';
+  };
+  
+  // Get color for variant based on variant name
+  const getVariantColor = (variantName?: string) => {
+    if (!variantName) return 'bg-gray-500';
+    
+    const variantColors: Record<string, string> = {
+      'standard': 'bg-green-500',
+      'premium': 'bg-blue-500',
+      'deluxe': 'bg-purple-500',
+      'basic': 'bg-yellow-500',
+      'economy': 'bg-gray-500',
+      'professional': 'bg-indigo-500',
+      'double': 'bg-orange-500'
+    };
+    
+    // Try to match variant name to predefined colors
+    const lowerName = variantName.toLowerCase();
+    for (const [key, value] of Object.entries(variantColors)) {
+      if (lowerName.includes(key)) {
+        return value;
+      }
+    }
+    
+    // Default colors for common words
+    if (lowerName.includes('entry') || lowerName.includes('single')) return 'bg-green-500';
+    if (lowerName.includes('mid') || lowerName.includes('medium')) return 'bg-blue-500';
+    if (lowerName.includes('high') || lowerName.includes('premium')) return 'bg-purple-500';
+    
+    return 'bg-gray-500'; // Default color
+  };
+  
+  // Get emoji for product category
+  const getCategoryEmoji = (category: string): string => {
+    const categoryEmojis: Record<string, string> = {
+      'carpentry': '🪵',
+      'electrical': '💡',
+      'plumbing': '🚿',
+      'painting': '🎨',
+      'tile': '🧱',
+      'flooring': '🪑',
+      'roofing': '🏠',
+      'hvac': '❄️',
+      'landscaping': '🌳',
+      'general': '🔧'
+    };
+    
+    const lowerCategory = category.toLowerCase();
+    for (const [key, value] of Object.entries(categoryEmojis)) {
+      if (lowerCategory.includes(key)) {
+        return value;
+      }
+    }
+    
+    return '🔧'; // Default emoji
   };
 
   // Functions for the new menu options
@@ -326,6 +475,12 @@ export const ProductsPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-white">Products</h1>
             <div className="flex space-x-2">
               <button 
+                className="p-2 rounded-full bg-blue-600 text-white"
+                onClick={() => navigate('/products/new')}
+              >
+                <Plus size={20} />
+              </button>
+              <button 
                 className="p-2 rounded-full bg-[#232635] text-white"
                 onClick={() => setShowFilter(!showFilter)}
               >
@@ -351,7 +506,7 @@ export const ProductsPage: React.FC = () => {
                 className="w-full flex items-center justify-between px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white"
                 onClick={() => setShowCategoryMenu(!showCategoryMenu)}
               >
-                <span className="truncate">All Categories (40)</span>
+                <span className="truncate">{selectedCategory === 'all' ? `All Trades (${trades.length})` : trades.find(t => t.id === selectedCategory)?.name || 'All Trades'}</span>
                 <ChevronDown size={16} />
               </button>
               
@@ -364,8 +519,21 @@ export const ProductsPage: React.FC = () => {
                       setShowCategoryMenu(false);
                     }}
                   >
-                    <span className="ml-2">All Categories</span>
+                    <span className="ml-2">All Trades ({trades.length})</span>
                   </button>
+                  
+                  {trades.map(trade => (
+                    <button 
+                      key={trade.id}
+                      className="w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2"
+                      onClick={() => {
+                        setSelectedCategory(trade.id);
+                        setShowCategoryMenu(false);
+                      }}
+                    >
+                      <span className="ml-2">{trade.name}</span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -426,6 +594,8 @@ export const ProductsPage: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-3">
+            {/* New Product Button removed - using existing add product functionality */}
+            
             {/* Sort By Dropdown */}
             <div className="relative" ref={sortMenuRef}>
               <button 
@@ -568,124 +738,240 @@ export const ProductsPage: React.FC = () => {
                   setSelectedSubcategory('all');
                 }}
               >
-                {CATEGORY_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                <option value="all">All Trades ({trades.length})</option>
+                {trades.map(trade => (
+                  <option key={trade.id} value={trade.id}>{trade.name}</option>
                 ))}
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
                 <ChevronDown className="w-5 h-5" />
               </div>
             </div>
-            {selectedCategory !== 'all' && SUBCATEGORY_OPTIONS[selectedCategory] && (
-              <div className="relative max-w-xs">
-                <select
-                  className="appearance-none w-full bg-[#1E2130] border border-gray-700 px-4 py-2 pr-8 rounded-full text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
-                  value={selectedSubcategory}
-                  onChange={e => setSelectedSubcategory(e.target.value)}
-                >
-                  <option value="all">All {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)} Types</option>
-                  {SUBCATEGORY_OPTIONS[selectedCategory].map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
-                  <ChevronDown className="w-5 h-5" />
-                </div>
-              </div>
-            )}
+            {/* Second dropdown removed to simplify the filtering process */}
           </div>
         </div>
         
-        {/* Product Grid */}
-        <div className="px-2 sm:px-4 py-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {filteredProducts.length === 0 ? (
-              <div className="col-span-full text-center text-gray-500 dark:text-gray-400 py-20">No products/assemblies found.</div>
-            ) : (
-              filteredProducts.map(product => (
-                <div
-                  key={product.id}
-                  className="bg-[#232635] rounded-xl border border-[#2A3A8F] p-3 sm:p-6 flex flex-col h-[220px] w-full min-w-0 relative"
-                >
-
-                  {/* Three-dot menu button */}
-                  <div className="absolute top-3 right-3 z-10">
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setOpenMenuId(openMenuId === product.id ? null : product.id);
-                        }}
-                        className="p-2 text-gray-400 hover:text-gray-300 rounded-full hover:bg-gray-800"
-                      >
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
-                      {openMenuId === product.id && (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-0 top-8 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-1 border border-gray-600"
-                          onClick={e => {
-                            console.log('Dropdown menu clicked');
-                            e.stopPropagation();
-                          }}
-                        >
-                          <button 
-                            className="w-full text-left px-4 py-2 text-gray-200 hover:bg-gray-600" 
-                            onClick={(e) => { 
-                              console.log('Edit button clicked for product:', product);
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setOpenMenuId(null); 
-                              setEditingProduct(product);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-600"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setOpenMenuId(null);
-                              setDeletingProduct(product);
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="w-full overflow-hidden">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white truncate max-w-full">{product.name}</h2>
-                    </div>
-                  </div>
-
-                  {product.description && (
-                    <div className="text-gray-400 w-full overflow-hidden h-[48px] mb-2">
-                      <p className="text-xs sm:text-sm line-clamp-2 break-words leading-5 sm:leading-6">{product.description}</p>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-gray-400 text-xs sm:text-sm mb-2 sm:mb-4">
-                    <span>{product.items?.length || 0} items</span>
-                    <span>In <span className="text-blue-400 font-semibold">{product.packages?.length || 0} packages</span></span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 sm:gap-0 mt-auto">
-                    <div>
-                      <span className="text-lg sm:text-xl font-bold text-white">{formatCurrency(product.price)}</span>
-                    </div>
-                    <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm px-2 sm:px-3 py-1 rounded transition-colors whitespace-nowrap w-full sm:w-auto sm:min-w-[120px] text-center">
-                      Add to package
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+        {/* View Mode Toggle */}
+        <div className="px-4 py-2 flex justify-end">
+          <div className="flex items-center bg-[#232635] rounded-full">
+            <button 
+              className={`px-4 py-2 rounded-full ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+              onClick={() => setViewMode('list')}
+            >
+              List View
+            </button>
+            <button 
+              className={`px-4 py-2 rounded-full ${viewMode === 'cards' ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+              onClick={() => setViewMode('cards')}
+            >
+              Card View
+            </button>
           </div>
         </div>
+        
+        {/* Product Grid - List View */}
+        {viewMode === 'list' && (
+          <div className="px-2 sm:px-4 py-4">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-20">No products found.</div>
+            ) : (
+              <div className="space-y-4">
+                {filteredProducts.map(product => (
+                  <div key={product.id} className="bg-[#1A1D2D] rounded-xl overflow-hidden">
+                    {/* Base Product Header - Entire row clickable */}
+                    <div 
+                      className="bg-[#232635] p-4 flex justify-between items-center cursor-pointer hover:bg-[#2A2E40] transition-colors"
+                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
+                        <div>
+                          <h2 className="text-xl font-bold text-white">{product.name}</h2>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-gray-400 text-sm">
+                              {product.trade?.name || 'General'} • {product.variants?.length || 0} variants
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Create a new variant product with parent info pre-filled
+                            setEditingProduct({
+                              id: '',
+                              name: '',
+                              description: '',
+                              user_id: user?.id || '',
+                              status: 'draft',
+                              is_base_product: false,
+                              parent_product_id: product.id,
+                              parent_name: product.name,
+                              category: product.category,
+                              variant: true // Flag to indicate this is a variant
+                            });
+                          }}
+                        >
+                          + Add Variant
+                        </button>
+                        <button 
+                          className="bg-[#232635] hover:bg-[#2A2E40] text-white px-4 py-2 rounded-full transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setComparingProduct(product);
+                          }}
+                        >
+                          Compare
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Variants List - Only shown when expanded */}
+                    {expandedProductId === product.id && product.variants && product.variants.length > 0 && (
+                      <div className="p-4 space-y-2">
+                        {product.variants.map((variant: any) => (
+                          <div 
+                            key={variant.id} 
+                            className="flex items-center justify-between p-4 border-b border-gray-700 last:border-0 cursor-pointer hover:bg-[#232635] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the drawer to edit this variant
+                              setEditingProduct(variant);
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`w-3 h-3 rounded-full ${getVariantColor(variant.variant_name)}`}></div>
+                              <span className="font-medium text-white">{variant.variant_name || variant.name}</span>
+                              <span className="text-gray-400 text-sm">({variant.items?.length || 0} items)</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-lg font-bold text-white">{formatCurrency(variant.price || 0)}</span>
+                              <button 
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  // Add to package logic here
+                                }}
+                              >
+                                Add to Package
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* If this is a standalone product with no variants */}
+                    {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
+                      <div className="p-4">
+                        <div 
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#232635] transition-colors rounded-lg"
+                          onClick={() => navigate(`/products/edit/${product.id}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-400 text-sm">({product.items?.length || 0} items)</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-lg font-bold text-white">{formatCurrency(product.price || 0)}</span>
+                            <button 
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Add to package logic here
+                              }}
+                            >
+                              Add to Package
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Product Grid - Card View */}
+        {viewMode === 'cards' && (
+          <div className="px-2 sm:px-4 py-4">
+            {filteredProducts.length === 0 ? (
+              <div className="text-center text-gray-500 dark:text-gray-400 py-20">No products found.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredProducts.map(product => (
+                  <div 
+                    key={product.id} 
+                    className="bg-[#1A1D2D] rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+                    onClick={() => navigate(`/products/edit/${product.id}`)}
+                  >
+                    <div className="p-5 border-b border-gray-700">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h2 className="text-xl font-semibold mb-1 text-white">{product.name}</h2>
+                          <div className="text-sm text-gray-400 mb-2">
+                            {product.trade?.name || 'General'} • {product.variants?.length || 0} variants
+                          </div>
+                        </div>
+                        <div className="text-4xl">
+                          {getCategoryEmoji(product.category || '')}
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-300 line-clamp-2">{product.description}</p>
+                    </div>
+                    
+                    {product.variants && product.variants.length > 0 ? (
+                      <div className="p-3 bg-[#232635] border-b border-gray-700">
+                        <div className="text-sm font-medium text-gray-300 mb-2">Available Variants:</div>
+                        <div className="space-y-1.5">
+                          {product.variants.map((variant: any, index: number) => (
+                            <div 
+                              key={index} 
+                              className="flex justify-between items-center p-1 hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Open the drawer to edit this variant
+                                setEditingProduct(variant);
+                              }}
+                            >
+                              <div className="flex items-center">
+                                <div className={`w-2 h-2 rounded-full mr-2 ${getVariantColor(variant.variant_name)}`}></div>
+                                <span className="text-sm truncate max-w-[160px] text-white">{variant.variant_name || variant.name}</span>
+                              </div>
+                              <span className="text-sm font-medium text-white">{formatCurrency(variant.price || 0)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-[#232635] border-b border-gray-700">
+                        <div className="text-sm font-medium text-gray-300 mb-2">No variants available</div>
+                      </div>
+                    )}
+                    
+                    <div className="p-3 bg-[#1A1D2D] flex space-x-2">
+                      <button 
+                        className="bg-blue-600 hover:bg-blue-700 text-white flex-grow px-3 py-1.5 rounded-full text-sm font-medium flex items-center justify-center transition-colors"
+                        onClick={() => navigate(`/products/variant/new?parent=${product.id}`)}
+                      >
+                        <span className="mr-1">+</span> Add Variant
+                      </button>
+                      <button 
+                        className="bg-blue-600 hover:bg-blue-700 text-white flex-grow px-3 py-1.5 rounded-full text-sm font-medium transition-colors"
+                        onClick={() => setComparingProduct(product)}
+                      >
+                        Compare
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {/* Modals */}
         {deletingProduct && (
           <DeleteConfirmationModal
@@ -701,18 +987,15 @@ export const ProductsPage: React.FC = () => {
           <>
             <div 
               className="fixed inset-0 z-[60] bg-black bg-opacity-50" 
-              onClick={() => setEditingProduct(null)}
+              onClick={handleCloseProductForm}
             />
             <div
-              className="fixed top-0 right-0 h-full w-[50vw] max-w-full z-[70] bg-[#121212] shadow-xl overflow-y-auto"
+              className={`fixed top-0 right-0 h-full w-[50vw] max-w-full z-[70] bg-[#121212] shadow-xl overflow-y-auto ${isClosingDrawer ? 'animate-slide-out' : ''}`}
             >
               <div className="p-4">
                 <ProductAssemblyForm
                   lineItems={lineItems}
-                  onClose={() => {
-                    console.log('Closing form');
-                    setEditingProduct(null);
-                  }}
+                  onClose={handleCloseProductForm}
                   onSave={async (data: SaveData) => {
                     console.log('Saving product:', data);
                     try {
@@ -752,17 +1035,40 @@ export const ProductsPage: React.FC = () => {
                           if (itemsError) throw itemsError;
                         }
                       } else {
-                        // Create new product
+                        // Create new product or variant
+                        const productData: any = {
+                          name: data.name,
+                          description: data.description,
+                          user_id: user?.id,
+                          status: 'published',
+                          is_base_product: false
+                        };
+                        
+                        // If creating a variant, add parent product relationship
+                        if (editingProduct && editingProduct !== 'new') {
+                          productData.is_base_product = false;
+                          if (editingProduct.category) productData.category = editingProduct.category;
+                        }
+                        
                         const { data: newProduct, error: productError } = await supabase
                           .from('products')
-                          .insert([{
-                            name: data.name,
-                            description: data.description,
-                            user_id: user?.id,
-                            status: 'published'
-                          }])
+                          .insert([productData])
                           .select()
                           .single();
+                          
+                        // If this is a variant, create the relationship in product_variants table
+                        if (editingProduct && editingProduct !== 'new' && newProduct) {
+                          if (editingProduct.parent_product_id) {
+                            const { error: variantError } = await supabase
+                              .from('product_variants')
+                              .insert([{
+                                parent_product_id: editingProduct.parent_product_id,
+                                variant_product_id: newProduct.id,
+                                variant_name: data.name
+                              }]);
+                            if (variantError) throw variantError;
+                          }
+                        }
                         if (productError) throw productError;
 
                         if (transformedItems.length > 0) {
@@ -786,6 +1092,18 @@ export const ProductsPage: React.FC = () => {
               </div>
             </div>
           </>
+        )}
+        {/* Demo: Product Options Configurator */}
+        <div className="mt-12 flex justify-center">
+          <ProductOptionsDemo />
+        </div>
+        
+        {/* Product Comparison Modal */}
+        {comparingProduct && (
+          <ProductComparisonModal
+            baseProduct={comparingProduct}
+            onClose={() => setComparingProduct(null)}
+          />
         )}
       </div>
     </DashboardLayout>
