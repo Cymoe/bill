@@ -11,6 +11,7 @@ import { ClientInput } from '../../lib/database.types';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../common/PageHeader';
+import { NewButton } from '../common/NewButton';
 
 type Client = {
   id: string;
@@ -105,16 +106,14 @@ export const ClientList: React.FC = () => {
           searchPlaceholder="Search clients..."
           onFilter={() => {}}
           onMenu={() => setShowNewModal(true)}
+          actionButton={
+            <NewButton
+              label="New Client"
+              onClick={() => setShowNewModal(true)}
+              color="blue"
+            />
+          }
         />
-        <div className="flex justify-end px-8 pt-4">
-          <button
-            onClick={() => setShowNewModal(true)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
-          >
-            <Plus className="w-5 h-5" />
-            <span>New Client</span>
-          </button>
-        </div>
 
         {/* Desktop list */}
         <div className="hidden md:block">

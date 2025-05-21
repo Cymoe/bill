@@ -1,4 +1,5 @@
 import React from 'react';
+import { MoreVertical } from 'lucide-react';
 
 export interface TabItem {
   id: string;
@@ -13,6 +14,8 @@ interface TabMenuProps {
   activeTab?: string;
   onItemClick?: (id: string) => void;
   onTabChange?: (id: string) => void;
+  showOptionsMenu?: boolean;
+  onOptionsClick?: () => void;
 }
 
 export const TabMenu: React.FC<TabMenuProps> = (props) => {
@@ -22,21 +25,36 @@ export const TabMenu: React.FC<TabMenuProps> = (props) => {
   const onItemClick = props.onItemClick || props.onTabChange || (() => {});
   
   return (
-    <div className="flex border-b border-gray-800 overflow-x-auto pb-0 gap-0">
-      {items.map((item) => (
-        <button 
-          key={item.id}
-          onClick={() => onItemClick(item.id)}
-          className={`${activeItemId === item.id ? 'text-blue-500 border-b-2 border-blue-500' : 'text-gray-400 hover:text-white hover:text-blue-500 hover:border-b-2 hover:border-blue-500'} pb-3 text-sm font-medium flex items-center justify-center whitespace-nowrap w-[134px] py-3`}
+    <div className="flex border-b border-gray-800 overflow-x-auto pb-0 gap-0 justify-between">
+      <div className="flex">
+        {items.map((item) => (
+          <button 
+            key={item.id}
+            onClick={() => onItemClick(item.id)}
+            className={`${
+              activeItemId === item.id
+                ? 'text-white border-b-2 border-steel-blue'
+                : 'text-gray-400 hover:text-white hover:border-b-2 hover:border-steel-blue'
+            } pb-3 text-sm font-medium flex items-center justify-center whitespace-nowrap ${item.id === 'subcontractor' ? 'w-[160px]' : 'w-[134px]'} py-3`}
+          >
+            {item.label} 
+            {item.count !== undefined && (
+              <span className="ml-2 text-xs bg-gray-800 rounded-full px-2 py-0.5 text-white">
+                {item.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {props.onOptionsClick && (
+        <button
+          onClick={props.onOptionsClick}
+          className="p-2 rounded-full hover:bg-[#232323] transition-colors"
+          aria-label="More options"
         >
-          {item.label} 
-          {item.count !== undefined && (
-            <span className={`ml-2 text-xs bg-gray-800 rounded-full px-2 py-0.5 ${activeItemId === item.id ? 'text-blue-500' : 'text-gray-400'}`}>
-              {item.count}
-            </span>
-          )}
+          <MoreVertical size={20} className="text-gray-400" />
         </button>
-      ))}
+      )}
     </div>
   );
 };

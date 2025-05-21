@@ -32,6 +32,8 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   const { user } = useAuth();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  // All products can have variants in our simplified model
+  const [isBaseProduct] = useState(true);
   const [items, setItems] = useState<{ lineItemId: string; quantity: number; unit: string; price: number; type?: string }[]>([
     { lineItemId: '', quantity: 1, unit: '', price: 0, type: '' }
   ]);
@@ -263,6 +265,10 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
     // For variants, we should inherit the parent's trade if specified
     const trade_id = editingProduct?.variant ? editingProduct.trade_id : tradeDetermination;
     
+    // Determine if this is a base product (package) or individual product
+    // For variants, always false. Otherwise use the selected option from the form
+    const is_base_product = editingProduct?.variant ? false : isBaseProduct;
+    
     if (draftId) {
       // Update draft row to published
       await supabase.from('products').update({
@@ -271,7 +277,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
         items, 
         status: 'published',
         trade_id,
-        is_base_product: editingProduct?.variant ? false : true
+        is_base_product
       }).eq('id', draftId);
       onSave({ 
         name, 
@@ -280,7 +286,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
         id: draftId, 
         status: 'published',
         trade_id,
-        is_base_product: editingProduct?.variant ? false : true
+        is_base_product
       });
     } else {
       // Insert new product
@@ -291,7 +297,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
         items,
         status: 'published',
         trade_id,
-        is_base_product: editingProduct?.variant ? false : true
+        is_base_product
       }).select().single();
       
       onSave({ 
@@ -301,7 +307,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
         id: data?.id, 
         status: 'published',
         trade_id,
-        is_base_product: editingProduct?.variant ? false : true
+        is_base_product
       });
     }
   };
@@ -437,54 +443,69 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-medium">
-          {editingProduct?.variant 
-            ? `New Variant of ${editingProduct.parent_name}` 
-            : editingProduct 
-              ? 'Edit Product / Assembly' 
-              : 'New Product / Assembly'}
-        </h2>
-        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-500">
-          <X className="h-6 w-6" />
-        </button>
-      </div>
+    <div className="h-full flex flex-col bg-[#121212] text-white">
+      <div className="flex-1 overflow-y-auto" style={{ height: 'calc(100vh - 80px)' }}>
+        <form onSubmit={handleSubmit} className="p-6 pb-24">{/* Added extra padding at bottom to prevent content from being hidden behind fixed footer */}
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold uppercase font-['Roboto_Condensed']">
+            {editingProduct?.variant 
+              ? 'Edit Variant' 
+              : editingProduct 
+                ? 'Edit Product' 
+                : 'New Product'}
+          </h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-300 transition-opacity">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
       
       {editingProduct?.variant && (
-        <div className="mb-4 p-4 bg-[#232635] rounded-lg border border-white border-opacity-8">
+        <div className="mb-6 p-4 bg-[#333333] rounded border-l-4 border-[#336699]">
           <div className="flex items-center gap-2">
-            <span className="text-[#FF3B30] font-medium">Base Product:</span>
-            <span className="text-white">{editingProduct.parent_name}</span>
+            <span className="text-[#336699] font-medium font-['Roboto_Condensed']">Base Product:</span>
+            <span className="text-white font-['Roboto']">{editingProduct.parent_name}</span>
           </div>
-          <p className="text-white text-opacity-64 text-sm mt-1">
+          <p className="text-gray-400 text-sm mt-2 font-['Roboto']">
             This variant will inherit the category and trade from the base product.
           </p>
         </div>
       )}
-      <input
-        type="text"
-        placeholder="Product/Assembly Name"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        required
-      />
-      <textarea
-        placeholder="Description"
-        value={description}
-        onChange={e => setDescription(e.target.value)}
-        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-        rows={2}
-      />
-      <div className="space-y-2">
-        <div className="flex justify-between items-center mb-1">
-          <span className="font-medium">Line Items</span>
-          <button type="button" onClick={addItem} className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700">
+      <div className="mb-4">
+        <label className="block text-sm uppercase font-medium text-white font-['Roboto_Condensed'] mb-2">Product Name</label>
+        <input
+          type="text"
+          placeholder="Enter product name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          className="block w-full h-10 px-3 py-2 bg-[#333333] border border-gray-700 rounded text-white focus:border-[#336699] focus:ring-[#336699] focus:outline-none font-['Roboto']"
+          required
+        />
+      </div>
+      <div className="mb-4">
+        <label className="block text-sm uppercase font-medium text-white font-['Roboto_Condensed'] mb-2">Description</label>
+        <textarea
+          placeholder="Enter product description"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          className="block w-full px-3 py-2 bg-[#333333] border border-gray-700 rounded text-white focus:border-[#336699] focus:ring-[#336699] focus:outline-none font-['Roboto']"
+          rows={2}
+        />
+        <p className="text-xs text-gray-400 mt-2 font-['Roboto']">Provide a brief description of the product</p>
+      </div>
+      
+      {/* All products can have variants in the simplified model */}
+      <div className="space-y-3 mb-4">
+        <div className="flex justify-between items-center mb-2">
+          <label className="block text-sm uppercase font-medium text-white font-['Roboto_Condensed']">Line Items</label>
+          <button 
+            type="button" 
+            onClick={addItem} 
+            className="flex items-center gap-1 px-4 py-2 text-sm bg-[#336699] text-white rounded hover:bg-opacity-80 transition-colors font-['Roboto'] font-medium"
+          >
             <Plus className="w-4 h-4" /> Add Line Item
           </button>
         </div>
-        {items.length === 0 && <div className="text-gray-400 text-sm">No line items yet.</div>}
+        {items.length === 0 && <div className="text-gray-400 text-sm bg-[#333333] rounded p-4 font-['Roboto'] border-l-4 border-[#336699]">No line items yet. Add some line items to your product.</div>}
         {items.map((item, idx) => {
           const filter = itemFilters[idx] || { trade: 'all', type: 'all', unit: 'all' };
           const comboBoxValue = comboBoxInputs[idx] || '';
@@ -514,14 +535,14 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
           const filteredTradeNames = Object.keys(filteredGrouped).sort((a, b) => a.localeCompare(b));
 
           return (
-            <div key={idx} className="flex flex-col gap-1 mb-2 p-2 bg-gray-800 rounded">
+            <div key={idx} className="flex flex-col gap-1 mb-2 p-2 bg-[#333333] rounded border-l-4 border-[#336699]">
               <div className="flex gap-2 mb-1">
                 <div className="relative w-full">
                   <input
                     type="text"
                     placeholder="Select or search line item..."
                     value={comboBoxValue}
-                    onChange={e => {
+                    onChange={(e) => {
                       setComboBoxInputs(comboBoxInputs.map((v, i) => i === idx ? e.target.value : v));
                       setDropdownOpen(idx);
                       setActiveOption(-1);
@@ -607,12 +628,12 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                         }
                       }
                     }}
-                    className="w-full rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600 px-2 py-1 text-xs"
+                    className="w-full h-10 px-3 py-2 bg-[#333333] border border-gray-700 rounded text-white focus:border-[#336699] focus:ring-[#336699] focus:outline-none font-['Roboto']"
                   />
                   {dropdownOpen === idx && (
-                    <div className="absolute z-10 left-0 w-full bg-gray-900 border border-gray-700 rounded shadow-lg max-h-[400px] overflow-auto mt-1">
+                    <div className="absolute z-10 left-0 w-full bg-[#121212] border border-gray-700 rounded shadow-lg max-h-[400px] overflow-auto mt-1">
                       {filteredTradeNames.length === 0 && (
-                        <div className="px-2 py-1 text-gray-400 text-xs">No results</div>
+                        <div className="px-3 py-2 text-gray-400 text-sm font-['Roboto']">No results</div>
                       )}
                       {filteredTradeNames.map(tradeName => {
                         const itemsByType: Record<string, LineItem[]> = {};
@@ -624,13 +645,13 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                         const typeNames = Object.keys(itemsByType).sort((a, b) => a.localeCompare(b));
                         return (
                           <div key={tradeName}>
-                            <div className="px-2 py-1 text-[10px] text-gray-400 font-semibold uppercase tracking-wide bg-gray-800">
+                            <div className="px-3 py-2 text-sm text-white font-bold uppercase tracking-wide bg-[#333333] border-l-4 border-[#336699] font-['Roboto_Condensed']">
                               {tradeName}
-                              <span className="ml-1 text-indigo-400 font-bold">({(filteredGrouped[tradeName] || []).length})</span>
+                              <span className="ml-1 text-[#336699] font-bold">({(filteredGrouped[tradeName] || []).length})</span>
                             </div>
                             {typeNames.map(typeName => (
                               <div key={typeName}>
-                                <div className="px-3 py-2 text-[10px] uppercase tracking-wide font-medium bg-white bg-opacity-8 text-white text-opacity-64">{typeName}</div>
+                                <div className="px-3 py-2 text-xs uppercase tracking-wide font-medium bg-[#1E1E1E] text-white font-['Roboto_Condensed']">{typeName}</div>
                                 {itemsByType[typeName].map((li, i) => {
                                   const flatIdx = filteredOptions.findIndex(opt => opt.li.id === li.id);
                                   const isSelected = item.lineItemId === li.id;
@@ -670,12 +691,12 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                                         setActiveOption(currentIndex);
                                       }}
                                       onMouseLeave={() => setActiveOption(-1)}
-                                      className={`px-4 py-1 cursor-pointer text-xs truncate ${
+                                      className={`px-4 py-2 cursor-pointer text-sm truncate font-['Roboto'] ${
                                         isSelected 
-                                          ? 'bg-indigo-700 text-white' 
+                                          ? 'bg-[#336699] text-white' 
                                           : Object.values(filteredGrouped).flat().findIndex((item: LineItem) => item.id === li.id) === activeOption
-                                            ? 'bg-gray-700 text-white'
-                                            : 'hover:bg-gray-800 text-gray-200'
+                                            ? 'bg-[#1E1E1E] text-white'
+                                            : 'hover:bg-[#333333] text-gray-200'
                                       }`}
                                     >
                                       {li.name} ({formatCurrency(li.price)}/{li.unit})
@@ -692,7 +713,7 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
                 </div>
                 {/* Show type badge if a line item is selected */}
                 {item.lineItemId && getLineItem(item.lineItemId)?.type && (
-                  <span className="ml-2 inline-block px-2 py-0.5 rounded bg-gray-700 text-gray-300 text-[10px] uppercase align-middle">
+                  <span className="ml-2 inline-flex items-center justify-center h-10 px-3 rounded bg-[#333333] text-white text-xs uppercase font-bold font-['Roboto_Condensed'] border-l-2 border-[#336699]">
                     {getLineItem(item.lineItemId)?.type}
                   </span>
                 )}
@@ -701,13 +722,13 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
               min={1}
               value={item.quantity}
               onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
-              className="w-16 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600"
+              className="w-16 h-10 px-3 py-2 rounded border-gray-700 bg-[#333333] text-white font-['Roboto_Mono'] focus:border-[#336699] focus:ring-[#336699] focus:outline-none"
               required
             />
-            <span className="text-gray-500 text-xs">
+            <span className="text-gray-400 text-xs font-['Roboto']">
                   {item.unit}
             </span>
-            <span className="text-gray-700 dark:text-gray-200 text-sm font-mono ml-2">
+            <span className="text-white text-sm font-['Roboto_Mono'] ml-2">
                   {formatCurrency(item.price * item.quantity)}
             </span>
             <button type="button" onClick={() => removeItem(idx)} className="ml-2 text-red-500 hover:text-red-700">
@@ -718,16 +739,33 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
           );
         })}
       </div>
-      <div className="flex justify-between items-center mt-4">
-        <span className="font-semibold">Total</span>
-        <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">{formatCurrency(total)}</span>
+      <div className="mt-6 p-4 bg-[#333333] rounded border-l-4 border-[#336699]">
+        <div className="flex justify-between items-center">
+          <span className="text-sm uppercase font-medium text-white font-['Roboto_Condensed']">Total</span>
+          <span className="text-2xl font-bold text-white font-['Roboto_Mono']">{formatCurrency(total)}</span>
+        </div>
       </div>
-      <div className="flex gap-2 mt-4">
-        <button type="button" onClick={handleCancel} className="w-1/2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300">Cancel</button>
-        <button type="submit" className="w-1/2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save</button>
+        </form>
+      </div>
+      <div className="sticky bottom-0 left-0 right-0 p-6 bg-[#121212] border-t border-[#333333] z-10">
+        <div className="flex gap-4 max-w-full">
+          <button 
+            type="button" 
+            onClick={handleCancel} 
+            className="w-1/2 h-12 px-4 py-2 border border-gray-700 rounded text-white hover:bg-[#1E1E1E] transition-colors font-['Roboto'] font-medium"
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            className="w-1/2 h-12 px-4 py-2 bg-[#336699] text-white rounded hover:bg-opacity-80 transition-colors font-['Roboto'] font-medium"
+          >
+            Save
+          </button>
+        </div>
       </div>
       {/* Product Options Section removed for cleaner UI */}
-    </form>
+    </div>
   );
 };
 

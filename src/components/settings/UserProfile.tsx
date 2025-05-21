@@ -103,7 +103,7 @@ export function UserProfile() {
                 name="company"
                 value={formData.company}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
               />
             </div>
 
@@ -117,7 +117,7 @@ export function UserProfile() {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
               />
             </div>
 
@@ -131,7 +131,7 @@ export function UserProfile() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
               />
             </div>
 
@@ -145,7 +145,7 @@ export function UserProfile() {
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
               />
             </div>
 
@@ -159,7 +159,7 @@ export function UserProfile() {
                 rows={4}
                 value={formData.bio}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
               />
             </div>
           </div>

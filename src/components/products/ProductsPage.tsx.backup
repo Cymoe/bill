@@ -10,8 +10,6 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { ProductOptionsDemo } from './ProductOptionsDemo';
-import { PageHeader } from '../common/PageHeader';
-import { NewButton } from '../common/NewButton';
 
 // Product type
 interface Product {
@@ -259,27 +257,32 @@ export const ProductsPage = () => {
   // Loading indicator component
   const LoadingIndicator = () => (
     <div className="flex flex-col items-center justify-center h-64 w-full">
-      <div className="w-12 h-12 border-4 border-[#336699] border-t-transparent rounded animate-spin mb-4"></div>
-      <p className="text-white text-lg font-['Roboto']">Loading products...</p>
+      <div className="w-12 h-12 border-4 border-[#FF3B30] border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-white text-lg">Loading products...</p>
     </div>
   );
   
   // Empty state component
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 px-4">
-      <div className="w-16 h-16 bg-[#333333] rounded flex items-center justify-center mb-4 border-l-4 border-[#336699]">
-        <Package size={32} className="text-[#336699] opacity-60" />
+      <div className="w-16 h-16 bg-[#232635] rounded-full flex items-center justify-center mb-4">
+        <Package size={32} className="text-[#FF3B30] opacity-60" />
       </div>
-      <h3 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase mb-2">No products found</h3>
-      <p className="text-gray-400 text-center max-w-md mb-6 font-['Roboto']">Try adjusting your filters or create your first product to get started.</p>
+      <h3 className="text-xl font-medium text-white mb-2">No products found</h3>
+      <p className="text-gray-400 text-center max-w-md mb-6">Try adjusting your filters or create your first product to get started.</p>
       <button 
         onClick={() => setEditingProduct('new')} 
-        className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
+        className="flex items-center gap-2 px-6 py-3 bg-[#FF3B30] hover:bg-opacity-80 text-white rounded-full transition-colors"
       >
         <span className="text-lg">+</span> New Product
       </button>
     </div>
   );
+  //   if (isLoading) {
+  //     return <div className="text-center py-10">Loading products...</div>;
+  //   }
+  //   return null;
+  // };
 
   // Filter products based on search term, category, product type, and price range
   const filteredProducts = products.filter(product => {
@@ -309,10 +312,10 @@ export const ProductsPage = () => {
   
   // Helper functions for UI elements
   const getVariantColor = (variant: any) => {
-    if (variant.variant_name?.toLowerCase().includes('premium')) return 'bg-[#336699] opacity-90';
-    if (variant.variant_name?.toLowerCase().includes('standard')) return 'bg-[#336699]';
-    if (variant.variant_name?.toLowerCase().includes('medium')) return 'bg-[#336699] opacity-70';
-    return 'bg-[#336699] opacity-50';
+    if (variant.variant_name?.toLowerCase().includes('premium')) return 'bg-[#FF3B30] opacity-90';
+    if (variant.variant_name?.toLowerCase().includes('standard')) return 'bg-[#FF3B30]';
+    if (variant.variant_name?.toLowerCase().includes('medium')) return 'bg-[#FF3B30] opacity-70';
+    return 'bg-[#FF3B30] opacity-50';
   };
   
   const getCategoryEmoji = (category?: string) => {
@@ -348,89 +351,123 @@ export const ProductsPage = () => {
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full">
-        <PageHeader
-          title="Products"
-          subtitle="Manage all your products in one place"
-          actionButton={
-            <NewButton
-              label="New Product"
-              onClick={() => setEditingProduct('new')}
-              color="blue"
-            />
-          }
-        />
-        <div className="flex items-center justify-end px-4 py-4">
-          <button 
-            onClick={() => setEditingProduct('new')} 
-            className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
-          >
-            <span className="text-lg">+</span> New Product
-          </button>
+        {/* Main Page Header */}
+        <div className="flex justify-between items-center px-4 py-4 bg-[#1A1D2D] border-b border-gray-800">
+          <h1 className="text-2xl font-bold text-white">Products</h1>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setEditingProduct('new')} 
+              className="flex items-center gap-2 px-4 py-2 bg-[#FF3B30] hover:bg-opacity-80 text-white rounded-full transition-colors"
+            >
+              <span className="text-lg">+</span> New Product
+            </button>
+          </div>
         </div>
         {/* Mobile filter and sort options - only visible on mobile */}
         <div className="md:hidden flex flex-col space-y-4 mt-4 px-2 sm:px-4">
-          <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-4">
-            {/* Product Filter - Mobile */}
-            <div className="w-full relative">
-              <select
-                className="w-full px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white appearance-none"
-                value={selectedVariantFilter}
-                onChange={(e) => setSelectedVariantFilter(e.target.value)}
-              >
-                <option value="all">All Products</option>
-                <option value="with-variants">Products With Variants</option>
-                <option value="without-variants">Products Without Variants</option>
-              </select>
-              <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-            
-            {/* Collapse Variants Toggle - Mobile */}
-            <div className="w-full flex items-center justify-between px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white">
-              <span>Collapse Variants</span>
-              <label className="inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
-                  checked={collapseVariants}
-                  onChange={() => setCollapseVariants(!collapseVariants)}
-                />
-                <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#336699] rounded peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded after:h-5 after:w-5 after:transition-all peer-checked:bg-[#336699]"></div>
-              </label>
-            </div>
-            
-            {/* Category Filter Dropdown - Mobile */}
-            <div className="w-full relative" ref={categoryMenuRef}>
-              <button 
-                className="w-full flex items-center justify-between px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white"
-                onClick={() => setShowCategoryMenu(!showCategoryMenu)}
-              >
-                <span className="truncate">{selectedCategory === 'all' ? `All Trades (${trades.length})` : trades.find(t => t.id === selectedCategory)?.name || 'All Trades'}</span>
-                <ChevronDown size={16} />
-              </button>
-              
-              {showCategoryMenu && (
-                <div className="absolute right-0 top-12 bg-[#333333] rounded shadow-lg z-10 py-0.5 border border-gray-600 min-w-[180px]">
+  <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-4">
+    {/* Product Filter - Mobile */}
+    <div className="w-full relative">
+      <select
+        className="w-full px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white appearance-none"
+        value={selectedVariantFilter}
+        onChange={(e) => setSelectedVariantFilter(e.target.value)}
+      >
+        <option value="all">All Products</option>
+        <option value="with-variants">Products With Variants</option>
+        <option value="without-variants">Products Without Variants</option>
+      </select>
+      <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+    </div>
+    
+    {/* Collapse Variants Toggle - Mobile */}
+    <div className="w-full flex items-center justify-between px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white">
+      <span>Collapse Variants</span>
+      <label className="inline-flex items-center cursor-pointer">
+        <input 
+          type="checkbox" 
+          className="sr-only peer" 
+          checked={collapseVariants}
+          onChange={() => setCollapseVariants(!collapseVariants)}
+        />
+        <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#FF3B30] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF3B30]"></div>
+      </label>
+    </div>
+    
+    {/* Category Filter Dropdown - Mobile */}
+    <div className="w-full relative" ref={categoryMenuRef}>
+      <button 
+        className="w-full flex items-center justify-between px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white"
+        onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+      >
+        <span className="truncate">{selectedCategory === 'all' ? `All Trades (${trades.length})` : trades.find(t => t.id === selectedCategory)?.name || 'All Trades'}</span>
+        <ChevronDown size={16} />
+      </button>
+      
+      {showSortMenu && (
+        <div className="absolute right-0 top-12 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600 min-w-[180px]">
+          <button 
+            className="w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2"
+            onClick={() => {
+              setSortBy('name-asc');
+              setShowSortMenu(false);
+            }}
+          >
+            <span className="ml-2">Name</span>
+          </button>
+          
+          {trades.map(tradeItem => (
                   <button 
-                    className="w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2"
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'name-asc' ? 'bg-green-700' : ''}`}
                     onClick={() => {
-                      setSelectedCategory('all');
-                      setShowCategoryMenu(false);
+                      setSortBy('name-asc');
+                      setShowSortMenu(false);
+                    }}
+                    key={tradeItem.id}
+                  >
+                    {tradeItem.name}
+                  </button>
+                ))}
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'price-desc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('price-desc');
+                      setShowSortMenu(false);
                     }}
                   >
-                    All Trades ({trades.length})
+                    {sortBy === 'price-desc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'price-desc' ? 'ml-2' : 'ml-6'}>Sort by: Price (High-Low)</span>
                   </button>
-                  {trades.map(tradeItem => (
-                    <button 
-                      className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${selectedCategory === tradeItem.id ? 'bg-[#336699]' : ''}`}
-                      onClick={() => {
-                        setSelectedCategory(tradeItem.id);
-                        setShowCategoryMenu(false);
-                      }}
-                      key={tradeItem.id}
-                    >
-                      {tradeItem.name}
-                    </button>
-                  ))}
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'price-asc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('price-asc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'price-asc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'price-asc' ? 'ml-2' : 'ml-6'}>Sort by: Price (Low-High)</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'most-used' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('most-used');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'most-used' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'most-used' ? 'ml-2' : 'ml-6'}>Sort by: Most Used</span>
+                  </button>
+                  <button 
+                    className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${sortBy === 'created-desc' ? 'bg-green-700' : ''}`}
+                    onClick={() => {
+                      setSortBy('created-desc');
+                      setShowSortMenu(false);
+                    }}
+                  >
+                    {sortBy === 'created-desc' && <span className="text-white">✓</span>}
+                    <span className={sortBy === 'created-desc' ? 'ml-2' : 'ml-6'}>Sort by: Recently Used</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -439,14 +476,14 @@ export const ProductsPage = () => {
               <input
                 type="text"
                 placeholder="Search products by name, type, or price range..."
-                className="w-64 px-4 py-2 bg-[#1E1E1E] border border-gray-700 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-64 px-4 py-2 bg-[#1E2130] border border-gray-700 rounded-full text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
             <button
-              className="flex items-center gap-2 px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white hover:bg-gray-700"
+              className="flex items-center gap-2 px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
               onClick={() => setShowFilter(true)}
             >
               <Filter size={16} />
@@ -455,14 +492,14 @@ export const ProductsPage = () => {
             
             <div className="relative" ref={optionsMenuRef}>
               <button
-                className="p-2 bg-[#333333] border border-gray-700 rounded text-white hover:bg-gray-700"
+                className="p-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
                 onClick={() => setShowOptionsMenu(!showOptionsMenu)}
               >
                 <MoreVertical size={20} />
               </button>
               
               {showOptionsMenu && (
-                <div className="absolute right-0 top-12 w-48 bg-[#333333] rounded shadow-lg z-10 py-0.5 border border-gray-600">
+                <div className="absolute right-0 top-12 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
                   <button 
                     className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
                     onClick={() => {
@@ -504,7 +541,7 @@ export const ProductsPage = () => {
           <div className="flex items-center gap-3">
             <div className="relative max-w-xs">
               <select
-                className="appearance-none w-full bg-[#1E1E1E] border border-gray-700 px-4 py-2 pr-8 rounded text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                className="appearance-none w-full bg-[#1E2130] border border-gray-700 px-4 py-2 pr-8 rounded-full text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                 value={selectedCategory}
                 onChange={e => {
                   setSelectedCategory(e.target.value);
@@ -527,15 +564,15 @@ export const ProductsPage = () => {
         {/* View Mode Toggle */}
         <div className="flex items-center gap-3">
             {/* View Mode Toggles */}
-            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
+            <div className="flex bg-[#232635] border border-gray-700 rounded-full overflow-hidden">
               <button 
-                className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#FF3B30] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewMode('list')}
               >
                 List
               </button>
               <button 
-                className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+                className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#FF3B30] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewMode('cards')}
               >
                 Cards
@@ -545,7 +582,7 @@ export const ProductsPage = () => {
             {/* Product Type Filter */}
             <div className="relative">
               <select
-                className="px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white appearance-none cursor-pointer pr-8"
+                className="px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white appearance-none cursor-pointer pr-8"
                 value={selectedVariantFilter}
                 onChange={(e) => setSelectedVariantFilter(e.target.value)}
               >
@@ -557,7 +594,7 @@ export const ProductsPage = () => {
             </div>
             
             {/* Collapse Variants Toggle */}
-            <div className="flex items-center gap-2 bg-[#333333] px-3 py-2 border border-gray-700 rounded">
+            <div className="flex items-center gap-2 bg-[#232635] px-3 py-2 border border-gray-700 rounded-full">
               <span className="text-sm text-white">Collapse Variants</span>
               <label className="inline-flex items-center cursor-pointer">
                 <input 
@@ -566,7 +603,7 @@ export const ProductsPage = () => {
                   checked={collapseVariants}
                   onChange={() => setCollapseVariants(!collapseVariants)}
                 />
-                <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#336699] rounded peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded after:h-5 after:w-5 after:transition-all peer-checked:bg-[#336699]"></div>
+                <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#FF3B30] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#FF3B30]"></div>
               </label>
             </div>
         </div>
@@ -581,10 +618,10 @@ export const ProductsPage = () => {
             ) : (
               <div className="space-y-4">
                 {filteredProducts.map(product => (
-                  <div key={product.id} className="bg-[#121212] rounded overflow-hidden">
+                  <div key={product.id} className="bg-[#1A1D2D] rounded-xl overflow-hidden">
                     {/* Base Product Header - Entire row clickable */}
                     <div 
-                      className="bg-[#333333] p-4 flex justify-between items-center cursor-pointer hover:bg-[#1E1E1E] transition-colors"
+                      className="bg-[#232635] p-4 flex justify-between items-center cursor-pointer hover:bg-[#2A2E40] transition-colors"
                       onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
                     >
                       <div className="flex items-center gap-3">
@@ -595,8 +632,8 @@ export const ProductsPage = () => {
                             <span className="text-gray-400 text-sm">
                               {product.trade?.name || 'General'} • 
                               {product.variants && product.variants.length > 0 ? 
-                                <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> : 
-                                <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
+                                <span className="bg-[#FF3B30] text-white text-xs px-2 py-0.5 rounded-full ml-1">{product.variants.length} variants</span> : 
+                                <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded-full ml-1">No variants</span>
                               }
                             </span>
                           </div>
@@ -604,7 +641,7 @@ export const ProductsPage = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <button 
-                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                          className="bg-[#FF3B30] hover:bg-opacity-80 text-white px-4 py-2 rounded-full transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Create a new variant product with parent info pre-filled
@@ -625,7 +662,7 @@ export const ProductsPage = () => {
                           + Add Variant
                         </button>
                         <button 
-                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors flex items-center gap-2"
+                          className="bg-[#232635] hover:bg-[#2A2E40] text-white px-4 py-2 rounded-full transition-colors flex items-center gap-2"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Use our new variant comparison drawer instead of the modal
@@ -643,12 +680,12 @@ export const ProductsPage = () => {
                     {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
                       <div className="p-4 space-y-2 relative">
                         {/* Vertical connecting line */}
-                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#336699] opacity-70"></div>
+                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#FF3B30] opacity-30"></div>
                         
                         {product.variants.map((variant: any, idx: number) => (
                           <div 
                             key={variant.id} 
-                            className="flex items-center justify-between p-4 border border-gray-700 rounded border-l-4 border-[#336699] cursor-pointer hover:bg-[#333333] transition-colors relative ml-4"
+                            className="flex items-center justify-between p-4 border border-gray-700 rounded-lg cursor-pointer hover:bg-[#232635] transition-colors relative ml-4"
                             onClick={(e) => {
                               e.stopPropagation();
                               // Open the drawer to edit this variant
@@ -656,19 +693,19 @@ export const ProductsPage = () => {
                             }}
                           >
                             {/* Horizontal connecting line */}
-                            <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
+                            <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#FF3B30] opacity-30"></div>
                             
                             <div className="flex items-center gap-3">
-                              <div className="w-4 h-4 rounded ${getVariantColor(variant.variant_name)} border-2 border-[#336699] flex items-center justify-center">
+                              <div className={`w-4 h-4 rounded-full ${getVariantColor(variant.variant_name)} border-2 border-[#FF3B30] flex items-center justify-center`}>
                                 <span className="text-[8px] text-white font-bold">{idx + 1}</span>
                               </div>
-                              <span className="font-medium text-white font-['Roboto']">{variant.variant_name || variant.name}</span>
-                              <span className="text-gray-400 text-sm font-['Roboto']">({variant.items?.length || 0} items)</span>
+                              <span className="font-medium text-white">{variant.variant_name || variant.name}</span>
+                              <span className="text-gray-400 text-sm">({variant.items?.length || 0} items)</span>
                             </div>
                             <div className="flex items-center gap-4">
-                              <span className="text-sm font-medium font-['Roboto_Condensed'] text-white font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
+                              <span className="text-lg font-bold text-white">{formatCurrency(variant.price || 0)}</span>
                               <button 
-                                className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                                className="bg-[#FF3B30] hover:bg-opacity-80 text-white px-4 py-2 rounded-full transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   // Clone this variant logic
@@ -685,7 +722,8 @@ export const ProductsPage = () => {
                                     unit: variant.unit,
                                     trade_id: variant.trade_id,
                                     category: product.category,
-                                    variant: true // Flag to indicate this is a variant
+                                    variant: true, // Flag to indicate this is a variant
+                                    items: variant.items // Copy the line items
                                   });
                                 }}
                               >
@@ -701,16 +739,16 @@ export const ProductsPage = () => {
                     {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
                       <div className="p-4">
                         <div 
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#333333] transition-colors rounded border-l-4 border-[#336699]"
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#232635] transition-colors rounded-lg"
                           onClick={() => navigate(`/products/edit/${product.id}`)}
                         >
                           <div className="flex items-center gap-3">
                             <span className="text-gray-400 text-sm">({product.items?.length || 0} items)</span>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="text-lg font-bold font-['Roboto_Condensed'] text-white">{formatCurrency(product.price || 0)}</span>
+                            <span className="text-lg font-bold text-white">{formatCurrency(product.price || 0)}</span>
                             <button 
-                              className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                              className="bg-[#FF3B30] hover:bg-opacity-80 text-white px-4 py-2 rounded-full transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 // Create a variant of this product
@@ -753,18 +791,18 @@ export const ProductsPage = () => {
                 {filteredProducts.map(product => (
                   <div 
                     key={product.id} 
-                    className="bg-[#121212] rounded overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
+                    className="bg-[#1A1D2D] rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
                     onClick={() => navigate(`/products/edit/${product.id}`)}
                   >
                     <div className="p-5 border-b border-gray-700">
                       <div className="flex items-start justify-between">
                         <div>
-                          <h2 className="text-xl font-bold font-['Roboto_Condensed'] mb-1 text-white">{product.name}</h2>
-                          <div className="text-sm text-gray-400 font-['Roboto'] font-['Roboto'] mb-2">
+                          <h2 className="text-xl font-semibold mb-1 text-white">{product.name}</h2>
+                          <div className="text-sm text-gray-400 mb-2">
                             {product.trade?.name || 'General'} • 
                             {product.variants && product.variants.length > 0 ? 
-                              <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> : 
-                              <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
+                              <span className="bg-[#FF3B30] text-white text-xs px-2 py-0.5 rounded-full ml-1">{product.variants.length} variants</span> : 
+                              <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded-full ml-1">No variants</span>
                             }
                           </div>
                         </div>
@@ -776,8 +814,8 @@ export const ProductsPage = () => {
                     </div>
                     
                     {product.variants && product.variants.length > 0 ? (
-                      <div className="p-3 bg-[#333333] border-b border-gray-700">
-                        <div className="text-sm font-medium font-['Roboto_Condensed'] text-gray-300 mb-2">Available Variants:</div>
+                      <div className="p-3 bg-[#232635] border-b border-gray-700">
+                        <div className="text-sm font-medium text-gray-300 mb-2">Available Variants:</div>
                         <div className="space-y-1.5">
                           {product.variants.map((variant: any, index: number) => (
                             <div 
@@ -790,15 +828,15 @@ export const ProductsPage = () => {
                               }}
                             >
                               <div className="flex items-center">
-                                <div className={`w-2 h-2 rounded mr-2 ${getVariantColor(variant.variant_name)}`}></div>
+                                <div className={`w-2 h-2 rounded-full mr-2 ${getVariantColor(variant.variant_name)}`}></div>
                                 <span className="text-sm truncate max-w-[160px] text-white">{variant.variant_name || variant.name}</span>
                               </div>
-                              <span className="text-lg font-medium text-white mb-1 font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
+                              <span className="text-sm font-medium text-white">{formatCurrency(variant.price || 0)}</span>
                             </div>
                           ))}
                         </div>
                         <button
-                          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#336699] hover:bg-opacity-80 text-white py-2 px-4 rounded text-sm font-medium font-['Roboto_Condensed'] transition-colors"
+                          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#FF3B30] hover:bg-opacity-80 text-white py-2 px-4 rounded-full text-sm font-medium transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedVariantProduct(product);
@@ -810,10 +848,10 @@ export const ProductsPage = () => {
                         </button>
                       </div>
                     ) : (
-                      <div className="p-3 bg-[#333333] border-b border-gray-700">
-                        <div className="text-sm font-medium font-['Roboto_Condensed'] text-gray-300 mb-2">No variants available</div>
+                      <div className="p-3 bg-[#232635] border-b border-gray-700">
+                        <div className="text-sm font-medium text-gray-300 mb-2">No variants available</div>
                         <button
-                          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#336699] hover:bg-opacity-80 text-white py-2 px-4 rounded text-sm font-medium font-['Roboto_Condensed'] transition-colors"
+                          className="mt-3 w-full flex items-center justify-center gap-2 bg-[#FF3B30] hover:bg-opacity-80 text-white py-2 px-4 rounded-full text-sm font-medium transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Create a new variant product with parent info pre-filled
@@ -836,21 +874,9 @@ export const ProductsPage = () => {
                       </div>
                     )}
                     
-                    <div className="p-3 bg-[#121212] flex space-x-2">
-                      <button
-                        className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
-                        onClick={() => setEditingProduct('new')}
-                      >
-                        <span className="text-lg">+</span> New Product
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                    <div className="p-3 bg-[#1A1D2D] flex space-x-2">
+                      <button 
         )}
-        
         {/* Modals */}
         {deletingProduct && (
           <DeleteConfirmationModal
@@ -869,7 +895,7 @@ export const ProductsPage = () => {
               onClick={handleCloseProductForm}
             />
             <div 
-              className={`fixed inset-y-0 right-0 z-[70] w-full max-w-3xl bg-[#121212] shadow-xl transform transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'translate-x-full' : 'translate-x-0'}`}
+              className={`fixed inset-y-0 right-0 z-[70] w-full max-w-3xl bg-[#1A1D2D] shadow-xl transform transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'translate-x-full' : 'translate-x-0'}`}
             >
               <div className="p-4">
                 <ProductAssemblyForm
@@ -989,9 +1015,9 @@ export const ProductsPage = () => {
         {showVariantComparison && selectedVariantProduct && (
           <div className={`fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end transition-opacity ${isClosingDrawer ? 'opacity-0' : 'opacity-100'}`}>
             <div 
-              className={`bg-[#121212] w-full max-w-4xl overflow-y-auto transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'transform translate-x-full' : 'transform translate-x-0'}`}
+              className={`bg-[#1A1D2D] w-full max-w-4xl overflow-y-auto transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'transform translate-x-full' : 'transform translate-x-0'}`}
             >
-              <div className="sticky top-0 bg-[#121212] z-10 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
+              <div className="sticky top-0 bg-[#1A1D2D] z-10 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-white">Compare {selectedVariantProduct.name} Variants</h2>
                 <button 
                   onClick={handleCloseVariantComparison}

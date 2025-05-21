@@ -4,6 +4,7 @@ import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeader } from '../common/PageHeader';
+import { NewButton } from '../common/NewButton';
 
 type Project = Tables['projects'];
 
@@ -87,6 +88,13 @@ export const ProjectList: React.FC = () => {
           searchPlaceholder="Search projects..."
           onFilter={() => {}}
           onMenu={() => navigate('/projects/new')}
+          actionButton={
+            <NewButton
+              label="New Project"
+              onClick={() => navigate('/projects/new')}
+              color="blue"
+            />
+          }
         />
         <div className="flex justify-end px-8 pt-4">
           <button

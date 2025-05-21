@@ -12,12 +12,12 @@ import {
   Sun,
   Moon,
   FolderKanban,
-  Copy,
   User,
   LogOut,
   Plus,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Box
 } from 'lucide-react';
 import { CreateDropdown } from '../common/CreateModal';
 import { NewClientModal } from '../clients/NewClientModal';
@@ -28,7 +28,7 @@ import { LineItemModal } from '../modals/LineItemModal';
 import ProductForm from '../products/ProductForm';
 import { supabase } from '../../lib/supabase';
 import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
-import { NewPackageModal } from '../modals/NewPackageModal';
+// NewPackageModal import removed as part of simplification
 
 interface SidebarItem {
   icon?: LucideIcon;
@@ -59,17 +59,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isLineItemModalOpen, setIsLineItemModalOpen] = useState(false);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showNewClientDrawer, setShowNewClientDrawer] = useState(false);
   const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
-  const [showNewPackageDrawer, setShowNewPackageDrawer] = useState(false);
+  // Package drawer state removed as part of simplification
   const [showLineItemDrawer, setShowLineItemDrawer] = useState(false);
   const [isClosingLineItemDrawer, setIsClosingLineItemDrawer] = useState(false);
   const [products, setProducts] = useState<any[]>([]);
   const navigate = useNavigate();
   const location = useLocation();
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const createDropdownRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const [selectedIndustry, setSelectedIndustry] = useState('All Trades');
   const industries = [
@@ -89,6 +94,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const orgDropdownRef = useRef<HTMLDivElement>(null);
   const [industryDropdownOpen, setIndustryDropdownOpen] = useState(false);
   const industryDropdownRef = useRef<HTMLDivElement>(null);
+  const [globalSearch, setGlobalSearch] = useState('');
 
   // Mock organizations
   const mockOrgs = [
@@ -202,8 +208,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       if (
         createDropdownRef.current &&
         !createDropdownRef.current.contains(event.target as Node) &&
-        createButtonRef.current &&
-        !createButtonRef.current.contains(event.target as Node)
+        createDropdownRef.current &&
+        !createDropdownRef.current.contains(event.target as Node)
       ) {
         setShowCreateModal(false);
       }
@@ -211,6 +217,24 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showCreateModal]);
+
+  // Handle click outside of create menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isCreateMenuOpen &&
+        createDropdownRef.current &&
+        !createDropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsCreateMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isCreateMenuOpen]);
 
   // Close org dropdown on outside click
   useEffect(() => {
@@ -224,38 +248,26 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [orgDropdownOpen]);
 
-  const navItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
-    { icon: Users, label: 'Clients', to: '/clients' },
-    { icon: FolderKanban, label: 'Projects', to: '/projects' },
-    { icon: FileText, label: 'Invoices', to: '/invoices' },
-    { icon: Copy, label: 'Packages', to: '/packages' },
-    { icon: Book, label: 'Products', to: '/products' },
-    { icon: Book, label: 'Price Book', to: '/price-book' },
-  ];
+  // Navigation items moved to sidebar for better ergonomics
 
   const sidebarItems: SidebarSection[] = [
+    {
+      title: 'Main',
+      items: [
+        { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
+        { icon: Users, label: 'Clients', to: '/clients' },
+        { icon: FolderKanban, label: 'Projects', to: '/projects' },
+        { icon: FileText, label: 'Invoices', to: '/invoices' },
+        { icon: Book, label: 'Products', to: '/products' },
+        { icon: Book, label: 'Price Book', to: '/price-book' },
+      ]
+    },
     {
       title: 'Views',
       items: [
         { icon: FileStack, label: 'All contracts', to: '/contracts/all' },
         { icon: FileText, label: 'My contracts', to: '/contracts/my', highlighted: true },
         { icon: X, label: 'Rejected', to: '/contracts/rejected' },
-        { label: 'Add a view', to: '/contracts/views/new', isAction: true },
-      ]
-    },
-    {
-      title: 'Contract spaces',
-      badge: 'New',
-      items: [
-        { icon: Users, label: 'Agency Agreements', to: '/contracts/agency' },
-        { label: 'Add a contract space', to: '/contracts/spaces/new', isAction: true },
-      ]
-    },
-    {
-      title: 'Imports',
-      items: [
-        { icon: FileText, label: 'Import (Mar 12, 2025 20:02)', to: '/contracts/imports/latest' },
       ]
     },
   ];
@@ -271,344 +283,359 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   return (
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
-
-        
-        {/* Top Navigation Bar */}
-        <div className="fixed top-0 left-0 right-0 z-20 bg-[#121212] border-b border-gray-200 dark:border-gray-800">
-          <div className="flex justify-between items-center h-16 px-6">
-            {/* Mobile Page Title - only visible on mobile */}
-            <div className="md:hidden flex items-center">
-              <h1 className="text-xl font-bold text-white">
-                {(() => {
-                  const path = location.pathname;
-                  if (path === '/dashboard') return 'Dashboard';
-                  if (path.startsWith('/clients')) return 'Clients';
-                  if (path.startsWith('/projects')) return 'Projects';
-                  if (path.startsWith('/invoices')) return 'Invoices';
-                  if (path.startsWith('/packages')) return 'Packages';
-                  if (path.startsWith('/products')) return 'Products';
-                  if (path.startsWith('/price-book')) return 'Price Book';
-                  if (path.startsWith('/contracts')) return 'Contracts';
-                  return 'Dashboard';
-                })()}
-              </h1>
+        {/* Top Navbar - fixed, full-width for desktop */}
+        <div className="hidden md:flex fixed top-0 left-64 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999]">
+          <div className="flex items-center">
+            <h1 className="text-xl font-bold text-white">
+              {(() => {
+                const path = location.pathname;
+                if (path === '/dashboard') return 'Dashboard';
+                if (path.startsWith('/clients')) return 'Clients';
+                if (path.startsWith('/projects')) return 'Projects';
+                if (path.startsWith('/invoices')) return 'Invoices';
+                if (path.startsWith('/products')) return 'Products';
+                if (path.startsWith('/price-book')) return 'Price Book';
+                if (path.startsWith('/contracts')) return 'Contracts';
+                return 'Dashboard';
+              })()}
+            </h1>
+          </div>
+          
+          {/* Top Navbar - Line Item button */}
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setShowLineItemDrawer(true)}
+              className="flex items-center text-[#A3A6AE] hover:text-white transition-colors"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Line Item
+            </button>
+          </div>
+        </div>
+        {/* Sidebar - fixed, left-aligned */}
+        <div className="hidden md:flex fixed left-0 top-0 w-64 h-full overflow-y-auto bg-[#121212] border-r border-gray-700 flex-col z-[9999]">
+          {/* Organization header */}
+          <div className="p-4 border-b border-[#333333]">
+            <div className="bg-[#1E1E1E] rounded-md p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#336699] text-white w-12 h-12 rounded-md flex items-center justify-center text-2xl font-bold">
+                  A
+                </div>
+                <span className="text-white text-xl font-medium">ACME CO</span>
+              </div>
+              <ChevronDown className="text-[#336699] w-5 h-5" />
             </div>
-            
-            {/* Organization Dropdown - hidden on mobile, visible on desktop */}
-            <div className="hidden md:flex items-center">
-              <div className="relative mr-4" ref={orgDropdownRef}>
-                <button
-                  className="flex items-center min-h-[40px] px-4 rounded bg-[#181818] text-white text-sm font-medium hover:bg-[#232323] focus:bg-[#232323] transition-colors"
-                  onClick={() => setOrgDropdownOpen((v) => !v)}
-                  onBlur={() => setTimeout(() => setOrgDropdownOpen(false), 100)}
-                  tabIndex={0}
-                  type="button"
+          </div>
+
+          {/* Search bar */}
+          <div className="p-4 border-b border-[#333333]">
+            <div className="bg-[#1E1E1E] rounded-md flex items-center px-4 py-3">
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search or create..."
+                value={globalSearch}
+                onChange={e => setGlobalSearch(e.target.value)}
+                className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
+              />
+              <div className="text-[#336699] relative">
+                <button 
+                  ref={createButtonRef}
+                  onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+                  className="flex items-center justify-center"
                 >
-                  {selectedOrg.name}
-                  <ChevronDown className="w-4 h-4 ml-2" />
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m6 0H6"></path>
+                  </svg>
                 </button>
-                {orgDropdownOpen && (
-                  <div className="absolute left-0 mt-2 w-full bg-[#232323] rounded shadow-lg z-50">
-                    {mockOrgs.map((org) => (
-                      <button
-                        key={org.id}
-                        className={`w-full text-left px-4 py-2 text-sm text-white hover:bg-[#2a2a2a] transition-colors ${selectedOrg.id === org.id ? 'bg-[#181818]' : ''}`}
-                        onClick={() => {
-                          setSelectedOrg(org);
-                          setSelectedIndustry(org.industry);
-                          setOrgDropdownOpen(false);
-                        }}
-                        type="button"
-                      >
-                        {org.name}
-                      </button>
-                    ))}
+                
+                {/* Create Dropdown Menu */}
+                {isCreateMenuOpen && (
+                  <div 
+                    ref={createDropdownRef}
+                    className="absolute top-full right-0 mt-1 z-50 shadow-lg"
+                  >
+                    <CreateDropdown 
+                      onCreateLineItem={() => {
+                        setIsCreateMenuOpen(false);
+                        setIsLineItemModalOpen(true);
+                      }}
+                      onCreateClient={() => {
+                        setIsCreateMenuOpen(false);
+                        setShowNewClientModal(true);
+                      }}
+                      onCreateProject={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle project creation
+                      }}
+                      onCreateInvoice={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle invoice creation
+                      }}
+                      onCreateProduct={() => {
+                        setIsCreateMenuOpen(false);
+                        setIsProductModalOpen(true);
+                      }}
+                      onCreatePackage={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle package creation
+                      }}
+                      onCreatePriceBookTemplate={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle price book template creation
+                      }}
+                      onCreateProjectTemplate={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle project template creation
+                      }}
+                      onCreateContractTemplate={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle contract template creation
+                      }}
+                    />
                   </div>
                 )}
               </div>
-              {/* Logo and Navigation */}
-              <div className="flex items-center">
-                {/* Desktop Navigation */}
-                <div className="hidden md:block ml-6">
-                  <div className="flex space-x-4">
-                    {navItems.map((item) => (
-                      <NavLink
-                        key={item.to}
-                        to={item.to}
-                        className={({ isActive }) =>
-                          `flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                            isActive
-                              ? 'text-blue-500 font-medium'
-                              : 'text-gray-400 hover:text-white font-medium'
-                          }`
-                        }
-                      >
-                        {item.label}
-                      </NavLink>
-                    ))}
+            </div>
+          </div>
+
+          {/* Grid navigation */}
+          <div className="px-2 pt-2 grid grid-cols-2 gap-1">
+            {/* Dashboard */}
+            <NavLink 
+              to="/dashboard" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
                   </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Clients */}
+            <NavLink 
+              to="/clients" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
+                  </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Projects */}
+            <NavLink 
+              to="/projects" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
+                  </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Invoices */}
+            <NavLink 
+              to="/invoices" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
+                  </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Products */}
+            <NavLink 
+              to="/products" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
+                  </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                </>
+              )}
+            </NavLink>
+
+            {/* Price Book */}
+            <NavLink 
+              to="/price-book" 
+              className={({ isActive }) => 
+                isActive 
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="mb-0.5">
+                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
+                  </div>
+                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                </>
+              )}
+            </NavLink>
+          </div>
+          
+          {/* Quick Stats Section */}
+          <div className="mt-4 mx-2">
+            <h3 className="text-gray-400 text-xs uppercase font-medium mb-2 px-1">QUICK STATS</h3>
+            <div className="bg-[#1E1E1E] rounded-md p-3">
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div>
+                  <div className="text-gray-400 text-xs">Active Projects</div>
+                  <div className="text-white text-xl font-bold">12</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs">Pending Invoices</div>
+                  <div className="text-white text-xl font-bold">5</div>
                 </div>
               </div>
-            </div>
-
-            {/* Right side */}
-            <div className="flex items-center">
-              {/* Show + button globally - hidden on mobile */}
-              <div className="hidden md:flex items-center">
-                <div className="relative">
-                  <button
-                    ref={createButtonRef}
-                    aria-label="create-new"
-                    className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors pr-6"
-                    onClick={() => setShowCreateModal((v) => !v)}
-                    data-testid="create-new-btn"
-                  >
-                    <Plus className="w-5 h-5" />
-                    <span className="text-sm font-medium">Create</span>
-                  </button>
-                  {showCreateModal && (
-                    <div ref={createDropdownRef}>
-                      <CreateDropdown
-                        onCreateLineItem={() => {
-                          setShowCreateModal(false);
-                          setShowLineItemDrawer(true);
-                        }}
-                        onCreateCategory={() => setShowCreateModal(false)}
-                        onCreateClient={() => {
-                          setShowCreateModal(false);
-                          setShowNewClientModal(true);
-                        }}
-                        onCreateProject={() => setShowCreateModal(false)}
-                        onCreateInvoice={() => {
-                          setShowCreateModal(false);
-                          setShowNewInvoiceDrawer(true);
-                        }}
-                        onCreateProduct={() => {
-                          setShowCreateModal(false);
-                          window.dispatchEvent(new CustomEvent('openNewProductDrawer'));
-                        }}
-                        onCreatePackage={() => {
-                          setShowCreateModal(false);
-                          setShowNewPackageDrawer(true);
-                        }}
-                        onCreatePriceBookTemplate={() => setShowCreateModal(false)}
-                        onCreateProjectTemplate={() => setShowCreateModal(false)}
-                        onCreateContractTemplate={() => setShowCreateModal(false)}
-                      />
-                    </div>
-                  )}
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <div className="text-gray-400 text-xs">This Month</div>
+                  <div className="text-[#2ECC71] text-xl font-bold">$24,500</div>
+                </div>
+                <div>
+                  <div className="text-gray-400 text-xs">Clients</div>
+                  <div className="text-white text-xl font-bold">28</div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="flex h-[calc(100vh-4rem)] mt-16">
-          {/* Sidebar - reduced width - hidden on mobile */}
-          <div className="hidden md:flex fixed top-16 w-48 h-[calc(100vh-4rem)] overflow-y-auto bg-[#121212] border-r border-gray-200 dark:border-gray-800 flex-col">
-            {/* Sidebar header action for each main section */}
-            {(() => {
-              if (location.pathname === '/price-book') {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => setShowLineItemDrawer(true)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Line Item
-                    </button>
-                  </div>
-                );
-              }
-              if (location.pathname.startsWith('/products')) {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => window.dispatchEvent(new CustomEvent('openNewProductDrawer'))}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Product
-                    </button>
-                  </div>
-                );
-              }
-              if (location.pathname.startsWith('/projects')) {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => window.dispatchEvent(new CustomEvent('openNewProjectDrawer'))}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Project
-                    </button>
-                  </div>
-                );
-              }
-              if (location.pathname.startsWith('/clients')) {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => setShowNewClientDrawer(true)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Client
-                    </button>
-                  </div>
-                );
-              }
-              if (location.pathname.startsWith('/invoices')) {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => setShowNewInvoiceDrawer(true)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Invoice
-                    </button>
-                  </div>
-                );
-              }
-              if (location.pathname.startsWith('/packages')) {
-                return (
-                  <div className="mb-6 px-4 pt-4">
-                    <button
-                      onClick={() => setShowNewPackageDrawer(true)}
-                      className="w-full text-left px-3 py-2 rounded-lg text-blue-500 hover:bg-[#232323] flex items-center"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Package
-                    </button>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-            <div className="flex-1 overflow-y-auto px-4">
-              {sidebarItems.map((section, idx) => (
-                <div key={section.title} className={idx > 0 ? 'mt-8' : ''}>
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">{section.title}</h3>
-                    {section.badge && (
-                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                        {section.badge}
-                      </span>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    {section.items.map((item, itemIdx) => (
-                      <NavLink
-                        key={itemIdx}
-                        to={item.to}
-                        className={({ isActive }) =>
-                          `flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                            item.isAction
-                              ? 'text-indigo-600 dark:text-indigo-400'
-                              : isActive || item.highlighted
-                              ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20'
-                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                          }`
-                        }
-                      >
-                        {item.icon && <item.icon className="h-4 w-4 mr-3" />}
-                        {item.label}
-                      </NavLink>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* User profile section at bottom */}
-            <div className="mt-auto border-t border-gray-700">
-              {/* Dropdown Menu */}
-              {isProfileMenuOpen && (
-                <div className="bg-gray-900 py-1">
-                  <button
-                    onClick={toggleTheme}
-                    className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
-                  >
-                    {theme === 'light' ? (
-                      <>
-                        <Moon className="w-4 h-4 mr-3" />
-                        Dark Mode
-                      </>
-                    ) : (
-                      <>
-                        <Sun className="w-4 h-4 mr-3" />
-                        Light Mode
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      signOut();
-                      setIsProfileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
-                  >
-                    <LogOut className="w-4 h-4 mr-3" />
-                    Sign out
-                  </button>
-                </div>
-              )}
-
-              {/* User Info */}
-              <div className="p-4 flex items-center">
-                <div className="flex items-center space-x-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden">
-                    {user?.user_metadata?.avatar_url ? (
-                      <img
-                        src={user.user_metadata.avatar_url}
-                        alt={user.user_metadata.full_name || 'User'}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-6 h-6 text-gray-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {user?.user_metadata?.full_name || 'User'}
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {user?.email}
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="ml-2 p-1 rounded-full hover:bg-gray-800 transition-colors duration-200"
+          
+          <div className="mt-auto border-t border-gray-700">
+            {/* Dropdown Menu */}
+            {isProfileMenuOpen && (
+              <div className="bg-gray-900 py-1">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
                 >
-                  <ChevronUp 
-                    className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`} 
-                  />
+                  {theme === 'light' ? (
+                    <>
+                      <Moon className="w-4 h-4 mr-3" />
+                      Dark Mode
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="w-4 h-4 mr-3" />
+                      Light Mode
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    signOut();
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+                >
+                  <LogOut className="w-4 h-4 mr-3" />
+                  Sign out
                 </button>
               </div>
+            )}
+            {/* User Info */}
+            <div className="p-4 flex items-center">
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden">
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt={user.user_metadata.full_name || 'User'}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-6 h-6 text-gray-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">
+                    {user?.user_metadata?.full_name || 'User'}
+                  </p>
+                  <p className="text-xs text-gray-400 truncate">
+                    {user?.email}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                className="ml-2 p-1 rounded-full hover:bg-gray-800 transition-colors duration-200"
+              >
+                <ChevronUp 
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`} 
+                />
+              </button>
             </div>
           </div>
-
-          {/* Main Content - responsive for all screen sizes */}
-          <div className="flex-1 md:ml-48 p-4 bg-[#121212]">
-            {children}
-          </div>
-
         </div>
-
-        {/* Mobile Menu Toggle */}
-        <button
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          className="md:hidden fixed top-4 right-4 z-20 p-2 rounded-md bg-[#121212] text-white"
-        >
-          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        {/* Mobile header - only visible on mobile devices */}
+        <div className="md:hidden fixed left-48 top-0 right-0 h-16 z-20 bg-[#121212] border-b border-gray-200 dark:border-gray-800 flex items-center px-6">
+          <div className="flex items-center">
+            <h1 className="text-xl font-bold text-white">
+              {(() => {
+                const path = location.pathname;
+                if (path === '/dashboard') return 'Dashboard';
+                if (path.startsWith('/clients')) return 'Clients';
+                if (path.startsWith('/projects')) return 'Projects';
+                if (path.startsWith('/invoices')) return 'Invoices';
+                if (path.startsWith('/products')) return 'Products';
+                if (path.startsWith('/price-book')) return 'Price Book';
+                if (path.startsWith('/contracts')) return 'Contracts';
+                return 'Dashboard';
+              })()}
+            </h1>
+          </div>
+        </div>
+        {/* Main Content - margin left for sidebar only */}
+        <div className="flex-1 md:ml-64 pt-16 px-0 bg-[#121212]">
+          {children}
+        </div>
+        {/* Mobile Menu Toggle - Removed from top */}
         
-
-
         {/* Mobile Navigation Menu - Notion Style */}
         <div className={`md:hidden fixed inset-0 z-10 ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsMobileMenuOpen(false)} />
@@ -653,28 +680,32 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             
             {/* Main Navigation */}
             <div className="p-4 border-b border-gray-800">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-gray-500 uppercase">Main Navigation</span>
-              </div>
-              <div className="space-y-1">
-                {navItems.map((item) => (
-                  <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className={({ isActive }) =>
-                      `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                        isActive
-                          ? 'text-blue-500 bg-[#232323]'
-                          : 'text-gray-400 hover:text-white hover:bg-[#232323]'
-                      }`
-                    }
-                  >
-                    <item.icon className="h-4 w-4 mr-3" />
-                    <span>{item.label}</span>
-                  </NavLink>
-                ))}
-              </div>
+              {sidebarItems.map((section, sectionIdx) => (
+                <div key={section.title} className={sectionIdx > 0 ? 'mt-6' : ''}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
+                  </div>
+                  <div className="space-y-1">
+                    {section.items.map((item, itemIdx) => (
+                      <NavLink
+                        key={itemIdx}
+                        to={item.to}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                            isActive || item.highlighted
+                              ? 'text-blue-500 bg-[#232323]'
+                              : 'text-gray-400 hover:text-white hover:bg-[#232323]'
+                          }`
+                        }
+                      >
+                        {item.icon && <item.icon className="w-5 h-5 mr-3" />}
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
             
             {/* Secondary Navigation Sections */}
@@ -704,7 +735,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         }`
                       }
                     >
-                      {item.icon && <item.icon className="h-4 w-4 mr-3" />}
+                      {item.icon && <item.icon className="h-5 w-5 mr-3" />}
                       {item.label}
                     </NavLink>
                   ))}
@@ -726,35 +757,30 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </div>
         </div>
-
         {/* NewClientModal drawer */}
         {showNewClientModal && (
-          <NewClientModal
-            onClose={() => setShowNewClientModal(false)}
-            onSave={() => setShowNewClientModal(false)}
-          />
+          <div className="fixed inset-0 z-[11000]">
+            <NewClientModal
+              onClose={() => setShowNewClientModal(false)}
+              onSave={() => setShowNewClientModal(false)}
+            />
+          </div>
         )}
         {/* NewClientModal drawer */}
         {showNewClientDrawer && (
-          <NewClientModal
-            onClose={() => setShowNewClientDrawer(false)}
-            onSave={() => {
-              setShowNewClientDrawer(false);
-            }}
-          />
+          <div className="fixed inset-0 z-[11000]">
+            <NewClientModal
+              onClose={() => setShowNewClientDrawer(false)}
+              onSave={() => {
+                setShowNewClientDrawer(false);
+              }}
+            />
+          </div>
         )}
-        {/* New Package Modal */}
-        {showNewPackageDrawer && (
-          <NewPackageModal
-            onClose={() => setShowNewPackageDrawer(false)}
-            onSave={() => {
-              setShowNewPackageDrawer(false);
-            }}
-          />
-        )}
+        {/* Package Modal removed as part of simplification */}
         {/* New Line Item Drawer */}
         {showLineItemDrawer && (
-          <div className="fixed inset-0 z-[60] flex justify-end">
+          <div className="fixed inset-0 z-[11000] flex justify-end">
             <div 
               className="absolute inset-0 bg-black transition-opacity duration-300 opacity-50"
               onClick={() => {
@@ -766,16 +792,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               }}
             />
             <div
-              className={`
-                md:w-full md:max-w-md
+              className={
+                `md:w-full md:max-w-md
                 transition-transform duration-300 ease-out 
                 bg-white dark:bg-gray-800 
                 shadow-xl
                 overflow-hidden
                 h-full
                 transform
-                ${isClosingLineItemDrawer ? 'translate-x-full' : 'translate-x-0'}
-              `}
+                ${isClosingLineItemDrawer ? 'translate-x-full' : 'translate-x-0'}`
+              }
             >
               <ProductForm
                 title="New Line Item"
@@ -801,10 +827,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         )}
         {/* New Invoice Drawer */}
         {showNewInvoiceDrawer && (
-          <NewInvoiceModal
-            onClose={() => setShowNewInvoiceDrawer(false)}
-            onSave={() => setShowNewInvoiceDrawer(false)}
-          />
+          <div className="fixed inset-0 z-[11000]">
+            <NewInvoiceModal
+              onClose={() => setShowNewInvoiceDrawer(false)}
+              onSave={() => setShowNewInvoiceDrawer(false)}
+            />
+          </div>
         )}
         
         {/* Mobile Create Button - Floating Action Button */}

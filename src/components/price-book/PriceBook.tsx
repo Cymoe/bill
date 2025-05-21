@@ -3,11 +3,10 @@ import { formatCurrency } from '../../utils/format';
 import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../common/PageHeader';
 import TabMenu from '../common/TabMenu';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
-import { LineItemModal } from '../modals/LineItemModal';
-import { MoreVertical, Upload, Download, Printer, Filter } from 'lucide-react';
+import { MoreVertical, Filter, Minimize2 } from 'lucide-react';
+import './price-book.css';
 
 interface Product {
   id: string;
@@ -19,6 +18,11 @@ interface Product {
   created_at: string;
   type: string;
   trade_id?: string;
+  status: string;
+  favorite: boolean;
+  updated_at: string;
+  vendor_id: string;
+  sku?: string;
 }
 
 // Define the subcategory interface
@@ -55,11 +59,11 @@ export const PriceBook = () => {
   }, []);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
-  const [selectedType, setSelectedType] = useState('all');
   const [selectedUnit, setSelectedUnit] = useState('any');
   const [priceSort, setPriceSort] = useState<'asc' | 'desc'>('desc');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -67,9 +71,21 @@ export const PriceBook = () => {
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [workTypeDropdownOpen, setWorkTypeDropdownOpen] = useState(false);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const filterMenuRef = useRef<HTMLDivElement>(null);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All Items');
   const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedDateRange, setSelectedDateRange] = useState('all');
+  const [vendors, setVendors] = useState<{ id: string; name: string }[]>([]);
+  const [selectedVendorId, setSelectedVendorId] = useState('all');
+  const [condensed, setCondensed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('pricebook-condensed') === 'true';
+    }
+    return false;
+  });
   
   const togglePriceSort = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
@@ -178,11 +194,14 @@ export const PriceBook = () => {
     console.log('Print price book clicked');
   };
 
-  // Close options menu when clicking outside
+  // Close menus when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
         setShowOptionsMenu(false);
+      }
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setShowFilterMenu(false);
       }
     };
 
@@ -243,8 +262,46 @@ export const PriceBook = () => {
     fetchTrades();
   }, []);
 
+  // Fetch vendors
+  useEffect(() => {
+    const fetchVendors = async () => {
+      const { data, error } = await supabase.from('vendors').select('*').order('name');
+      if (!error && data) setVendors(data);
+    };
+    fetchVendors();
+  }, []);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => setSearchTerm(searchInput), 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
+
+    // Status filter
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(product => product.status === selectedStatus);
+    }
+    // Favorites filter
+    if (showFavoritesOnly) {
+      filtered = filtered.filter(product => product.favorite);
+    }
+    // Date added/updated filter
+    if (selectedDateRange !== 'all') {
+      const now = new Date();
+      let cutoff = new Date();
+      if (selectedDateRange === '7d') cutoff.setDate(now.getDate() - 7);
+      if (selectedDateRange === '30d') cutoff.setDate(now.getDate() - 30);
+      filtered = filtered.filter(product =>
+        new Date(product.updated_at || product.created_at) >= cutoff
+      );
+    }
+    // Vendor filter
+    if (selectedVendorId !== 'all') {
+      filtered = filtered.filter(product => product.vendor_id === selectedVendorId);
+    }
 
     // Filter by trade_id (if not 'all')
     if (selectedTradeId !== 'all') {
@@ -254,9 +311,11 @@ export const PriceBook = () => {
     // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(product => {
+        const sku = product.sku || '';
         return (
           product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          product.description.toLowerCase().includes(searchTerm.toLowerCase())
+          product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          sku.toLowerCase().includes(searchTerm.toLowerCase())
         );
       });
     }
@@ -275,11 +334,6 @@ export const PriceBook = () => {
       filtered = filtered.filter(product => product.price <= parseFloat(maxPrice));
     }
 
-    // Apply type filter from dropdown (if not using the tab menu)
-    if (selectedType !== 'all' && activeCategory === 'all') {
-      filtered = filtered.filter(product => product.type.toLowerCase() === selectedType);
-    }
-
     // Apply unit filter
     if (selectedUnit !== 'any') {
       filtered = filtered.filter(product => product.unit.toLowerCase() === selectedUnit.toLowerCase());
@@ -293,254 +347,209 @@ export const PriceBook = () => {
         return b.price - a.price;
       }
     });
-  }, [products, selectedTradeId, searchTerm, activeCategory, minPrice, maxPrice, selectedType, selectedUnit, priceSort]);
+  }, [products, selectedStatus, showFavoritesOnly, selectedDateRange, selectedVendorId, selectedTradeId, searchTerm, activeCategory, minPrice, maxPrice, selectedUnit, priceSort]);
+
+  useEffect(() => {
+    localStorage.setItem('pricebook-condensed', String(condensed));
+  }, [condensed]);
 
   return (
     <DashboardLayout>
-      <div className="space-y-0">
-        <div className="relative flex items-center justify-between px-8 py-6">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Price Book</h1>
-            <p className="text-gray-400">Manage all your pricing items in one place</p>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search pricing items by name, type, or price range..."
-                className="w-64 px-4 py-2 bg-[#1E2130] border border-gray-700 rounded-full text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
-            <button
-              className="flex items-center gap-2 px-4 py-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
-              onClick={() => setShowFilterMenu(!showFilterMenu)}
-            >
-              <Filter size={16} />
-              <span>Filter</span>
-            </button>
-            
-            <div className="relative" ref={optionsMenuRef}>
-              <button
-                className="p-2 bg-[#232635] border border-gray-700 rounded-full text-white hover:bg-gray-700"
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+      <div className="flex flex-col h-full price-book-container">
+        {/* Trade Filter & Sort Controls */}
+        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+          {/* Left side - Trade and Filter controls */}
+          <div className="flex items-center gap-4">
+            {/* Trade Filter */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-400">Trade:</label>
+              <select
+                className="bg-[#232323] border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#336699]"
+                value={selectedTradeId}
+                onChange={(e) => setSelectedTradeId(e.target.value)}
               >
-                <MoreVertical size={20} />
+                <option value="all">All Trades</option>
+                {trades.map(trade => (
+                  <option key={trade.id} value={trade.id}>{trade.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Filter Button and Menu */}
+            <div className="flex items-center gap-2 relative" ref={filterMenuRef}>
+              <button 
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#232323] border border-gray-700 rounded text-sm text-white hover:bg-[#2A2A2A] transition-colors"
+              >
+                <Filter size={14} />
+                More Filters
               </button>
-              
-              {showOptionsMenu && (
-                <div className="absolute right-0 top-12 w-48 bg-[#232635] rounded-md shadow-lg z-10 py-0.5 border border-gray-600">
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      handleImportItems();
-                    }}
-                  >
-                    <Upload size={16} className="text-gray-400" />
-                    Import items
-                  </button>
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      handleExportToCSV();
-                    }}
-                  >
-                    <Download size={16} className="text-gray-400" />
-                    Export to CSV
-                  </button>
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
-                    onClick={() => {
-                      setShowOptionsMenu(false);
-                      handlePrintPriceBook();
-                    }}
-                  >
-                    <Printer size={16} className="text-gray-400" />
-                    Print price book
-                  </button>
+              {showFilterMenu && (
+                <div className="absolute left-0 top-full mt-2 w-72 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+                  <div className="p-4 space-y-4">
+                    {/* Status Filter */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Status</label>
+                      <select
+                        value={selectedStatus}
+                        onChange={(e) => setSelectedStatus(e.target.value)}
+                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </div>
+
+                    {/* Favorites Filter */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id="favorites"
+                        checked={showFavoritesOnly}
+                        onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                        className="rounded bg-[#181818] border-gray-700 text-[#336699]"
+                      />
+                      <label htmlFor="favorites" className="ml-2 text-sm text-white">Show Favorites Only</label>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Date Updated</label>
+                      <select
+                        value={selectedDateRange}
+                        onChange={(e) => setSelectedDateRange(e.target.value)}
+                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="all">All Time</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                      </select>
+                    </div>
+
+                    {/* Vendor Filter */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Vendor</label>
+                      <select
+                        value={selectedVendorId}
+                        onChange={(e) => setSelectedVendorId(e.target.value)}
+                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="all">All Vendors</option>
+                        {vendors.map(vendor => (
+                          <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Price Range Filter */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Price Range</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min"
+                          value={minPrice}
+                          onChange={(e) => setMinPrice(e.target.value)}
+                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max"
+                          value={maxPrice}
+                          onChange={(e) => setMaxPrice(e.target.value)}
+                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Unit Filter */}
+                    <div>
+                      <label className="block text-sm text-gray-400 mb-2">Unit</label>
+                      <select
+                        value={selectedUnit}
+                        onChange={(e) => setSelectedUnit(e.target.value)}
+                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      >
+                        <option value="any">Any Unit</option>
+                        <option value="ea">Each (ea)</option>
+                        <option value="hr">Hour (hr)</option>
+                        <option value="ft">Feet (ft)</option>
+                        <option value="sq ft">Square Feet (sq ft)</option>
+                        <option value="cu yd">Cubic Yard (cu yd)</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
           </div>
-        </div>
-        
-        {/* Filter Menu */}
-        {showFilterMenu && (
-          <div className="p-4 bg-[#1E2130] border border-gray-800 rounded-lg mx-4 mt-4 shadow-lg">
-            <h3 className="text-lg font-medium text-white mb-4">Filter By</h3>
-            
-            <div className="space-y-6">
-              {/* Type Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Type</label>
-                <div className="relative">
-                  <select 
-                    className="w-full appearance-none bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white pr-10"
-                    value={selectedType}
-                    onChange={(e) => setSelectedType(e.target.value)}
-                  >
-                    <option value="all">All Trades</option>
-                    <option value="material">Material</option>
-                    <option value="labor">Labor</option>
-                    <option value="equipment">Equipment</option>
-                    <option value="service">Service</option>
-                    <option value="subcontractor">Subcontractor</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                  </div>
-                </div>
-              </div>
 
-              {/* Price Range Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Price Range</label>
-                <div className="grid grid-cols-5 gap-2 items-center">
-                  <input 
-                    type="number" 
-                    placeholder="Min" 
-                    className="col-span-2 w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                    value={minPrice}
-                    onChange={(e) => setMinPrice(e.target.value)}
-                  />
-                  <div className="text-center text-gray-500">to</div>
-                  <input 
-                    type="number" 
-                    placeholder="Max" 
-                    className="col-span-2 w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                    value={maxPrice}
-                    onChange={(e) => setMaxPrice(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              {/* Unit Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Unit</label>
-                <div className="relative">
-                  <select 
-                    className="w-full appearance-none bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white pr-10"
-                    value={selectedUnit}
-                    onChange={(e) => setSelectedUnit(e.target.value)}
-                  >
-                    <option value="any">Any Unit</option>
-                    <option value="hour">Hour</option>
-                    <option value="day">Day</option>
-                    <option value="each">Each</option>
-                    <option value="sq.ft">Sq.Ft</option>
-                    <option value="sq.m">Sq.M</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Filter Actions */}
-              <div className="flex justify-between pt-2">
-                <button 
-                  className="px-6 py-2 bg-[#232635] text-gray-400 rounded-lg hover:bg-[#2A2F40]"
-                  onClick={() => {
-                    setSelectedType('all');
-                    setMinPrice('');
-                    setMaxPrice('');
-                    setSelectedUnit('any');
-                  }}
-                >
-                  Reset
-                </button>
-                <button 
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  onClick={() => setShowFilterMenu(false)}
-                >
-                  Apply Filters
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Trade selector in main interface - styled to match screenshot */}
-        <div className="px-8 pt-4 pb-2">
-          <div className="flex items-center">
-            <div className="mr-3">
-              <span className="text-white font-medium">Trades:</span>
-            </div>
-            <div className="relative">
-              <div className="inline-flex items-center">
+          {/* Right side - Condense Table Toggle and Options */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setCondensed(v => !v)}
+              className={`px-3 py-1.5 rounded border border-[#336699] text-[#336699] bg-[#232323] hover:bg-[#181818] transition-colors text-xs font-medium uppercase tracking-wide flex items-center justify-center ${condensed ? 'bg-[#336699] text-white' : ''}`}
+              aria-label={condensed ? 'Expanded Table' : 'Condense Table'}
+            >
+              <Minimize2 className="w-4 h-4" />
+            </button>
+            {/* Three-dot menu */}
+            <div className="flex items-center gap-2">
+              {/* Three-dot menu */}
+              <div className="relative" ref={optionsMenuRef}>
                 <button
-                  className="bg-[#121824] border border-[#2A3A8F] text-white rounded-full py-1.5 pl-4 pr-10 text-sm font-medium flex items-center focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[200px] relative"
-                  onClick={() => setWorkTypeDropdownOpen(!workTypeDropdownOpen)}
+                  className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
+                  onClick={() => setShowOptionsMenu(v => !v)}
+                  aria-label="More options"
                 >
-                  {selectedTradeId === 'all'
-                    ? 'All Trades'
-                    : trades.find(t => t.id === selectedTradeId)?.name || 'Unknown'}
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                  </div>
+                  <MoreVertical size={20} className="text-gray-400" />
                 </button>
-                {workTypeDropdownOpen && (
-                  <div className="absolute left-0 top-full mt-1 w-full bg-[#1A1E2E] rounded-lg shadow-lg z-50 border border-[#2A3A8F] py-1 max-h-[400px] overflow-y-auto">
+                {showOptionsMenu && (
+                  <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
                     <button
-                      key="all"
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedTradeId === 'all' ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                      onClick={e => {
-                        e.stopPropagation();
-                        setSelectedTradeId('all');
-                        setWorkTypeDropdownOpen(false);
-                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                      onClick={() => { setShowOptionsMenu(false); handleImportItems(); }}
                     >
-                      All Trades
+                      Import Items
                     </button>
-                    {trades.map(trade => (
-                      <button
-                        key={trade.id}
-                        className={`w-full text-left px-4 py-2 text-sm hover:bg-[#232635] ${selectedTradeId === trade.id ? 'bg-[#2A3A8F] text-white font-medium' : 'text-white'}`}
-                        onClick={e => {
-                          e.stopPropagation();
-                          setSelectedTradeId(trade.id);
-                          setWorkTypeDropdownOpen(false);
-                        }}
-                      >
-                        {trade.name}
-                      </button>
-                    ))}
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                      onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
+                    >
+                      Export to CSV
+                    </button>
+                    <button
+                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                      onClick={() => { setShowOptionsMenu(false); handlePrintPriceBook(); }}
+                    >
+                      Print Price Book
+                    </button>
                   </div>
                 )}
               </div>
             </div>
-            {selectedTradeId !== 'all' && (
-              <button
-                onClick={() => setSelectedTradeId('all')}
-                className="ml-4 text-sm text-blue-400 hover:text-blue-300"
-              >
-                Clear
-              </button>
-            )}
           </div>
         </div>
+
+        {/* Content area for products */}
         
-        {/* Category Tabs */}
-        <div className="mt-6">
-          <TabMenu
-            items={[
-              { id: 'all', label: 'All', count: filteredProducts.length },
-              { id: 'material', label: 'Material', count: filteredProducts.filter(p => p.type === 'material').length },
-              { id: 'labor', label: 'Labor', count: filteredProducts.filter(p => p.type === 'labor').length },
-              { id: 'equipment', label: 'Equipment', count: filteredProducts.filter(p => p.type === 'equipment').length },
-              { id: 'service', label: 'Service', count: filteredProducts.filter(p => p.type === 'service').length },
-              { id: 'subcontractor', label: 'Subcontractor', count: filteredProducts.filter(p => p.type === 'subcontractor').length },
-            ]}
-            activeItemId={activeCategory}
-            onItemClick={setActiveCategory}
-          />
+        {/* Category Tabs and three-dot menu */}
+        <div className="flex items-center justify-between px-0">
+          <div className="flex-grow">
+            <TabMenu
+              items={[
+                { id: 'all', label: 'All', count: products.length },
+                { id: 'material', label: 'Material', count: products.filter(p => p.type === 'material').length },
+                { id: 'labor', label: 'Labor', count: products.filter(p => p.type === 'labor').length },
+                { id: 'equipment', label: 'Equipment', count: products.filter(p => p.type === 'equipment').length },
+                { id: 'service', label: 'Service', count: products.filter(p => p.type === 'service').length },
+                { id: 'subcontractor', label: 'Subcontractor', count: products.filter(p => p.type === 'subcontractor').length },
+              ]}
+              activeItemId={activeCategory}
+              onItemClick={setActiveCategory}
+            />
+          </div>
         </div>
         
         {/* Show subcategories if a specific work type is selected */}
@@ -565,58 +574,60 @@ export const PriceBook = () => {
         )}
 
         {/* Products Table - full width */}
-        <div className="pt-8">
+        <div className="mt-0 px-0">
           {filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-gray-400 bg-[#181818]">
               No pricing items found. Try adjusting your filters.
             </div>
           ) : (
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-[#1E2130] text-left text-xs uppercase tracking-wider text-gray-500 border-b border-gray-800">
-                  <th className="py-3 px-4 w-[20%]">NAME</th>
-                  <th className="py-3 px-4 w-[30%]">DESCRIPTION</th>
-                  <th 
-                    className="py-3 px-4 pr-0 text-right w-[15%] cursor-pointer"
-                    onClick={togglePriceSort}
-                  >
-                    PRICE {priceSort === 'desc' ? '▼' : '▲'}
-                  </th>
-                  <th className="py-3 pl-0 pr-4 w-[10%] text-center">UNIT</th>
-                  <th className="py-3 px-4 w-[10%] text-center">TYPE</th>
-                  <th className="py-3 px-4 w-[15%] text-center">TRADE</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProducts.map(product => (
-                  <tr 
-                    key={product.id} 
-                    className="border-b border-gray-800 bg-gray-900 hover:bg-[#1A1E2E] cursor-pointer"
-                    onClick={() => {
-                      setSelectedProduct(product);
-                      setShowProductMenu(true);
-                    }}
-                  >
-                    <td className="py-4 px-4">{product.name}</td>
-                    <td className="py-4 px-4">{product.description}</td>
-                    <td className="py-4 px-4 pr-0 text-right font-medium">{formatCurrency(product.price)}</td>
-                    <td className="py-4 pl-0 pr-4 text-center">
-                      <span className="px-2 py-1 bg-gray-800 text-xs text-gray-300 rounded-full badge-unit">
-                        {product.unit}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <span className="px-2 py-1 bg-[#2A3A8F] text-xs text-blue-400 rounded-full badge-type">
-                        {product.type === 'subcontractor' ? 'Sub' : product.type.charAt(0).toUpperCase() + product.type.slice(1)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 text-center text-white text-xs">
-                      {trades.find(t => t.id === product.trade_id)?.name || 'Unassigned'}
-                    </td>
+            <div className="overflow-x-auto">
+              <table className={`w-full border-collapse ${condensed ? 'condensed' : ''}`}>
+                <thead>
+                  <tr className="bg-[#232323] text-left text-xs uppercase tracking-wider text-white border-b border-gray-700 font-['Roboto_Condensed']">
+                    <th className="py-3 px-3 w-[20%]">NAME</th>
+                    <th className="py-3 px-3 w-[30%]">DESCRIPTION</th>
+                    <th 
+                      className="py-3 px-3 text-right w-[15%] cursor-pointer hover:text-[#336699] transition-colors"
+                      onClick={togglePriceSort}
+                    >
+                      PRICE {priceSort === 'desc' ? '▼' : '▲'}
+                    </th>
+                    <th className="py-3 px-3 w-[10%] text-center">UNIT</th>
+                    <th className="py-3 px-3 w-[10%] text-center">TYPE</th>
+                    <th className="py-3 px-3 w-[15%] text-center">TRADE</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredProducts.map((product, index) => (
+                    <tr 
+                      key={product.id} 
+                      className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-[#181818]' : 'bg-[#1E1E1E]'} hover:bg-[#232323] cursor-pointer transition-colors`}
+                      onClick={() => {
+                        setSelectedProduct(product);
+                        setShowProductMenu(true);
+                      }}
+                    >
+                      <td className="py-3 px-3 font-medium text-white">{product.name}</td>
+                      <td className="py-3 px-3 text-gray-300">{product.description}</td>
+                      <td className="py-3 px-3 text-right font-medium text-white">{formatCurrency(product.price)}</td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="px-2 py-1 bg-[#333333] text-xs text-gray-300 rounded badge-unit">
+                          {product.unit}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center">
+                        <span className="px-2 py-1 bg-[#336699] text-xs text-white rounded badge-type">
+                          {product.type === 'subcontractor' ? 'Sub' : product.type.charAt(0).toUpperCase() + product.type.slice(1)}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-center text-gray-300 text-xs">
+                        {trades.find(t => t.id === product.trade_id)?.name || 'Unassigned'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -640,32 +651,6 @@ export const PriceBook = () => {
                 setShowProductMenu(false);
               } catch (error) {
                 console.error('Error updating product:', error);
-              }
-            }}
-          />
-        )}
-        
-        {/* New Line Item Modal - for adding new items */}
-        {showNewLineItemModal && (
-          <LineItemModal
-            onClose={() => setShowNewLineItemModal(false)}
-            onSave={async (newProduct) => {
-              try {
-                // Create new product
-                const { error } = await supabase
-                  .from('products')
-                  .insert({
-                    ...newProduct,
-                    user_id: user?.id
-                  });
-                
-                if (error) throw error;
-                
-                // Refresh products list
-                fetchProducts();
-                setShowNewLineItemModal(false);
-              } catch (error) {
-                console.error('Error creating product:', error);
               }
             }}
           />

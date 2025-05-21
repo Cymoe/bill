@@ -67,7 +67,7 @@ export function TestAuth() {
       
       {loading ? (
         <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-steel-blue"></div>
         </div>
       ) : (
         <div className="space-y-4">

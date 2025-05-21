@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, FileText, Package, Users, Database, Sun, Moon, Copy, Menu, X, FolderKanban, Book } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Database, Sun, Moon, Menu, X, FolderKanban, Book, Box } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { seedDatabase } from '../utils/seedDatabase';
 import { useTheme } from '../contexts/ThemeContext';
@@ -28,14 +28,22 @@ export const Sidebar: React.FC = () => {
     }
   };
 
-  const menuItems: MenuItem[] = [
+  const mainMenuItems: MenuItem[] = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-    { icon: FolderKanban, label: 'Projects', path: '/projects' },
     { icon: Users, label: 'Clients', path: '/clients' },
-    { icon: Book, label: 'Price Book', path: '/price-book' },
-    { icon: Book, label: 'Products', path: '/products' },
+    { icon: FolderKanban, label: 'Projects', path: '/projects' },
     { icon: FileText, label: 'Invoices', path: '/invoices' },
-    { icon: Copy, label: 'Packages', path: '/packages' },
+    { icon: Box, label: 'Products', path: '/products' },
+    { icon: Book, label: 'Price Book', path: '/price-book' },
+  ];
+
+  const viewsItems: MenuItem[] = [
+    { icon: FileText, label: 'All contracts', path: '/contracts' },
+    { icon: FileText, label: 'My contracts', path: '/my-contracts' },
+    { icon: X, label: 'Rejected', path: '/rejected' },
+  ];
+
+  const adminItems: MenuItem[] = [
     { icon: Database, label: 'Seed Database', action: handleSeedData },
   ];
 
@@ -43,43 +51,141 @@ export const Sidebar: React.FC = () => {
     <>
       {/* Mobile menu toggle */}
       <button 
-        className="md:hidden fixed top-4 right-4 z-50 p-2 rounded-lg bg-indigo-900 dark:bg-gray-900 text-white"
+        className="md:hidden fixed top-4 right-4 z-50 p-2 rounded-lg bg-gray-900 text-white"
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       >
         {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
       </button>
 
       {/* Sidebar */}
-      <div className={`fixed md:static h-screen w-64 md:w-64 bg-indigo-900 dark:bg-gray-900 text-white p-6 transition-transform duration-300 ease-in-out transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 z-40`}>
-        <div className="flex items-center gap-3 mb-10">
-          <FileText className="w-8 h-8" />
-          <h1 className="text-xl font-bold">Bill Breeze</h1>
+      <div className={`fixed md:static h-screen w-64 bg-[#121212] text-white transition-transform duration-300 ease-in-out transform ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 z-40 border-r border-[#333333]`}>
+        {/* Company header */}
+        <div className="p-3 border-b border-[#333333]">
+          <button className="flex items-center justify-between w-full px-3 py-2 rounded-md bg-[#1E1E1E] hover:bg-[#333333] transition-colors">
+            <span className="text-lg font-medium">ACME CO...</span>
+            <svg className="w-5 h-5 text-[#336699]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
         </div>
         
-        <nav className="space-y-2">
-          {menuItems.map((item) => (
+        {/* Search bar */}
+        <div className="p-3 border-b border-[#333333]">
+          <div className="relative">
+            <input 
+              type="text" 
+              placeholder="Search" 
+              className="w-full bg-[#1E1E1E] text-white py-2 pl-9 rounded-md focus:outline-none focus:ring-1 focus:ring-[#0D47A1]"
+            />
+            <svg className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+        </div>
+
+        {/* Create button */}
+        <div className="p-3 border-b border-[#333333]">
+          <button className="flex items-center gap-2 w-full px-3 py-2 rounded-md bg-[#1E1E1E] hover:bg-[#333333] transition-colors">
+            <svg className="w-5 h-5 text-[#336699]" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path>
+            </svg>
+            <span className="text-gray-300">Create</span>
+          </button>
+        </div>
+        
+        {/* Main navigation */}
+        <div className="p-3">
+          <div className="mb-2">
+            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider px-3 mb-2">MAIN</h3>
+            <nav className="space-y-1">
+              {mainMenuItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                const isPriceBook = item.label === 'Price Book';
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      if (item.path) {
+                        navigate(item.path);
+                      } else if (item.action) {
+                        item.action();
+                      }
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 w-full px-3 py-2 rounded-md transition-colors ${isPriceBook
+                      ? 'text-[#336699] border-l-2 border-[#336699] bg-[#0D47A1]/10' 
+                      : isActive
+                        ? 'text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-[#333333]/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center w-5 h-5">
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-base">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          {/* Views navigation */}
+          <div className="mt-6">
+            <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider px-3 mb-2">VIEWS</h3>
+            <nav className="space-y-1">
+              {viewsItems.map((item) => {
+                const isActive = location.pathname === item.path;
+                const isMyContracts = item.label === 'My contracts';
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      if (item.path) {
+                        navigate(item.path);
+                      }
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className={`flex items-center gap-3 w-full px-3 py-2 rounded-md transition-colors ${isMyContracts
+                      ? 'text-[#336699] border-l-2 border-[#336699] bg-[#0D47A1]/10' 
+                      : isActive
+                        ? 'text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-[#333333]/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center w-5 h-5">
+                      <item.icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-base">{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+
+        {/* Admin section */}
+        <div className="absolute bottom-6 left-0 right-0 px-3">
+          {adminItems.map((item) => (
             <button
               key={item.label}
               onClick={() => {
-                if (item.path) {
-                  navigate(item.path);
-                } else if (item.action) {
+                if (item.action) {
                   item.action();
                 }
                 setIsMobileMenuOpen(false);
               }}
-              className={`flex items-center gap-3 w-full p-3 rounded-lg transition-colors ${item.label === 'Seed Database' ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400' : location.pathname === item.path ? 'bg-indigo-800 dark:bg-gray-800' : 'hover:bg-indigo-800 dark:hover:bg-gray-800'}`}
+              className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-[#F9D71C] hover:bg-[#333333]/30 transition-colors"
             >
-              <item.icon className="w-5 h-5" />
+              <div className="flex items-center justify-center w-5 h-5">
+                <item.icon className="w-5 h-5" />
+              </div>
               <span className="text-base">{item.label}</span>
             </button>
           ))}
-        </nav>
 
-        <div className="md:absolute bottom-6 left-6 right-6 space-y-2">
           <button
             onClick={toggleTheme}
-            className="flex items-center gap-3 w-full p-3 rounded-lg hover:bg-indigo-800 dark:hover:bg-gray-800 transition-colors"
+            className="mt-2 flex items-center gap-3 w-full px-3 py-2 rounded-md text-gray-400 hover:text-white hover:bg-[#333333]/30 transition-colors"
           >
             {theme === 'light' ? (
               <>
@@ -97,20 +203,25 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Mobile nav bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-between items-center bg-indigo-900 dark:bg-gray-900 text-white px-6 py-3">
-        {menuItems.filter(item => item.path).map((item) => (
-          <button
-            key={item.label}
-            onClick={() => {
-              if (item.path) navigate(item.path);
-              setIsMobileMenuOpen(false);
-            }}
-            className={`flex flex-col items-center gap-1 ${location.pathname === item.path ? 'text-white' : 'text-gray-400'}`}
-          >
-            <item.icon className="w-5 h-5" />
-            <span className="text-xs">{item.label}</span>
-          </button>
-        ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-between items-center bg-[#121212] text-white px-4 py-2 border-t border-[#333333]">
+        {mainMenuItems.filter(item => item.path).slice(0, 5).map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.label}
+              onClick={() => {
+                if (item.path) navigate(item.path);
+                setIsMobileMenuOpen(false);
+              }}
+              className={`flex flex-col items-center gap-1 p-2 ${
+                isActive ? 'text-[#336699]' : 'text-gray-400'
+              }`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-xs">{item.label}</span>
+            </button>
+          );
+        })}
       </nav>
     </>
   );

@@ -4,6 +4,9 @@ export default {
   darkMode: 'class',
   theme: {
     extend: {
+      colors: {
+        'steel-blue': '#336699',
+      },
       keyframes: {
         'progress-fill': {
           '0%': { width: '0%' },

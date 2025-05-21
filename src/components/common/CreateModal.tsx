@@ -1,22 +1,21 @@
 import React from 'react';
-import { User, Calendar, FileText, Package, Grid, FileSpreadsheet, FileBox, Plus } from 'lucide-react';
+import { User, Calendar, FileText, Package, FileBox, Plus } from 'lucide-react';
 
 interface CreateDropdownProps {
   onCreateLineItem: () => void;
-  onCreateCategory: () => void;
   onCreateClient: () => void;
   onCreateProject: () => void;
   onCreateInvoice: () => void;
   onCreateProduct: () => void;
-  onCreatePackage: () => void;
+  onCreatePackage?: () => void; // Optional as part of simplification
   onCreatePriceBookTemplate: () => void;
   onCreateProjectTemplate: () => void;
   onCreateContractTemplate: () => void;
+  // onCreateCategory is not used in the component
 }
 
 export const CreateDropdown: React.FC<CreateDropdownProps> = ({
   onCreateLineItem,
-  onCreateCategory,
   onCreateClient,
   onCreateProject,
   onCreateInvoice,
@@ -27,46 +26,49 @@ export const CreateDropdown: React.FC<CreateDropdownProps> = ({
   onCreateContractTemplate
 }) => {
   return (
-    <div className="absolute right-0 mt-2 w-[220px] bg-[#232632] rounded-lg z-50 p-2.5 flex flex-col min-w-[180px] shadow-lg">
-      <div className="mb-2">
-        <button onClick={onCreateLineItem} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <Plus className="w-4 h-4 text-[#A3A6AE]" />
+    <div className="w-[240px] bg-[#232632] rounded-lg p-2 flex flex-col max-h-[80vh] overflow-y-auto">
+  
+      <div className="mb-1">
+        <button onClick={onCreateLineItem} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <Plus className="w-3.5 h-3.5 text-[#336699]" />
           Line Item
         </button>
       </div>
-      <div className="mb-2 border-t border-[#35373F] pt-2">
-        <button onClick={onCreateClient} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <User className="w-4 h-4 text-[#A3A6AE]" />
+      <div className="mb-1 border-t border-[#35373F] pt-1">
+        <button onClick={onCreateClient} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <User className="w-3.5 h-3.5 text-[#336699]" />
           Client
         </button>
-        <button onClick={onCreateProject} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <Calendar className="w-4 h-4 text-[#A3A6AE]" />
+        <button onClick={onCreateProject} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <Calendar className="w-3.5 h-3.5 text-[#336699]" />
           Project
         </button>
-        <button onClick={onCreateInvoice} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <FileText className="w-4 h-4 text-[#A3A6AE]" />
+        <button onClick={onCreateInvoice} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <FileText className="w-3.5 h-3.5 text-[#336699]" />
           Invoice
         </button>
-        <button onClick={onCreatePackage} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <FileBox className="w-4 h-4 text-[#A3A6AE]" />
-          Package
-        </button>
-        <button onClick={onCreateProduct} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <Package className="w-4 h-4 text-[#A3A6AE]" />
+        {onCreatePackage && (
+          <button onClick={onCreatePackage} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+            <FileBox className="w-3.5 h-3.5 text-[#336699]" />
+            Package
+          </button>
+        )}
+        <button onClick={onCreateProduct} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <Package className="w-3.5 h-3.5 text-[#336699]" />
           Product
         </button>
       </div>
-      <div className="border-t border-[#35373F] pt-2">
-        <button onClick={onCreatePriceBookTemplate} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <FileText className="w-4 h-4 text-[#A3A6AE]" />
+      <div className="border-t border-[#35373F] pt-1">
+        <button onClick={onCreatePriceBookTemplate} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <FileText className="w-3.5 h-3.5 text-[#336699]" />
           Price book template
         </button>
-        <button onClick={onCreateProjectTemplate} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <FileText className="w-4 h-4 text-[#A3A6AE]" />
+        <button onClick={onCreateProjectTemplate} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <FileText className="w-3.5 h-3.5 text-[#336699]" />
           Project template
         </button>
-        <button onClick={onCreateContractTemplate} className="flex items-center gap-2 px-3 py-2 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded-lg transition-colors w-full">
-          <FileText className="w-4 h-4 text-[#A3A6AE]" />
+        <button onClick={onCreateContractTemplate} className="flex items-center gap-2 px-3 py-1.5 text-[#A3A6AE] text-sm font-normal text-left hover:bg-[#282B34] rounded transition-colors w-full">
+          <FileText className="w-3.5 h-3.5 text-[#336699]" />
           Contract template
         </button>
       </div>

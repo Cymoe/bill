@@ -13,6 +13,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../common/PageHeader';
 import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
+import { NewButton } from '../common/NewButton';
 
 type Invoice = {
   id: string;
@@ -212,6 +213,13 @@ export const InvoiceList: React.FC = () => {
         onFilter={() => setShowFilterMenu(!showFilterMenu)}
         onMenu={() => setIsMenuOpen(!isMenuOpen)}
         searchPlaceholder="Search invoices by number..."
+        actionButton={
+          <NewButton
+            label="New Invoice"
+            onClick={() => setShowNewModal(true)}
+            color="blue"
+          />
+        }
       />
       {/* Filter Menu */}
       {showFilterMenu && (

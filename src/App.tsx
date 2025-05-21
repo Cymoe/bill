@@ -10,8 +10,8 @@ import { ProductsPage } from './components/products/ProductsPage';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
-import { PackagesPage } from './components/packages/PackagesPage';
-import { LandingPage } from '@/components/LandingPage';
+// Packages page removed as part of simplification
+import { LandingPage } from './components/LandingPage';
 import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
@@ -19,6 +19,7 @@ import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 import LineItemTestPage from './pages/LineItemTestPage';
 import ProductCardViewDemo from './components/products/ProductCardViewDemo';
+import ProductVariantsDemo from './pages/ProductVariantsDemo';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-steel-blue"></div>
       </div>
     );
   }
@@ -91,6 +92,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/products/variants"
+        element={
+          <ProtectedRoute>
+            <ProductVariantsDemo />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/products/new"
         element={
           <ProtectedRoute>
@@ -130,14 +139,7 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/packages"
-        element={
-          <ProtectedRoute>
-            <PackagesPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Packages route removed as part of simplification */}
       <Route
         path="/bills"
         element={

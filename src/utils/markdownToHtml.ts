@@ -1,117 +1,104 @@
 export function markdownToHtml(markdown: string): string {
-  if (!markdown) return '';
+  // Remove trailing whitespace and normalize line endings
+  markdown = markdown.trim().replace(/\r\n/g, '\n');
 
-  // Process inline markdown first
-  let html = processInlineMarkdown(markdown);
-
-  // Split into blocks
-  const blocks = html.split(/\n\s*\n/);
-  const processedBlocks = blocks.map(block => {
-    let content = block.trim();
-
-    // Skip if block is empty
-    if (!content) return '';
-
-    // Convert code blocks
-    if (content.match(/^```[\s\S]+```$/)) {
-      content = content.replace(/^```\n?|\n?```$/g, '').trim();
-      return `<pre><code>${content}</code></pre>`;
-    }
-
-    // Convert headings
-    const headingMatch = content.match(/^(#{1,6})\s+(.+)$/);
-    if (headingMatch) {
-      const level = headingMatch[1].length;
-      return `<h${level}>${headingMatch[2]}</h${level}>`;
-    }
-
-    // Convert blockquotes
-    if (content.startsWith('> ')) {
-      content = content.replace(/^>\s+/gm, '');
-      return `<blockquote><p>${content}</p></blockquote>`;
-    }
-
-    // Convert lists
-    if (content.match(/^[-*]|\d+\./m)) {
-      const lines = content.split('\n');
-      let inList = false;
-      let listType = '';
-      let currentIndent = 0;
-      let result = '';
-      let listStack: Array<{ type: string; indent: number }> = [];
-
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const match = line.match(/^(\s*)([-*]|\d+\.)\s(.+)/);
-        if (match) {
-          const [, indent, marker, text] = match;
-          const indentLevel = indent.length;
-          const isOrdered = /\d+\./.test(marker);
-          const newListType = isOrdered ? 'ol' : 'ul';
-
-          if (!inList) {
-            inList = true;
-            listType = newListType;
-            result += `<${listType}>`;
-            listStack.push({ type: listType, indent: indentLevel });
-          } else if (indentLevel > currentIndent) {
-            result = result.replace(/<\/li>$/, ''); // Remove the last closing li tag
-            result += `<${newListType}>`;
-            listStack.push({ type: newListType, indent: indentLevel });
-          } else if (indentLevel < currentIndent) {
-            while (listStack.length > 0 && listStack[listStack.length - 1].indent > indentLevel) {
-              const lastList = listStack.pop();
-              if (lastList) {
-                result += `</li></${lastList.type}>`;
-              }
-            }
-            result += '</li>';
-          } else if (i > 0) {
-            result += '</li>';
-          }
-
-          currentIndent = indentLevel;
-          result += `<li>${text}`;
-        }
-      }
-
-      // Close all remaining tags
-      if (inList) {
-        result += '</li>';
-        while (listStack.length > 0) {
-          const lastList = listStack.pop();
-          if (lastList) {
-            result += `</${lastList.type}>`;
-          }
-        }
-      }
-
-      return result;
-    }
-
-    // Regular paragraph
-    return `<p>${content}</p>`;
+  // Process code blocks first to avoid parsing markdown inside them
+  markdown = markdown.replace(/```([^`]+)```/g, (_, code) => {
+    return `<pre><code>${code.trim()}</code></pre>`;
   });
 
-  return processedBlocks.filter(block => block).join('');
+  // Process blockquotes
+  markdown = markdown.replace(/^> (.+)$/gm, (_, quote) => {
+    return `<blockquote><p>${processInline(quote.trim())}</p></blockquote>`;
+  });
+
+  // Process headings
+  markdown = markdown.replace(/^(#{1,6}) (.+)$/gm, (_, hashes, content) => {
+    const level = hashes.length;
+    return `<h${level}>${content.trim()}</h${level}>`;
+  });
+
+  // Process lists
+  markdown = processLists(markdown);
+
+  // Process paragraphs and inline elements
+  const paragraphs = markdown
+    .split(/\n\n+/)
+    .filter(p => p.trim())
+    .map(p => {
+      if (!p.startsWith('<')) {
+        return `<p>${processInline(p.trim())}</p>`;
+      }
+      return p;
+    });
+
+  return paragraphs.join('');
 }
 
-function processInlineMarkdown(text: string): string {
-  let html = text;
+function processInline(text: string): string {
+  // Process inline code
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-  // Convert inline code
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Process bold
+  text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/__([^_]+)__/g, '<strong>$1</strong>');
 
-  // Convert bold
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/__([^_]+)__/g, '<strong>$1</strong>');
+  // Process italic
+  text = text.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
 
-  // Convert italic
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // Process links
+  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
 
-  // Convert links
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+  return text;
+}
 
-  return html;
+function processLists(markdown: string): string {
+  const listRegex = /^([ ]*)([-*+]|\d+\.) (.+)$/gm;
+  let matches = [...markdown.matchAll(listRegex)];
+
+  if (matches.length === 0) return markdown;
+
+  let currentLevel = 0;
+  let listType = '';
+  let result = '';
+  let inList = false;
+
+  matches.forEach((match, index) => {
+    const [fullMatch, indent, marker, content] = match;
+    const level = indent.length;
+    const isOrdered = /\d+\./.test(marker);
+    const newListType = isOrdered ? 'ol' : 'ul';
+
+    // Start a new list
+    if (!inList) {
+      listType = newListType;
+      result += `<${listType}>`;
+      inList = true;
+    }
+
+    // Handle level changes
+    if (level > currentLevel) {
+      result += `<${newListType}>`;
+    } else if (level < currentLevel) {
+      result += `</${listType}>`;
+    } else if (listType !== newListType) {
+      result += `</${listType}><${newListType}>`;
+      listType = newListType;
+    }
+
+    result += `<li>${processInline(content)}</li>`;
+    currentLevel = level;
+
+    // Close lists at the end
+    if (index === matches.length - 1) {
+      while (currentLevel >= 0) {
+        result += `</${listType}>`;
+        currentLevel -= 2;
+      }
+    }
+  });
+
+  // Replace the original list text with the processed HTML
+  return markdown.replace(/(?:^[ ]*(?:[-*+]|\d+\.) .+\n?)+/gm, result);
 } 

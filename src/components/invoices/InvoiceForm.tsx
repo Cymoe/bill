@@ -179,7 +179,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
           <button
             onClick={() => setStep('template')}
-            className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 text-left"
+            className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-steel-blue dark:hover:border-steel-blue text-left"
           >
             <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               Use a Template
@@ -191,7 +191,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
           <button
             onClick={() => setStep('create')}
-            className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400 text-left"
+            className="p-6 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-steel-blue dark:hover:border-steel-blue text-left"
           >
             <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               Create from Scratch
@@ -255,7 +255,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             <button
               key={template.id}
               onClick={() => handleTemplateSelect(template)}
-              className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-blue-500 dark:hover:border-blue-400"
+              className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:border-steel-blue dark:hover:border-steel-blue"
             >
               <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                 Template {template.id}

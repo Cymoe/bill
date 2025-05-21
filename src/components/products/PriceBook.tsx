@@ -131,6 +131,47 @@ export const PriceBook = () => {
     }
   };
 
+  // Function to filter products by trade
+  const filterByTrade = (products: Product[], tradeId: string) => {
+    if (tradeId === 'all') return products;
+    
+    return products.filter(product => {
+      // Check direct trade_id
+      if (product.trade_id === tradeId) {
+        return true;
+      }
+      
+      // Check nested trades object
+      if (product.trades && product.trades.id === tradeId) {
+        return true;
+      }
+      
+      // Check nested trade object
+      if (product.trade && typeof product.trade === 'object' && product.trade.id === tradeId) {
+        return true;
+      }
+      
+      return false;
+    });
+  };
+  
+  // Calculate counts for each category based on the selected trade only
+  // This is a separate calculation from the filtered products display
+  const getCategoryCounts = useMemo(() => {
+    // First filter by trade only (if a trade is selected)
+    const tradeFilteredProducts = filterByTrade(products, selectedTrade);
+    
+    // Calculate the counts for each category regardless of which tab is active
+    return {
+      all: tradeFilteredProducts.length,
+      material: tradeFilteredProducts.filter(p => p.type === 'material').length,
+      labor: tradeFilteredProducts.filter(p => p.type === 'labor').length,
+      equipment: tradeFilteredProducts.filter(p => p.type === 'equipment').length,
+      service: tradeFilteredProducts.filter(p => p.type === 'service').length,
+      subcontractor: tradeFilteredProducts.filter(p => p.type === 'subcontractor').length
+    };
+  }, [products, selectedTrade]);
+
   const filteredProducts = useMemo(() => {
     console.log('Filtering products...');
     console.log('Current state:', {
@@ -148,29 +189,9 @@ export const PriceBook = () => {
 
     // Filter by trade
     if (selectedTrade !== 'all') {
-      filtered = filtered.filter(product => {
-        // Check direct trade_id
-        if (product.trade_id === selectedTrade) {
-          return true;
-        }
-        
-        // Check nested trades object
-        if (product.trades && product.trades.id === selectedTrade) {
-          return true;
-        }
-        
-        // Check nested trade object
-        if (product.trade && typeof product.trade === 'object' && product.trade.id === selectedTrade) {
-          return true;
-        }
-        
-        return false;
-      });
-      
+      filtered = filterByTrade(filtered, selectedTrade);
       console.log('Products after trade filter:', filtered.length);
     }
-    
-    console.log('Products after trade filter:', filtered.length);
 
     // Filter by category
     if (activeCategory !== 'all') {
@@ -353,67 +374,32 @@ export const PriceBook = () => {
             { 
               id: 'all', 
               label: 'All', 
-              count: products.filter(p => {
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.all
             },
             { 
               id: 'material', 
               label: 'Material', 
-              count: products.filter(p => {
-                if (p.type !== 'material') return false;
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.material
             },
             { 
               id: 'labor', 
               label: 'Labor', 
-              count: products.filter(p => {
-                if (p.type !== 'labor') return false;
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.labor
             },
             { 
               id: 'equipment', 
               label: 'Equipment', 
-              count: products.filter(p => {
-                if (p.type !== 'equipment') return false;
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.equipment
             },
             { 
               id: 'service', 
               label: 'Service', 
-              count: products.filter(p => {
-                if (p.type !== 'service') return false;
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.service
             },
             { 
               id: 'subcontractor', 
               label: 'Subcontractor', 
-              count: products.filter(p => {
-                if (p.type !== 'subcontractor') return false;
-                if (selectedTrade === 'all') return true;
-                return p.trade_id === selectedTrade || 
-                       (p.trades && p.trades.id === selectedTrade) || 
-                       (p.trade && typeof p.trade === 'object' && p.trade.id === selectedTrade);
-              }).length 
+              count: getCategoryCounts.subcontractor
             },
           ]}
           activeItemId={activeCategory}
