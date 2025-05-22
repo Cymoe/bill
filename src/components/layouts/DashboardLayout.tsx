@@ -422,7 +422,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <button 
                       onClick={() => {
                         setIsCreateMenuOpen(false);
-                        setIsLineItemModalOpen(true);
+                        setShowLineItemDrawer(true);
                       }}
                       className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
                     >
