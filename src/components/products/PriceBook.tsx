@@ -244,13 +244,7 @@ export const PriceBook = () => {
       <div className="space-y-0">
         <PageHeader
           title="Price Book"
-          subtitle="Manage all your pricing items in one place"
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          showSearch
-          onFilter={() => setShowFilterMenu(!showFilterMenu)}
-          searchPlaceholder="Search pricing items by name, type, or price range..."
-          onMenu={() => setMenuOpen(!menuOpen)}
+          hideTitle={true}
         />
         
         {/* Trade Dropdown */}

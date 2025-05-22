@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import { 
-  LayoutDashboard, 
-  Users, 
-  FileText, 
+import {
+  LayoutDashboard,
+  Users,
+  FileText,
   FileStack,
   Menu,
   X,
@@ -28,6 +28,7 @@ import { LineItemModal } from '../modals/LineItemModal';
 import ProductForm from '../products/ProductForm';
 import { supabase } from '../../lib/supabase';
 import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
+import { useProductDrawer } from '../../contexts/ProductDrawerContext';
 // NewPackageModal import removed as part of simplification
 
 interface SidebarItem {
@@ -95,6 +96,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [industryDropdownOpen, setIndustryDropdownOpen] = useState(false);
   const industryDropdownRef = useRef<HTMLDivElement>(null);
   const [globalSearch, setGlobalSearch] = useState('');
+  const [showNewProjectDrawer, setShowNewProjectDrawer] = useState(false);
+  const { openProductDrawer } = useProductDrawer();
 
   // Mock organizations
   const mockOrgs = [
@@ -283,8 +286,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   return (
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
-        {/* Top Navbar - fixed, full-width for desktop */}
-        <div className="hidden md:flex fixed top-0 left-64 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999]">
+        {/* Top Navbar - fixed, full-width for desktop and mobile */}
+        <div className="flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-64 left-0">
+          {/* Mobile Menu Toggle - Only visible on mobile */}
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden flex items-center justify-center text-gray-400 hover:text-white"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
           <div className="flex items-center">
             <h1 className="text-xl font-bold text-white">
               {(() => {
@@ -300,15 +310,32 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               })()}
             </h1>
           </div>
-          
-          {/* Top Navbar - Line Item button */}
+
+          {/* Top Navbar - Context-aware Add Button */}
           <div className="relative flex items-center">
             <button
-              onClick={() => setShowLineItemDrawer(true)}
+              onClick={() => {
+                const path = window.location.pathname;
+                if (path.startsWith('/clients')) setShowNewClientModal(true);
+                else if (path.startsWith('/products')) openProductDrawer();
+                else if (path.startsWith('/invoices')) setShowNewInvoiceDrawer(true);
+                else if (path.startsWith('/projects')) setShowNewProjectDrawer(true);
+                else setShowLineItemDrawer(true);
+              }}
               className="flex items-center text-[#A3A6AE] hover:text-white transition-colors"
             >
               <Plus className="w-4 h-4 mr-2" />
-              Line Item
+              {(() => {
+                const path = window.location.pathname;
+                if (path.startsWith('/products')) return 'Product';
+                if (path.startsWith('/invoices')) return 'Invoice';
+                if (path.startsWith('/projects')) return 'Project';
+                if (path.startsWith('/clients')) return 'Client';
+                if (path.startsWith('/packages')) return 'Package';
+                if (path.startsWith('/pricebooks')) return 'Price Book';
+                if (path.startsWith('/contracts')) return 'Contract';
+                return 'Item';
+              })()}
             </button>
           </div>
         </div>
@@ -328,7 +355,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
 
           {/* Search bar */}
-          <div className="p-4 border-b border-[#333333]">
+          <div className="p-4 border-b border-[#333333] relative">
             <div className="bg-[#1E1E1E] rounded-md flex items-center px-4 py-3">
               <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -340,75 +367,77 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 onChange={e => setGlobalSearch(e.target.value)}
                 className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
               />
-              <div className="text-[#336699] relative">
-                <button 
+              <div className="text-[#336699]">
+                <button
                   ref={createButtonRef}
                   onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-                  className="flex items-center justify-center"
+                  className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-[#333333] transition-colors"
+                  aria-label="Create new item"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m6 0H6"></path>
                   </svg>
                 </button>
-                
-                {/* Create Dropdown Menu */}
-                {isCreateMenuOpen && (
-                  <div 
-                    ref={createDropdownRef}
-                    className="absolute top-full right-0 mt-1 z-50 shadow-lg"
-                  >
-                    <CreateDropdown 
-                      onCreateLineItem={() => {
-                        setIsCreateMenuOpen(false);
-                        setIsLineItemModalOpen(true);
-                      }}
-                      onCreateClient={() => {
-                        setIsCreateMenuOpen(false);
-                        setShowNewClientModal(true);
-                      }}
-                      onCreateProject={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle project creation
-                      }}
-                      onCreateInvoice={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle invoice creation
-                      }}
-                      onCreateProduct={() => {
-                        setIsCreateMenuOpen(false);
-                        setIsProductModalOpen(true);
-                      }}
-                      onCreatePackage={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle package creation
-                      }}
-                      onCreatePriceBookTemplate={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle price book template creation
-                      }}
-                      onCreateProjectTemplate={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle project template creation
-                      }}
-                      onCreateContractTemplate={() => {
-                        setIsCreateMenuOpen(false);
-                        // Handle contract template creation
-                      }}
-                    />
-                  </div>
-                )}
               </div>
             </div>
+            
+            {/* Create Dropdown Menu - Positioned within sidebar */}
+            {isCreateMenuOpen && (
+              <div 
+                ref={createDropdownRef}
+                className="absolute left-4 right-4 top-[60px] z-50 bg-[#121212] border border-[#333333] rounded-md shadow-lg"
+              >
+                <CreateDropdown
+                  onCreateLineItem={() => {
+                    setIsCreateMenuOpen(false);
+                    setIsLineItemModalOpen(true);
+                  }}
+                  onCreateClient={() => {
+                    setIsCreateMenuOpen(false);
+                    setShowNewClientModal(true);
+                  }}
+                  onCreateProject={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle project creation
+                  }}
+                  onCreateInvoice={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle invoice creation
+                  }}
+                  onCreateProduct={() => {
+                    setIsCreateMenuOpen(false);
+                    setIsProductModalOpen(true);
+                  }}
+                  onCreatePackage={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle package creation
+                  }}
+                  onCreatePriceBookTemplate={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle price book template creation
+                  }}
+                  onCreateProjectTemplate={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle project template creation
+                  }}
+                  onCreateContractTemplate={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle contract template creation
+                  }}
+                />
+              </div>
+            )}
+          </div>
           </div>
 
           {/* Grid navigation */}
           <div className="px-2 pt-2 grid grid-cols-2 gap-1">
             {/* Dashboard */}
-            <NavLink 
-              to="/dashboard" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -423,11 +452,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
 
             {/* Clients */}
-            <NavLink 
-              to="/clients" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/clients"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -442,11 +471,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
 
             {/* Projects */}
-            <NavLink 
-              to="/projects" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/projects"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -461,11 +490,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
 
             {/* Invoices */}
-            <NavLink 
-              to="/invoices" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/invoices"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -480,11 +509,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
 
             {/* Products */}
-            <NavLink 
-              to="/products" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/products"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -499,11 +528,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
 
             {/* Price Book */}
-            <NavLink 
-              to="/price-book" 
-              className={({ isActive }) => 
-                isActive 
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]" 
+            <NavLink
+              to="/price-book"
+              className={({ isActive }) =>
+                isActive
+                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -517,7 +546,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               )}
             </NavLink>
           </div>
-          
+
           {/* Quick Stats Section */}
           <div className="mt-4 mx-2">
             <h3 className="text-gray-400 text-xs uppercase font-medium mb-2 px-1">QUICK STATS</h3>
@@ -532,7 +561,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="text-white text-xl font-bold">5</div>
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <div className="text-gray-400 text-xs">This Month</div>
@@ -545,7 +574,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
           </div>
-          
+
           <div className="mt-auto border-t border-gray-700">
             {/* Dropdown Menu */}
             {isProfileMenuOpen && (
@@ -601,12 +630,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className="ml-2 p-1 rounded-full hover:bg-gray-800 transition-colors duration-200"
               >
-                <ChevronUp 
-                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`} 
+                <ChevronUp
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
                 />
               </button>
             </div>
@@ -631,15 +660,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
         {/* Main Content - margin left for sidebar only */}
-        <div className="flex-1 md:ml-64 pt-16 px-0 bg-[#121212]">
-          {children}
+        <div className={`flex-1 ${location.pathname.startsWith('/products') ? 'md:ml-[8.5rem] pt-[3.5rem]' : 'md:ml-64 pt-16'} px-0 bg-[#121212]`}>
+          {/* Render children with setTriggerNewProduct prop if possible */}
+          <div className="h-full w-full -mt-16 pt-16 -ml-0 px-0">
+            {children}
+          </div>
         </div>
-        {/* Mobile Menu Toggle - Removed from top */}
-        
+
         {/* Mobile Navigation Menu - Notion Style */}
-        <div className={`md:hidden fixed inset-0 z-10 ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
+        <div className={`md:hidden fixed inset-0 z-[10000] ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-[#121212] overflow-y-auto">
+          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-[#121212] overflow-y-auto z-[10001]">
             {/* Mobile Header with Close Button */}
             <div className="flex items-center justify-between p-4 border-b border-gray-800">
               <span className="text-lg font-medium text-white">Menu</span>
@@ -647,67 +678,197 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
-            {/* Organization Selector */}
-            <div className="p-4 border-b border-gray-800">
-              <div className="flex items-center">
-                <div className="bg-blue-600 rounded-full w-10 h-10 flex items-center justify-center text-white font-bold mr-3">
-                  A
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-white font-medium">{selectedOrg.name}</span>
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+
+            {/* Organization header */}
+            <div className="p-4 border-b border-[#333333]">
+              <div className="bg-[#1E1E1E] rounded-md p-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#336699] text-white w-12 h-12 rounded-md flex items-center justify-center text-2xl font-bold">
+                    A
                   </div>
-                  <p className="text-xs text-gray-400">View and switch organizations</p>
+                  <span className="text-white text-xl font-medium">ACME CO</span>
                 </div>
+                <ChevronDown className="text-[#336699] w-5 h-5" />
               </div>
             </div>
-            
+
             {/* Search Bar */}
-            <div className="p-4 border-b border-gray-800">
-              <div className="flex items-center bg-[#232323] rounded-md px-3 py-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            <div className="p-4 border-b border-[#333333]">
+              <div className="bg-[#1E1E1E] rounded-md flex items-center px-4 py-3">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search"
-                  className="bg-transparent border-none w-full text-sm text-white focus:outline-none ml-2"
+                  placeholder="Search or create..."
+                  value={globalSearch}
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
                 />
+                <div className="text-[#336699] relative">
+                  <button
+                    onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+                    className="flex items-center justify-center"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m6 0H6"></path>
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
-            
-            {/* Main Navigation */}
-            <div className="p-4 border-b border-gray-800">
-              {sidebarItems.map((section, sectionIdx) => (
-                <div key={section.title} className={sectionIdx > 0 ? 'mt-6' : ''}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
+
+            {/* Grid navigation - Mobile version */}
+            <div className="px-2 pt-2 grid grid-cols-2 gap-1">
+              {/* Dashboard */}
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                  </>
+                )}
+              </NavLink>
+
+              {/* Clients */}
+              <NavLink
+                to="/clients"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                  </>
+                )}
+              </NavLink>
+
+              {/* Projects */}
+              <NavLink
+                to="/projects"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                  </>
+                )}
+              </NavLink>
+
+              {/* Invoices */}
+              <NavLink
+                to="/invoices"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                  </>
+                )}
+              </NavLink>
+
+              {/* Products */}
+              <NavLink
+                to="/products"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                  </>
+                )}
+              </NavLink>
+
+              {/* Price Book */}
+              <NavLink
+                to="/price-book"
+                className={({ isActive }) =>
+                  isActive
+                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                }
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {({ isActive }) => (
+                  <>
+                    <div className="mb-0.5">
+                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
+                    </div>
+                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                  </>
+                )}
+              </NavLink>
+            </div>
+
+            {/* Quick Stats Section - Mobile */}
+            <div className="mt-4 mx-2">
+              <h3 className="text-gray-400 text-xs uppercase font-medium mb-2 px-1">QUICK STATS</h3>
+              <div className="bg-[#1E1E1E] rounded-md p-3">
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  <div>
+                    <div className="text-gray-400 text-xs">Active Projects</div>
+                    <div className="text-white text-xl font-bold">12</div>
                   </div>
-                  <div className="space-y-1">
-                    {section.items.map((item, itemIdx) => (
-                      <NavLink
-                        key={itemIdx}
-                        to={item.to}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className={({ isActive }) =>
-                          `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                            isActive || item.highlighted
-                              ? 'text-blue-500 bg-[#232323]'
-                              : 'text-gray-400 hover:text-white hover:bg-[#232323]'
-                          }`
-                        }
-                      >
-                        {item.icon && <item.icon className="w-5 h-5 mr-3" />}
-                        {item.label}
-                      </NavLink>
-                    ))}
+                  <div>
+                    <div className="text-gray-400 text-xs">Pending Invoices</div>
+                    <div className="text-white text-xl font-bold">5</div>
                   </div>
                 </div>
-              ))}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="text-gray-400 text-xs">This Month</div>
+                    <div className="text-[#2ECC71] text-xl font-bold">$24,500</div>
+                  </div>
+                  <div>
+                    <div className="text-gray-400 text-xs">Clients</div>
+                    <div className="text-white text-xl font-bold">28</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            
+
             {/* Secondary Navigation Sections */}
             {sidebarItems.map((section, idx) => (
               <div key={section.title} className="p-4 border-b border-gray-800">
@@ -742,7 +903,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
               </div>
             ))}
-            
+
             {/* User Section */}
             <div className="p-4 border-t border-gray-800 mt-auto">
               <div className="flex items-center">
@@ -777,11 +938,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             />
           </div>
         )}
-        {/* Package Modal removed as part of simplification */}
         {/* New Line Item Drawer */}
         {showLineItemDrawer && (
           <div className="fixed inset-0 z-[11000] flex justify-end">
-            <div 
+            <div
               className="absolute inset-0 bg-black transition-opacity duration-300 opacity-50"
               onClick={() => {
                 setIsClosingLineItemDrawer(true);
@@ -794,8 +954,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             <div
               className={
                 `md:w-full md:max-w-md
-                transition-transform duration-300 ease-out 
-                bg-white dark:bg-gray-800 
+                transition-transform duration-300 ease-out
+                bg-white dark:bg-gray-800
                 shadow-xl
                 overflow-hidden
                 h-full
@@ -834,7 +994,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             />
           </div>
         )}
-        
+        {/* New Project Drawer */}
+        {showNewProjectDrawer && (
+          <div className="fixed inset-0 z-[11000]">
+            {/* TODO: Replace with your actual NewProjectModal component */}
+            <div className="flex items-center justify-center h-full">
+              <div className="bg-[#232635] p-8 rounded shadow-xl text-white">
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-xl font-bold">New Project (Placeholder)</h2>
+                  <button onClick={() => setShowNewProjectDrawer(false)} className="text-gray-400 hover:text-white">✕</button>
+                </div>
+                <p>Replace this with your actual NewProjectModal or ProjectForm component.</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mobile Create Button - Floating Action Button */}
         <div className="md:hidden">
           <button

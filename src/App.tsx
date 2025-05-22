@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -6,7 +6,7 @@ import { Dashboard } from './components/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { PriceBook } from './components/price-book/PriceBook';
-import { ProductsPage } from './components/products/ProductsPage';
+import { ProductsPage, Product } from './components/products/ProductsPage';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
@@ -20,6 +20,9 @@ import { ProjectList, ProjectForm, ProjectDetails } from './components/projects'
 import LineItemTestPage from './pages/LineItemTestPage';
 import ProductCardViewDemo from './components/products/ProductCardViewDemo';
 import ProductVariantsDemo from './pages/ProductVariantsDemo';
+import { ProductDrawerContext } from './contexts/ProductDrawerContext';
+import { DashboardLayout } from './components/layouts/DashboardLayout';
+import MarkdownViewer from './components/docs/MarkdownViewer';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -42,6 +45,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, session, isLoading } = useAuth();
+  const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
 
   // If we have a user and session, redirect to dashboard from root
   const renderLanding = () => {
@@ -79,7 +83,11 @@ function AppRoutes() {
         path="/products"
         element={
           <ProtectedRoute>
-            <ProductsPage />
+            <ProductDrawerContext.Provider value={{ openProductDrawer: () => setEditingProduct('new') }}>
+              <DashboardLayout>
+                <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
+              </DashboardLayout>
+            </ProductDrawerContext.Provider>
           </ProtectedRoute>
         }
       />
@@ -157,7 +165,12 @@ function AppRoutes() {
         }
       />
       
-      {/* Catch all */}
+      {/* Documentation routes - publicly accessible */}
+      <Route
+        path="/docs/:filename"
+        element={<MarkdownViewer />}
+      />
+      
       {/* Project routes */}
       <Route
         path="/projects"

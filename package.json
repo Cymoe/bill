@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "node scripts/copy-docs.js && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "seed": "tsx scripts/seed.ts",
-    "test": "jest"
+    "test": "jest",
+    "watch-docs": "node scripts/watch-docs.js"
   },
   "dependencies": {
     "@floating-ui/react-dom": "^2.1.2",
@@ -49,6 +50,7 @@
     "@types/testing-library__jest-dom": "^5.14.9",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "chokidar": "^4.0.3",
     "dotenv": "^16.4.5",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",

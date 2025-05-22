@@ -6,7 +6,6 @@ import {
   Building2,
   CheckCircle2,
   CreditCard,
-  DollarSign,
   FileText,
   LineChart,
   Settings,
@@ -39,10 +38,24 @@ export const LandingPage = () => {
       {/* Navigation */}
       <nav className="flex justify-between items-center p-4 md:p-6">
         <div className="flex items-center space-x-2">
-          <DollarSign className="h-6 w-6 text-blue-600" />
-          <span className="text-xl font-bold">BillBreeze</span>
+          <Building2 className="h-6 w-6 text-blue-600" style={{ color: '#336699' }} />
+          <span className="text-xl font-bold text-gray-900">BillBreeze</span>
         </div>
-        <AuthButtons />
+        <div className="flex items-center space-x-6">
+          <a 
+            href="/docs/construction-saas-user-feedback" 
+            className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+          >
+            Insights
+          </a>
+          <a 
+            href="/docs/product-roadmap" 
+            className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+          >
+            Roadmap
+          </a>
+          <AuthButtons />
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -71,6 +84,43 @@ export const LandingPage = () => {
           </div>
         </div>
 
+        {/* Industry Insights Section */}
+        <div className="mt-24 bg-white p-8 rounded-lg border border-gray-300 shadow-md">
+          <div className="flex flex-col md:flex-row items-center justify-between">
+            <div className="mb-6 md:mb-0 md:mr-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Industry Insights</h2>
+              <p className="text-gray-800 mb-4 font-medium">
+                Discover what construction professionals are really asking for in their software solutions. 
+                Our research reveals the key pain points and feature requests that major SaaS companies are missing.
+              </p>
+              <a 
+                href="/docs/construction-saas-user-feedback" 
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Read the Research
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </a>
+            </div>
+            <div className="bg-white p-5 rounded-lg border border-gray-300 shadow-sm max-w-md">
+              <h3 className="font-bold text-gray-900 mb-3 text-lg">Top User Requests:</h3>
+              <ul className="space-y-3">
+                <li className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-800 font-medium">Seamless field-to-office communication</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-800 font-medium">Simplified user experience for smaller contractors</span>
+                </li>
+                <li className="flex items-start">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <span className="text-gray-800 font-medium">Better integration between operational systems</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
         {/* Features Grid */}
         <div className="grid md:grid-cols-3 gap-8 mt-24">
           <FeatureCard
@@ -106,8 +156,8 @@ export const LandingPage = () => {
         </div>
 
         {/* Benefits Section */}
-        <div className="mt-24">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose BillBreeze?</h2>
+        <div className="mt-24 bg-white p-8 rounded-lg border border-gray-300 shadow-md">
+          <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Why Choose BillBreeze?</h2>
           <div className="space-y-6">
             <BenefitRow
               icon={<CheckCircle2 className="h-6 w-6 text-green-500" />}
@@ -147,10 +197,10 @@ const FeatureCard = ({
   title: string;
   description: string;
 }) => (
-  <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+  <div className="p-6 bg-white rounded-lg shadow-sm border border-gray-300 hover:shadow-md transition-shadow">
     <div className="mb-4">{icon}</div>
-    <h3 className="text-xl font-semibold mb-2">{title}</h3>
-    <p className="text-gray-600">{description}</p>
+    <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+    <p className="text-gray-800">{description}</p>
   </div>
 );
 
@@ -166,8 +216,8 @@ const BenefitRow = ({
   <div className="flex items-start space-x-4">
     <div className="flex-shrink-0">{icon}</div>
     <div>
-      <h3 className="font-semibold">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+      <h3 className="font-bold text-gray-900 text-lg mb-1">{title}</h3>
+      <p className="text-gray-800">{description}</p>
     </div>
   </div>
 ); 

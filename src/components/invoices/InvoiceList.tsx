@@ -205,21 +205,7 @@ export const InvoiceList: React.FC = () => {
   return (
     <DashboardLayout>
       <PageHeader
-        title="Invoices"
-        subtitle="Manage all your invoices in one place"
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-        showSearch
-        onFilter={() => setShowFilterMenu(!showFilterMenu)}
-        onMenu={() => setIsMenuOpen(!isMenuOpen)}
-        searchPlaceholder="Search invoices by number..."
-        actionButton={
-          <NewButton
-            label="New Invoice"
-            onClick={() => setShowNewModal(true)}
-            color="blue"
-          />
-        }
+        hideTitle={true}
       />
       {/* Filter Menu */}
       {showFilterMenu && (

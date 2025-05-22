@@ -11,11 +11,7 @@ export const TemplateList: React.FC = () => {
     <DashboardLayout>
       <PageHeader
         title="Templates"
-        subtitle="Manage all your templates in one place"
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-        onFilter={() => setShowFilter(true)}
-        onMenu={() => setShowMenu(true)}
+        hideTitle={true}
       />
       {/* ...rest of the page... */}
     </DashboardLayout>

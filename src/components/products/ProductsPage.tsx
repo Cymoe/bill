@@ -14,7 +14,7 @@ import { PageHeader } from '../common/PageHeader';
 import { NewButton } from '../common/NewButton';
 
 // Product type
-interface Product {
+export type Product = {
   id: string;
   name: string;
   description: string;
@@ -55,7 +55,13 @@ interface SaveData {
 
 // Category colors moved to utility functions for better maintainability
 
-export const ProductsPage = () => {
+// Accept editingProduct and setEditingProduct as props
+export interface ProductsPageProps {
+  editingProduct: Product | 'new' | null;
+  setEditingProduct: (p: Product | 'new' | null) => void;
+}
+
+export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPageProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
@@ -64,29 +70,10 @@ export const ProductsPage = () => {
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true); // Used in fetchProducts
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
   const [isClosingDrawer, setIsClosingDrawer] = useState(false);
   const [selectedVariantProduct, setSelectedVariantProduct] = useState<Product | null>(null);
   const [showVariantComparison, setShowVariantComparison] = useState(false);
-  
-  // Handle closing the product form drawer with animation
-  const handleCloseProductForm = () => {
-    setIsClosingDrawer(true);
-    setTimeout(() => {
-      setEditingProduct(null);
-      setIsClosingDrawer(false);
-    }, 300); // Match the animation duration in tailwind.config.js
-  };
-  
-  // Handle closing the variant comparison drawer with animation
-  const handleCloseVariantComparison = () => {
-    setIsClosingDrawer(true);
-    setTimeout(() => {
-      setSelectedVariantProduct(null);
-      setShowVariantComparison(false);
-      setIsClosingDrawer(false);
-    }, 300);
-  };
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('all');
   const [selectedVariantFilter, setSelectedVariantFilter] = useState('all'); // 'all', 'with-variants', or 'without-variants'
@@ -110,30 +97,23 @@ export const ProductsPage = () => {
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Helper function to get the label for the current sort option
-  const getSortLabel = (sortOption: string): string => {
-    switch (sortOption) {
-      case 'name-asc':
-        return 'Name';
-      case 'price-desc':
-        return 'Price (High-Low)';
-      case 'price-asc':
-        return 'Price (Low-High)';
-      case 'most-used':
-        return 'Most Used';
-      case 'created-desc':
-        return 'Recently Used';
-      case 'created-asc':
-        return 'Oldest First';
-      default:
-        return 'Recently Used';
-    }
+  // Handle closing the product form drawer with animation
+  const handleCloseProductForm = () => {
+    setIsClosingDrawer(true);
+    setTimeout(() => {
+      setEditingProduct(null);
+      setIsClosingDrawer(false);
+    }, 300); // Match the animation duration in tailwind.config.js
   };
 
-  // Get the name of the selected trade
-  const getSelectedTradeName = () => {
-    if (selectedCategory === 'all') return `All Trades (${trades.length})`;
-    return trades.find(t => t.id === selectedCategory)?.name || 'All Trades';
+  // Handle closing the variant comparison drawer with animation
+  const handleCloseVariantComparison = () => {
+    setIsClosingDrawer(true);
+    setTimeout(() => {
+      setSelectedVariantProduct(null);
+      setShowVariantComparison(false);
+      setIsClosingDrawer(false);
+    }, 300);
   };
 
   useEffect(() => {
@@ -150,9 +130,9 @@ export const ProductsPage = () => {
         .from('products')
         .select('id, name, unit, price, type, trade:trades(name)')
         .order('name', { ascending: true });
-      
+
       if (error) throw error;
-      
+
       console.log('Fetched line items:', data);
       setLineItems((data || []).map((li: any) => ({
         ...li,
@@ -162,7 +142,7 @@ export const ProductsPage = () => {
       console.error('Error fetching line items:', error);
     }
   };
-  
+
   // Fetch trades from the database
   const fetchTrades = async () => {
     try {
@@ -170,9 +150,9 @@ export const ProductsPage = () => {
         .from('trades')
         .select('*')
         .order('name', { ascending: true });
-      
+
       if (error) throw error;
-      
+
       console.log('Fetched trades:', data);
       setTrades(data || []);
     } catch (error) {
@@ -219,17 +199,17 @@ export const ProductsPage = () => {
         .from('product_line_items')
         .select('*');
       if (pliError) throw pliError;
-      
+
       // Attach line items to each product
       const productsWithItems = (productsData || []).map((product) => ({
         ...product,
         items: pliData.filter((pli) => pli.product_id === product.id)
       }));
-      
+
       // Separate base products and variants
       const baseProducts = productsWithItems.filter(p => p.is_base_product === true);
       const variants = productsWithItems.filter(p => p.is_base_product === false && p.parent_product_id);
-      
+
       // Group variants by their parent product
       const baseProductsWithVariants = baseProducts.map(baseProduct => {
         const productVariants = variants.filter(v => v.parent_product_id === baseProduct.id);
@@ -238,15 +218,15 @@ export const ProductsPage = () => {
           variants: productVariants
         };
       });
-      
+
       // Add standalone products (those without variants) to the list
       const standaloneProducts = productsWithItems.filter(
         p => p.is_base_product !== true && !p.parent_product_id
       );
-      
+
       // Combine base products with variants and standalone products
       const allProducts = [...baseProductsWithVariants, ...standaloneProducts];
-      
+
       setProducts(allProducts);
       console.log('Fetched products:', allProducts.length);
     } catch (err) {
@@ -263,7 +243,7 @@ export const ProductsPage = () => {
       <p className="text-white text-lg font-['Roboto']">Loading products...</p>
     </div>
   );
-  
+
   // Empty state component
   const EmptyState = () => (
     <div className="flex flex-col items-center justify-center py-20 px-4">
@@ -272,8 +252,8 @@ export const ProductsPage = () => {
       </div>
       <h3 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase mb-2">No products found</h3>
       <p className="text-gray-400 text-center max-w-md mb-6 font-['Roboto']">Try adjusting your filters or create your first product to get started.</p>
-      <button 
-        onClick={() => setEditingProduct('new')} 
+      <button
+        onClick={() => setEditingProduct('new')}
         className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
       >
         <span className="text-lg">+</span> New Product
@@ -284,29 +264,29 @@ export const ProductsPage = () => {
   // Filter products based on search term, category, product type, and price range
   const filteredProducts = products.filter(product => {
     // Filter by search term
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+
     // Filter by category (trade)
     const matchesCategory = selectedCategory === 'all' || product.trade_id === selectedCategory;
-    
+
     // Product type filter removed as part of simplification
     const matchesProductType = true; // Always true since we simplified the product approach
-    
+
     // Filter by variant filter
-    const matchesVariantFilter = 
-      selectedVariantFilter === 'all' || 
+    const matchesVariantFilter =
+      selectedVariantFilter === 'all' ||
       (selectedVariantFilter === 'with-variants' && product.variants && product.variants.length > 0) ||
       (selectedVariantFilter === 'without-variants' && (!product.variants || product.variants.length === 0));
-    
+
     // Filter by price range
     const matchesPriceMin = !priceMin || (product.price && product.price >= priceMin);
     const matchesPriceMax = !priceMax || (product.price && product.price <= priceMax);
-    
+
     return matchesSearch && matchesCategory && matchesProductType && matchesVariantFilter && matchesPriceMin && matchesPriceMax;
   });
-  
+
   // Helper functions for UI elements
   const getVariantColor = (variant: any) => {
     if (variant.variant_name?.toLowerCase().includes('premium')) return 'bg-[#336699] opacity-90';
@@ -314,7 +294,7 @@ export const ProductsPage = () => {
     if (variant.variant_name?.toLowerCase().includes('medium')) return 'bg-[#336699] opacity-70';
     return 'bg-[#336699] opacity-50';
   };
-  
+
   const getCategoryEmoji = (category?: string) => {
     switch (category?.toLowerCase()) {
       case 'interior': return '🏠';
@@ -324,22 +304,22 @@ export const ProductsPage = () => {
       default: return '📦';
     }
   };
-  
+
   // Handle actions
   const handleDelete = (product: Product) => {
     setDeletingProduct(product);
   };
-  
+
   const handleExportToCSV = () => {
     // Implementation for exporting to CSV
     console.log('Export to CSV');
   };
-  
+
   const handleImportItems = () => {
     // Implementation for importing items
     console.log('Import items');
   };
-  
+
   const handlePrintPriceBook = () => {
     // Implementation for printing price book
     console.log('Print price book');
@@ -347,28 +327,13 @@ export const ProductsPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full w-full p-0 m-0 overflow-hidden">
         <PageHeader
-          title="Products"
-          subtitle="Manage all your products in one place"
-          actionButton={
-            <NewButton
-              label="New Product"
-              onClick={() => setEditingProduct('new')}
-              color="blue"
-            />
-          }
+          hideTitle={true}
         />
-        <div className="flex items-center justify-end px-4 py-4">
-          <button 
-            onClick={() => setEditingProduct('new')} 
-            className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
-          >
-            <span className="text-lg">+</span> New Product
-          </button>
-        </div>
+        {/* Removed duplicate New Product button */}
         {/* Mobile filter and sort options - only visible on mobile */}
-        <div className="md:hidden flex flex-col space-y-4 mt-4 px-2 sm:px-4">
+        <div className="md:hidden flex flex-col space-y-4 mt-4 px-0 w-full">
           <div className="flex flex-col sm:flex-row sm:justify-between gap-2 sm:gap-4">
             {/* Product Filter - Mobile */}
             <div className="w-full relative">
@@ -383,34 +348,34 @@ export const ProductsPage = () => {
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
-            
+
             {/* Collapse Variants Toggle - Mobile */}
             <div className="w-full flex items-center justify-between px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white">
               <span>Collapse Variants</span>
               <label className="inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
                   checked={collapseVariants}
                   onChange={() => setCollapseVariants(!collapseVariants)}
                 />
                 <div className="relative w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#336699] rounded peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded after:h-5 after:w-5 after:transition-all peer-checked:bg-[#336699]"></div>
               </label>
             </div>
-            
+
             {/* Category Filter Dropdown - Mobile */}
             <div className="w-full relative" ref={categoryMenuRef}>
-              <button 
+              <button
                 className="w-full flex items-center justify-between px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white"
                 onClick={() => setShowCategoryMenu(!showCategoryMenu)}
               >
                 <span className="truncate">{selectedCategory === 'all' ? `All Trades (${trades.length})` : trades.find(t => t.id === selectedCategory)?.name || 'All Trades'}</span>
                 <ChevronDown size={16} />
               </button>
-              
+
               {showCategoryMenu && (
                 <div className="absolute right-0 top-12 bg-[#333333] rounded shadow-lg z-10 py-0.5 border border-gray-600 min-w-[180px]">
-                  <button 
+                  <button
                     className="w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2"
                     onClick={() => {
                       setSelectedCategory('all');
@@ -420,7 +385,7 @@ export const ProductsPage = () => {
                     All Trades ({trades.length})
                   </button>
                   {trades.map(tradeItem => (
-                    <button 
+                    <button
                       className={`w-full text-left px-4 py-3 text-white hover:bg-gray-600 flex items-center gap-2 ${selectedCategory === tradeItem.id ? 'bg-[#336699]' : ''}`}
                       onClick={() => {
                         setSelectedCategory(tradeItem.id);
@@ -434,7 +399,7 @@ export const ProductsPage = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="relative">
               <input
                 type="text"
@@ -444,7 +409,7 @@ export const ProductsPage = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            
+
             <button
               className="flex items-center gap-2 px-4 py-2 bg-[#333333] border border-gray-700 rounded text-white hover:bg-gray-700"
               onClick={() => setShowFilter(true)}
@@ -452,7 +417,7 @@ export const ProductsPage = () => {
               <Filter size={16} />
               <span>Filter</span>
             </button>
-            
+
             <div className="relative" ref={optionsMenuRef}>
               <button
                 className="p-2 bg-[#333333] border border-gray-700 rounded text-white hover:bg-gray-700"
@@ -460,11 +425,11 @@ export const ProductsPage = () => {
               >
                 <MoreVertical size={20} />
               </button>
-              
+
               {showOptionsMenu && (
                 <div className="absolute right-0 top-12 w-48 bg-[#333333] rounded shadow-lg z-10 py-0.5 border border-gray-600">
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2"
                     onClick={() => {
                       setShowOptionsMenu(false);
                       handleImportItems();
@@ -473,8 +438,8 @@ export const ProductsPage = () => {
                     <Upload size={16} className="text-gray-400" />
                     Import items
                   </button>
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2"
                     onClick={() => {
                       setShowOptionsMenu(false);
                       handleExportToCSV();
@@ -483,8 +448,8 @@ export const ProductsPage = () => {
                     <Download size={16} className="text-gray-400" />
                     Export to CSV
                   </button>
-                  <button 
-                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2" 
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:bg-gray-600 flex items-center gap-2"
                     onClick={() => {
                       setShowOptionsMenu(false);
                       handlePrintPriceBook();
@@ -498,9 +463,9 @@ export const ProductsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Category and Subcategory Selectors - hidden on mobile */}
-        <div className="hidden md:block px-4 pt-4 pb-2">
+        <div className="hidden md:block px-0 py-0 w-full mt-0">
           <div className="flex items-center gap-3">
             <div className="relative max-w-xs">
               <select
@@ -523,25 +488,25 @@ export const ProductsPage = () => {
             {/* Second dropdown removed to simplify the filtering process */}
           </div>
         </div>
-        
+
         {/* View Mode Toggle */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 px-0 w-full mt-0">
             {/* View Mode Toggles */}
             <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
-              <button 
+              <button
                 className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewMode('list')}
               >
                 List
               </button>
-              <button 
+              <button
                 className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewMode('cards')}
               >
                 Cards
               </button>
             </div>
-            
+
             {/* Product Type Filter */}
             <div className="relative">
               <select
@@ -555,14 +520,14 @@ export const ProductsPage = () => {
               </select>
               <ChevronDown size={16} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
-            
+
             {/* Collapse Variants Toggle */}
             <div className="flex items-center gap-2 bg-[#333333] px-3 py-2 border border-gray-700 rounded">
               <span className="text-sm text-white">Collapse Variants</span>
               <label className="inline-flex items-center cursor-pointer">
-                <input 
-                  type="checkbox" 
-                  className="sr-only peer" 
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
                   checked={collapseVariants}
                   onChange={() => setCollapseVariants(!collapseVariants)}
                 />
@@ -570,10 +535,10 @@ export const ProductsPage = () => {
               </label>
             </div>
         </div>
-        
+
         {/* Product Grid - List View */}
         {viewMode === 'list' && (
-          <div className="px-2 sm:px-4 py-4">
+          <div className="px-0 py-2 w-full">
             {isLoading ? (
               <LoadingIndicator />
             ) : filteredProducts.length === 0 ? (
@@ -583,7 +548,7 @@ export const ProductsPage = () => {
                 {filteredProducts.map(product => (
                   <div key={product.id} className="bg-[#121212] rounded overflow-hidden">
                     {/* Base Product Header - Entire row clickable */}
-                    <div 
+                    <div
                       className="bg-[#333333] p-4 flex justify-between items-center cursor-pointer hover:bg-[#1E1E1E] transition-colors"
                       onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
                     >
@@ -593,9 +558,9 @@ export const ProductsPage = () => {
                           <h2 className="text-xl font-bold text-white">{product.name}</h2>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-gray-400 text-sm">
-                              {product.trade?.name || 'General'} • 
-                              {product.variants && product.variants.length > 0 ? 
-                                <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> : 
+                              {product.trade?.name || 'General'} •
+                              {product.variants && product.variants.length > 0 ?
+                                <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> :
                                 <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
                               }
                             </span>
@@ -603,7 +568,7 @@ export const ProductsPage = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -624,7 +589,7 @@ export const ProductsPage = () => {
                         >
                           + Add Variant
                         </button>
-                        <button 
+                        <button
                           className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors flex items-center gap-2"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -638,16 +603,16 @@ export const ProductsPage = () => {
                         </button>
                       </div>
                     </div>
-                    
+
                     {/* Variants List - Only shown when expanded and not collapsed */}
                     {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
                       <div className="p-4 space-y-2 relative">
                         {/* Vertical connecting line */}
                         <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#336699] opacity-70"></div>
-                        
+
                         {product.variants.map((variant: any, idx: number) => (
-                          <div 
-                            key={variant.id} 
+                          <div
+                            key={variant.id}
                             className="flex items-center justify-between p-4 border border-gray-700 rounded border-l-4 border-[#336699] cursor-pointer hover:bg-[#333333] transition-colors relative ml-4"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -657,7 +622,7 @@ export const ProductsPage = () => {
                           >
                             {/* Horizontal connecting line */}
                             <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
-                            
+
                             <div className="flex items-center gap-3">
                               <div className="w-4 h-4 rounded ${getVariantColor(variant.variant_name)} border-2 border-[#336699] flex items-center justify-center">
                                 <span className="text-[8px] text-white font-bold">{idx + 1}</span>
@@ -667,7 +632,7 @@ export const ProductsPage = () => {
                             </div>
                             <div className="flex items-center gap-4">
                               <span className="text-sm font-medium font-['Roboto_Condensed'] text-white font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
-                              <button 
+                              <button
                                 className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -696,11 +661,11 @@ export const ProductsPage = () => {
                         ))}
                       </div>
                     )}
-                    
+
                     {/* If this is a standalone product with no variants */}
                     {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
                       <div className="p-4">
-                        <div 
+                        <div
                           className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#333333] transition-colors rounded border-l-4 border-[#336699]"
                           onClick={() => navigate(`/products/edit/${product.id}`)}
                         >
@@ -709,7 +674,7 @@ export const ProductsPage = () => {
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="text-lg font-bold font-['Roboto_Condensed'] text-white">{formatCurrency(product.price || 0)}</span>
-                            <button 
+                            <button
                               className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -740,10 +705,10 @@ export const ProductsPage = () => {
             )}
           </div>
         )}
-        
+
         {/* Product Grid - Card View */}
         {viewMode === 'cards' && (
-          <div className="px-2 sm:px-4 py-4">
+          <div className="px-0 py-2 w-full">
             {isLoading ? (
               <LoadingIndicator />
             ) : filteredProducts.length === 0 ? (
@@ -751,8 +716,8 @@ export const ProductsPage = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map(product => (
-                  <div 
-                    key={product.id} 
+                  <div
+                    key={product.id}
                     className="bg-[#121212] rounded overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
                     onClick={() => navigate(`/products/edit/${product.id}`)}
                   >
@@ -761,9 +726,9 @@ export const ProductsPage = () => {
                         <div>
                           <h2 className="text-xl font-bold font-['Roboto_Condensed'] mb-1 text-white">{product.name}</h2>
                           <div className="text-sm text-gray-400 font-['Roboto'] font-['Roboto'] mb-2">
-                            {product.trade?.name || 'General'} • 
-                            {product.variants && product.variants.length > 0 ? 
-                              <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> : 
+                            {product.trade?.name || 'General'} •
+                            {product.variants && product.variants.length > 0 ?
+                              <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> :
                               <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
                             }
                           </div>
@@ -774,14 +739,14 @@ export const ProductsPage = () => {
                       </div>
                       <p className="text-sm text-gray-300 line-clamp-2">{product.description}</p>
                     </div>
-                    
+
                     {product.variants && product.variants.length > 0 ? (
                       <div className="p-3 bg-[#333333] border-b border-gray-700">
                         <div className="text-sm font-medium font-['Roboto_Condensed'] text-gray-300 mb-2">Available Variants:</div>
                         <div className="space-y-1.5">
                           {product.variants.map((variant: any, index: number) => (
-                            <div 
-                              key={index} 
+                            <div
+                              key={index}
                               className="flex justify-between items-center p-1 hover:bg-gray-700 rounded cursor-pointer transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -835,40 +800,31 @@ export const ProductsPage = () => {
                         </button>
                       </div>
                     )}
-                    
-                    <div className="p-3 bg-[#121212] flex space-x-2">
-                      <button
-                        className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
-                        onClick={() => setEditingProduct('new')}
-                      >
-                        <span className="text-lg">+</span> New Product
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
         )}
-        
+
         {/* Modals */}
         {deletingProduct && (
           <DeleteConfirmationModal
             title="Delete Product"
             message="Are you sure you want to delete this product? This action cannot be undone."
-            onConfirm={() => handleDelete(deletingProduct.id)}
+            onConfirm={() => handleDelete((deletingProduct as Product))}
             onCancel={() => setDeletingProduct(null)}
           />
         )}
-        
+
         {/* Edit/Create Product/Assembly Drawer */}
         {(editingProduct || editingProduct === 'new') && (
           <>
-            <div 
-              className="fixed inset-0 z-[60] bg-black bg-opacity-50" 
+            <div
+              className="fixed inset-0 z-[60] bg-black bg-opacity-50"
               onClick={handleCloseProductForm}
             />
-            <div 
+            <div
               className={`fixed inset-y-0 right-0 z-[70] w-full max-w-3xl bg-[#121212] shadow-xl transform transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'translate-x-full' : 'translate-x-0'}`}
             >
               <div className="p-4">
@@ -922,26 +878,28 @@ export const ProductsPage = () => {
                           status: 'published',
                           is_base_product: false
                         };
-                        
+
                         // If creating a variant, add parent product relationship
                         if (editingProduct && editingProduct !== 'new') {
+                          const productTyped = editingProduct as Product;
                           productData.is_base_product = false;
-                          if (editingProduct.category) productData.category = editingProduct.category;
+                          if (productTyped.category) productData.category = productTyped.category;
                         }
-                        
+
                         const { data: newProduct, error: productError } = await supabase
                           .from('products')
                           .insert([productData])
                           .select()
                           .single();
-                          
+
                         // If this is a variant, create the relationship in product_variants table
                         if (editingProduct && editingProduct !== 'new' && newProduct) {
-                          if (editingProduct.parent_product_id) {
+                          const productTyped = editingProduct as Product;
+                          if (productTyped.parent_product_id) {
                             const { error: variantError } = await supabase
                               .from('product_variants')
                               .insert([{
-                                parent_product_id: editingProduct.parent_product_id,
+                                parent_product_id: productTyped.parent_product_id,
                                 variant_product_id: newProduct.id,
                                 variant_name: data.name
                               }]);
@@ -976,7 +934,7 @@ export const ProductsPage = () => {
         <div className="mt-12 flex justify-center">
           <ProductOptionsDemo />
         </div>
-        
+
         {/* Product Comparison Modal */}
         {comparingProduct && (
           <ProductComparisonModal
@@ -984,16 +942,16 @@ export const ProductsPage = () => {
             onClose={() => setComparingProduct(null)}
           />
         )}
-        
+
         {/* Product Variant Comparison Drawer */}
         {showVariantComparison && selectedVariantProduct && (
           <div className={`fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end transition-opacity ${isClosingDrawer ? 'opacity-0' : 'opacity-100'}`}>
-            <div 
+            <div
               className={`bg-[#121212] w-full max-w-4xl overflow-y-auto transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'transform translate-x-full' : 'transform translate-x-0'}`}
             >
               <div className="sticky top-0 bg-[#121212] z-10 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-white">Compare {selectedVariantProduct.name} Variants</h2>
-                <button 
+                <button
                   onClick={handleCloseVariantComparison}
                   className="text-gray-400 hover:text-white"
                 >
@@ -1003,7 +961,7 @@ export const ProductsPage = () => {
                 </button>
               </div>
               <div className="p-6">
-                <ProductVariantComparison 
+                <ProductVariantComparison
                   baseProductId={selectedVariantProduct.id}
                   onSelectVariant={(variantId) => {
                     // Find the variant

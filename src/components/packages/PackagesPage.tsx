@@ -56,12 +56,7 @@ export const PackagesPage: React.FC = () => {
     <DashboardLayout>
       <PageHeader
         title="Packages"
-        subtitle="Manage all your service packages in one place"
-        searchValue={searchTerm}
-        onSearchChange={setSearchTerm}
-        showSearch={true}
-        onFilter={() => setShowFilter(!showFilter)}
-        searchPlaceholder="Search packages..."
+        hideTitle={true}
       />
       
       {showFilter && (

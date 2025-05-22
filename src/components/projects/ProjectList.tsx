@@ -34,7 +34,7 @@ export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  // Search functionality removed with duplicate header
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -80,32 +80,8 @@ export const ProjectList: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-0">
         <PageHeader
-          title="Projects"
-          subtitle="Manage all your projects in one place"
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          showSearch
-          searchPlaceholder="Search projects..."
-          onFilter={() => {}}
-          onMenu={() => navigate('/projects/new')}
-          actionButton={
-            <NewButton
-              label="New Project"
-              onClick={() => navigate('/projects/new')}
-              color="blue"
-            />
-          }
+          hideTitle={true}
         />
-        <div className="flex justify-end px-8 pt-4">
-          <button
-            type="button"
-            onClick={() => navigate('/projects/new')}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
-          >
-            <PlusIcon className="h-5 w-5" />
-            <span>New Project</span>
-          </button>
-        </div>
         <div className="mt-8 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
           <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
             <div className="overflow-hidden shadow rounded-lg bg-[#1e2532]">

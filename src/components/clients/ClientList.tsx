@@ -98,21 +98,7 @@ export const ClientList: React.FC = () => {
     <DashboardLayout>
       <div className="space-y-0">
         <PageHeader
-          title="Clients"
-          subtitle="Manage all your clients in one place"
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          showSearch
-          searchPlaceholder="Search clients..."
-          onFilter={() => {}}
-          onMenu={() => setShowNewModal(true)}
-          actionButton={
-            <NewButton
-              label="New Client"
-              onClick={() => setShowNewModal(true)}
-              color="blue"
-            />
-          }
+          hideTitle={true}
         />
 
         {/* Desktop list */}
