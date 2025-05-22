@@ -17,16 +17,11 @@ import {
   Plus,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   Box
 } from 'lucide-react';
-import { CreateDropdown } from '../common/CreateModal';
 import { NewClientModal } from '../clients/NewClientModal';
-import ProductModal from '../products/ProductModal';
-import { EditProductModal } from '../products/EditProductModal';
-import ProductAssemblyForm from '../products/ProductAssemblyForm';
-import { LineItemModal } from '../modals/LineItemModal';
 import ProductForm from '../products/ProductForm';
-import { supabase } from '../../lib/supabase';
 import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
 import { useProductDrawer } from '../../contexts/ProductDrawerContext';
 // NewPackageModal import removed as part of simplification
@@ -62,7 +57,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isLineItemModalOpen, setIsLineItemModalOpen] = useState(false);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showNewClientDrawer, setShowNewClientDrawer] = useState(false);
@@ -362,71 +357,209 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </svg>
               <input
                 type="text"
-                placeholder="Search or create..."
+                placeholder="Search..."
                 value={globalSearch}
                 onChange={e => setGlobalSearch(e.target.value)}
                 className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
               />
-              <div className="text-[#336699]">
-                <button
-                  ref={createButtonRef}
-                  onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-                  className="flex items-center justify-center w-6 h-6 rounded-full hover:bg-[#333333] transition-colors"
-                  aria-label="Create new item"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m6 0H6"></path>
-                  </svg>
-                </button>
-              </div>
+              {/* Plus button removed to separate search and create functionalities */}
             </div>
             
-            {/* Create Dropdown Menu - Positioned within sidebar */}
-            {isCreateMenuOpen && (
+            {/* Create button - with increased separation from search */}
+            <div className="w-full mt-6 mb-4">
+              <button
+                ref={createButtonRef}
+                onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+                className="w-full bg-[#336699] text-white rounded-md py-3 px-4 flex items-center justify-between hover:bg-[#2A5580] transition-colors"
+                aria-expanded={isCreateMenuOpen}
+                aria-haspopup="true"
+                id="create-button"
+              >
+                <div className="flex items-center">
+                  <Plus className="w-5 h-5 mr-2" />
+                  <span className="font-medium">Create new...</span>
+                </div>
+                <ChevronDown className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Create Menu - Drawer-style interaction */}
+            <div className="fixed inset-0 z-[9999] pointer-events-none">
+              {/* Drawer backdrop - only visible when open */}
+              <div 
+                className={`absolute inset-0 bg-black transition-opacity duration-300 ${isCreateMenuOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0'}`}
+                onClick={() => setIsCreateMenuOpen(false)}
+              />
+              
+              {/* Drawer panel */}
               <div 
                 ref={createDropdownRef}
-                className="absolute left-4 right-4 top-[60px] z-50 bg-[#121212] border border-[#333333] rounded-md shadow-lg"
+                className={`absolute inset-y-0 left-0 w-full max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transition-transform duration-300 ease-in-out transform ${isCreateMenuOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full'}`}
+                role="menu"
+                aria-orientation="vertical"
+                aria-labelledby="create-button"
+                tabIndex={-1}
               >
-                <CreateDropdown
-                  onCreateLineItem={() => {
-                    setIsCreateMenuOpen(false);
-                    setIsLineItemModalOpen(true);
-                  }}
-                  onCreateClient={() => {
-                    setIsCreateMenuOpen(false);
-                    setShowNewClientModal(true);
-                  }}
-                  onCreateProject={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle project creation
-                  }}
-                  onCreateInvoice={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle invoice creation
-                  }}
-                  onCreateProduct={() => {
-                    setIsCreateMenuOpen(false);
-                    setIsProductModalOpen(true);
-                  }}
-                  onCreatePackage={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle package creation
-                  }}
-                  onCreatePriceBookTemplate={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle price book template creation
-                  }}
-                  onCreateProjectTemplate={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle project template creation
-                  }}
-                  onCreateContractTemplate={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle contract template creation
-                  }}
-                />
+                  {/* Modal header with close button */}
+                  <div className="p-4 border-b border-[#2D3748] flex justify-between items-center">
+                    <div>
+                      <h2 className="text-xl font-medium text-white">Create New Item</h2>
+                      <p className="text-sm text-gray-400">Choose what you'd like to create</p>
+                    </div>
+                    <button 
+                      onClick={() => setIsCreateMenuOpen(false)}
+                      className="text-gray-400 hover:text-white transition-colors"
+                      aria-label="Close modal"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
+                  
+                  {/* Create New section */}
+                  <div className="border-b border-[#2D3748]">
+                    <h3 className="text-gray-400 text-sm font-medium p-4 pb-2">Create New</h3>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        setIsLineItemModalOpen(true);
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#F9D71C] mr-4 w-8 h-8 flex items-center justify-center">+</span>
+                      <div className="text-left">
+                        <div className="font-medium">Line Item</div>
+                        <div className="text-sm text-gray-400">Add individual service or product</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        setShowNewClientModal(true);
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <Users size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Client</div>
+                        <div className="text-sm text-gray-400">New customer or contact</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        setShowNewProjectDrawer(true);
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <FolderKanban size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Project</div>
+                        <div className="text-sm text-gray-400">Start a new project</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        setShowNewInvoiceDrawer(true);
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <FileText size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Invoice</div>
+                        <div className="text-sm text-gray-400">Create billing document</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        openProductDrawer();
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <FileStack size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Product</div>
+                        <div className="text-sm text-gray-400">Add to inventory</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                  </div>
+                  
+                  {/* Templates section */}
+                  <div>
+                    <h3 className="text-gray-400 text-sm font-medium p-4 pb-2">Templates</h3>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle price book template creation
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <Book size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Price book template</div>
+                        <div className="text-sm text-gray-400">Reusable pricing structure</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle project template creation
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <FolderKanban size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Project template</div>
+                        <div className="text-sm text-gray-400">Standard project layout</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                    
+                    <button 
+                      onClick={() => {
+                        setIsCreateMenuOpen(false);
+                        // Handle contract template creation
+                      }}
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors"
+                    >
+                      <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
+                        <FileText size={20} />
+                      </span>
+                      <div className="text-left">
+                        <div className="font-medium">Contract template</div>
+                        <div className="text-sm text-gray-400">Legal document template</div>
+                      </div>
+                      <ChevronRight className="ml-auto text-gray-400" size={20} />
+                    </button>
+                  </div>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Grid navigation */}
@@ -436,7 +569,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/dashboard"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -455,7 +588,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/clients"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -474,7 +607,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/projects"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -493,7 +626,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/invoices"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -512,7 +645,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/products"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -531,7 +664,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/price-book"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -699,7 +832,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </svg>
                 <input
                   type="text"
-                  placeholder="Search or create..."
+                  placeholder="Search..."
                   value={globalSearch}
                   onChange={e => setGlobalSearch(e.target.value)}
                   className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
@@ -724,7 +857,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/dashboard"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -744,7 +877,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/clients"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -764,7 +897,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/projects"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -784,7 +917,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/invoices"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -804,7 +937,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/products"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -824,7 +957,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/price-book"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#0D47A1] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
                     : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -880,17 +1013,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   )}
                 </div>
                 <div className="space-y-1">
-                  {section.items.map((item, itemIdx) => (
+                  {section.items.map((item, index) => (
                     <NavLink
-                      key={`${section.title}-${itemIdx}`}
+                      key={`${section.title}-${index}`}
                       to={item.to}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={({ isActive }) =>
                         `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
                           item.isAction
-                            ? 'text-blue-500'
+                            ? 'text-[#336699]'
                             : isActive || item.highlighted
-                            ? 'text-blue-500 bg-[#232323]'
+                            ? 'text-[#336699] bg-[#232323]'
                             : 'text-gray-400 hover:text-white hover:bg-[#232323]'
                         }`
                       }
@@ -972,7 +1105,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     setIsClosingLineItemDrawer(false);
                   }, 300);
                 }}
-                onSubmit={async (data) => {
+                onSubmit={async () => {
                   setIsClosingLineItemDrawer(true);
                   setTimeout(() => {
                     setShowLineItemDrawer(false);
@@ -1018,6 +1151,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             aria-label="Create new"
           >
             <Plus className="w-7 h-7 text-white" />
+          </button>
+        </div>
+        
+        {/* Mobile Floating Action Button (FAB) */}
+        <div className="md:hidden fixed right-4 bottom-4 z-50">
+          <button
+            onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+            className="w-14 h-14 rounded-full bg-[#336699] text-white flex items-center justify-center shadow-lg hover:bg-[#2A5580] transition-colors"
+            aria-label="Create new item"
+          >
+            <Plus className="w-6 h-6" />
           </button>
         </div>
       </div>

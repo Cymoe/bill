@@ -25,7 +25,7 @@ export const CreateDropdown: React.FC<CreateDropdownProps> = ({
   onCreateContractTemplate
 }) => {
   return (
-    <div className="w-[240px] bg-[#121212] rounded-md p-2 flex flex-col max-h-[80vh] overflow-y-auto shadow-lg">
+    <div className="w-full bg-[#121212] p-2 flex flex-col overflow-y-auto">
       {/* Section: Line Item */}
       <div className="mb-2">
         <button 
