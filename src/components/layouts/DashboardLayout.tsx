@@ -428,7 +428,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             )}
           </div>
-          </div>
 
           {/* Grid navigation */}
           <div className="px-2 pt-2 grid grid-cols-2 gap-1">
