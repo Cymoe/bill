@@ -45,43 +45,53 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg rounded-xl bg-[#1A1F2C] p-6 shadow-xl">
-        <h2 className="mb-6 text-2xl font-semibold text-white">New Line Item</h2>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <div className="fixed inset-0 z-[10000] flex md:justify-end">
+      <div 
+        className="absolute inset-0 bg-black transition-opacity duration-300 z-[10000] opacity-50"
+        onClick={onClose}
+      />
+      <div className="fixed w-full md:w-1/2 lg:w-2/5 bg-[#121212] shadow-xl overflow-hidden top-0 bottom-0 right-0 h-full z-[10001]">
+        <div className="flex justify-between items-center p-4 border-b border-[#333333] bg-[#121212] sticky top-0 z-10">
+          <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">New Line Item</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-[#F9D71C]">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#121212]">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" id="line-item-form">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-400">
-              Name
+            <label htmlFor="name" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
+              Item Name
             </label>
             <input
               {...register('name', { required: 'Name is required' })}
               type="text"
               id="name"
-              className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white placeholder-gray-400"
+              className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
               placeholder="Enter name"
             />
             {errors.name && (
-              <p className="mt-1 text-sm text-red-500">{errors.name.message as string}</p>
+              <p className="mt-1 text-sm text-[#D32F2F] font-['Roboto']">{errors.name.message as string}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-400">
+            <label htmlFor="description" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
               Description
             </label>
             <textarea
               {...register('description')}
               id="description"
               rows={3}
-              className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white placeholder-gray-400"
+              className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white p-3 font-['Roboto']"
               placeholder="Enter description"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="price" className="block text-sm font-medium text-gray-400">
+              <label htmlFor="price" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                 Price
               </label>
               <input
@@ -95,79 +105,76 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
                 })}
                 type="text"
                 id="price"
-                className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white placeholder-gray-400"
+                className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto_Mono']"
                 placeholder="0.00"
               />
               {errors.price && (
-                <p className="mt-1 text-sm text-red-500">{errors.price.message as string}</p>
+                <p className="mt-1 text-sm text-[#D32F2F] font-['Roboto']">{errors.price.message as string}</p>
               )}
             </div>
 
             <div>
-              <label htmlFor="unit" className="block text-sm font-medium text-gray-400">
+              <label htmlFor="unit" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                 Unit
               </label>
               <select
-                {...register('unit', { required: 'Unit is required' })}
+                {...register('unit')}
                 id="unit"
-                className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white"
+                className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
               >
                 {UNIT_OPTIONS.map(option => (
-                  <option key={option.value} value={option.value}>
+                  <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                     {option.label}
                   </option>
                 ))}
               </select>
-              {errors.unit && (
-                <p className="mt-1 text-sm text-red-500">{errors.unit.message as string}</p>
-              )}
             </div>
+            {errors.unit && (
+              <p className="mt-1 text-sm text-red-500">{errors.unit.message as string}</p>
+            )}
           </div>
 
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-gray-400">
+            <label htmlFor="type" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
               Type
             </label>
             <select
-              {...register('type', { required: 'Type is required' })}
+              {...register('type')}
               id="type"
-              className="mt-1 block w-full rounded-lg bg-white/8 p-2.5 text-white"
+              className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
             >
               {PRODUCT_TYPE_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                   {option.label}
                 </option>
               ))}
             </select>
-            {errors.type && (
-              <p className="mt-1 text-sm text-red-500">{errors.type.message as string}</p>
-            )}
           </div>
+          {errors.type && (
+            <p className="mt-1 text-sm text-[#D32F2F] font-['Roboto']">{errors.type.message as string}</p>
+          )}
+          </form>
+        </div>
 
-          <div className="flex justify-end space-x-4">
+        <div className="border-t border-[#333333] p-4 bg-[#121212] sticky bottom-0 z-10 mt-auto">
+          <div className="grid grid-cols-2 gap-4">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-lg bg-gray-600 px-4 py-2 text-white hover:bg-gray-700"
+              className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium uppercase tracking-wider h-10"
             >
               Cancel
             </button>
             <button
               type="submit"
+              form="line-item-form"
               disabled={isLoading}
-              className="rounded-lg bg-blue-500 px-4 py-2 text-white hover:bg-blue-600 disabled:opacity-50"
+              className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 disabled:opacity-50 font-['Roboto'] font-medium uppercase tracking-wider h-10"
             >
               {isLoading ? 'Saving...' : 'Save'}
             </button>
           </div>
-        </form>
-
-        <button
-          onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-white"
-        >
-          <X className="h-6 w-6" />
-        </button>
+        </div>
       </div>
     </div>
   );

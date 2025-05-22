@@ -55,9 +55,9 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex md:justify-end">
+    <div className="fixed inset-0 z-[10000] flex md:justify-end">
       <div 
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-black transition-opacity duration-300 z-[10000] ${
           isClosing ? 'opacity-0' : 'opacity-50'
         }`}
         onClick={handleClose}
@@ -65,72 +65,71 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
       
       <div 
         className={`
-          fixed w-full
+          fixed w-full md:w-1/2 lg:w-2/5
           transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
+          bg-[#121212] 
           shadow-xl
           overflow-hidden
-          inset-x-0 bottom-0
-          h-full
-          md:relative md:w-full md:max-w-md
+          top-0 bottom-0 right-0 h-full
           transform
+          z-[10001]
           ${isClosing 
-            ? 'translate-y-full md:translate-y-0 md:translate-x-full' 
-            : 'translate-y-0 md:translate-x-0'
+            ? 'translate-x-full' 
+            : 'translate-x-0'
           }
         `}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Line Item</h2>
-            <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+          <div className="flex justify-between items-center p-4 border-b border-[#333333] bg-[#121212] sticky top-0 z-10">
+            <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">Edit Line Item</h2>
+            <button onClick={handleClose} className="p-2 text-gray-400 hover:text-[#F9D71C]">
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#121212]">
             <form id="product-form" onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
-                  <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+                <div className="p-4 bg-[#333333] border-l-4 border-[#D32F2F] rounded-[4px]">
+                  <p className="text-sm text-white font-['Roboto']">{error}</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                   Item Name
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                   Description
                 </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white p-3 font-['Roboto']"
                   rows={3}
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                   Price
                 </label>
                 <input
                   type="number"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto_Mono']"
                   min="0"
                   step="0.01"
                   required
@@ -138,17 +137,17 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                   Unit
                 </label>
                 <select
                   value={formData.unit}
                   onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
                   required
                 >
                   {UNIT_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                       {option.label}
                     </option>
                   ))}
@@ -156,17 +155,17 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">
                   Type
                 </label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3 font-['Roboto']"
                   required
                 >
                   {PRODUCT_TYPE_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>
+                    <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                       {option.label}
                     </option>
                   ))}
@@ -175,12 +174,12 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
             </form>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+          <div className="border-t border-[#333333] p-4 bg-[#121212] sticky bottom-0 z-10 mt-auto">
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium uppercase tracking-wider h-10"
                 disabled={loading}
               >
                 Cancel
@@ -188,7 +187,7 @@ export const EditLineItemModal: React.FC<EditLineItemModalProps> = ({
               <button
                 type="submit"
                 form="product-form"
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 disabled:opacity-50 font-['Roboto'] font-medium uppercase tracking-wider h-10"
                 disabled={loading}
               >
                 {loading ? 'Updating...' : 'Update Line Item'}
