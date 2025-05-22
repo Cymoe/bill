@@ -56,7 +56,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const [isLineItemModalOpen, setIsLineItemModalOpen] = useState(false);
+  // Line item modal replaced with drawer
   const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
@@ -250,7 +250,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   const sidebarItems: SidebarSection[] = [
     {
-      title: 'Main',
+      title: '',
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', to: '/dashboard' },
         { icon: Users, label: 'Clients', to: '/clients' },
@@ -258,14 +258,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         { icon: FileText, label: 'Invoices', to: '/invoices' },
         { icon: Book, label: 'Products', to: '/products' },
         { icon: Book, label: 'Price Book', to: '/price-book' },
-      ]
-    },
-    {
-      title: 'Views',
-      items: [
-        { icon: FileStack, label: 'All contracts', to: '/contracts/all' },
-        { icon: FileText, label: 'My contracts', to: '/contracts/my', highlighted: true },
-        { icon: X, label: 'Rejected', to: '/contracts/rejected' },
       ]
     },
   ];
@@ -384,22 +376,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
             
             {/* Create Menu - Drawer-style interaction */}
-            <div className="fixed inset-0 z-[9999] pointer-events-none">
-              {/* Drawer backdrop - only visible when open */}
-              <div 
-                className={`absolute inset-0 bg-black transition-opacity duration-300 ${isCreateMenuOpen ? 'opacity-50 pointer-events-auto' : 'opacity-0'}`}
-                onClick={() => setIsCreateMenuOpen(false)}
-              />
-              
-              {/* Drawer panel */}
-              <div 
-                ref={createDropdownRef}
-                className={`absolute inset-y-0 left-0 w-full max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transition-transform duration-300 ease-in-out transform ${isCreateMenuOpen ? 'translate-x-0 pointer-events-auto' : '-translate-x-full'}`}
-                role="menu"
-                aria-orientation="vertical"
-                aria-labelledby="create-button"
-                tabIndex={-1}
-              >
+            {isCreateMenuOpen && (
+              <div className="fixed inset-0 z-[9999]">
+                {/* Drawer backdrop - only visible when open */}
+                <div 
+                  className="absolute inset-0 bg-black bg-opacity-50"
+                  onClick={() => setIsCreateMenuOpen(false)}
+                />
+                
+                {/* Drawer panel - full screen on mobile, sidebar on desktop */}
+                <div 
+                  ref={createDropdownRef}
+                  className="absolute inset-y-0 left-0 w-full md:max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transform transition-transform duration-300 ease-in-out"
+                  role="menu"
+                  aria-orientation="vertical"
+                  aria-labelledby="create-button"
+                  tabIndex={-1}
+                >
                   {/* Modal header with close button */}
                   <div className="p-4 border-b border-[#2D3748] flex justify-between items-center">
                     <div>
@@ -558,8 +551,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       <ChevronRight className="ml-auto text-gray-400" size={20} />
                     </button>
                   </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Grid navigation */}
@@ -799,15 +793,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
 
-        {/* Mobile Navigation Menu - Notion Style */}
+        {/* Mobile Navigation Menu - Full Screen */}
         <div className={`md:hidden fixed inset-0 z-[10000] ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="fixed inset-y-0 left-0 max-w-xs w-full bg-[#121212] overflow-y-auto z-[10001]">
+          <div className="fixed inset-0 bg-black bg-opacity-90" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="fixed inset-0 w-full bg-[#121212] overflow-y-auto z-[10001]">
             {/* Mobile Header with Close Button */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-800">
-              <span className="text-lg font-medium text-white">Menu</span>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white">
-                <X className="h-5 w-5" />
+            <div className="flex items-center justify-between p-6 border-b border-[#2D3748]">
+              <span className="text-xl font-medium text-white">Menu</span>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                <X className="h-6 w-6" />
               </button>
             </div>
 
@@ -850,15 +844,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
 
-            {/* Grid navigation - Mobile version */}
-            <div className="px-2 pt-2 grid grid-cols-2 gap-1">
+            {/* Grid navigation - Mobile version (without section headers) */}
+            <div className="p-2 grid grid-cols-2 gap-2">
               {/* Dashboard */}
               <NavLink
                 to="/dashboard"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -877,8 +871,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/clients"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -897,8 +891,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/projects"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -917,8 +911,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/invoices"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -937,8 +931,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/products"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -957,8 +951,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 to="/price-book"
                 className={({ isActive }) =>
                   isActive
-                    ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
                 }
                 onClick={() => setIsMobileMenuOpen(false)}
               >
@@ -1001,11 +995,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
 
-            {/* Secondary Navigation Sections */}
-            {sidebarItems.map((section, idx) => (
+            {/* Secondary Navigation Sections (without headers on mobile) */}
+            {sidebarItems.map((section, _idx) => (
               <div key={section.title} className="p-4 border-b border-gray-800">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
+                {/* Section header hidden on mobile */}
+                <div className="hidden md:flex items-center justify-between mb-2">
+                  {section.title !== 'Main Navigation' && (
+                    <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
+                  )}
                   {section.badge && (
                     <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-900 text-green-300">
                       {section.badge}
@@ -1013,9 +1010,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   )}
                 </div>
                 <div className="space-y-1">
-                  {section.items.map((item, index) => (
+                  {section.items.map((item, itemIdx) => (
                     <NavLink
-                      key={`${section.title}-${index}`}
+                      key={`${section.title}-${item.to}-${itemIdx}`}
                       to={item.to}
                       onClick={() => setIsMobileMenuOpen(false)}
                       className={({ isActive }) =>
@@ -1142,26 +1139,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         )}
 
-        {/* Mobile Create Button - Floating Action Button */}
-        <div className="md:hidden">
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-[#232635] border border-[#2A3A8F] shadow-xl flex items-center justify-center text-white"
-            style={{ boxShadow: '0 4px 10px rgba(0, 0, 0, 0.3)' }}
-            aria-label="Create new"
-          >
-            <Plus className="w-7 h-7 text-white" />
-          </button>
-        </div>
+        {/* Mobile Create Button removed - using single FAB implementation */}
         
-        {/* Mobile Floating Action Button (FAB) */}
-        <div className="md:hidden fixed right-4 bottom-4 z-50">
+        {/* Mobile Floating Action Button (FAB) - Opens Creation Menu */}
+        <div className="md:hidden fixed right-4 bottom-4 z-[9990]">
           <button
-            onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-            className="w-14 h-14 rounded-full bg-[#336699] text-white flex items-center justify-center shadow-lg hover:bg-[#2A5580] transition-colors"
+            onClick={() => {
+              // Direct approach to ensure the menu opens
+              setIsCreateMenuOpen(true);
+            }}
+            className="w-14 h-14 rounded-full bg-[#F9D71C] text-[#121212] flex items-center justify-center shadow-lg hover:bg-[#E8C80F] transition-colors"
             aria-label="Create new item"
+            style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4), 0 0 0 2px rgba(51, 102, 153, 0.2)' }}
           >
-            <Plus className="w-6 h-6" />
+            <Plus className="w-6 h-6" strokeWidth={2.5} />
           </button>
         </div>
       </div>

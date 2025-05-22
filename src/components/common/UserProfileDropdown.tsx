@@ -27,31 +27,29 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogo
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-
-
   return (
     <div className="relative" ref={dropdownRef}>
       {/* Profile Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg p-2 transition-colors duration-200"
+        className="flex items-center space-x-3 hover:bg-[#1E1E1E] rounded-[4px] p-2 transition-colors duration-200"
       >
         {user?.user_metadata?.avatar_url ? (
           <img
             src={user?.user_metadata?.avatar_url || '/default-avatar.png'}
             alt={user?.user_metadata?.full_name || 'User'}
-            className="w-8 h-8 rounded-full border-2 border-gray-200 dark:border-gray-700"
+            className="w-8 h-8 rounded-full border-2 border-[#333333]"
           />
         ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-            <User className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          <div className="w-8 h-8 rounded-full bg-[#333333] flex items-center justify-center">
+            <User className="w-5 h-5 text-[#9E9E9E]" />
           </div>
         )}
         <div className="text-left hidden md:block">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <p className="text-sm font-medium text-white font-['Roboto']">
             {user?.user_metadata?.full_name || user?.email}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-[#9E9E9E] font-['Roboto']">
             {user?.email || ''}
           </p>
         </div>
@@ -59,13 +57,13 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogo
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-lg bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 py-2">
+        <div className="absolute bottom-full left-0 mb-2 w-56 rounded-[4px] bg-[#1E1E1E] shadow-lg border border-[#333333] py-2 z-[11000]">
           <button
             onClick={() => {
               navigate('/profile');
               setIsOpen(false);
             }}
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="flex items-center w-full px-4 py-2 text-sm text-white font-['Roboto'] hover:bg-[#333333] hover:text-[#F9D71C]"
           >
             <Settings className="w-4 h-4 mr-3" />
             Profile Settings
@@ -76,7 +74,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogo
               toggleTheme();
               setIsOpen(false);
             }}
-            className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="flex items-center w-full px-4 py-2 text-sm text-white font-['Roboto'] hover:bg-[#333333] hover:text-[#F9D71C]"
           >
             {theme === 'dark' ? (
               <Sun className="w-4 h-4 mr-3" />
@@ -86,7 +84,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogo
             {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
           </button>
 
-          <div className="my-2 border-t border-gray-200 dark:border-gray-700" />
+          <div className="my-2 border-t border-[#333333]" />
 
           <button
             onClick={() => {
@@ -97,10 +95,10 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ onLogo
               handleLogout();
               setIsOpen(false);
             }}
-            className="flex items-center w-full px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="flex items-center w-full px-4 py-2 text-sm text-[#D32F2F] font-['Roboto'] hover:bg-[#333333]"
           >
             <LogOut className="w-4 h-4 mr-3" />
-            Logout
+            Sign out
           </button>
         </div>
       )}

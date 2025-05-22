@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from "../../contexts/AuthContext";
-import { db } from "../../lib/database";
 import { ClientForm } from './ClientForm';
 import type { Tables } from '../../lib/database';
 
@@ -52,7 +51,7 @@ export const DesktopNewClientModal: React.FC<DesktopNewClientModalProps> = ({ on
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end">
+    <div className="fixed inset-0 z-[10000] flex justify-end">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'
@@ -64,7 +63,7 @@ export const DesktopNewClientModal: React.FC<DesktopNewClientModalProps> = ({ on
         className={`
           md:w-full md:max-w-md
           transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
+          bg-[#121212] 
           shadow-xl
           overflow-hidden
           h-full

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { Dropdown } from '../common/Dropdown';
 import { NewClientModal } from './NewClientModal';
@@ -10,8 +10,6 @@ import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { ClientInput } from '../../lib/database.types';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../common/PageHeader';
-import { NewButton } from '../common/NewButton';
 
 type Client = {
   id: string;
@@ -26,7 +24,8 @@ type Client = {
 
 export const ClientList: React.FC = () => {
   const { user } = useAuth();
-  const [searchTerm, setSearchTerm] = useState('');
+  // We'll keep searchTerm for filtering but remove the setter since it's not being used in the UI currently
+  const searchTerm = '';
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
@@ -96,59 +95,56 @@ export const ClientList: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-0">
-        <PageHeader
-          hideTitle={true}
-        />
+      <div className="space-y-0 bg-[#121212]">
 
         {/* Desktop list */}
         <div className="hidden md:block">
           {isLoading ? (
             <TableSkeleton rows={5} columns={4} />
           ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className="max-h-[calc(100vh-300px)] overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+            <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden">
+              <div className="max-h-[calc(100vh-100px)] overflow-y-auto">
+                <table className="min-w-full divide-y divide-[#333333]">
+                  <thead className="bg-[#1E1E1E] sticky top-0 z-10">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Company
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                        COMPANY
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Contact
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                        CONTACT
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Email
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                        EMAIL
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Phone
+                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                        PHONE
                       </th>
                       <th className="relative px-6 py-3">
                         <span className="sr-only">Actions</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  <tbody className="bg-[#121212] divide-y divide-[#333333]">
                     {filteredClients.map((client) => (
                       <tr key={client.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          <div className="text-sm font-medium text-[#FFFFFF] font-['Roboto']">
                             {client.company_name}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 dark:text-white">{client.name}</div>
+                          <div className="text-sm text-[#FFFFFF] font-['Roboto']">{client.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 dark:text-gray-300">{client.email}</div>
+                          <div className="text-sm text-[#9E9E9E] font-['Roboto']">{client.email}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-500 dark:text-gray-300">{client.phone}</div>
+                          <div className="text-sm text-[#9E9E9E] font-['Roboto_Mono'] font-medium">{client.phone}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <Dropdown
                             trigger={
-                              <button className="text-gray-400 hover:text-gray-500">
+                              <button className="text-[#9E9E9E] hover:text-[#F9D71C]">
                                 <MoreVertical className="w-5 h-5" />
                               </button>
                             }
@@ -160,7 +156,7 @@ export const ClientList: React.FC = () => {
                               {
                                 label: 'Delete',
                                 onClick: () => setDeletingClient(client),
-                                className: 'text-red-600 hover:text-red-700',
+                                className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]',
                               },
                             ]}
                           />
@@ -183,32 +179,32 @@ export const ClientList: React.FC = () => {
               <CardSkeleton />
             </>
           ) : (
-            <div className="space-y-4 pb-20">
+            <div className="space-y-4">
               {filteredClients.map((client) => (
                 <div
                   key={client.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
+                  className="bg-[#333333] rounded-[4px] shadow p-4 border-l-4 border-[#336699]"
                 >
                   <div className="flex justify-between">
                     <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">
+                      <h3 className="text-sm font-medium text-[#FFFFFF] font-['Roboto_Condensed'] uppercase">
                         {client.company_name}
                       </h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      <p className="text-xs text-[#9E9E9E] font-['Roboto'] mt-1">
                         {client.name}
                       </p>
-                      <span className="text-sm text-indigo-600 dark:text-indigo-400 mt-2 block">
+                      <span className="text-sm text-[#336699] mt-2 block font-['Roboto']">
                         {client.email}
                       </span>
                       {client.phone && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1 block">
+                        <span className="text-xs text-[#9E9E9E] mt-1 block font-['Roboto_Mono'] font-medium">
                           {client.phone}
                         </span>
                       )}
                     </div>
                     <Dropdown
                       trigger={
-                        <button className="ml-4 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                        <button className="ml-4 p-1 text-[#9E9E9E] hover:text-[#F9D71C]">
                           <MoreVertical className="w-5 h-5" />
                         </button>
                       }
@@ -220,7 +216,7 @@ export const ClientList: React.FC = () => {
                         {
                           label: 'Delete',
                           onClick: () => setDeletingClient(client),
-                          className: 'text-red-600 hover:text-red-700'
+                          className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
                         }
                       ]}
                     />

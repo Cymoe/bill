@@ -348,68 +348,68 @@ export const InvoiceList: React.FC = () => {
             {isLoading ? (
               <TableSkeleton rows={5} columns={7} />
             ) : (
-              <div className="bg-transparent shadow-[0_2px_8px_0_rgba(20,20,40,0.12)] border border-[#232635]">
-                <table className="min-w-full bg-transparent">
+              <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden border border-[#333333]">
+                <table className="min-w-full bg-[#121212]">
                   <thead>
-                    <tr className="bg-[#232635] sticky top-0 z-10">
-                      <th className="w-12 px-2 py-3 align-middle">
+                    <tr className="bg-[#1E1E1E] sticky top-0 z-10">
+                      <th className="w-12 px-3 py-4 align-middle">
                         <div className="flex items-center h-full">
                           <input
                             type="checkbox"
-                            className="form-checkbox h-4 w-4 text-[#6C6FE4] bg-transparent border-[#6C6FE4] rounded-sm"
+                            className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
                             checked={allSelected}
                             onChange={toggleSelectAll}
                           />
                         </div>
                       </th>
-                      <th className="text-left px-2 py-3 font-bold">INVOICE #</th>
-                      <th className="text-left px-2 py-3 font-bold">CLIENT</th>
-                      <th className="text-left px-2 py-3 font-bold">DATE</th>
-                      <th className="text-left px-2 py-3 font-bold">DUE</th>
-                      <th className="text-left px-2 py-3 font-bold">STATUS</th>
-                      <th className="text-right px-2 py-3 font-bold">AMOUNT</th>
-                      <th className="w-8 px-2 py-3"></th>
+                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">INVOICE #</th>
+                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">CLIENT</th>
+                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DATE</th>
+                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DUE</th>
+                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">STATUS</th>
+                      <th className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">AMOUNT</th>
+                      <th className="w-8 px-3 py-4"></th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-[#333333]">
                     {filteredInvoices.map((invoice) => (
                       <tr
                         key={invoice.id}
-                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232635]' : 'hover:bg-[#232635]/80'} cursor-pointer`}
+                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#1E1E1E]' : 'hover:bg-[#1E1E1E]'} cursor-pointer`}
                         onClick={() => toggleSelectRow(invoice.id)}
                       >
-                        <td className="px-2 py-3 align-middle">
+                        <td className="px-3 py-4 align-middle">
                           <div className="flex items-center h-full" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
-                              className="form-checkbox h-4 w-4 text-[#6C6FE4] bg-transparent border-[#6C6FE4] rounded-sm"
+                              className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
                               checked={selectedRows.includes(invoice.id)}
                               onChange={() => toggleSelectRow(invoice.id)}
                             />
                           </div>
                         </td>
-                        <td className="px-2 py-3 font-medium">{`INV-${invoice.id.slice(0, 8)}`}</td>
-                        <td className="px-2 py-3">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
-                        <td className="px-2 py-3">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                        <td className="px-2 py-3">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                        <td className="px-2 py-3">
+                        <td className="px-3 py-4 font-medium text-white font-['Roboto']">{`INV-${invoice.id.slice(0, 8)}`}</td>
+                        <td className="px-3 py-4 text-white font-['Roboto']">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
+                        <td className="px-3 py-4 text-white font-['Roboto']">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                        <td className="px-3 py-4 text-white font-['Roboto']">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                        <td className="px-3 py-4">
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center">
-                              <span className="w-5 h-5 bg-[#35384A] rounded-full flex items-center justify-center mr-2">
-                                <span className="block w-2 h-2 bg-[#6C6FE4] rounded-full"></span>
+                              <span className="w-5 h-5 bg-[#333333] rounded-[4px] flex items-center justify-center mr-2">
+                                <span className="block w-2 h-2 bg-[#336699] rounded-[4px]"></span>
                               </span>
-                              <span className="text-gray-400 text-sm">{invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}</span>
+                              <span className="text-white text-sm font-['Roboto']">{invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}</span>
                             </span>
                           </div>
                         </td>
-                        <td className="px-2 py-3 text-right font-bold">{formatCurrency(invoice.amount)}</td>
-                        <td className="px-2 py-3">
+                        <td className="px-3 py-4 text-right font-bold text-white font-['Roboto_Mono']">{formatCurrency(invoice.amount)}</td>
+                        <td className="px-3 py-4">
                           <div onClick={(e) => e.stopPropagation()}>
                             <Dropdown
                               trigger={
-                                <button>
+                                <button className="hover:text-[#F9D71C]">
                                   <span className="sr-only">Actions</span>
-                                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
                                 </button>
                               }
                               items={rowDropdownItems(invoice)}
@@ -425,23 +425,23 @@ export const InvoiceList: React.FC = () => {
             {/* Fixed bottom bulk actions bar */}
             {selectedRows.length > 0 && (
               <div
-                className="fixed bottom-0 z-50 bg-[#232635] border-t border-[#35384A] flex items-center px-8 py-4 gap-4 shadow-lg"
+                className="fixed bottom-0 z-50 bg-[#121212] border-t border-[#333333] flex items-center px-8 py-4 gap-4 shadow-lg"
                 style={{ left: 256, width: 'calc(100vw - 256px)' }}
               >
-                <span className="text-white font-medium">{selectedRows.length} invoice{selectedRows.length > 1 ? 's' : ''} selected</span>
-                <button className="bg-[#35384A] text-white font-medium rounded-md px-6 py-2">Finalize</button>
-                <button className="bg-[#35384A] text-white font-medium rounded-md px-6 py-2">Download</button>
-                <button className="bg-[#FF4B4B] text-white font-medium rounded-md px-6 py-2">Delete</button>
-                <button className="ml-auto text-[#6C6FE4] font-medium" onClick={() => setSelectedRows([])}>Clear</button>
+                <span className="text-white font-medium font-['Roboto']">{selectedRows.length} invoice{selectedRows.length > 1 ? 's' : ''} selected</span>
+                <button className="bg-[#336699] text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-opacity-80">Finalize</button>
+                <button className="bg-[#1E1E1E] border border-[#336699] border-opacity-40 text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-[#1E1E1E]">Download</button>
+                <button className="bg-[#D32F2F] text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-opacity-80">Delete</button>
+                <button className="ml-auto text-[#F9D71C] font-medium font-['Roboto'] hover:text-opacity-80" onClick={() => setSelectedRows([])}>Clear</button>
               </div>
             )}
           </div>
           <div className="flex-grow" />
           <div className="flex flex-col items-center mt-auto pb-8">
-            <div className="text-lg font-medium text-gray-400 mb-2">Ready to create more invoices?</div>
-            <div className="text-sm text-gray-500 mb-6">Use the "+ New Invoice" button to get started.</div>
+            <div className="text-lg font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">Ready to create more invoices?</div>
+            <div className="text-sm text-[#9E9E9E] mb-6 font-['Roboto']">Use the "+ New Invoice" button to get started.</div>
             <button
-              className="bg-[#232635] text-[#6C6FE4] px-8 py-3 rounded-lg font-medium"
+              className="bg-[#F9D71C] text-[#121212] px-8 py-3 rounded-[4px] font-medium font-['Roboto'] uppercase tracking-wider hover:bg-opacity-90 h-12"
               onClick={() => navigate('/packages')}
             >
               View Invoice Templates

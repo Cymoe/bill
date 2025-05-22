@@ -61,22 +61,24 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="h-full flex flex-col bg-[#121212]">
-      <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-[#121212]">
+    <form onSubmit={handleSubmit} className="h-full flex flex-col bg-[#121212] overflow-hidden">
+      {/* Header - Fixed at top */}
+      <div className="flex items-center justify-between p-4 border-b border-[#333333] bg-[#121212] sticky top-0 z-10">
         <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">{title}</h2>
         <button
           type="button"
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-300"
+          className="text-gray-400 hover:text-[#F9D71C]"
         >
           <span className="sr-only">Close</span>
           <X className="h-6 w-6" />
         </button>
       </div>
 
+      {/* Scrollable content area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#121212]">
         {error && (
-          <div className="p-4 bg-[#333333] border-l-4 border-[#D32F2F] rounded">
+          <div className="p-4 bg-[#333333] border-l-4 border-[#D32F2F] rounded-[4px]">
             <p className="text-sm text-white font-['Roboto']">{error}</p>
           </div>
         )}
@@ -91,7 +93,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="mt-1 block w-full rounded border-gray-700 shadow-sm focus:border-[#336699] focus:ring-[#336699] bg-[#333333] text-white"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3"
               required
             />
           </div>
@@ -104,7 +106,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="mt-1 block w-full rounded border-gray-700 shadow-sm focus:border-[#336699] focus:ring-[#336699] bg-[#333333] text-white font-['Roboto']"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white font-['Roboto'] p-3"
               rows={3}
             />
           </div>
@@ -118,7 +120,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="price"
               value={formData.price}
               onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-              className="mt-1 block w-full rounded border-gray-700 shadow-sm focus:border-[#336699] focus:ring-[#336699] bg-[#333333] text-white font-['Roboto_Mono']"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white font-['Roboto_Mono'] h-10 px-3"
               required
               min="0"
               step="0.01"
@@ -133,10 +135,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="unit"
               value={formData.unit}
               onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              className="mt-1 block w-full rounded border-gray-700 shadow-sm focus:border-[#336699] focus:ring-[#336699] bg-[#333333] text-white"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3"
             >
               {UNIT_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                   {option.label}
                 </option>
               ))}
@@ -151,10 +153,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="type"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="mt-1 block w-full rounded border-gray-700 shadow-sm focus:border-[#336699] focus:ring-[#336699] bg-[#333333] text-white"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white h-10 px-3"
             >
               {PRODUCT_TYPE_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={option.value} className="bg-[#333333] text-white">
                   {option.label}
                 </option>
               ))}
@@ -163,19 +165,20 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
 
-      <div className="border-t border-gray-700 p-4 bg-[#121212]">
+      {/* Footer - Fixed at bottom */}
+      <div className="border-t border-[#333333] p-4 bg-[#121212] sticky bottom-0 z-10 mt-auto">
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
             onClick={onClose}
-            className="w-full px-4 py-2 border border-gray-700 rounded hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium"
+            className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium uppercase tracking-wider h-10"
             disabled={loading}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="w-full px-4 py-2 bg-[#336699] text-white rounded hover:bg-opacity-80 disabled:opacity-50 font-['Roboto'] font-medium"
+            className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 disabled:opacity-50 font-['Roboto'] font-medium uppercase tracking-wider h-10"
             disabled={loading}
           >
             {loading ? 'Saving...' : submitLabel}

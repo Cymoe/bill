@@ -314,7 +314,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex md:justify-end">
+    <div className="fixed inset-0 z-[60] flex justify-end">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'
@@ -324,24 +324,23 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
       
       <div
         className={`
-          fixed w-full md:w-1/2
+          fixed w-full md:w-1/2 lg:w-2/5
           transition-transform duration-300 ease-out
-          bg-white dark:bg-gray-800
+          bg-[#121212]
           shadow-xl
           overflow-hidden
-          md:left-0 md:top-0 md:bottom-0
-          bottom-0 left-0 right-0 h-full md:h-auto
+          top-0 bottom-0 right-0 h-full
           transform
           ${isClosing
-            ? 'translate-y-full md:translate-y-0 md:translate-x-[-100%]'
-            : 'translate-y-0 md:translate-x-0'
+            ? 'translate-x-full'
+            : 'translate-x-0'
           }
         `}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center pt-6 pb-4 px-6 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">New Invoice</h2>
-            <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+          <div className="flex justify-between items-center pt-6 pb-4 px-6 border-b border-[#333333]">
+            <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">New Invoice</h2>
+            <button onClick={handleClose} className="p-2 text-gray-400 hover:text-[#F9D71C]">
               <X className="w-6 h-6" />
             </button>
           </div>
@@ -350,14 +349,14 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
             {step === 'select-packages' && (
               <div className="relative h-full flex flex-col">
                 <div className="px-6 mb-6">
-                  <div className="flex items-center justify-between bg-[#232635] rounded-xl px-6 py-8">
-                    <span className="text-2xl font-bold text-white">Start from Scratch</span>
+                  <div className="flex items-center justify-between bg-[#1E1E1E] rounded-[4px] px-6 py-8">
+                    <span className="text-2xl font-bold text-white font-['Roboto_Condensed'] uppercase">Start from Scratch</span>
                     <button
                       onClick={() => {
                         setFormData(prev => ({ ...prev, items: [] }));
                         setStep('create');
                       }}
-                      className="bg-[#4B5AEF] text-white font-bold rounded-xl px-8 py-4 text-lg shadow hover:bg-[#3a47c6] transition"
+                      className="bg-[#F9D71C] text-[#121212] font-bold rounded-[4px] px-8 py-4 text-lg shadow hover:bg-opacity-90 transition font-['Roboto'] uppercase tracking-wider"
                     >
                       Create Empty
                     </button>
@@ -365,25 +364,25 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                 </div>
                 {/* Divider with OR */}
                 <div className="flex items-center my-10 px-6">
-                  <div className="flex-1 border-t border-gray-700" />
-                  <span className="mx-4 text-gray-400 font-medium">OR</span>
-                  <div className="flex-1 border-t border-gray-700" />
+                  <div className="flex-1 border-t border-[#333333]" />
+                  <span className="mx-4 text-gray-400 font-medium font-['Roboto_Condensed'] uppercase">OR</span>
+                  <div className="flex-1 border-t border-[#333333]" />
                 </div>
                 {/* Header and controls with matching padding */}
                 <div className="px-6">
-                  <h3 className="text-lg font-semibold mb-2">Select Packages</h3>
+                  <h3 className="text-lg font-bold text-white font-['Roboto_Condensed'] uppercase mb-2">Select Packages</h3>
                   <div className="flex gap-3 mb-3">
                     <input
                       type="text"
                       placeholder="Search packages..."
                       value={packageSearch}
                       onChange={e => setPackageSearch(e.target.value)}
-                      className="flex-1 px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-3 py-2 h-10 rounded-[4px] bg-[#333333] text-white border border-[#555555] focus:outline-none focus:ring-2 focus:ring-[#0D47A1] focus:ring-opacity-40 font-['Roboto']"
                     />
                     <select
                       value={selectedCategory}
                       onChange={e => setSelectedCategory(e.target.value)}
-                      className="px-3 py-2 rounded bg-gray-800 text-white border border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]"
+                      className="px-3 py-2 h-10 rounded-[4px] bg-[#333333] text-white border border-[#555555] focus:outline-none focus:ring-2 focus:ring-[#0D47A1] focus:ring-opacity-40 min-w-[180px] font-['Roboto']"
                     >
                       <option>All Categories</option>
                       {Array.from(new Set(templates.map(t => (t as any).category).filter(Boolean))).map(cat => (
@@ -406,7 +405,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                       return (
                         <li
                           key={pkg.id}
-                          className="flex items-center gap-2 bg-gray-800 rounded px-3 py-2 cursor-pointer select-none hover:bg-[#232635] transition-colors"
+                          className="flex items-center gap-2 bg-[#333333] rounded-[4px] px-3 py-2 cursor-pointer select-none hover:bg-[#1E1E1E] transition-colors"
                           onClick={() => {
                             setSelectedPackages(prev =>
                               isSelected
@@ -438,7 +437,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                   </ul>
                 </div>
                 {step === 'select-packages' && (
-                  <div className="fixed left-0 right-0 bottom-0 z-30 bg-[#232635] border-t border-gray-700 px-6 py-4 flex items-center justify-between" style={{ pointerEvents: 'auto' }}>
+                  <div className="fixed left-0 right-0 bottom-0 z-30 bg-[#121212] border-t border-[#333333] px-6 py-4 flex items-center justify-between" style={{ pointerEvents: 'auto' }}>
                     <div className="flex items-center gap-3">
                       <span className="text-base font-medium text-white">Selected: {selectedPackages.length}</span>
                       <span className="text-base font-medium text-white">{formatCurrency(selectedPackages.reduce((sum, pkg) => {
@@ -448,13 +447,13 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                     </div>
                     <div className="flex gap-3">
                       <button
-                        className="px-6 py-2 border border-gray-500 text-white bg-transparent hover:bg-gray-700 rounded-lg font-medium text-base"
+                        className="px-6 py-2 h-10 border border-[#336699] border-opacity-40 text-white bg-transparent hover:bg-[#1E1E1E] rounded-[4px] font-medium text-base font-['Roboto'] uppercase tracking-wider"
                         onClick={handleClose}
                       >
                         Cancel
                       </button>
                       <button
-                        className="px-6 py-2 rounded-lg text-white font-medium text-base bg-blue-600 hover:bg-blue-700 transition-colors"
+                        className="px-6 py-2 h-10 rounded-[4px] text-[#121212] font-medium text-base bg-[#F9D71C] hover:bg-opacity-90 transition-colors font-['Roboto'] uppercase tracking-wider"
                         disabled={selectedPackages.length === 0}
                         onClick={() => {
                           setFormData(prev => ({
@@ -490,9 +489,9 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
             <form id="invoice-form" onSubmit={handleSubmit} className="flex flex-col px-6 py-4 gap-6">
               {/* Client Selector */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Client</label>
+                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Client</label>
                 <select
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                   value={formData.client_id}
                   onChange={e => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
                   required
@@ -505,12 +504,12 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
               </div>
               {/* Items List */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Line Items</label>
+                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Line Items</label>
                 <div className="flex flex-col gap-3">
                   {formData.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-2">
+                    <div key={idx} className="flex items-center gap-2 bg-[#333333] rounded-[4px] px-3 py-2">
                       <select
-                        className="flex-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white"
+                        className="flex-1 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                         value={item.product_id}
                         onChange={e => updateItem(idx, 'product_id', e.target.value)}
                         required
@@ -523,7 +522,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                       <input
                         type="number"
                         min={1}
-                        className="w-16 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white text-right"
+                        className="w-16 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white text-right font-['Roboto_Mono'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                         value={item.quantity}
                         onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
                       />
@@ -531,7 +530,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                         type="number"
                         min={0}
                         step={0.01}
-                        className="w-24 bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-white text-right"
+                        className="w-24 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white text-right font-['Roboto_Mono'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                         value={item.price}
                         onChange={e => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
                       />
@@ -547,7 +546,7 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                   ))}
                   <button
                     type="button"
-                    className="mt-2 px-3 py-1 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm font-medium w-fit"
+                    className="mt-2 px-3 py-1 bg-[#336699] hover:bg-opacity-80 text-white rounded-[4px] text-sm font-medium w-fit font-['Roboto'] uppercase tracking-wider"
                     onClick={addItem}
                   >
                     + Add Item
@@ -557,28 +556,28 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
               {/* Dates and Description */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Issue Date</label>
+                  <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Issue Date</label>
                   <input
                     type="date"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                     value={formData.issue_date}
                     onChange={e => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2">Due Date</label>
+                  <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Due Date</label>
                   <input
                     type="date"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                    className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                     value={formData.due_date}
                     onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-white mb-2">Description</label>
+                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Description</label>
                 <textarea
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-white font-['Roboto'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
                   rows={2}
                   value={formData.description}
                   onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
@@ -586,21 +585,21 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
               </div>
               {/* Total */}
               <div className="flex items-center justify-end text-lg font-medium text-white">
-                Total: {formatCurrency(calculateTotal())}
+                <span className="font-['Roboto_Condensed'] uppercase mr-2">Total:</span> <span className="font-['Roboto_Mono']">{formatCurrency(calculateTotal())}</span>
               </div>
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-4 border-t border-gray-700 pt-4">
+              <div className="grid grid-cols-2 gap-4 border-t border-[#333333] pt-4">
                 <button
                   type="button"
                   onClick={() => setStep('select-packages')}
-                  className="w-full px-4 py-2 border border-gray-500 rounded-lg hover:bg-gray-700 text-white font-medium"
+                  className="w-full px-4 py-2 h-10 border border-[#336699] border-opacity-40 rounded-[4px] hover:bg-[#1E1E1E] text-white font-medium font-['Roboto'] uppercase tracking-wider"
                   disabled={loading}
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium disabled:opacity-50"
+                  className="w-full px-4 py-2 h-10 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 font-medium disabled:opacity-50 font-['Roboto'] uppercase tracking-wider"
                   disabled={loading}
                 >
                   {loading ? 'Creating...' : 'Create Invoice'}

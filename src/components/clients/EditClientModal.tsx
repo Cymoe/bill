@@ -69,7 +69,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex md:justify-end">
+    <div className="fixed inset-0 z-[10000] flex md:justify-end">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'
@@ -81,7 +81,7 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
         className={`
           fixed w-full
           transition-transform duration-300 ease-out 
-          bg-white dark:bg-gray-800 
+          bg-[#121212] 
           shadow-xl
           overflow-hidden
           inset-x-0 bottom-0
@@ -94,82 +94,82 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
           }
         `}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Client</h2>
-            <button onClick={handleClose} className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400">
+        <div className="flex flex-col h-full bg-[#121212]">
+          <div className="flex justify-between items-center p-4 border-b border-[#333333] bg-[#1E1E1E]">
+            <h2 className="text-xl font-bold text-[#FFFFFF] font-['Roboto_Condensed'] uppercase">Edit Client</h2>
+            <button onClick={handleClose} className="p-2 text-[#9E9E9E] hover:text-[#FFFFFF]">
               <X className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 bg-[#121212]">
             <form id="client-form" onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="p-3 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg">
-                  <p className="text-sm text-red-700 dark:text-red-200">{error}</p>
+                <div className="p-3 bg-[#D32F2F]/10 border border-[#D32F2F] rounded-[4px]">
+                  <p className="text-sm text-[#D32F2F] font-['Roboto']">{error}</p>
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Company Name
+                <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+                  COMPANY NAME
                 </label>
                 <input
                   type="text"
                   value={formData.company_name}
                   onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-[#555555] rounded-[4px] p-3 bg-[#333333] text-[#FFFFFF] font-['Roboto'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Contact Name
+                <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+                  CONTACT NAME
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-[#555555] rounded-[4px] p-3 bg-[#333333] text-[#FFFFFF] font-['Roboto'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email
+                <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+                  EMAIL
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-[#555555] rounded-[4px] p-3 bg-[#333333] text-[#FFFFFF] font-['Roboto'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Phone
+                <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+                  PHONE
                 </label>
                 <input
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-[#555555] rounded-[4px] p-3 bg-[#333333] text-[#FFFFFF] font-['Roboto_Mono'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
                   placeholder="Optional"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Address
+                <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+                  ADDRESS
                 </label>
                 <textarea
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full border border-[#555555] rounded-[4px] p-3 bg-[#333333] text-[#FFFFFF] font-['Roboto'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
                   rows={3}
                   placeholder="Optional"
                 />
@@ -177,23 +177,23 @@ export const EditClientModal: React.FC<EditClientModalProps> = ({
             </form>
           </div>
 
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+          <div className="border-t border-[#333333] p-4 bg-[#1E1E1E]">
             <div className="grid grid-cols-2 gap-4">
               <button
                 type="button"
                 onClick={handleClose}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                className="w-full px-4 py-3 border border-[#555555] rounded-[4px] hover:bg-[#333333] text-[#FFFFFF] font-['Roboto'] uppercase font-medium tracking-wider"
                 disabled={loading}
               >
-                Cancel
+                CANCEL
               </button>
               <button
                 type="submit"
                 form="client-form"
-                className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="w-full px-4 py-3 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-[#F9D71C]/90 disabled:opacity-50 font-['Roboto'] uppercase font-medium tracking-wider"
                 disabled={loading}
               >
-                {loading ? 'Updating...' : 'Update Client'}
+                {loading ? 'UPDATING...' : 'UPDATE CLIENT'}
               </button>
             </div>
           </div>

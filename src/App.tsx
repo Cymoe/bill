@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -21,6 +21,8 @@ import LineItemTestPage from './pages/LineItemTestPage';
 import ProductCardViewDemo from './components/products/ProductCardViewDemo';
 import ProductVariantsDemo from './pages/ProductVariantsDemo';
 import { ProductDrawerContext } from './contexts/ProductDrawerContext';
+import { GlobalProductDrawer } from './components/products/GlobalProductDrawer';
+import { supabase } from './lib/supabase';
 import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
 
@@ -46,6 +48,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   const { user, session, isLoading } = useAuth();
   const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
+  const [lineItems, setLineItems] = useState<any[]>([]);
+
+  // Fetch line items for the product drawer
+  useEffect(() => {
+    const fetchLineItems = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('line_items')
+          .select('*');
+        if (error) throw error;
+        setLineItems(data || []);
+      } catch (error) {
+        console.error('Error fetching line items:', error);
+      }
+    };
+
+    fetchLineItems();
+  }, []);
 
   // If we have a user and session, redirect to dashboard from root
   const renderLanding = () => {
@@ -56,7 +76,8 @@ function AppRoutes() {
   };
 
   return (
-    <Routes>
+    <ProductDrawerContext.Provider value={{ openProductDrawer: () => setEditingProduct('new') }}>
+      <Routes>
       {/* Public routes */}
       <Route path="/" element={renderLanding()} />
       <Route path="/auth/callback" element={<Callback />} />
@@ -83,11 +104,9 @@ function AppRoutes() {
         path="/products"
         element={
           <ProtectedRoute>
-            <ProductDrawerContext.Provider value={{ openProductDrawer: () => setEditingProduct('new') }}>
-              <DashboardLayout>
-                <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
-              </DashboardLayout>
-            </ProductDrawerContext.Provider>
+            <DashboardLayout>
+              <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -224,6 +243,13 @@ function AppRoutes() {
       />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
+      {/* Global Product Drawer - available on all pages */}
+      <GlobalProductDrawer 
+        editingProduct={editingProduct} 
+        setEditingProduct={setEditingProduct} 
+        lineItems={lineItems}
+      />
+    </ProductDrawerContext.Provider>
   );
 }
 
