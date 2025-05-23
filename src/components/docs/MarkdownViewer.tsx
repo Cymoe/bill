@@ -10,6 +10,17 @@ const MarkdownViewer: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const { filename } = useParams<{ filename: string }>();
 
+  // Apply marketing-page class to body for light theme
+  useEffect(() => {
+    // Add marketing-page class to body
+    document.body.classList.add('marketing-page');
+    
+    // Clean up function to remove class when component unmounts
+    return () => {
+      document.body.classList.remove('marketing-page');
+    };
+  }, []);
+
   useEffect(() => {
     const fetchMarkdown = async () => {
       try {

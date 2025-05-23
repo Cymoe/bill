@@ -23,146 +23,9 @@ export const LandingPage = () => {
   // State for tracking the active slide (used by the auto-scroll functionality)
   const [, setActiveSlide] = useState(0);
   const [isPaused] = useState(false); // Used in the hero section auto-scroll
-  const [isPortfolioPaused, setIsPortfolioPaused] = useState(false);
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Add CSS to hide scrollbar for WebKit browsers
-  useEffect(() => {
-    // Create style element
-    const style = document.createElement('style');
-    // Add CSS rule to hide scrollbar in WebKit browsers
-    style.textContent = `
-      .no-scrollbar::-webkit-scrollbar {
-        display: none;
-      }
-    `;
-    // Append style to head
-    document.head.appendChild(style);
-    
-    // Clean up
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
-  
-  // Apply marketing-page class to body for light theme
-  useEffect(() => {
-    // Add marketing-page class to body
-    document.body.classList.add('marketing-page');
-    
-    // Clean up function to remove class when component unmounts
-    return () => {
-      document.body.classList.remove('marketing-page');
-    };
-  }, []);
-  
-  // Image styling is now applied directly in the JSX
-
-  // Auto-scroll functionality for hero section
-  useEffect(() => {
-    const startAutoScroll = () => {
-      if (autoScrollIntervalRef.current) {
-        clearInterval(autoScrollIntervalRef.current);
-      }
-      
-      autoScrollIntervalRef.current = setInterval(() => {
-        if (scrollContainerRef.current && !isPaused) {
-          const container = scrollContainerRef.current;
-          const maxScroll = container.scrollWidth - container.clientWidth;
-          
-          // If we're at the end, go back to the beginning
-          if (container.scrollLeft >= maxScroll - 20) {
-            container.scrollTo({ left: 0, behavior: 'smooth' });
-            setActiveSlide(0);
-          } else {
-            // Otherwise, move to the next slide
-            const slideWidth = container.clientWidth;
-            const currentSlide = Math.round(container.scrollLeft / slideWidth);
-            const nextSlide = currentSlide + 1;
-            
-            container.scrollTo({ 
-              left: nextSlide * slideWidth, 
-              behavior: 'smooth' 
-            });
-            
-            setActiveSlide(nextSlide);
-          }
-        }
-      }, 5000); // Change slide every 5 seconds
-    };
-    
-    startAutoScroll();
-    
-    // Clean up interval on component unmount
-    return () => {
-      if (autoScrollIntervalRef.current) {
-        clearInterval(autoScrollIntervalRef.current);
-      }
-    };
-  }, [isPaused]);
-  
-  // Smooth auto-scroll functionality for portfolio section using requestAnimationFrame
-  useEffect(() => {
-    let animationFrameId: number;
-    let lastTimestamp = 0;
-    const scrollSpeed = 0.3; // pixels per millisecond - lower for smoother scrolling
-    
-    const smoothScroll = (timestamp: number) => {
-      if (!lastTimestamp) lastTimestamp = timestamp;
-      const deltaTime = timestamp - lastTimestamp;
-      lastTimestamp = timestamp;
-      
-      if (portfolioContainerRef.current && !isPortfolioPaused) {
-        const container = portfolioContainerRef.current;
-        const maxScroll = container.scrollWidth - container.clientWidth;
-        
-        // If we're at the end, go back to the beginning without animation
-        if (container.scrollLeft >= maxScroll - 20) {
-          container.scrollLeft = 0;
-        } else {
-          // Calculate smooth scroll amount based on time elapsed
-          const scrollAmount = scrollSpeed * deltaTime;
-          container.scrollLeft += scrollAmount;
-        }
-      }
-      
-      // Continue the animation loop
-      animationFrameId = requestAnimationFrame(smoothScroll);
-    };
-    
-    // Start the animation
-    animationFrameId = requestAnimationFrame(smoothScroll);
-    
-    // Clean up animation frame on component unmount
-    return () => {
-      cancelAnimationFrame(animationFrameId);
-    };
-  }, [isPortfolioPaused]);
-  
-  // Add scroll event listener to update active slide indicator
-  useEffect(() => {
-    const handleScroll = () => {
-      if (scrollContainerRef.current) {
-        const scrollPosition = scrollContainerRef.current.scrollLeft;
-        const slideWidth = scrollContainerRef.current.clientWidth;
-        const newActiveSlide = Math.round(scrollPosition / slideWidth);
-        setActiveSlide(newActiveSlide);
-      }
-    };
-    
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll);
-    }
-    
-    return () => {
-      if (scrollContainer) {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      }
-    };
-  }, []);
-
-  // Portfolio showcase data
+  // Portfolio showcase data - moved up before the useEffect that references it
   const portfolioItems = [
     {
       id: 1,
@@ -255,6 +118,139 @@ export const LandingPage = () => {
       tags: ["#LuxuryLiving", "#UrbanDevelopment"]
     }
   ];
+  
+  // Add CSS to hide scrollbar and add auto-scrolling animation
+  useEffect(() => {
+    // Create style element
+    const style = document.createElement('style');
+    // Add CSS rules for scrollbar hiding and auto-scroll animation
+    style.textContent = `
+      .no-scrollbar::-webkit-scrollbar {
+        display: none;
+      }
+      
+      @keyframes portfolioScroll {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(calc(-336px * ${portfolioItems.length})); } /* Adjust based on card width + margin for mobile */
+      }
+      
+      @media (min-width: 640px) {
+        @keyframes portfolioScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-352px * ${portfolioItems.length})); } /* Adjust for small screens */
+        }
+      }
+      
+      @media (min-width: 768px) {
+        @keyframes portfolioScroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(calc(-384px * ${portfolioItems.length})); } /* Adjust for medium screens */
+        }
+      }
+      
+      .auto-scroll-container {
+        display: flex !important;
+        width: fit-content !important;
+        animation: portfolioScroll 45s linear infinite;
+        will-change: transform;
+      }
+      
+      .auto-scroll-container:hover {
+        animation-play-state: paused;
+      }
+    `;
+    // Append style to head
+    document.head.appendChild(style);
+    
+    // Clean up
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, [portfolioItems.length]);
+  
+  // Apply marketing-page class to body for light theme
+  useEffect(() => {
+    // Add marketing-page class to body
+    document.body.classList.add('marketing-page');
+    
+    // Clean up function to remove class when component unmounts
+    return () => {
+      document.body.classList.remove('marketing-page');
+    };
+  }, []);
+  
+  // Image styling is now applied directly in the JSX
+
+  // Auto-scroll functionality for hero section
+  useEffect(() => {
+    const startAutoScroll = () => {
+      if (autoScrollIntervalRef.current) {
+        clearInterval(autoScrollIntervalRef.current);
+      }
+      
+      autoScrollIntervalRef.current = setInterval(() => {
+        if (scrollContainerRef.current && !isPaused) {
+          const container = scrollContainerRef.current;
+          const maxScroll = container.scrollWidth - container.clientWidth;
+          
+          // If we're at the end, go back to the beginning
+          if (container.scrollLeft >= maxScroll - 20) {
+            container.scrollTo({ left: 0, behavior: 'smooth' });
+            setActiveSlide(0);
+          } else {
+            // Otherwise, move to the next slide
+            const slideWidth = container.clientWidth;
+            const currentSlide = Math.round(container.scrollLeft / slideWidth);
+            const nextSlide = currentSlide + 1;
+            
+            container.scrollTo({ 
+              left: nextSlide * slideWidth, 
+              behavior: 'smooth' 
+            });
+            
+            setActiveSlide(nextSlide);
+          }
+        }
+      }, 5000); // Change slide every 5 seconds
+    };
+    
+    startAutoScroll();
+    
+    // Clean up interval on component unmount
+    return () => {
+      if (autoScrollIntervalRef.current) {
+        clearInterval(autoScrollIntervalRef.current);
+      }
+    };
+  }, [isPaused]);
+  
+  // We're now using CSS animation for auto-scrolling instead of JavaScript
+  // This is more efficient and starts automatically when the component renders
+  
+  // Add scroll event listener to update active slide indicator
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const scrollPosition = scrollContainerRef.current.scrollLeft;
+        const slideWidth = scrollContainerRef.current.clientWidth;
+        const newActiveSlide = Math.round(scrollPosition / slideWidth);
+        setActiveSlide(newActiveSlide);
+      }
+    };
+    
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+    }
+    
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
+  // Portfolio showcase data was moved to the top of the component
 
   useEffect(() => {
     if (user && !isLoading) {
@@ -287,7 +283,7 @@ export const LandingPage = () => {
             BillBreeze helps contractors, builders, and service providers manage their business 
             with professional invoicing while showcasing their best projects to potential clients.
           </p>
-          <div className="flex justify-center space-x-4">
+          <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <button
               onClick={() => {
                 const authButtons = document.querySelector('[data-testid="google-signin"]') as HTMLButtonElement;
@@ -295,16 +291,16 @@ export const LandingPage = () => {
                   authButtons.click();
                 }
               }}
-              className="flex items-center px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-              style={{ backgroundColor: '#336699' }}
+              className="flex items-center justify-center px-6 py-3 text-white rounded-lg hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: '#336699', borderRadius: '4px' }}
             >
               Get Started
               <ArrowRight className="ml-2 h-5 w-5" />
             </button>
             <button
-              onClick={() => navigate('/projects')}
-              className="flex items-center px-6 py-3 text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
-              style={{ borderColor: '#336699', color: '#336699' }}
+              onClick={() => navigate('/marketing/projects')}
+              className="flex items-center justify-center px-6 py-3 border rounded-lg hover:bg-opacity-10 transition-colors"
+              style={{ borderColor: '#336699', color: '#336699', borderRadius: '4px', backgroundColor: 'transparent' }}
             >
               See More Projects
             </button>
@@ -312,97 +308,156 @@ export const LandingPage = () => {
         </div>
 
         {/* Portfolio Showcase Section - Full Width */}
-        <div className="mt-16" style={{ position: 'relative', width: '100vw', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw', overflow: 'hidden' }}>
+        <div className="mt-12 sm:mt-16" style={{ position: 'relative', width: '100vw', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw', overflow: 'hidden' }}>
 
           {/* Portfolio Horizontal Scroll */}
           <div className="w-full relative">
-            {/* Left fade/blur effect - light theme gradient */}
-            <div className="absolute left-0 top-0 bottom-0 w-32 z-10 pointer-events-none" 
+            {/* Left fade/blur effect - very minimal for mobile */}
+            <div className="absolute left-0 top-0 bottom-0 w-8 md:w-32 z-10 pointer-events-none" 
               style={{ 
-                background: 'linear-gradient(to right, rgba(249, 250, 251, 0.95), rgba(249, 250, 251, 0.8) 30%, rgba(249, 250, 251, 0.6) 60%, rgba(249, 250, 251, 0))',
-                backdropFilter: 'blur(2px)',
-                WebkitBackdropFilter: 'blur(2px)'
+                background: 'linear-gradient(to right, rgba(249, 250, 251, 0.9) 0%, rgba(249, 250, 251, 0.6) 40%, rgba(249, 250, 251, 0.3) 70%, rgba(249, 250, 251, 0) 100%)',
+                backdropFilter: 'blur(1px)',
+                WebkitBackdropFilter: 'blur(1px)'
               }}>
             </div>
             
-            {/* Right fade/blur effect - light theme gradient */}
-            <div className="absolute right-0 top-0 bottom-0 w-32 z-10 pointer-events-none" 
+            {/* Right fade/blur effect - very minimal for mobile */}
+            <div className="absolute right-0 top-0 bottom-0 w-8 md:w-32 z-10 pointer-events-none" 
               style={{ 
-                background: 'linear-gradient(to left, rgba(249, 250, 251, 0.95), rgba(249, 250, 251, 0.8) 30%, rgba(249, 250, 251, 0.6) 60%, rgba(249, 250, 251, 0))',
-                backdropFilter: 'blur(2px)',
-                WebkitBackdropFilter: 'blur(2px)'
+                background: 'linear-gradient(to left, rgba(249, 250, 251, 0.9) 0%, rgba(249, 250, 251, 0.6) 40%, rgba(249, 250, 251, 0.3) 70%, rgba(249, 250, 251, 0) 100%)',
+                backdropFilter: 'blur(1px)',
+                WebkitBackdropFilter: 'blur(1px)'
               }}>
             </div>
             
-            {/* Portfolio section - auto-scrolling carousel */}
+            {/* Portfolio section - auto-scrolling carousel with CSS animation */}
             <div 
               ref={portfolioContainerRef}
-              className="flex overflow-x-auto pb-6 no-scrollbar" 
-              style={{ 
-                scrollBehavior: 'smooth',
-                scrollSnapType: 'x mandatory',
+              className="overflow-x-hidden pb-6 no-scrollbar"
+              style={{
+                whiteSpace: 'nowrap', /* This is for the horizontal layout of cards */
                 paddingLeft: '0.5rem',
-                paddingRight: '4rem', /* Add extra padding on the right to ensure content extends off screen */
-                msOverflowStyle: 'none', /* IE and Edge */
-                scrollbarWidth: 'none', /* Firefox */
+                paddingRight: '4rem',
+                msOverflowStyle: 'none',
+                scrollbarWidth: 'none',
                 WebkitOverflowScrolling: 'touch',
-                gap: '1.5rem'
-              }}
-              onMouseEnter={() => setIsPortfolioPaused(true)}
-              onMouseLeave={() => setIsPortfolioPaused(false)}
-              onTouchStart={() => setIsPortfolioPaused(true)}
-              onTouchEnd={() => setIsPortfolioPaused(false)}>
-            {portfolioItems.map((item) => (
+                position: 'relative',
+              }}>
+              {/* Auto-scrolling container with duplicated items for seamless looping */}
               <div 
-                key={item.id} 
-                className="flex-shrink-0 w-80 md:w-96 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200"
-                style={{ scrollSnapAlign: 'start' }}>
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center" style={{ backgroundColor: '#336699' }}>
-                      <Building2 className="h-4 w-4 text-white" />
+                className="auto-scroll-container" 
+                style={{ 
+                  display: 'flex', 
+                  width: 'fit-content',
+                  animation: 'portfolioScroll 45s linear infinite',
+                  willChange: 'transform'
+                }}>
+                {/* First set of items */}
+                {portfolioItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="inline-block align-top w-72 sm:w-80 md:w-96 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200"
+                  style={{ marginRight: '1rem', whiteSpace: 'normal' }}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center" style={{ backgroundColor: '#336699' }}>
+                        <Building2 className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-gray-900 text-sm">{item.contractor}</h3>
+                        <p className="text-xs text-gray-500">{item.projectType}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-sm">{item.contractor}</h3>
-                      <p className="text-xs text-gray-500">{item.projectType}</p>
-                    </div>
+                    {/* Card header - no menu button */}
                   </div>
-                  {/* Card header - no menu button */}
-                </div>
 
-                {/* Image */}
-                <div className="aspect-square bg-gray-200 relative overflow-hidden">
-                  {item.image && item.image.includes('.png') ? (
-                    <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${item.image}')` }}>
-                      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
-                        {item.projectType}
+                  {/* Image */}
+                  <div className="aspect-square bg-gray-200 relative overflow-hidden">
+                    {item.image && item.image.includes('.png') ? (
+                      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${item.image}')` }}>
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
+                          {item.projectType}
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #5588bb, #336699)' }}>
-                      <Building2 className="h-16 w-16 text-white opacity-50" />
-                      <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
-                        {item.projectType}
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #5588bb, #336699)' }}>
+                        <Building2 className="h-16 w-16 text-white opacity-50" />
+                        <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
+                          {item.projectType}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-lg mb-2">{item.contractor}</h3>
-                  <p className="text-gray-600 mb-4 text-sm">{item.description}</p>
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-500">{item.contractor}</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Heart className="h-4 w-4 text-gray-400" />
-                      <span className="text-xs text-gray-500">{item.likes}</span>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-lg mb-2 truncate">{item.contractor}</h3>
+                    <p className="text-gray-600 mb-4 text-sm line-clamp-2">{item.description}</p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500 truncate max-w-[100px]">{item.contractor}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Heart className="h-4 w-4 text-gray-400" />
+                        <span className="text-xs text-gray-500">{item.likes}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
+              ))}
+                
+                {/* Duplicate items to create seamless infinite scroll effect */}
+                {portfolioItems.map((item) => (
+                  <div
+                    key={`duplicate-${item.id}`}
+                    className="inline-block align-top w-72 sm:w-80 md:w-96 bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200"
+                    style={{ marginRight: '1rem', whiteSpace: 'normal' }}>
+                    {/* Header */}
+                    <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center" style={{ backgroundColor: '#336699' }}>
+                          <Building2 className="h-4 w-4 text-white" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900 text-sm">{item.contractor}</h3>
+                          <p className="text-xs text-gray-500">{item.projectType}</p>
+                        </div>
+                      </div>
+                      {/* Card header - no menu button */}
+                    </div>
+
+                    {/* Image */}
+                    <div className="aspect-square bg-gray-200 relative overflow-hidden">
+                      {item.image && item.image.includes('.png') ? (
+                        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url('${item.image}')` }}>
+                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
+                            {item.projectType}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center" style={{ background: 'linear-gradient(to bottom right, #5588bb, #336699)' }}>
+                          <Building2 className="h-16 w-16 text-white opacity-50" />
+                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs" style={{ borderRadius: '4px' }}>
+                            {item.projectType}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-bold text-lg mb-2 truncate">{item.contractor}</h3>
+                      <p className="text-gray-600 mb-4 text-sm line-clamp-2">{item.description}</p>
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500 truncate max-w-[100px]">{item.contractor}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Heart className="h-4 w-4 text-gray-400" />
+                          <span className="text-xs text-gray-500">{item.likes}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
             </div>
             
             {/* Auto-scrolling carousel with no navigation arrows */}
@@ -454,55 +509,55 @@ export const LandingPage = () => {
         
         {/* Features Grid */}
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8 mt-24">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8 mt-24">
             <FeatureCard
-              icon={<FileText className="h-8 w-8 text-blue-600" />}
+              icon={<FileText className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Invoice Generation"
               description="Create and customize professional invoices in seconds"
             />
             <FeatureCard
-              icon={<Users className="h-8 w-8 text-blue-600" />}
+              icon={<Users className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Client Management"
               description="Organize and manage your client information efficiently"
             />
             <FeatureCard
-              icon={<CreditCard className="h-8 w-8 text-blue-600" />}
+              icon={<CreditCard className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Payment Tracking"
               description="Track payments and manage your cash flow effectively"
             />
             <FeatureCard
-              icon={<Building2 className="h-8 w-8 text-blue-600" />}
+              icon={<Building2 className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Business Analytics"
               description="Gain insights into your business performance"
             />
             <FeatureCard
-              icon={<Settings className="h-8 w-8 text-blue-600" />}
+              icon={<Settings className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Customization"
               description="Tailor the system to match your business needs"
             />
             <FeatureCard
-              icon={<LineChart className="h-8 w-8 text-blue-600" />}
+              icon={<LineChart className="h-8 w-8" style={{ color: '#336699' }} />}
               title="Financial Reports"
               description="Generate detailed reports for better decision making"
             />
           </div>
 
           {/* Benefits Section */}
-          <div className="mt-24 bg-white p-8 rounded-lg border border-gray-300 shadow-md">
-            <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">Why Choose BillBreeze?</h2>
-            <div className="space-y-6">
+          <div className="mt-24 bg-white p-4 sm:p-8 rounded-lg border border-gray-300 shadow-md">
+            <h2 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-8 sm:mb-12">Why Choose BillBreeze?</h2>
+            <div className="space-y-8">
               <BenefitRow
-                icon={<CheckCircle2 className="h-6 w-6 text-green-500" />}
+                icon={<CheckCircle2 className="h-6 w-6" style={{ color: '#336699' }} />}
                 title="Save Time"
                 description="Automate your billing process and focus on growing your business"
               />
               <BenefitRow
-                icon={<CheckCircle2 className="h-6 w-6 text-green-500" />}
+                icon={<CheckCircle2 className="h-6 w-6" style={{ color: '#336699' }} />}
                 title="Professional Image"
                 description="Create polished, branded invoices that impress your clients"
               />
               <BenefitRow
-                icon={<CheckCircle2 className="h-6 w-6 text-green-500" />}
+                icon={<CheckCircle2 className="h-6 w-6" style={{ color: '#336699' }} />}
                 title="Stay Organized"
                 description="Keep all your billing and client information in one place"
               />
@@ -512,9 +567,30 @@ export const LandingPage = () => {
       </main>
 
       {/* Footer */}
-      <footer className="bg-gray-50 mt-24 py-12">
-        <div className="container mx-auto px-4 text-center text-gray-600">
-          <p>&copy; {new Date().getFullYear()} BillBreeze. All rights reserved.</p>
+      <footer className="bg-gray-50 mt-16 sm:mt-24 py-8 sm:py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 text-center md:text-left">
+            <div>
+              <h3 className="text-lg font-bold mb-4">BillBreeze</h3>
+              <p className="text-gray-600">The all-in-one business management platform for contractors and service providers.</p>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
+                <li><button onClick={() => navigate('/projects')} className="text-gray-600 hover:text-gray-900">Projects</button></li>
+                <li><button onClick={() => navigate('/insights')} className="text-gray-600 hover:text-gray-900">Insights</button></li>
+                <li><button onClick={() => navigate('/roadmap')} className="text-gray-600 hover:text-gray-900">Roadmap</button></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold mb-4">Contact</h3>
+              <p className="text-gray-600">Have questions? Reach out to our support team.</p>
+              <p className="text-gray-600 mt-2">support@billbreeze.com</p>
+            </div>
+          </div>
+          <div className="border-t border-gray-200 pt-8 text-center text-gray-600">
+            <p>&copy; {new Date().getFullYear()} BillBreeze. All rights reserved.</p>
+          </div>
         </div>
       </footer>
     </div>
@@ -546,10 +622,10 @@ const BenefitRow = ({
   title: string;
   description: string;
 }) => (
-  <div className="flex items-start space-x-4">
-    <div className="flex-shrink-0">{icon}</div>
+  <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left">
+    <div className="mb-4 sm:mb-0 sm:mr-6 flex-shrink-0">{icon}</div>
     <div>
-      <h3 className="font-bold text-gray-900 text-lg mb-1">{title}</h3>
+      <h3 className="font-bold text-gray-900 text-lg mb-2">{title}</h3>
       <p className="text-gray-800">{description}</p>
     </div>
   </div>
