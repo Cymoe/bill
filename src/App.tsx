@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { Dashboard } from './components/Dashboard';
+import Dashboard from './pages/dashboard/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { PriceBook } from './components/price-book/PriceBook';
@@ -90,7 +90,9 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <Dashboard />
+            <DashboardLayout>
+              <Dashboard />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />

@@ -275,8 +275,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   return (
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
-        {/* Top Navbar - fixed, full-width for desktop and mobile */}
-        <div className="flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-52 left-0">
+        {/* Top Navbar - fixed, full-width for desktop and mobile, modified on dashboard */}
+        <div className={`flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-52 left-0 ${location.pathname === '/dashboard' ? 'md:hidden' : ''}`}>
           {/* Mobile Menu Toggle - Only visible on mobile */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -711,25 +711,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           {/* Quick Stats Section - only visible when sidebar is expanded */}
           {!isSidebarCollapsed && (
-            <div className="mt-3 mx-2">
-              <h3 className="text-gray-400 text-xs uppercase font-medium mb-1 px-1">QUICK STATS</h3>
-              <div className="bg-[#1E1E1E] rounded-[4px] p-1.5">
-                <div className="grid grid-cols-2 gap-1">
-                  <div className="flex items-center justify-between px-1.5 py-0.5">
-                    <div className="text-gray-400 text-[10px] uppercase">Projects</div>
-                    <div className="text-white text-sm font-bold">12</div>
+            <div className="mt-4 mx-2">
+              <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wide mb-2 px-1">QUICK STATS</h3>
+              <div className="bg-[#1E1E1E] rounded-[4px] p-2 border border-[#333333]">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">PROJECTS</div>
+                    <div className="text-white text-xl font-mono font-bold">12</div>
                   </div>
-                  <div className="flex items-center justify-between px-1.5 py-0.5">
-                    <div className="text-gray-400 text-[10px] uppercase">Invoices</div>
-                    <div className="text-white text-sm font-bold">5</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">INVOICES</div>
+                    <div className="text-white text-xl font-mono font-bold">5</div>
                   </div>
-                  <div className="flex items-center justify-between px-1.5 py-0.5">
-                    <div className="text-gray-400 text-[10px] uppercase">Revenue</div>
-                    <div className="text-[#388E3C] text-sm font-bold">$24.5K</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">REVENUE</div>
+                    <div className="text-[#388E3C] text-xl font-mono font-bold">$24.5K</div>
                   </div>
-                  <div className="flex items-center justify-between px-1.5 py-0.5">
-                    <div className="text-gray-400 text-[10px] uppercase">Clients</div>
-                    <div className="text-white text-sm font-bold">28</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">CLIENTS</div>
+                    <div className="text-white text-xl font-mono font-bold">28</div>
                   </div>
                 </div>
               </div>
@@ -823,6 +823,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         {/* Main Content - margin left for sidebar only */}
         <div className={`flex-1 ${location.pathname.startsWith('/products') ? 
           (isSidebarCollapsed ? 'md:ml-14 pt-[3.5rem]' : 'md:ml-[8.5rem] pt-[3.5rem]') : 
+          location.pathname === '/dashboard' ?
+          (isSidebarCollapsed ? 'md:ml-14 pt-0' : 'md:ml-48 pt-0') :
           (isSidebarCollapsed ? 'md:ml-14 pt-16' : 'md:ml-48 pt-16')} 
           px-0 bg-[#121212] transition-all duration-300`}>
           {/* Render children with setTriggerNewProduct prop if possible */}
@@ -1006,25 +1008,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
 
             {/* Quick Stats Section - Mobile */}
-            <div className="mt-3 mx-2">
-              <h3 className="text-gray-400 text-xs uppercase font-medium mb-1 px-1">QUICK STATS</h3>
-              <div className="bg-[#1E1E1E] rounded-md p-2">
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
-                  <div className="flex flex-col">
-                    <div className="text-gray-400 text-[10px] leading-tight">Active Projects</div>
-                    <div className="text-white text-lg font-bold leading-tight">12</div>
+            <div className="mt-4 mx-2">
+              <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wide mb-2 px-1">QUICK STATS</h3>
+              <div className="bg-[#1E1E1E] rounded-[4px] p-2 border border-[#333333]">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">PROJECTS</div>
+                    <div className="text-white text-xl font-mono font-bold">12</div>
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-gray-400 text-[10px] leading-tight">Pending Invoices</div>
-                    <div className="text-white text-lg font-bold leading-tight">5</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">INVOICES</div>
+                    <div className="text-white text-xl font-mono font-bold">5</div>
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-gray-400 text-[10px] leading-tight">This Month</div>
-                    <div className="text-[#2ECC71] text-lg font-bold leading-tight">$24,500</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">REVENUE</div>
+                    <div className="text-[#388E3C] text-xl font-mono font-bold">$24.5K</div>
                   </div>
-                  <div className="flex flex-col">
-                    <div className="text-gray-400 text-[10px] leading-tight">Clients</div>
-                    <div className="text-white text-lg font-bold leading-tight">28</div>
+                  <div className="bg-[#121212] rounded-[4px] p-2">
+                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">CLIENTS</div>
+                    <div className="text-white text-xl font-mono font-bold">28</div>
                   </div>
                 </div>
               </div>
