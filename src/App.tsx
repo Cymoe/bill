@@ -7,6 +7,7 @@ import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { PriceBook } from './components/price-book/PriceBook';
 import { ProductsPage, Product } from './components/products/ProductsPage';
+import ChatManagementSystem from './pages/chat/ChatManagementSystem';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
@@ -182,6 +183,16 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <UserProfile />
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Chat Management System */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <ChatManagementSystem />
           </ProtectedRoute>
         }
       />

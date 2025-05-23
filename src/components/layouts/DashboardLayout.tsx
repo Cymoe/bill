@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
@@ -805,7 +805,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                 </div>
                 
-                <button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
+                <button 
+                  onClick={() => navigate('/chat')}
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors uppercase font-bold"
+                >
                   Chat with Data
                 </button>
               </div>
