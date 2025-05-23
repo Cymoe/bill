@@ -155,8 +155,14 @@ export const LandingPage = () => {
         will-change: transform;
       }
       
-      .auto-scroll-container:hover {
-        animation-play-state: paused;
+      /* Pause animation on hover - pure CSS solution */
+      .portfolio-scroll-container:hover .auto-scroll-container {
+        animation-play-state: paused !important;
+      }
+      
+      /* Resume animation when not hovering */
+      .auto-scroll-container {
+        animation-play-state: running;
       }
     `;
     // Append style to head
@@ -178,6 +184,8 @@ export const LandingPage = () => {
       document.body.classList.remove('marketing-page');
     };
   }, []);
+  
+  // We're using pure CSS for the pause-on-hover functionality, no JavaScript event listeners needed
   
   // Image styling is now applied directly in the JSX
 
@@ -333,7 +341,7 @@ export const LandingPage = () => {
             {/* Portfolio section - auto-scrolling carousel with CSS animation */}
             <div 
               ref={portfolioContainerRef}
-              className="overflow-x-hidden pb-6 no-scrollbar"
+              className="overflow-x-hidden pb-6 no-scrollbar portfolio-scroll-container"
               style={{
                 whiteSpace: 'nowrap', /* This is for the horizontal layout of cards */
                 paddingLeft: '0.5rem',
@@ -345,7 +353,7 @@ export const LandingPage = () => {
               }}>
               {/* Auto-scrolling container with duplicated items for seamless looping */}
               <div 
-                className="auto-scroll-container" 
+                className="auto-scroll-container"
                 style={{ 
                   display: 'flex', 
                   width: 'fit-content',

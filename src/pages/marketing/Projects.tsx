@@ -3,10 +3,6 @@ import PropertyTypeCard from '../../components/marketing/PropertyTypeCard';
 import { MarketingHeader } from '../../components/marketing/MarketingHeader';
 import { 
   Building2, 
-  Heart,
-  MessageCircle,
-  Share,
-  Bookmark,
   Search,
   ArrowRight
 } from "lucide-react";
@@ -23,6 +19,9 @@ interface Project {
   timeAgo: string;
   tags: string[];
   featured?: boolean;
+  cost?: string; // Total project cost
+  rating?: number; // Contractor rating (out of 5)
+  location?: string; // Project location (city, state)
 }
 
 // Main Projects component for the marketing page
@@ -53,51 +52,66 @@ export const Projects = () => {
       description: "Complete kitchen transformation with custom cabinetry and quartz countertops",
       timeAgo: "6 hours ago",
       tags: ["#KitchenRemodel", "#CustomCabinets"],
-      featured: true
+      featured: true,
+      cost: "42,500",
+      rating: 4.7,
+      location: "Denver, CO"
     },
     {
       id: 2,
       contractor: "Modern Builders LLC",
       projectType: "Luxury Home",
-      image: "/images/jungle-apartments.png", 
+      image: "/images/bali-villa.png", 
       likes: "4,231",
       description: "Luxury modern home with infinity pool and panoramic ocean views",
       timeAgo: "8 hours ago",
       tags: ["#LuxuryHome", "#ModernArchitecture"],
-      featured: true
+      featured: true,
+      cost: "1,250,000",
+      rating: 4.9,
+      location: "Miami, FL"
     },
     {
       id: 3,
       contractor: "Renovation Experts",
       projectType: "Bathroom Remodel",
-      image: "/images/condo.png",
+      image: "/images/bath.png",
       likes: "3,927",
       description: "Master bathroom renovation with walk-in shower and dual vanities",
       timeAgo: "12 hours ago",
       tags: ["#BathroomRemodel", "#MasterBath"],
-      featured: true
+      featured: true,
+      cost: "28,750",
+      rating: 4.6,
+      location: "Seattle, WA"
     },
     {
       id: 4,
       contractor: "Property Flip Pros",
       projectType: "New Construction",
-      image: "/images/mutli.png",
+      image: "/images/new.png",
       likes: "5,164",
       description: "Complete property development with modern family homes",
       timeAgo: "1 day ago",
       tags: ["#NewConstruction", "#Development"],
-      featured: true
+      featured: true,
+      cost: "875,000",
+      rating: 4.8,
+      location: "Portland, OR"
     },
     {
       id: 5,
       contractor: "Precision Homes",
       projectType: "New Home",
-      image: "/images/new.png",
+      image: "/images/mutli.png",
       likes: "6,732",
       description: "New construction with perfect landscaping and modern design",
       timeAgo: "2 days ago",
       tags: ["#NewHome", "#Landscaping"],
-      featured: true
+      featured: true,
+      cost: "685,000",
+      rating: 4.9,
+      location: "Austin, TX"
     },
     {
       id: 6,
@@ -108,7 +122,10 @@ export const Projects = () => {
       description: "Industrial warehouse converted to modern loft apartments",
       timeAgo: "3 days ago",
       tags: ["#LoftConversion", "#Industrial"],
-      featured: true
+      featured: true,
+      cost: "325,000",
+      rating: 4.8,
+      location: "Brooklyn, NY"
     },
     {
       id: 7,
@@ -119,7 +136,10 @@ export const Projects = () => {
       description: "Multi-level composite deck with built-in fire pit and outdoor kitchen",
       timeAgo: "4 days ago",
       tags: ["#OutdoorLiving", "#DeckDesign"],
-      featured: true
+      featured: true,
+      cost: "78,500",
+      rating: 4.7,
+      location: "San Diego, CA"
     },
     {
       id: 8,
@@ -130,58 +150,76 @@ export const Projects = () => {
       description: "Careful restoration of 1890s Victorian with modern conveniences",
       timeAgo: "5 days ago",
       tags: ["#HistoricRenovation", "#Victorian"],
-      featured: true
+      featured: true,
+      cost: "425,000",
+      rating: 4.9,
+      location: "Boston, MA"
     },
     {
       id: 9,
       contractor: "Urban Development Group",
       projectType: "Luxury Condominium",
-      image: "/images/bath.png",
+      image: "/images/condo.png",
       likes: "7,214",
       description: "Modern luxury condominium with premium finishes and city views",
       timeAgo: "1 week ago",
       tags: ["#LuxuryLiving", "#UrbanDevelopment"],
-      featured: true
+      featured: true,
+      cost: "1,850,000",
+      rating: 4.8,
+      location: "Chicago, IL"
     },
     {
       id: 10,
       contractor: "Green Building Solutions",
       projectType: "Eco-Friendly Home",
-      image: "/images/new.png",
+      image: "/images/jungle-apartments.png",
       likes: "6,892",
       description: "Net-zero energy home with solar panels and sustainable materials",
       timeAgo: "1 week ago",
-      tags: ["#EcoFriendly", "#Sustainable"]
+      tags: ["#EcoFriendly", "#Sustainable"],
+      cost: "725,000",
+      rating: 4.7,
+      location: "Denver, CO"
     },
     {
       id: 11,
       contractor: "Commercial Builders Inc.",
       projectType: "Office Renovation",
-      image: "/images/new.png",
+      image: "/images/cabinets.png",
       likes: "3,892",
-      description: "Modern office space renovation with open floor plan and collaborative areas",
-      timeAgo: "1 week ago",
-      tags: ["#Commercial", "#OfficeDesign"]
-    },
-    {
-      id: 11,
-      contractor: "Basement Specialists",
-      projectType: "Basement Finishing",
-      image: "/images/basement-finishing.jpg",
-      likes: "2,756",
-      description: "Unfinished basement transformed into entertainment space with wet bar",
+      description: "Complete office space renovation with modern workspace design",
       timeAgo: "2 weeks ago",
-      tags: ["#BasementRemodel", "#Entertainment"]
+      tags: ["#OfficeRenovation", "#WorkspaceDesign"],
+      cost: "350,000",
+      rating: 4.6,
+      location: "Atlanta, GA"
     },
     {
       id: 12,
+      contractor: "Basement Specialists",
+      projectType: "Basement Finishing",
+      image: "/images/new.png",
+      likes: "2,756",
+      description: "Unfinished basement transformed into entertainment space with wet bar",
+      timeAgo: "2 weeks ago",
+      tags: ["#BasementFinishing", "#Entertainment"],
+      cost: "65,000",
+      rating: 4.7,
+      location: "Minneapolis, MN"
+    },
+    {
+      id: 13,
       contractor: "Roofing Excellence",
       projectType: "Roof Replacement",
-      image: "/images/roof-replacement.jpg",
+      image: "/images/kitchen.png",
       likes: "1,983",
       description: "Complete roof replacement with architectural shingles and improved ventilation",
-      timeAgo: "2 weeks ago",
-      tags: ["#Roofing", "#Exterior"]
+      timeAgo: "3 weeks ago",
+      tags: ["#RoofReplacement", "#HomeImprovement"],
+      cost: "32,500",
+      rating: 4.8,
+      location: "Phoenix, AZ"
     }
   ];
 
@@ -257,14 +295,14 @@ export const Projects = () => {
             const propertyTypes = [
               { id: 'all', title: 'All Projects', count: projects.length, image: '/images/bali-villa.png' },
               { id: 'luxury home', title: 'Luxury Homes', count: typeCounts['luxury home'] || 0, image: '/images/bali-villa.png' },
-              { id: 'new home', title: 'New Homes', count: typeCounts['new home'] || 0, image: '/images/turf.png' },
-              { id: 'kitchen remodel', title: 'Kitchen Remodels', count: typeCounts['kitchen remodel'] || 0 },
-              { id: 'bathroom remodel', title: 'Bathroom Remodels', count: typeCounts['bathroom remodel'] || 0 },
-              { id: 'new construction', title: 'New Construction', count: typeCounts['new construction'] || 0 },
-              { id: 'loft conversion', title: 'Loft Conversions', count: typeCounts['loft conversion'] || 0 },
-              { id: 'deck & patio', title: 'Decks & Patios', count: typeCounts['deck & patio'] || 0 },
-              { id: 'historic renovation', title: 'Historic Renovations', count: typeCounts['historic renovation'] || 0 },
-              { id: 'featured', title: 'Featured Projects', count: projects.filter(p => p.featured).length }
+              { id: 'new home', title: 'New Homes', count: typeCounts['new home'] || 0, image: '/images/mutli.png' },
+              { id: 'kitchen remodel', title: 'Kitchen Remodels', count: typeCounts['kitchen remodel'] || 0, image: '/images/kitchen.png' },
+              { id: 'bathroom remodel', title: 'Bathroom Remodels', count: typeCounts['bathroom remodel'] || 0, image: '/images/bath.png' },
+              { id: 'new construction', title: 'New Construction', count: typeCounts['new construction'] || 0, image: '/images/new.png' },
+              { id: 'loft conversion', title: 'Loft Conversions', count: typeCounts['loft conversion'] || 0, image: '/images/loft.png' },
+              { id: 'deck & patio', title: 'Decks & Patios', count: typeCounts['deck & patio'] || 0, image: '/images/deck.png' },
+              { id: 'historic renovation', title: 'Historic Renovations', count: typeCounts['historic renovation'] || 0, image: '/images/historical.png' },
+              { id: 'featured', title: 'Featured Projects', count: projects.filter(p => p.featured).length, image: '/images/jungle-apartments.png' }
             ];
             
             // Return the mapped property type cards
@@ -309,109 +347,164 @@ export const Projects = () => {
         </div>
       </div>
 
-      {/* Projects Grid */}
-      <div className="container mx-auto px-4 pb-16">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {/* Projects Grid - Instagram-like layout */}
+      <div className="container mx-auto pb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5">
           {filteredProjects.length > 0 ? (
             filteredProjects.map((project) => (
               <div 
                 key={project.id} 
-                className="bg-white rounded-lg shadow-lg overflow-hidden border border-gray-200"
-                style={{ borderRadius: '4px' }}
+                className="bg-white overflow-hidden flex flex-col border border-gray-100"
+                style={{ width: '100%' }}
               >
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <div 
-                      className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: '#336699' }}
-                    >
-                      <Building2 className="h-4 w-4 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 text-sm">{project.contractor}</h3>
-                      <p className="text-xs text-gray-500">{project.projectType}</p>
+                {/* Header with Contractor and Rating */}
+                <div className="p-3 flex items-center justify-between bg-gray-50">
+                  <div>
+                    <h3 className="font-bold text-gray-900 uppercase tracking-wide text-sm">{project.contractor}</h3>
+                    <div className="flex items-center mt-1 space-x-3">
+                      {project.location && (
+                        <span className="text-xs text-gray-600 uppercase tracking-wide">{project.location}</span>
+                      )}
+                      <span className="text-xs text-gray-600 uppercase tracking-wide">{project.timeAgo}</span>
                     </div>
                   </div>
-                  {project.featured && (
-                    <span 
-                      className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800"
-                      style={{ backgroundColor: '#F9D71C', color: '#121212' }}
-                    >
-                      Featured
-                    </span>
-                  )}
+                  {/* Rating removed as requested */}
                 </div>
 
-                {/* Image */}
-                <div className="aspect-square bg-gray-200 relative overflow-hidden">
-                  {project.image === "/images/bali-villa.png" || project.image === "/images/turf.png" ? (
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{ 
-                        backgroundImage: `url('${project.image}')`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        backgroundRepeat: 'no-repeat'
-                      }}
+                {/* Project Image */}
+                <div className="bg-gray-200 relative overflow-hidden" style={{ height: '250px' }}>
+                  {project.id === 1 ? (
+                    <img 
+                      src="/images/kitchen.png"
+                      alt="Kitchen Remodel"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 3 ? (
+                    <img 
+                      src="/images/bath.png"
+                      alt="Bathroom Remodel"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 4 ? (
+                    <img 
+                      src="/images/new-const.png"
+                      alt="New Construction"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 5 ? (
+                    <img 
+                      src="/images/new.png"
+                      alt="New Home"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 6 ? (
+                    <img 
+                      src="/images/loft.png"
+                      alt="Loft Conversion"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 7 ? (
+                    <img 
+                      src="/images/deckpatio.png"
+                      alt="Deck & Patio"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 8 ? (
+                    <img 
+                      src="/images/historic.png"
+                      alt="Historic Renovation"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 9 ? (
+                    <img 
+                      src="/images/condo.png"
+                      alt="Luxury Condominium"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 10 ? (
+                    <img 
+                      src="/images/eco.png"
+                      alt="Eco-Friendly Home"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 11 ? (
+                    <img 
+                      src="/images/office.png"
+                      alt="Office Renovation"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 12 ? (
+                    <img 
+                      src="/images/basement.png"
+                      alt="Basement Finishing"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.id === 13 ? (
+                    <img 
+                      src="/images/roof.png"
+                      alt="Roof Replacement"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : project.image ? (
+                    <img 
+                      src={project.image}
+                      alt={project.projectType}
+                      className="w-full h-full object-cover"
                     />
                   ) : (
                     <div 
-                      className="absolute inset-0 bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center"
-                      style={{ background: 'linear-gradient(to bottom right, #5588bb, #336699)' }}
+                      className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center"
                     >
-                      <Building2 className="h-16 w-16 text-white opacity-50" />
+                      <Building2 className="h-16 w-16 text-gray-500 opacity-50" />
                     </div>
                   )}
-                  <div 
-                    className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs"
-                    style={{ borderRadius: '4px' }}
-                  >
-                    {project.projectType}
-                  </div>
+                  
+                  {/* Featured Badge */}
+                  {project.featured && (
+                    <div 
+                      className="absolute top-3 right-3 px-3 py-1 text-xs font-bold uppercase tracking-wide"
+                      style={{ backgroundColor: '#F9D71C', color: '#121212' }}
+                    >
+                      FEATURED
+                    </div>
+                  )}
+                </div>
+                
+                {/* Project Type and Cost - Moved below image */}
+                <div className="px-3 pt-3 pb-1">
+                  <h2 className="text-lg font-bold text-gray-800 uppercase tracking-wide mb-1">{project.projectType}</h2>
+                  {project.cost && (
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">PROJECT COST:</span>
+                      <div className="flex items-center">
+                        <span className="font-mono text-gray-800 font-bold text-lg">$</span>
+                        <span className="font-mono text-gray-800 font-bold text-lg">{project.cost}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                {/* Engagement */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-4">
-                      <button className="flex items-center space-x-1 text-gray-600 hover:text-red-500 transition-colors">
-                        <Heart className="h-5 w-5" />
-                      </button>
-                      <button className="flex items-center space-x-1 text-gray-600 hover:text-blue-500 transition-colors">
-                        <MessageCircle className="h-5 w-5" />
-                      </button>
-                      <button className="flex items-center space-x-1 text-gray-600 hover:text-green-500 transition-colors">
-                        <Share className="h-5 w-5" />
-                      </button>
-                    </div>
-                    <button className="text-gray-600 hover:text-gray-800 transition-colors">
-                      <Bookmark className="h-5 w-5" />
-                    </button>
-                  </div>
-
-                  <div className="mb-2">
-                    <p className="font-semibold text-gray-900 text-sm">{project.likes} likes</p>
-                  </div>
-
-                  <div className="text-sm text-gray-800 mb-2">
-                    <span className="font-semibold">{project.contractor.split(' ')[0].toLowerCase()}</span>
-                    <span className="ml-1">{project.description}</span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {project.tags.map((tag, index) => (
-                      <span 
-                        key={index} 
-                        className="text-xs text-blue-600 hover:underline cursor-pointer"
-                        style={{ color: '#336699' }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">{project.timeAgo}</p>
+                {/* Description */}
+                <div className="px-3 pt-1 pb-3" style={{ height: '70px' }}>
+                  <p className="text-gray-700 leading-relaxed overflow-hidden text-sm" style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}>{project.description}</p>
+                </div>
+                
+                {/* Tags section removed as requested */}
+                
+                {/* Footer with Action Buttons */}
+                <div className="px-4 py-2 flex justify-end">
+                  <button 
+                    className="px-3 py-1 text-xs text-gray-700 border border-gray-300 uppercase tracking-wide font-bold mr-2"
+                    style={{ backgroundColor: 'white' }}
+                  >
+                    VIEW DETAILS
+                  </button>
+                  <button 
+                    className="px-3 py-1 text-xs text-white uppercase tracking-wide font-bold"
+                    style={{ backgroundColor: '#336699' }}
+                  >
+                    CONTACT
+                  </button>
                 </div>
               </div>
             ))
