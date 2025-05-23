@@ -19,7 +19,32 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  Box
+  Box,
+  DollarSign,
+  Target,
+  Clock,
+  Building2,
+  CheckCircle2,
+  ArrowUp,
+  ArrowDown,
+  Zap,
+  Trophy,
+  Calendar,
+  Activity,
+  Eye,
+  Star,
+  Flame,
+  ThumbsUp,
+  MessageSquare,
+  Phone,
+  AlertTriangle,
+  TrendingDown,
+  Timer,
+  Wrench,
+  Calculator,
+  BarChart3,
+  PiggyBank,
+  TrendingUp
 } from 'lucide-react';
 import { NewClientModal } from '../clients/NewClientModal';
 import ProductForm from '../products/ProductForm';
@@ -50,6 +75,12 @@ interface DashboardLayoutProps {
 
 export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Trades', setSelectedIndustry: () => {} });
 
+// Context for mobile menu state
+export const MobileMenuContext = createContext<{ isMobileMenuOpen: boolean; setIsMobileMenuOpen: (v: boolean) => void }>({ isMobileMenuOpen: false, setIsMobileMenuOpen: () => {} });
+
+// Context for mobile create menu state
+export const MobileCreateMenuContext = createContext<{ isCreateMenuOpen: boolean; setIsCreateMenuOpen: (v: boolean) => void }>({ isCreateMenuOpen: false, setIsCreateMenuOpen: () => {} });
+
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
   const isAuthenticated = !!session;
@@ -62,6 +93,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [todayEarnings, setTodayEarnings] = useState(24500);
+  const [todayHours, setTodayHours] = useState(7.3);
+  const [liveProfit, setLiveProfit] = useState(7623);
   const [showNewClientDrawer, setShowNewClientDrawer] = useState(false);
   const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
   // Package drawer state removed as part of simplification
@@ -202,6 +236,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     }
   }, [isAuthenticated, isLoading, navigate]);
 
+  // Mobile menu state is now exposed through context
+
   useEffect(() => {
     if (!showCreateModal) return;
     function handleClickOutside(event: MouseEvent) {
@@ -273,6 +309,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   }
 
   return (
+    <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
+    <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
         {/* Top Navbar - fixed, full-width for desktop and mobile, modified on dashboard */}
@@ -709,27 +747,110 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
           </div>
 
-          {/* Quick Stats Section - only visible when sidebar is expanded */}
+          {/* Live Money Pulse - only visible when sidebar is expanded */}
           {!isSidebarCollapsed && (
-            <div className="mt-4 mx-2">
-              <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wide mb-2 px-1">QUICK STATS</h3>
-              <div className="bg-[#1E1E1E] rounded-[4px] p-2 border border-[#333333]">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">PROJECTS</div>
-                    <div className="text-white text-xl font-mono font-bold">12</div>
+            <div className="p-4 border-b border-gray-800">
+              <div className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 rounded-lg border border-green-600/30">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-green-400 font-bold text-sm flex items-center">
+                    <Zap className="h-4 w-4 mr-1 animate-pulse" />
+                    LIVE MONEY PULSE
+                  </h3>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-sm">Today's Revenue</span>
+                    <span className="text-green-400 font-bold animate-pulse">${todayEarnings.toFixed(0)}</span>
                   </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">INVOICES</div>
-                    <div className="text-white text-xl font-mono font-bold">5</div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-sm">Pure Profit</span>
+                    <span className="text-blue-400 font-bold">${liveProfit.toFixed(0)}</span>
                   </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">REVENUE</div>
-                    <div className="text-[#388E3C] text-xl font-mono font-bold">$24.5K</div>
+                  
+                  <div className="w-full bg-gray-800 rounded-full h-2">
+                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: '73%'}}></div>
                   </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">CLIENTS</div>
-                    <div className="text-white text-xl font-mono font-bold">28</div>
+                  <div className="text-xs text-green-400 text-center">73% of daily goal</div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* AI Business Coach - RAG Chat - only visible when sidebar is expanded */}
+          {!isSidebarCollapsed && (
+            <div className="p-4 border-b border-gray-800">
+              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-4 rounded-lg border border-purple-600/30">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-purple-400 font-bold text-sm flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-1" />
+                    ASK YOUR DATA
+                  </h3>
+                  <div className="bg-purple-600/30 px-2 py-1 rounded-full">
+                    <span className="text-purple-400 text-xs font-bold">AI</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 mb-3">
+                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
+                    "Which clients owe me money?"
+                  </div>
+                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
+                    "What's my most profitable project?"
+                  </div>
+                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
+                    "Show me overdue invoices"
+                  </div>
+                </div>
+                
+                <button className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded text-sm font-medium transition-colors">
+                  Chat with Data
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* Profit Alerts - Urgent Money Actions - only visible when sidebar is expanded */}
+          {!isSidebarCollapsed && (
+            <div className="p-4 border-b border-gray-800 flex-1">
+              <h3 className="text-yellow-400 font-bold text-sm mb-3 flex items-center">
+                <AlertTriangle className="h-4 w-4 mr-1" />
+                PROFIT ALERTS
+              </h3>
+              
+              <div className="space-y-3">
+                <div className="bg-red-900/30 p-3 rounded-lg border border-red-600/30">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-red-400 rounded-full mt-2 animate-pulse"></div>
+                    <div className="flex-1">
+                      <p className="text-red-400 text-xs font-medium">Invoice overdue</p>
+                      <p className="text-white text-sm font-bold">$8,900</p>
+                      <p className="text-gray-400 text-xs">Johnson Kitchen - 47 days</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-900/30 p-3 rounded-lg border border-yellow-600/30">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <p className="text-yellow-400 text-xs font-medium">Lead going cold</p>
+                      <p className="text-white text-sm font-bold">$95K opportunity</p>
+                      <p className="text-gray-400 text-xs">4 days no contact</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-green-900/30 p-3 rounded-lg border border-green-600/30">
+                  <div className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
+                    <div className="flex-1">
+                      <p className="text-green-400 text-xs font-medium">Pricing opportunity</p>
+                      <p className="text-white text-sm font-bold">+$1,840/project</p>
+                      <p className="text-gray-400 text-xs">Increase material markup</p>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -822,7 +943,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         </div>
         {/* Main Content - margin left for sidebar only */}
         <div className={`flex-1 ${location.pathname.startsWith('/products') ? 
-          (isSidebarCollapsed ? 'md:ml-14 pt-[3.5rem]' : 'md:ml-[8.5rem] pt-[3.5rem]') : 
+          (isSidebarCollapsed ? 'md:ml-14 pt-[3.5rem]' : 'md:ml-48 pt-[3.5rem]') : 
           location.pathname === '/dashboard' ?
           (isSidebarCollapsed ? 'md:ml-14 pt-0' : 'md:ml-48 pt-0') :
           (isSidebarCollapsed ? 'md:ml-14 pt-16' : 'md:ml-48 pt-16')} 
@@ -1192,7 +1313,159 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             <Plus className="w-6 h-6" strokeWidth={2.5} />
           </button>
         </div>
+        
+        {/* Mobile Create Menu - Full Screen */}
+        {isCreateMenuOpen && (
+          <div className="fixed inset-0 z-[10000] md:hidden">
+            <div className="fixed inset-0 bg-black bg-opacity-90" onClick={() => setIsCreateMenuOpen(false)} />
+            <div className="fixed inset-0 w-full bg-[#121212] overflow-y-auto z-[10001]">
+              {/* Mobile Header with Close Button */}
+              <div className="flex items-center justify-between p-6 border-b border-[#2D3748]">
+                <span className="text-xl font-medium text-white">Choose what you'd like to create</span>
+                <button onClick={() => setIsCreateMenuOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              {/* Create New Options */}
+              <div className="p-4">
+                <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wide mb-3">CREATE NEW</h3>
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    setShowLineItemDrawer(true);
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#F9D71C] text-[#121212] flex items-center justify-center mr-4">
+                    <Plus className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Line Item</div>
+                    <div className="text-sm text-gray-400">Add individual service or product</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    setShowNewClientModal(true);
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <Users className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Client</div>
+                    <div className="text-sm text-gray-400">New customer or contact</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    setShowNewProjectDrawer(true);
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <FolderKanban className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Project</div>
+                    <div className="text-sm text-gray-400">Start a new project</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    setShowNewInvoiceDrawer(true);
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Invoice</div>
+                    <div className="text-sm text-gray-400">Create billing document</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    openProductDrawer();
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <FileStack className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Product</div>
+                    <div className="text-sm text-gray-400">Add to inventory</div>
+                  </div>
+                </button>
+                
+                <h3 className="text-gray-400 text-sm font-bold uppercase tracking-wide mt-6 mb-3">TEMPLATES</h3>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle price book template creation
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <Book className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Price book template</div>
+                    <div className="text-sm text-gray-400">Reusable pricing structure</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle project template creation
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <FolderKanban className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Project template</div>
+                    <div className="text-sm text-gray-400">Standard project layout</div>
+                  </div>
+                </button>
+                
+                <button 
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    // Handle contract template creation
+                  }}
+                  className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
+                >
+                  <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <div className="font-medium text-white">Contract template</div>
+                    <div className="text-sm text-gray-400">Legal document template</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </IndustryContext.Provider>
+    </MobileMenuContext.Provider>
+    </MobileCreateMenuContext.Provider>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { 
   TrendingUp,
   Target,
@@ -9,8 +9,25 @@ import {
   AlertTriangle,
   Timer,
   Calculator,
-  BarChart3
+  BarChart3,
+  Menu
 } from "lucide-react";
+import { MobileMenuContext } from '../../components/layouts/DashboardLayout';
+
+// Mobile Menu Button Component
+const MobileMenuButton = () => {
+  const { setIsMobileMenuOpen } = useContext(MobileMenuContext);
+  
+  return (
+    <button
+      onClick={() => setIsMobileMenuOpen(true)}
+      className="md:hidden fixed top-4 left-4 z-50 flex items-center justify-center w-10 h-10 rounded-md bg-[#1E1E1E] text-gray-400 hover:text-white border border-[#333333]"
+      aria-label="Open mobile menu"
+    >
+      <Menu className="h-6 w-6" />
+    </button>
+  );
+};
 
 const Dashboard = () => {
   const [todayEarnings, setTodayEarnings] = useState(3247);
@@ -30,7 +47,9 @@ const Dashboard = () => {
   const profitMargin = (liveProfit / todayEarnings) * 100;
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
+    <div className="min-h-screen bg-[#121212] text-white relative">      
+      {/* Mobile Menu Button - Only visible on small screens */}
+      <MobileMenuButton />
       {/* Header */}
       <div className="border-b border-[#333333] bg-[#121212] backdrop-blur sticky top-0 z-10">
         <div className="px-6 py-4">

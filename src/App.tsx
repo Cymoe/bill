@@ -108,9 +108,7 @@ function AppRoutes() {
         path="/products"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
-            </DashboardLayout>
+            <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
           </ProtectedRoute>
         }
       />
