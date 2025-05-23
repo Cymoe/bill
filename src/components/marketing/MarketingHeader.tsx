@@ -153,7 +153,6 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
       >
         <div className="flex flex-col p-6 h-full">
           <div className="mb-8 mt-12">
-            <h3 className="text-lg font-bold mb-6 uppercase" style={{ color: '#336699' }}>Navigation</h3>
             <div className="flex flex-col space-y-4">
               <button 
                 onClick={() => handleNavigation('/marketing/projects')}
