@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, FileText, Users, Package, Target } from 'lucide-react';
+import { DollarSign, FileText, Users, Package, Target, ArrowUp } from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 
 import { RevenueProgress } from './dashboard/RevenueProgress';
 import { MetricCard } from './dashboard/MetricCard';
 import { RevenueChart } from './dashboard/RevenueChart';
 import { YearlyTrendChart } from './dashboard/YearlyTrendChart';
-import { Breadcrumbs } from './common/Breadcrumbs';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { CardSkeleton } from './skeletons/CardSkeleton';
 import { ChartSkeleton } from './skeletons/ChartSkeleton';
 import { SetRevenueGoalModal } from './dashboard/SetRevenueGoalModal';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { PageHeader } from './common/PageHeader';
 
 interface Invoice {
   id: string;
@@ -124,20 +124,19 @@ export const Dashboard: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-4 md:space-y-6">
-        <div className="px-2 md:px-0">
-          <Breadcrumbs items={[{ label: 'Dashboard' }]} />
-        </div>
-
-        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4 md:p-6">
+      <PageHeader
+        hideTitle={true}
+      />
+      <div className="space-y-6">
+        <div className="bg-[#121212] rounded-[4px] border border-[#333333] p-6">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Revenue Progress</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Track your revenue goals</p>
+              <h3 className="text-lg font-bold text-white font-['Roboto_Condensed'] uppercase">Revenue Progress</h3>
+              <p className="text-sm text-[#9E9E9E] font-['Roboto']">Track your revenue goals</p>
             </div>
             <button
               onClick={() => setShowGoalModal(true)}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg"
+              className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-[#121212] bg-[#F9D71C] hover:bg-[#F9D71C]/90 rounded-[4px] uppercase font-['Roboto']"
             >
               <Target className="w-4 h-4" />
               Set Goal
@@ -145,7 +144,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           {isLoading ? (
-            <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            <div className="h-32 bg-[#1E1E1E] rounded-[4px] animate-pulse"></div>
           ) : (
             <RevenueProgress 
               currentValue={metrics.totalRevenue} 
@@ -155,7 +154,7 @@ export const Dashboard: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2">
           {isLoading ? (
             <>
               <CardSkeleton />
@@ -170,30 +169,34 @@ export const Dashboard: React.FC = () => {
                 value={formatCurrency(metrics.totalRevenue)}
                 icon={DollarSign}
                 trend={10}
+                trendIcon={ArrowUp}
               />
               <MetricCard
                 title="Total Invoices"
                 value={metrics.totalInvoices.toString()}
                 icon={FileText}
                 trend={5}
+                trendIcon={ArrowUp}
               />
               <MetricCard
                 title="Total Clients"
                 value={metrics.totalClients.toString()}
                 icon={Users}
                 trend={15}
+                trendIcon={ArrowUp}
               />
               <MetricCard
                 title="Total Products"
                 value={metrics.totalProducts.toString()}
                 icon={Package}
                 trend={8}
+                trendIcon={ArrowUp}
               />
             </>
           )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {isLoading ? (
             <>
               <ChartSkeleton />
@@ -201,10 +204,10 @@ export const Dashboard: React.FC = () => {
             </>
           ) : (
             <>
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4 md:p-6">
+              <div className="bg-[#121212] rounded-[4px] border border-[#333333] p-6">
                 <RevenueChart data={metrics.monthlyRevenue} title="Monthly Revenue" />
               </div>
-              <div className="bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4 md:p-6">
+              <div className="bg-[#121212] rounded-[4px] border border-[#333333] p-6">
                 <YearlyTrendChart data={metrics.yearlyComparison} title="Yearly Comparison" />
               </div>
             </>

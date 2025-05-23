@@ -1,40 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MoreVertical } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeader } from '../common/PageHeader';
 import { NewButton } from '../common/NewButton';
+import { TableSkeleton } from '../skeletons/TableSkeleton';
+import { Dropdown } from '../common/Dropdown';
+import { formatCurrency } from '../../utils/format';
 
 type Project = Tables['projects'];
-
-interface PlusIconProps {
-  className?: string;
-}
-
-// Simple Plus Icon component since we can't use @heroicons yet
-const PlusIcon: React.FC<PlusIconProps> = ({ className }) => (
-  <svg
-    className={className}
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
-    stroke="currentColor"
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M12 4v16m8-8H4"
-    />
-  </svg>
-);
 
 export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  // Search functionality removed with duplicate header
+  const [selectedRows, setSelectedRows] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -54,99 +36,182 @@ export const ProjectList: React.FC = () => {
   const getStatusColor = (status: Project['status']) => {
     switch (status) {
       case 'active':
-        return 'bg-[#6BFF90] bg-opacity-8 text-[#6BFF90]';
+        return 'bg-[#388E3C] text-[#6BFF90]';
       case 'completed':
-        return 'bg-[#FF3B30] bg-opacity-8 text-[#FF3B30]';
+        return 'bg-[#0D47A1] text-[#336699]';
       case 'on-hold':
-        return 'bg-[#FFA726] bg-opacity-8 text-[#FFA726]';
+        return 'bg-[#FFA726] bg-opacity-20 text-[#F9D71C]';
       case 'cancelled':
-        return 'bg-[#F41857] bg-opacity-8 text-[#F41857]';
+        return 'bg-[#D32F2F] bg-opacity-20 text-[#D32F2F]';
       default:
-        return 'bg-white bg-opacity-8 text-white';
+        return 'bg-[#333333] text-[#9E9E9E]';
     }
   };
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF3B30]"></div>
-        </div>
-      </DashboardLayout>
-    );
-  }
+  // Bulk select logic
+  const allSelected = projects.length > 0 && selectedRows.length === projects.length;
+  const toggleSelectAll = () => {
+    if (allSelected) setSelectedRows([]);
+    else setSelectedRows(projects.map(project => project.id));
+  };
+  const toggleSelectRow = (id: string) => {
+    setSelectedRows((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const rowDropdownItems = (project: Project) => [
+    {
+      label: 'View Details',
+      onClick: () => navigate(`/projects/${project.id}`),
+      className: 'font-bold text-white',
+    },
+    {
+      label: '',
+      onClick: () => {},
+      className: 'pointer-events-none border-t border-[#35384A] my-1',
+    },
+    {
+      label: 'Edit Project',
+      onClick: () => navigate(`/projects/${project.id}/edit`),
+      className: 'font-bold text-white',
+    },
+    {
+      label: '',
+      onClick: () => {},
+      className: 'pointer-events-none border-t border-[#35384A] my-1',
+    },
+    {
+      label: 'Delete',
+      onClick: () => {/* delete logic placeholder */},
+      className: 'font-bold text-[#D32F2F]',
+    },
+  ];
+
+  // Project summary statistics
+  const activeProjects = projects.filter(project => project.status === 'active');
+  const completedProjects = projects.filter(project => project.status === 'completed');
+  const onHoldProjects = projects.filter(project => project.status === 'on-hold');
+  
+  const totalBudget = projects.reduce((sum, project) => sum + project.budget, 0);
+  const activeBudget = activeProjects.reduce((sum, project) => sum + project.budget, 0);
 
   return (
     <DashboardLayout>
-      <div className="space-y-0">
-        <PageHeader
-          hideTitle={true}
-        />
-        <div className="mt-8 -mx-4 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle md:px-6 lg:px-8">
-            <div className="overflow-hidden shadow rounded-lg bg-[#1e2532]">
-              <table className="min-w-full divide-y divide-gray-700">
-                <thead className="bg-[#2a3441]">
-                  <tr>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-medium text-gray-400">
-                      Name
-                    </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-medium text-gray-400">
-                      Status
-                    </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-medium text-gray-400">
-                      Budget
-                    </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-medium text-gray-400">
-                      Start Date
-                    </th>
-                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-medium text-gray-400">
-                      End Date
-                    </th>
-                    <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-700 bg-transparent">
-                  {projects.map((project) => (
-                    <tr key={project.id} onClick={() => navigate(`/projects/${project.id}`)} className="cursor-pointer hover:bg-[#2a3441] transition-colors duration-200">
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-white">
-                        {project.name}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm">
-                        <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getStatusColor(project.status)}`}>
-                          {project.status}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-white">
-                        ${project.budget.toLocaleString()}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-white">
-                        {new Date(project.start_date).toLocaleDateString()}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-4 text-sm text-white">
-                        {new Date(project.end_date).toLocaleDateString()}
-                      </td>
-                      <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/projects/${project.id}/edit`);
-                          }}
-                          className="text-indigo-400 hover:text-indigo-300 transition-colors duration-200"
-                        >
-                          Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+      <PageHeader
+        hideTitle={true}
+      />
+      
+      {/* Project summary cards */}
+      <div className="hidden md:flex gap-0 mb-6">
+        {/* Total Projects */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1 font-['Roboto']">Total Projects</span>
+          <span className="text-2xl font-bold text-white font-['Roboto_Condensed']">{projects.length}</span>
+          <span className="text-xs text-gray-500 font-['Roboto']">Total Budget: {formatCurrency(totalBudget)}</span>
+        </div>
+        {/* Active Projects */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1 font-['Roboto']">Active Projects</span>
+          <span className="text-2xl font-bold text-[#6BFF90] font-['Roboto_Condensed']">{activeProjects.length}</span>
+          <span className="text-xs text-gray-500 font-['Roboto']">Budget: {formatCurrency(activeBudget)}</span>
+        </div>
+        {/* On Hold */}
+        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1 font-['Roboto']">On Hold</span>
+          <span className="text-2xl font-bold text-[#F9D71C] font-['Roboto_Condensed']">{onHoldProjects.length}</span>
+          <span className="text-xs text-gray-500 font-['Roboto']">{formatCurrency(onHoldProjects.reduce((sum, p) => sum + p.budget, 0))}</span>
+        </div>
+        {/* Completed */}
+        <div className="flex-1 border border-[#35384A] p-4 flex flex-col justify-center min-w-[180px]">
+          <span className="text-sm text-gray-400 mb-1 font-['Roboto']">Completed</span>
+          <span className="text-2xl font-bold text-[#336699] font-['Roboto_Condensed']">{completedProjects.length}</span>
+          <span className="text-xs text-gray-500 font-['Roboto']">{formatCurrency(completedProjects.reduce((sum, p) => sum + p.budget, 0))}</span>
         </div>
       </div>
+
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">Projects</h2>
+        <NewButton 
+          onClick={() => navigate('/projects/new')} 
+          label="New Project"
+          color="yellow"
+          className="rounded-[4px] font-bold font-['Roboto']"
+        />
+      </div>
+
+      {loading ? (
+        <TableSkeleton rows={5} columns={6} />
+      ) : (
+        <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden border border-[#333333]">
+          <div className="max-h-[calc(100vh-240px)] overflow-y-auto">
+            <table className="min-w-full bg-[#121212]">
+              <thead>
+                <tr className="bg-[#1E1E1E] sticky top-0 z-10">
+                  <th className="w-12 px-3 py-4 align-middle">
+                    <div className="flex items-center h-full">
+                      <input
+                        type="checkbox"
+                        className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
+                        checked={allSelected}
+                        onChange={toggleSelectAll}
+                      />
+                    </div>
+                  </th>
+                  <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">NAME</th>
+                  <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">STATUS</th>
+                  <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">BUDGET</th>
+                  <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">START DATE</th>
+                  <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">END DATE</th>
+                  <th className="w-8 px-3 py-4"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#333333]">
+                {projects.map((project) => (
+                  <tr
+                    key={project.id}
+                    className={`transition-colors ${selectedRows.includes(project.id) ? 'bg-[#1E1E1E]' : 'hover:bg-[#1E1E1E]'} cursor-pointer`}
+                    onClick={() => toggleSelectRow(project.id)}
+                  >
+                    <td className="px-3 py-4 align-middle">
+                      <div className="flex items-center h-full" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
+                          checked={selectedRows.includes(project.id)}
+                          onChange={() => toggleSelectRow(project.id)}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 font-medium text-white font-['Roboto']">{project.name}</td>
+                    <td className="px-3 py-4">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center">
+                          <span className="w-5 h-5 bg-[#333333] rounded-[4px] flex items-center justify-center mr-2">
+                            <span className={`block w-2 h-2 ${getStatusColor(project.status).split(' ')[1]} rounded-[4px]`}></span>
+                          </span>
+                          <span className="text-white text-sm font-['Roboto'] capitalize">{project.status}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-4 text-white font-['Roboto_Mono'] font-medium">{formatCurrency(project.budget)}</td>
+                    <td className="px-3 py-4 text-white font-['Roboto']">{new Date(project.start_date).toLocaleDateString()}</td>
+                    <td className="px-3 py-4 text-white font-['Roboto']">{new Date(project.end_date).toLocaleDateString()}</td>
+                    <td className="px-3 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <Dropdown
+                        trigger={
+                          <button className="text-[#9E9E9E] hover:text-[#F9D71C]">
+                            <MoreVertical className="w-5 h-5" />
+                          </button>
+                        }
+                        items={rowDropdownItems(project)}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

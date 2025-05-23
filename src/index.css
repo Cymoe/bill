@@ -33,6 +33,12 @@ body {
   color: #f3f4f6; /* Light text color */
 }
 
+/* Override for marketing pages to use light theme */
+body.marketing-page {
+  background-color: #f9fafb; /* Light background color */
+  color: #111827; /* Dark text color */
+}
+
 #root {
   display: flex;
   flex-direction: column;

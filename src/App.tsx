@@ -12,6 +12,7 @@ import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 // Packages page removed as part of simplification
 import { LandingPage } from './components/LandingPage';
+import Projects from './pages/marketing/Projects';
 import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
@@ -82,6 +83,7 @@ function AppRoutes() {
       <Route path="/" element={renderLanding()} />
       <Route path="/auth/callback" element={<Callback />} />
       <Route path="/auth/test" element={<TestAuth />} />
+      <Route path="/marketing/projects" element={<Projects />} />
 
       {/* Protected routes */}
       <Route

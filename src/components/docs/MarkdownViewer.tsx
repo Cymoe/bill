@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { MarketingHeader } from '../marketing/MarketingHeader';
 import { markdownToHtml } from '../../../utils/markdownToHtml';
 import './MarkdownViewer.css';
 
@@ -33,8 +34,9 @@ const MarkdownViewer: React.FC = () => {
   }, [filename]);
 
   return (
-    <div>
-      <div className="max-w-5xl mx-auto p-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <MarketingHeader />
+      <div className="max-w-5xl mx-auto p-8 mt-6">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

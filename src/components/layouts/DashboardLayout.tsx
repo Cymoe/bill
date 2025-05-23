@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
   Box
 } from 'lucide-react';
 import { NewClientModal } from '../clients/NewClientModal';
@@ -56,6 +57,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Line item modal replaced with drawer
   const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -274,7 +276,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
         {/* Top Navbar - fixed, full-width for desktop and mobile */}
-        <div className="flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-64 left-0">
+        <div className="flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-52 left-0">
           {/* Mobile Menu Toggle - Only visible on mobile */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -299,7 +301,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
 
           {/* Top Navbar - Context-aware Add Button */}
-          <div className="relative flex items-center">
+          {/* Search bar - moved from sidebar to header */}
+          <div className="relative hidden md:flex items-center gap-4">
+            <div className="relative w-64">
+              <div className="bg-[#1E1E1E] rounded-md flex items-center px-3 py-2">
+                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                </svg>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={globalSearch}
+                  onChange={e => setGlobalSearch(e.target.value)}
+                  className="bg-transparent border-none w-full text-white text-sm focus:outline-none ml-2 placeholder-gray-400"
+                />
+              </div>
+            </div>
             <button
               onClick={() => {
                 const path = window.location.pathname;
@@ -327,51 +344,70 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
         {/* Sidebar - fixed, left-aligned */}
-        <div className="hidden md:flex fixed left-0 top-0 w-64 h-full overflow-y-auto bg-[#121212] border-r border-gray-700 flex-col z-[9999]">
-          {/* Organization header */}
-          <div className="p-4 border-b border-[#333333]">
-            <div className="bg-[#1E1E1E] rounded-md p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="bg-[#336699] text-white w-12 h-12 rounded-md flex items-center justify-center text-2xl font-bold">
-                  A
+        <div className={`hidden md:flex fixed left-0 top-0 ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-full overflow-y-auto bg-[#121212] border-r border-gray-700 flex-col z-[9999] transition-all duration-300`}>
+          {/* Organization header and sidebar toggle */}
+          <div className="p-2 border-b border-[#333333] relative flex items-center justify-between">
+            {!isSidebarCollapsed && (
+              <button 
+                onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
+                className="flex-1 bg-[#1E1E1E] rounded-md p-2 flex items-center justify-between mr-1"
+              >
+                <div className="flex items-center">
+                  <span className="text-white text-base font-medium leading-tight truncate max-w-[110px]">{selectedOrg.name}</span>
                 </div>
-                <span className="text-white text-xl font-medium">ACME CO</span>
+                <ChevronDown className={`text-[#336699] w-4 h-4 transition-transform duration-200 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
+              </button>
+            )}
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-md bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
+              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {isSidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </button>
+            
+            {/* Organization Dropdown */}
+            {orgDropdownOpen && !isSidebarCollapsed && (
+              <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1E1E1E] border border-[#333333] rounded-md shadow-lg z-50 py-1 overflow-hidden">
+                {mockOrgs.map((org) => (
+                  <button
+                    key={org.id}
+                    className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#333333] transition-colors ${selectedOrg.id === org.id ? 'bg-[#232D3F]' : ''}`}
+                    onClick={() => {
+                      setSelectedOrg(org);
+                      setOrgDropdownOpen(false);
+                    }}
+                  >
+                    <div className={`text-white w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
+                      {org.name.charAt(0)}
+                    </div>
+                    <div className="flex flex-col overflow-hidden max-w-[120px]">
+                      <span className="text-white text-sm font-medium truncate">{org.name}</span>
+                      <span className="text-gray-400 text-xs truncate">{org.industry}</span>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <ChevronDown className="text-[#336699] w-5 h-5" />
-            </div>
+            )}
           </div>
 
-          {/* Search bar */}
-          <div className="p-4 border-b border-[#333333] relative">
-            <div className="bg-[#1E1E1E] rounded-md flex items-center px-4 py-3">
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-              </svg>
-              <input
-                type="text"
-                placeholder="Search..."
-                value={globalSearch}
-                onChange={e => setGlobalSearch(e.target.value)}
-                className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
-              />
-              {/* Plus button removed to separate search and create functionalities */}
-            </div>
-            
-            {/* Create button - with increased separation from search */}
-            <div className="w-full mt-6 mb-4">
+          {/* Create button - more prominent after removing search */}
+          <div className="px-2 py-3 border-b border-[#333333] relative">
+            <div className="w-full">
               <button
                 ref={createButtonRef}
                 onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-                className="w-full bg-[#336699] text-white rounded-md py-3 px-4 flex items-center justify-between hover:bg-[#2A5580] transition-colors"
+                className={`w-full text-[#9E9E9E] font-bold py-2 ${isSidebarCollapsed ? 'px-0 justify-center' : 'px-3 justify-between'} flex items-center hover:text-white transition-colors`}
                 aria-expanded={isCreateMenuOpen}
                 aria-haspopup="true"
                 id="create-button"
               >
-                <div className="flex items-center">
-                  <Plus className="w-5 h-5 mr-2" />
-                  <span className="font-medium">Create new...</span>
+                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                  <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-0">
+                    <Plus className="w-3.5 h-3.5" />
+                  </div>
+                  {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">Create</span>}
                 </div>
-                <ChevronDown className="w-5 h-5" />
               </button>
             </div>
             
@@ -557,13 +593,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
 
           {/* Grid navigation */}
-          <div className="px-2 pt-2 grid grid-cols-2 gap-1">
+          <div className={`px-2 pt-2 ${isSidebarCollapsed ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-1`}>
             {/* Dashboard */}
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -572,7 +608,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>}
                 </>
               )}
             </NavLink>
@@ -582,7 +618,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/clients"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -591,7 +627,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>}
                 </>
               )}
             </NavLink>
@@ -601,7 +637,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/projects"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -610,7 +646,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>}
                 </>
               )}
             </NavLink>
@@ -620,7 +656,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/invoices"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -629,7 +665,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>}
                 </>
               )}
             </NavLink>
@@ -639,7 +675,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/products"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -648,7 +684,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>}
                 </>
               )}
             </NavLink>
@@ -658,7 +694,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/price-book"
               className={({ isActive }) =>
                 isActive
-                  ? "bg-[#336699] p-2 rounded-md flex flex-col items-center justify-center border-l-2 border-[#336699]"
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -667,39 +703,38 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="mb-0.5">
                     <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
                   </div>
-                  <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>}
                 </>
               )}
             </NavLink>
           </div>
 
-          {/* Quick Stats Section */}
-          <div className="mt-4 mx-2">
-            <h3 className="text-gray-400 text-xs uppercase font-medium mb-2 px-1">QUICK STATS</h3>
-            <div className="bg-[#1E1E1E] rounded-md p-3">
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div>
-                  <div className="text-gray-400 text-xs">Active Projects</div>
-                  <div className="text-white text-xl font-bold">12</div>
-                </div>
-                <div>
-                  <div className="text-gray-400 text-xs">Pending Invoices</div>
-                  <div className="text-white text-xl font-bold">5</div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <div className="text-gray-400 text-xs">This Month</div>
-                  <div className="text-[#2ECC71] text-xl font-bold">$24,500</div>
-                </div>
-                <div>
-                  <div className="text-gray-400 text-xs">Clients</div>
-                  <div className="text-white text-xl font-bold">28</div>
+          {/* Quick Stats Section - only visible when sidebar is expanded */}
+          {!isSidebarCollapsed && (
+            <div className="mt-3 mx-2">
+              <h3 className="text-gray-400 text-xs uppercase font-medium mb-1 px-1">QUICK STATS</h3>
+              <div className="bg-[#1E1E1E] rounded-[4px] p-1.5">
+                <div className="grid grid-cols-2 gap-1">
+                  <div className="flex items-center justify-between px-1.5 py-0.5">
+                    <div className="text-gray-400 text-[10px] uppercase">Projects</div>
+                    <div className="text-white text-sm font-bold">12</div>
+                  </div>
+                  <div className="flex items-center justify-between px-1.5 py-0.5">
+                    <div className="text-gray-400 text-[10px] uppercase">Invoices</div>
+                    <div className="text-white text-sm font-bold">5</div>
+                  </div>
+                  <div className="flex items-center justify-between px-1.5 py-0.5">
+                    <div className="text-gray-400 text-[10px] uppercase">Revenue</div>
+                    <div className="text-[#388E3C] text-sm font-bold">$24.5K</div>
+                  </div>
+                  <div className="flex items-center justify-between px-1.5 py-0.5">
+                    <div className="text-gray-400 text-[10px] uppercase">Clients</div>
+                    <div className="text-white text-sm font-bold">28</div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="mt-auto border-t border-gray-700">
             {/* Dropdown Menu */}
@@ -786,7 +821,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
         {/* Main Content - margin left for sidebar only */}
-        <div className={`flex-1 ${location.pathname.startsWith('/products') ? 'md:ml-[8.5rem] pt-[3.5rem]' : 'md:ml-64 pt-16'} px-0 bg-[#121212]`}>
+        <div className={`flex-1 ${location.pathname.startsWith('/products') ? 
+          (isSidebarCollapsed ? 'md:ml-14 pt-[3.5rem]' : 'md:ml-[8.5rem] pt-[3.5rem]') : 
+          (isSidebarCollapsed ? 'md:ml-14 pt-16' : 'md:ml-48 pt-16')} 
+          px-0 bg-[#121212] transition-all duration-300`}>
           {/* Render children with setTriggerNewProduct prop if possible */}
           <div className="h-full w-full -mt-16 pt-16 -ml-0 px-0">
             {children}
@@ -861,7 +899,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>}
                   </>
                 )}
               </NavLink>
@@ -881,7 +919,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>}
                   </>
                 )}
               </NavLink>
@@ -901,7 +939,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>}
                   </>
                 )}
               </NavLink>
@@ -921,7 +959,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>}
                   </>
                 )}
               </NavLink>
@@ -941,7 +979,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>}
                   </>
                 )}
               </NavLink>
@@ -961,35 +999,32 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <div className="mb-0.5">
                       <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
                     </div>
-                    <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>}
                   </>
                 )}
               </NavLink>
             </div>
 
             {/* Quick Stats Section - Mobile */}
-            <div className="mt-4 mx-2">
-              <h3 className="text-gray-400 text-xs uppercase font-medium mb-2 px-1">QUICK STATS</h3>
-              <div className="bg-[#1E1E1E] rounded-md p-3">
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div>
-                    <div className="text-gray-400 text-xs">Active Projects</div>
-                    <div className="text-white text-xl font-bold">12</div>
+            <div className="mt-3 mx-2">
+              <h3 className="text-gray-400 text-xs uppercase font-medium mb-1 px-1">QUICK STATS</h3>
+              <div className="bg-[#1E1E1E] rounded-md p-2">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+                  <div className="flex flex-col">
+                    <div className="text-gray-400 text-[10px] leading-tight">Active Projects</div>
+                    <div className="text-white text-lg font-bold leading-tight">12</div>
                   </div>
-                  <div>
-                    <div className="text-gray-400 text-xs">Pending Invoices</div>
-                    <div className="text-white text-xl font-bold">5</div>
+                  <div className="flex flex-col">
+                    <div className="text-gray-400 text-[10px] leading-tight">Pending Invoices</div>
+                    <div className="text-white text-lg font-bold leading-tight">5</div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <div className="text-gray-400 text-xs">This Month</div>
-                    <div className="text-[#2ECC71] text-xl font-bold">$24,500</div>
+                  <div className="flex flex-col">
+                    <div className="text-gray-400 text-[10px] leading-tight">This Month</div>
+                    <div className="text-[#2ECC71] text-lg font-bold leading-tight">$24,500</div>
                   </div>
-                  <div>
-                    <div className="text-gray-400 text-xs">Clients</div>
-                    <div className="text-white text-xl font-bold">28</div>
+                  <div className="flex flex-col">
+                    <div className="text-gray-400 text-[10px] leading-tight">Clients</div>
+                    <div className="text-white text-lg font-bold leading-tight">28</div>
                   </div>
                 </div>
               </div>
@@ -1071,7 +1106,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         {showLineItemDrawer && (
           <div className="fixed inset-0 z-[11000] flex justify-end">
             <div
-              className="absolute inset-0 bg-black transition-opacity duration-300 opacity-50"
+              className={`flex-1 ml-0 ${isSidebarCollapsed ? 'md:ml-14' : 'md:ml-48'} transition-all duration-300`}
               onClick={() => {
                 setIsClosingLineItemDrawer(true);
                 setTimeout(() => {

@@ -1,6 +1,5 @@
 import React from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { useTheme } from '../../contexts/ThemeContext';
 
 interface RevenueChartProps {
   data: Array<{ month: string; amount: number }>;
@@ -8,36 +7,52 @@ interface RevenueChartProps {
 }
 
 export const RevenueChart: React.FC<RevenueChartProps> = ({ data, title }) => {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
-
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6">
-      <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{title}</h2>
+    <div>
+      <h2 className="text-lg font-bold text-white font-['Roboto_Condensed'] uppercase mb-4">{title}</h2>
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
             <CartesianGrid 
               strokeDasharray="3 3" 
-              stroke={isDark ? '#374151' : '#E5E7EB'}
+              stroke="#333333"
+              vertical={false}
             />
             <XAxis 
               dataKey="month" 
-              stroke={isDark ? '#9CA3AF' : '#4B5563'}
+              stroke="#9E9E9E"
+              tick={{ fontFamily: 'Roboto', fontSize: 12 }}
+              axisLine={{ stroke: '#333333' }}
+              tickLine={{ stroke: '#333333' }}
             />
             <YAxis 
               tickFormatter={(value) => `$${value.toLocaleString()}`}
-              stroke={isDark ? '#9CA3AF' : '#4B5563'}
+              stroke="#9E9E9E"
+              tick={{ fontFamily: 'Roboto Mono', fontSize: 12 }}
+              axisLine={{ stroke: '#333333' }}
+              tickLine={{ stroke: '#333333' }}
             />
             <Tooltip 
               formatter={(value: any) => [`$${value.toLocaleString()}`, 'Revenue']}
               contentStyle={{ 
-                background: isDark ? '#1F2937' : 'white',
-                border: isDark ? '1px solid #374151' : '1px solid #E5E7EB',
-                color: isDark ? '#F3F4F6' : '#111827'
+                background: '#1E1E1E',
+                border: '1px solid #333333',
+                color: '#FFFFFF',
+                fontFamily: 'Roboto',
+                borderRadius: '4px'
+              }}
+              labelStyle={{
+                fontFamily: 'Roboto Condensed',
+                fontWeight: 'bold',
+                textTransform: 'uppercase'
               }}
             />
-            <Bar dataKey="amount" fill={isDark ? '#818CF8' : '#4F46E5'} />
+            <Bar 
+              dataKey="amount" 
+              fill="#336699" 
+              radius={[4, 4, 0, 0]}
+              barSize={30}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
