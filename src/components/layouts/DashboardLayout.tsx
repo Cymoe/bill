@@ -129,6 +129,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [globalSearch, setGlobalSearch] = useState('');
   const [showNewProjectDrawer, setShowNewProjectDrawer] = useState(false);
   const { openProductDrawer } = useProductDrawer();
+  const [isQuickStartCollapsed, setIsQuickStartCollapsed] = useState(false);
 
   // Mock organizations
   const mockOrgs = [
@@ -382,7 +383,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
         {/* Sidebar - fixed, left-aligned */}
-        <div className={`hidden md:flex fixed left-0 top-0 ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-full overflow-y-auto bg-[#121212] border-r border-gray-700 flex-col z-[9999] transition-all duration-300`}>
+        <div className={`hidden md:flex fixed left-0 top-0 ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-full bg-[#121212] border-r border-gray-700 flex-col z-[9999] transition-all duration-300`}>
           {/* Organization header and sidebar toggle */}
           <div className="p-2 border-b border-[#333333] relative flex items-center justify-between">
             {!isSidebarCollapsed && (
@@ -431,7 +432,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
           {/* Create button - more prominent after removing search */}
           <div className="px-2 py-3 border-b border-[#333333] relative">
-            <div className="w-full">
+            <div className="w-full space-y-2">
               <button
                 ref={createButtonRef}
                 onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
@@ -445,6 +446,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <Plus className="w-3.5 h-3.5" />
                   </div>
                   {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">Create</span>}
+                </div>
+              </button>
+              
+              <button
+                onClick={() => navigate('/chat')}
+                className={`w-full text-[#9E9E9E] font-bold py-2 ${isSidebarCollapsed ? 'px-0 justify-center' : 'px-3 justify-between'} flex items-center hover:text-white transition-colors`}
+              >
+                <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                  <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-0">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                  </div>
+                  {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">ADVISOR</span>}
                 </div>
               </button>
             </div>
@@ -613,7 +626,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         setIsCreateMenuOpen(false);
                         // Handle contract template creation
                       }}
-                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors"
+                      className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
                     >
                       <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
                         <FileText size={20} />
@@ -630,6 +643,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             )}
           </div>
 
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto">
           {/* Grid navigation */}
           <div className={`px-2 pt-2 ${isSidebarCollapsed ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-1`}>
             {/* Dashboard */}
@@ -779,45 +794,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           )}
           
-          {/* AI Business Coach - RAG Chat - only visible when sidebar is expanded */}
-          {!isSidebarCollapsed && (
-            <div className="p-4 border-b border-gray-800">
-              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 p-4 rounded-lg border border-purple-600/30">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-purple-400 font-bold text-sm flex items-center">
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    ASK YOUR DATA
-                  </h3>
-                  <div className="bg-purple-600/30 px-2 py-1 rounded-full">
-                    <span className="text-purple-400 text-xs font-bold">AI</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-2 mb-3">
-                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
-                    "Which clients owe me money?"
-                  </div>
-                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
-                    "What's my most profitable project?"
-                  </div>
-                  <div className="bg-gray-800/50 p-2 rounded text-xs text-gray-300">
-                    "Show me overdue invoices"
-                  </div>
-                </div>
-                
-                <button 
-                  onClick={() => navigate('/chat')}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors uppercase font-bold"
-                >
-                  Chat with Data
-                </button>
-              </div>
-            </div>
-          )}
-          
           {/* Profit Alerts - Urgent Money Actions - only visible when sidebar is expanded */}
           {!isSidebarCollapsed && (
-            <div className="p-4 border-b border-gray-800 flex-1">
+            <div className="p-4 border-b border-gray-800">
               <h3 className="text-yellow-400 font-bold text-sm mb-3 flex items-center">
                 <AlertTriangle className="h-4 w-4 mr-1" />
                 PROFIT ALERTS
@@ -859,40 +838,106 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
           )}
+          </div>
 
-          <div className="mt-auto border-t border-gray-700">
-            {/* Dropdown Menu */}
+          <div className="mt-auto">
+          {/* Quick Start Guide - Collapsible onboarding at bottom - only visible when sidebar is expanded */}
+          {!isSidebarCollapsed && (
+            <div className="border-b border-gray-700">
+              <button
+                onClick={() => setIsQuickStartCollapsed(!isQuickStartCollapsed)}
+                className="w-full p-3 flex items-center justify-between text-gray-400 hover:text-white transition-colors"
+              >
+                <div className="flex items-center">
+                  <Zap className="h-4 w-4 mr-2" />
+                  <span className="text-sm font-medium">QUICK START GUIDE</span>
+                  <span className="ml-2 text-xs bg-[#F9D71C] text-[#121212] px-2 py-0.5 rounded-[4px] font-bold">1/5</span>
+                </div>
+                <ChevronUp className={`h-4 w-4 transition-transform duration-200 ${isQuickStartCollapsed ? 'rotate-180' : 'rotate-0'}`} />
+              </button>
+              
+              {!isQuickStartCollapsed && (
+                <div className="px-3 pb-3">
+                  <div className="space-y-2">
+                    <div className="bg-[#388E3C]/20 border border-[#388E3C]/30 rounded-[4px] p-2 flex items-center">
+                      <CheckCircle2 className="h-3 w-3 text-[#388E3C] mr-2 flex-shrink-0" />
+                      <span className="text-white text-xs">Add your first client</span>
+                    </div>
+                    
+                    <div className="bg-[#1E1E1E] border border-[#336699]/30 rounded-[4px] p-2 hover:border-[#336699]/50 transition-colors cursor-pointer flex items-center">
+                      <div className="w-3 h-3 border border-[#336699] rounded-full mr-2 flex-shrink-0 flex items-center justify-center">
+                        <div className="w-1 h-1 bg-[#336699] rounded-full"></div>
+                      </div>
+                      <span className="text-white text-xs">Create your first project</span>
+                    </div>
+                    
+                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                      <span className="text-gray-400 text-xs">Set up your price book</span>
+                    </div>
+                    
+                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                      <span className="text-gray-400 text-xs">Send your first invoice</span>
+                    </div>
+                    
+                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                      <span className="text-gray-400 text-xs">Try the ADVISOR feature</span>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-full bg-gray-800 rounded-full h-1 w-16">
+                        <div className="bg-[#F9D71C] h-1 rounded-full" style={{width: '20%'}}></div>
+                      </div>
+                      <span className="text-gray-400 text-xs ml-2">1/5</span>
+                    </div>
+                    <button className="text-[#336699] text-xs font-medium hover:text-white transition-colors">
+                      SKIP
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* User Info */}
+          <div className="relative border-t border-gray-700">
+            {/* Dropdown Menu - positioned absolutely above user info */}
             {isProfileMenuOpen && (
-              <div className="bg-gray-900 py-1">
+              <div className={`absolute bottom-full ${isSidebarCollapsed ? 'left-0 w-36' : 'left-0 right-0'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-50`}>
                 <button
                   onClick={toggleTheme}
-                  className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+                  className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
                 >
                   {theme === 'light' ? (
                     <>
-                      <Moon className="w-4 h-4 mr-3" />
-                      Dark Mode
+                      <Moon className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                      <span className="uppercase tracking-wider text-xs font-medium">DARK MODE</span>
                     </>
                   ) : (
                     <>
-                      <Sun className="w-4 h-4 mr-3" />
-                      Light Mode
+                      <Sun className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                      <span className="uppercase tracking-wider text-xs font-medium">LIGHT MODE</span>
                     </>
                   )}
                 </button>
+                <div className="h-px bg-[#333333]"></div>
                 <button
                   onClick={() => {
                     signOut();
                     setIsProfileMenuOpen(false);
                   }}
-                  className="w-full flex items-center px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 transition-colors duration-200"
+                  className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
                 >
-                  <LogOut className="w-4 h-4 mr-3" />
-                  Sign out
+                  <LogOut className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                  <span className="uppercase tracking-wider text-xs font-medium">SIGN OUT</span>
                 </button>
               </div>
             )}
-            {/* User Info */}
+            
             <div className="p-4 flex items-center">
               <div className="flex items-center space-x-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden">
@@ -924,6 +969,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 />
               </button>
             </div>
+          </div>
           </div>
         </div>
         {/* Mobile header - only visible on mobile devices */}
@@ -960,249 +1006,296 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         {/* Mobile Navigation Menu - Full Screen */}
         <div className={`md:hidden fixed inset-0 z-[10000] ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="fixed inset-0 bg-black bg-opacity-90" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="fixed inset-0 w-full bg-[#121212] overflow-y-auto z-[10001]">
+          <div className="fixed inset-0 w-full bg-[#121212] flex flex-col z-[10001]">
             {/* Mobile Header with Close Button */}
-            <div className="flex items-center justify-between p-6 border-b border-[#2D3748]">
-              <span className="text-xl font-medium text-white">Menu</span>
+            <div className="flex items-center justify-between p-4 border-b border-[#333333]">
+              <span className="text-xl font-medium text-white uppercase">Menu</span>
               <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            {/* Organization header */}
-            <div className="p-4 border-b border-[#333333]">
-              <div className="bg-[#1E1E1E] rounded-md p-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="bg-[#336699] text-white w-12 h-12 rounded-md flex items-center justify-center text-2xl font-bold">
-                    A
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Organization header */}
+              <div className="p-2 border-b border-[#333333] relative">
+                <button 
+                  onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
+                  className="w-full bg-[#1E1E1E] rounded-md p-2 flex items-center justify-between"
+                >
+                  <div className="flex items-center">
+                    <span className="text-white text-base font-medium">{selectedOrg.name}</span>
                   </div>
-                  <span className="text-white text-xl font-medium">ACME CO</span>
-                </div>
-                <ChevronDown className="text-[#336699] w-5 h-5" />
+                  <ChevronDown className={`text-[#336699] w-4 h-4 transition-transform duration-200 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
+                </button>
+                
+                {/* Organization Dropdown - Mobile */}
+                {orgDropdownOpen && (
+                  <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1E1E1E] border border-[#333333] rounded-md shadow-lg z-50 py-1 overflow-hidden">
+                    {mockOrgs.map((org) => (
+                      <button
+                        key={org.id}
+                        className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#333333] transition-colors ${selectedOrg.id === org.id ? 'bg-[#232D3F]' : ''}`}
+                        onClick={() => {
+                          setSelectedOrg(org);
+                          setOrgDropdownOpen(false);
+                        }}
+                      >
+                        <div className={`text-white w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
+                          {org.name.charAt(0)}
+                        </div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className="text-white text-sm font-medium truncate">{org.name}</span>
+                          <span className="text-gray-400 text-xs truncate">{org.industry}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
 
-            {/* Search Bar */}
-            <div className="p-4 border-b border-[#333333]">
-              <div className="bg-[#1E1E1E] rounded-md flex items-center px-4 py-3">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={globalSearch}
-                  onChange={e => setGlobalSearch(e.target.value)}
-                  className="bg-transparent border-none w-full text-white focus:outline-none ml-2 placeholder-gray-400"
-                />
-                <div className="text-[#336699] relative">
+              {/* Create and Advisor buttons */}
+              <div className="px-2 py-3 border-b border-[#333333]">
+                <div className="w-full space-y-2">
                   <button
-                    onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-                    className="flex items-center justify-center"
+                    onClick={() => setIsCreateMenuOpen(true)}
+                    className="w-full text-[#9E9E9E] font-bold py-2 px-3 flex items-center justify-between hover:text-white transition-colors"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m6 0H6"></path>
-                    </svg>
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-3">
+                        <Plus className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-normal text-base uppercase tracking-wide">CREATE</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      navigate('/chat');
+                    }}
+                    className="w-full text-[#9E9E9E] font-bold py-2 px-3 flex items-center justify-between hover:text-white transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-3">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </div>
+                      <span className="font-normal text-base uppercase tracking-wide">ADVISOR</span>
+                    </div>
                   </button>
                 </div>
               </div>
-            </div>
 
-            {/* Grid navigation - Mobile version (without section headers) */}
-            <div className="p-2 grid grid-cols-2 gap-2">
-              {/* Dashboard */}
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>}
-                  </>
-                )}
-              </NavLink>
+              {/* Grid navigation - Mobile version */}
+              <div className="p-2 grid grid-cols-2 gap-1">
+                {/* Dashboard */}
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                    </>
+                  )}
+                </NavLink>
 
-              {/* Clients */}
-              <NavLink
-                to="/clients"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>}
-                  </>
-                )}
-              </NavLink>
+                {/* Clients */}
+                <NavLink
+                  to="/clients"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                    </>
+                  )}
+                </NavLink>
 
-              {/* Projects */}
-              <NavLink
-                to="/projects"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>}
-                  </>
-                )}
-              </NavLink>
+                {/* Projects */}
+                <NavLink
+                  to="/projects"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                    </>
+                  )}
+                </NavLink>
 
-              {/* Invoices */}
-              <NavLink
-                to="/invoices"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>}
-                  </>
-                )}
-              </NavLink>
+                {/* Invoices */}
+                <NavLink
+                  to="/invoices"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                    </>
+                  )}
+                </NavLink>
 
-              {/* Products */}
-              <NavLink
-                to="/products"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>}
-                  </>
-                )}
-              </NavLink>
+                {/* Products */}
+                <NavLink
+                  to="/products"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                    </>
+                  )}
+                </NavLink>
 
-              {/* Price Book */}
-              <NavLink
-                to="/price-book"
-                className={({ isActive }) =>
-                  isActive
-                    ? "bg-[#336699] p-3 rounded-sm flex flex-col items-center justify-center border-l-2 border-[#336699]"
-                    : "bg-[#1E1E1E] p-3 rounded-sm flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
-                }
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {({ isActive }) => (
-                  <>
-                    <div className="mb-0.5">
-                      <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
-                    </div>
-                    {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>}
-                  </>
-                )}
-              </NavLink>
-            </div>
+                {/* Price Book */}
+                <NavLink
+                  to="/price-book"
+                  className={({ isActive }) =>
+                    isActive
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
+                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                  }
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
+                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                    </>
+                  )}
+                </NavLink>
+              </div>
 
-            {/* Quick Stats Section - Mobile */}
-            <div className="mt-4 mx-2">
-              <h3 className="text-gray-400 text-xs uppercase font-bold tracking-wide mb-2 px-1">QUICK STATS</h3>
-              <div className="bg-[#1E1E1E] rounded-[4px] p-2 border border-[#333333]">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">PROJECTS</div>
-                    <div className="text-white text-xl font-mono font-bold">12</div>
+              {/* Live Money Pulse - Mobile */}
+              <div className="p-4 border-b border-[#333333]">
+                <div className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 rounded-lg border border-green-600/30">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-green-400 font-bold text-sm flex items-center">
+                      <Zap className="h-4 w-4 mr-1 animate-pulse" />
+                      LIVE MONEY PULSE
+                    </h3>
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">INVOICES</div>
-                    <div className="text-white text-xl font-mono font-bold">5</div>
-                  </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">REVENUE</div>
-                    <div className="text-[#388E3C] text-xl font-mono font-bold">$24.5K</div>
-                  </div>
-                  <div className="bg-[#121212] rounded-[4px] p-2">
-                    <div className="text-gray-400 text-[10px] uppercase font-medium tracking-wide mb-1">CLIENTS</div>
-                    <div className="text-white text-xl font-mono font-bold">28</div>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Today's Revenue</span>
+                      <span className="text-green-400 font-bold animate-pulse">${todayEarnings.toFixed(0)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Pure Profit</span>
+                      <span className="text-blue-400 font-bold">${liveProfit.toFixed(0)}</span>
+                    </div>
+                    
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: '73%'}}></div>
+                    </div>
+                    <div className="text-xs text-green-400 text-center">73% of daily goal</div>
                   </div>
                 </div>
               </div>
+              
+              {/* Bottom padding to ensure content doesn't get hidden behind fixed user section */}
+              <div className="h-24"></div>
             </div>
 
-            {/* Secondary Navigation Sections (without headers on mobile) */}
-            {sidebarItems.map((section, _idx) => (
-              <div key={section.title} className="p-4 border-b border-gray-800">
-                {/* Section header hidden on mobile */}
-                <div className="hidden md:flex items-center justify-between mb-2">
-                  {section.title !== 'Main Navigation' && (
-                    <span className="text-xs font-medium text-gray-500 uppercase">{section.title}</span>
-                  )}
-                  {section.badge && (
-                    <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-900 text-green-300">
-                      {section.badge}
-                    </span>
-                  )}
+            {/* Fixed User Section at Bottom */}
+            <div className="border-t border-[#333333] bg-[#121212]">
+              {/* Mobile Profile Dropdown Menu */}
+              {isProfileMenuOpen && (
+                <div className="bg-[#1E1E1E] border-t border-[#333333]">
+                  <button
+                    onClick={toggleTheme}
+                    className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
+                  >
+                    {theme === 'light' ? (
+                      <>
+                        <Moon className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                        <span className="uppercase tracking-wider text-xs font-medium">DARK MODE</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sun className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                        <span className="uppercase tracking-wider text-xs font-medium">LIGHT MODE</span>
+                      </>
+                    )}
+                  </button>
+                  <div className="h-px bg-[#333333]"></div>
+                  <button
+                    onClick={() => {
+                      signOut();
+                      setIsProfileMenuOpen(false);
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
+                  >
+                    <LogOut className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                    <span className="uppercase tracking-wider text-xs font-medium">SIGN OUT</span>
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  {section.items.map((item, itemIdx) => (
-                    <NavLink
-                      key={`${section.title}-${item.to}-${itemIdx}`}
-                      to={item.to}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className={({ isActive }) =>
-                        `flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                          item.isAction
-                            ? 'text-[#336699]'
-                            : isActive || item.highlighted
-                            ? 'text-[#336699] bg-[#232323]'
-                            : 'text-gray-400 hover:text-white hover:bg-[#232323]'
-                        }`
-                      }
-                    >
-                      {item.icon && <item.icon className="h-5 w-5 mr-3" />}
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </div>
-              </div>
-            ))}
-
-            {/* User Section */}
-            <div className="p-4 border-t border-gray-800 mt-auto">
-              <div className="flex items-center">
-                <div className="bg-gray-700 rounded-full w-8 h-8 flex items-center justify-center text-white mr-3">
-                  <User className="h-4 w-4" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{user?.email}</p>
-                  <p className="text-xs text-gray-400">Account Settings</p>
+              )}
+              
+              <div className="p-4">
+                <div className="flex items-center">
+                  <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden">
+                    {user?.user_metadata?.avatar_url ? (
+                      <img
+                        src={user.user_metadata.avatar_url}
+                        alt={user.user_metadata.full_name || 'User'}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <User className="w-6 h-6 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 ml-3">
+                    <p className="text-sm font-medium text-white truncate">
+                      {user?.user_metadata?.full_name || 'User'}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">
+                      {user?.email}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                    className="ml-2 p-1 rounded-full hover:bg-gray-800 transition-colors duration-200"
+                  >
+                    <ChevronUp
+                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
+                    />
+                  </button>
                 </div>
               </div>
             </div>
