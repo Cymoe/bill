@@ -93,9 +93,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
-  const [todayEarnings, setTodayEarnings] = useState(24500);
-  const [todayHours, setTodayHours] = useState(7.3);
-  const [liveProfit, setLiveProfit] = useState(7623);
   const [showNewClientDrawer, setShowNewClientDrawer] = useState(false);
   const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
   // Package drawer state removed as part of simplification
@@ -139,6 +136,35 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 'org4', name: 'Luxury Estates', industry: 'Luxury Villas' },
   ];
   const [selectedOrg, setSelectedOrg] = useState(mockOrgs[0]);
+
+  // Time period state for Live Money Pulse
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<'D' | 'W' | 'M' | 'Q' | 'Y'>('D');
+  
+  // Mock data for different time periods
+  const moneyPulseData = {
+    D: { revenue: 24500, profit: 7623, goal: 33500, percentage: 73 },
+    W: { revenue: 127800, profit: 38340, goal: 150000, percentage: 85 },
+    M: { revenue: 485200, profit: 145560, goal: 500000, percentage: 97 },
+    Q: { revenue: 1425600, profit: 427680, goal: 1500000, percentage: 95 },
+    Y: { revenue: 5234800, profit: 1570440, goal: 6000000, percentage: 87 }
+  };
+
+  const currentData = moneyPulseData[selectedTimePeriod];
+  const timePeriodLabels = {
+    D: "Today's",
+    W: "This Week's", 
+    M: "This Month's",
+    Q: "This Quarter's",
+    Y: "This Year's"
+  };
+
+  // Function to cycle to next time period
+  const cycleTimePeriod = () => {
+    const periods: Array<'D' | 'W' | 'M' | 'Q' | 'Y'> = ['D', 'W', 'M', 'Q', 'Y'];
+    const currentIndex = periods.indexOf(selectedTimePeriod);
+    const nextIndex = (currentIndex + 1) % periods.length;
+    setSelectedTimePeriod(periods[nextIndex]);
+  };
 
   // For sidebar industry/subcategory section - no longer needed as we're using the state directly
   const subcategoriesByIndustry: { [key: string]: { name: string; count: number }[] } = {
@@ -652,7 +678,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/dashboard"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -773,22 +799,39 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </h3>
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 </div>
+
+                {/* Time Period Selector */}
+                <div className="flex bg-gray-800/50 rounded-[4px] p-1 mb-3">
+                  {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
+                    <button
+                      key={period}
+                      onClick={() => setSelectedTimePeriod(period)}
+                      className={`flex-1 text-xs font-medium px-2 py-1 rounded-[2px] transition-all duration-200 ${
+                        selectedTimePeriod === period
+                          ? 'bg-green-400 text-gray-900'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      {period}
+                    </button>
+                  ))}
+                </div>
                 
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">Today's Revenue</span>
-                    <span className="text-green-400 font-bold animate-pulse">${todayEarnings.toFixed(0)}</span>
+                    <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
+                    <span className="text-green-400 font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">Pure Profit</span>
-                    <span className="text-blue-400 font-bold">${liveProfit.toFixed(0)}</span>
+                    <span className="text-blue-400 font-bold">${currentData.profit.toLocaleString()}</span>
                   </div>
                   
                   <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: '73%'}}></div>
+                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
                   </div>
-                  <div className="text-xs text-green-400 text-center">73% of daily goal</div>
+                  <div className="text-xs text-green-400 text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
                 </div>
               </div>
             </div>
@@ -1055,7 +1098,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
 
               {/* Create and Advisor buttons */}
-              <div className="px-2 py-3 border-b border-[#333333]">
+              <div className="px-2 py-3">
                 <div className="w-full space-y-2">
                   <button
                     onClick={() => setIsCreateMenuOpen(true)}
@@ -1087,22 +1130,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
 
               {/* Grid navigation - Mobile version */}
-              <div className="p-2 grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-0">
                 {/* Dashboard */}
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
                   )}
                 </NavLink>
 
@@ -1111,16 +1151,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/clients"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
                   )}
                 </NavLink>
 
@@ -1129,16 +1166,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/projects"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
                   )}
                 </NavLink>
 
@@ -1147,16 +1181,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/invoices"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
                   )}
                 </NavLink>
 
@@ -1165,16 +1196,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/products"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
                   )}
                 </NavLink>
 
@@ -1183,47 +1211,54 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/price-book"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-[#F9D71C]/30 aspect-square shadow-[0_0_20px_rgba(249,215,28,0.3)]"
-                      : "bg-white/5 backdrop-blur-md p-2 rounded-md flex flex-col items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all aspect-square"
+                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
+                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {({ isActive }) => (
-                    <>
-                      <span className={`text-lg mb-0.5 ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
-                      <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
-                    </>
+                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
                   )}
                 </NavLink>
               </div>
 
               {/* Live Money Pulse - Mobile */}
-              <div className="p-4 border-b border-[#333333]">
-                <div className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 rounded-lg border border-green-600/30">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-green-400 font-bold text-sm flex items-center">
-                      <Zap className="h-4 w-4 mr-1 animate-pulse" />
-                      LIVE MONEY PULSE
-                    </h3>
+              <div 
+                onClick={cycleTimePeriod}
+                className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 border-b border-[#333333] cursor-pointer active:scale-95 transition-transform duration-150"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-green-400 font-bold text-sm flex items-center">
+                    <Zap className="h-4 w-4 mr-1 animate-pulse" />
+                    LIVE MONEY PULSE
+                  </h3>
+                  <div className="flex items-center space-x-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <div className="bg-green-400/20 px-2 py-1 rounded-[4px] border border-green-400/30">
+                      <span className="text-green-400 text-xs font-bold">{selectedTimePeriod}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
+                    <span className="text-green-400 font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
                   </div>
                   
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-sm">Today's Revenue</span>
-                      <span className="text-green-400 font-bold animate-pulse">${todayEarnings.toFixed(0)}</span>
-                    </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-400 text-sm">Pure Profit</span>
-                      <span className="text-blue-400 font-bold">${liveProfit.toFixed(0)}</span>
-                    </div>
-                    
-                    <div className="w-full bg-gray-800 rounded-full h-2">
-                      <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: '73%'}}></div>
-                    </div>
-                    <div className="text-xs text-green-400 text-center">73% of daily goal</div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-400 text-sm">Pure Profit</span>
+                    <span className="text-blue-400 font-bold">${currentData.profit.toLocaleString()}</span>
                   </div>
+                  
+                  <div className="w-full bg-gray-800 rounded-full h-2">
+                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
+                  </div>
+                  <div className="text-xs text-green-400 text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
+                </div>
+                
+                <div className="text-center mt-3">
+                  <span className="text-gray-500 text-xs">TAP TO CYCLE PERIODS</span>
                 </div>
               </div>
               
