@@ -485,6 +485,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                   {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">ADVISOR</span>}
                 </div>
+                <ChevronRight className="w-4 h-4 text-[#9E9E9E]" />
               </button>
             </div>
             
@@ -697,7 +698,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/clients"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -716,7 +717,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/projects"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -735,7 +736,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/invoices"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -754,7 +755,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/products"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -773,7 +774,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/price-book"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#F9D71C]' : ''}`
+                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
                   : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
               }
             >
@@ -1101,18 +1102,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <div className="px-2 py-3">
                 <div className="w-full space-y-2">
                   <button
-                    onClick={() => setIsCreateMenuOpen(true)}
-                    className="w-full text-[#9E9E9E] font-bold py-2 px-3 flex items-center justify-between hover:text-white transition-colors"
-                  >
-                    <div className="flex items-center">
-                      <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-3">
-                        <Plus className="w-3.5 h-3.5" />
-                      </div>
-                      <span className="font-normal text-base uppercase tracking-wide">CREATE</span>
-                    </div>
-                  </button>
-                  
-                  <button
                     onClick={() => {
                       setIsMobileMenuOpen(false);
                       navigate('/chat');
@@ -1125,19 +1114,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                       <span className="font-normal text-base uppercase tracking-wide">ADVISOR</span>
                     </div>
+                    <ChevronRight className="w-4 h-4 text-[#9E9E9E]" />
                   </button>
                 </div>
               </div>
 
               {/* Grid navigation - Mobile version */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-0">
+              <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-0 flex-1">
                 {/* Dashboard */}
                 <NavLink
                   to="/dashboard"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1151,8 +1141,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/clients"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1166,8 +1156,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/projects"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1181,8 +1171,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/invoices"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1196,8 +1186,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/products"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1211,8 +1201,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   to="/price-book"
                   className={({ isActive }) =>
                     isActive
-                      ? "bg-gradient-to-br from-[#F9D71C]/20 to-[#F9D71C]/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-[#F9D71C]/30 shadow-[0_0_15px_rgba(249,215,28,0.25)]"
-                      : "bg-white/5 backdrop-blur-md px-4 py-10 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -1222,20 +1212,20 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </NavLink>
               </div>
 
-              {/* Live Money Pulse - Mobile */}
+              {/* Live Money Pulse - Mobile with Steel Blue theme */}
               <div 
                 onClick={cycleTimePeriod}
-                className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 border-b border-[#333333] cursor-pointer active:scale-95 transition-transform duration-150"
+                className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 border-b border-[#336699]/30 cursor-pointer active:scale-95 transition-transform duration-150"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-green-400 font-bold text-sm flex items-center">
+                  <h3 className="text-[#336699] font-bold text-sm flex items-center">
                     <Zap className="h-4 w-4 mr-1 animate-pulse" />
                     LIVE MONEY PULSE
                   </h3>
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <div className="bg-green-400/20 px-2 py-1 rounded-[4px] border border-green-400/30">
-                      <span className="text-green-400 text-xs font-bold">{selectedTimePeriod}</span>
+                    <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
+                    <div className="bg-[#336699]/20 px-2 py-1 rounded-[4px] border border-[#336699]/50">
+                      <span className="text-[#336699] text-xs font-bold">{selectedTimePeriod}</span>
                     </div>
                   </div>
                 </div>
@@ -1243,31 +1233,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
-                    <span className="text-green-400 font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
+                    <span className="text-[#336699] font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">Pure Profit</span>
-                    <span className="text-blue-400 font-bold">${currentData.profit.toLocaleString()}</span>
+                    <span className="text-white font-bold">${currentData.profit.toLocaleString()}</span>
                   </div>
                   
                   <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
+                    <div className="bg-[#336699] h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
                   </div>
-                  <div className="text-xs text-green-400 text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
+                  <div className="text-xs text-[#336699] text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
                 </div>
                 
                 <div className="text-center mt-3">
                   <span className="text-gray-500 text-xs">TAP TO CYCLE PERIODS</span>
                 </div>
               </div>
-              
-              {/* Bottom padding to ensure content doesn't get hidden behind fixed user section */}
-              <div className="h-24"></div>
             </div>
 
-            {/* Fixed User Section at Bottom */}
-            <div className="border-t border-[#333333] bg-[#121212]">
+            {/* Fixed User Section at Bottom - No more bottom gap */}
+            <div className="border-t border-[#333333] bg-[#121212] mt-auto">
               {/* Mobile Profile Dropdown Menu */}
               {isProfileMenuOpen && (
                 <div className="bg-[#1E1E1E] border-t border-[#333333]">
