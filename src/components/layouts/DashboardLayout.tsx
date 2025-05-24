@@ -792,13 +792,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           {/* Live Money Pulse - only visible when sidebar is expanded */}
           {!isSidebarCollapsed && (
             <div className="p-4 border-b border-gray-800">
-              <div className="bg-gradient-to-r from-green-900/50 to-blue-900/50 p-4 rounded-lg border border-green-600/30">
+              <div className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 rounded-lg border border-[#336699]/30">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-green-400 font-bold text-sm flex items-center">
+                  <h3 className="text-[#336699] font-bold text-sm flex items-center">
                     <Zap className="h-4 w-4 mr-1 animate-pulse" />
                     LIVE MONEY PULSE
                   </h3>
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
                 </div>
 
                 {/* Time Period Selector */}
@@ -809,7 +809,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       onClick={() => setSelectedTimePeriod(period)}
                       className={`flex-1 text-xs font-medium px-2 py-1 rounded-[2px] transition-all duration-200 ${
                         selectedTimePeriod === period
-                          ? 'bg-green-400 text-gray-900'
+                          ? 'bg-[#336699] text-white'
                           : 'text-gray-400 hover:text-white'
                       }`}
                     >
@@ -821,18 +821,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
-                    <span className="text-green-400 font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
+                    <span className="text-[#336699] font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
                   </div>
                   
                   <div className="flex justify-between items-center">
                     <span className="text-gray-400 text-sm">Pure Profit</span>
-                    <span className="text-blue-400 font-bold">${currentData.profit.toLocaleString()}</span>
+                    <span className="text-white font-bold">${currentData.profit.toLocaleString()}</span>
                   </div>
                   
                   <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className="bg-green-400 h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
+                    <div className="bg-[#336699] h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
                   </div>
-                  <div className="text-xs text-green-400 text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
+                  <div className="text-xs text-[#336699] text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
                 </div>
               </div>
             </div>
@@ -1050,19 +1050,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         {/* Mobile Navigation Menu - Full Screen */}
         <div className={`md:hidden fixed inset-0 z-[10000] ${isMobileMenuOpen ? 'block' : 'hidden'}`}>
           <div className="fixed inset-0 bg-black bg-opacity-90" onClick={() => setIsMobileMenuOpen(false)} />
-          <div className="fixed inset-0 w-full bg-[#121212] flex flex-col z-[10001]">
+          <div className="fixed inset-0 w-full bg-[#121212] flex flex-col z-[10001] h-full">
             {/* Mobile Header with Close Button */}
-            <div className="flex items-center justify-between p-4 border-b border-[#333333]">
+            <div className="flex items-center justify-between p-4 border-b border-[#333333] flex-shrink-0">
               <span className="text-xl font-medium text-white uppercase">Menu</span>
               <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Main Content - Flex container that fills remaining space */}
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
               {/* Organization header */}
-              <div className="p-2 border-b border-[#333333] relative">
+              <div className="p-2 border-b border-[#333333] relative flex-shrink-0">
                 <button 
                   onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
                   className="w-full bg-[#1E1E1E] rounded-md p-2 flex items-center justify-between"
@@ -1099,7 +1099,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
 
               {/* Create and Advisor buttons */}
-              <div className="px-2 py-3">
+              <div className="px-2 py-3 flex-shrink-0">
                 <div className="w-full space-y-2">
                   <button
                     onClick={() => {
@@ -1119,142 +1119,144 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
               </div>
 
-              {/* Grid navigation - Mobile version */}
-              <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-0 flex-1">
-                {/* Dashboard */}
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
-                  )}
-                </NavLink>
+              {/* Grid navigation - Takes up remaining space with scroll if needed */}
+              <div className="flex-1 flex flex-col overflow-y-auto">
+                <div className="w-full grid grid-cols-2 sm:grid-cols-3 gap-0 min-h-full">
+                  {/* Dashboard */}
+                  <NavLink
+                    to="/dashboard"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>
+                    )}
+                  </NavLink>
 
-                {/* Clients */}
-                <NavLink
-                  to="/clients"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
-                  )}
-                </NavLink>
+                  {/* Clients */}
+                  <NavLink
+                    to="/clients"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>
+                    )}
+                  </NavLink>
 
-                {/* Projects */}
-                <NavLink
-                  to="/projects"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
-                  )}
-                </NavLink>
+                  {/* Projects */}
+                  <NavLink
+                    to="/projects"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>
+                    )}
+                  </NavLink>
 
-                {/* Invoices */}
-                <NavLink
-                  to="/invoices"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
-                  )}
-                </NavLink>
+                  {/* Invoices */}
+                  <NavLink
+                    to="/invoices"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>
+                    )}
+                  </NavLink>
 
-                {/* Products */}
-                <NavLink
-                  to="/products"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
-                  )}
-                </NavLink>
+                  {/* Products */}
+                  <NavLink
+                    to="/products"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>
+                    )}
+                  </NavLink>
 
-                {/* Price Book */}
-                <NavLink
-                  to="/price-book"
-                  className={({ isActive }) =>
-                    isActive
-                      ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
-                      : "w-full bg-white/5 backdrop-blur-md px-4 py-16 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
-                  }
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {({ isActive }) => (
-                    <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
-                  )}
-                </NavLink>
-              </div>
+                  {/* Price Book */}
+                  <NavLink
+                    to="/price-book"
+                    className={({ isActive }) =>
+                      isActive
+                        ? "w-full bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)]"
+                        : "w-full bg-white/5 backdrop-blur-md px-4 py-12 flex items-center justify-center border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                    }
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {({ isActive }) => (
+                      <span className={`text-sm font-medium uppercase ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>
+                    )}
+                  </NavLink>
+                </div>
 
-              {/* Live Money Pulse - Mobile with Steel Blue theme */}
-              <div 
-                onClick={cycleTimePeriod}
-                className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 border-b border-[#336699]/30 cursor-pointer active:scale-95 transition-transform duration-150"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[#336699] font-bold text-sm flex items-center">
-                    <Zap className="h-4 w-4 mr-1 animate-pulse" />
-                    LIVE MONEY PULSE
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
-                    <div className="bg-[#336699]/20 px-2 py-1 rounded-[4px] border border-[#336699]/50">
-                      <span className="text-[#336699] text-xs font-bold">{selectedTimePeriod}</span>
+                {/* Live Money Pulse - Attached to bottom of grid */}
+                <div 
+                  onClick={cycleTimePeriod}
+                  className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 border-b border-[#336699]/30 cursor-pointer active:scale-95 transition-transform duration-150 flex-shrink-0"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[#336699] font-bold text-sm flex items-center">
+                      <Zap className="h-4 w-4 mr-1 animate-pulse" />
+                      LIVE MONEY PULSE
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
+                      <div className="bg-[#336699]/20 px-2 py-1 rounded-[4px] border border-[#336699]/50">
+                        <span className="text-[#336699] text-xs font-bold">{selectedTimePeriod}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
-                    <span className="text-[#336699] font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
+                  
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
+                      <span className="text-[#336699] font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Pure Profit</span>
+                      <span className="text-white font-bold">${currentData.profit.toLocaleString()}</span>
+                    </div>
+                    
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div className="bg-[#336699] h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
+                    </div>
+                    <div className="text-xs text-[#336699] text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
                   </div>
                   
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">Pure Profit</span>
-                    <span className="text-white font-bold">${currentData.profit.toLocaleString()}</span>
+                  <div className="text-center mt-3">
+                    <span className="text-gray-500 text-xs">TAP TO CYCLE PERIODS</span>
                   </div>
-                  
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className="bg-[#336699] h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
-                  </div>
-                  <div className="text-xs text-[#336699] text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
-                </div>
-                
-                <div className="text-center mt-3">
-                  <span className="text-gray-500 text-xs">TAP TO CYCLE PERIODS</span>
                 </div>
               </div>
             </div>
 
-            {/* Fixed User Section at Bottom - No more bottom gap */}
-            <div className="border-t border-[#333333] bg-[#121212] mt-auto">
+            {/* Fixed User Section at Bottom */}
+            <div className="border-t border-[#333333] bg-[#121212] flex-shrink-0">
               {/* Mobile Profile Dropdown Menu */}
               {isProfileMenuOpen && (
                 <div className="bg-[#1E1E1E] border-t border-[#333333]">
@@ -1289,9 +1291,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
               )}
               
-              <div className="p-4">
+              <div className="px-3 py-2.5">
                 <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden">
+                  <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                     {user?.user_metadata?.avatar_url ? (
                       <img
                         src={user.user_metadata.avatar_url}
@@ -1299,23 +1301,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <User className="w-6 h-6 text-gray-400" />
+                      <User className="w-4 h-4 text-gray-400" />
                     )}
                   </div>
-                  <div className="flex-1 ml-3">
-                    <p className="text-sm font-medium text-white truncate">
+                  <div className="flex-1 ml-2 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">
                       {user?.user_metadata?.full_name || 'User'}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-[10px] text-gray-400 truncate">
                       {user?.email}
                     </p>
                   </div>
                   <button
                     onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="ml-2 p-1 rounded-full hover:bg-gray-800 transition-colors duration-200"
+                    className="ml-1.5 p-0.5 rounded-full hover:bg-gray-800 transition-colors duration-200"
                   >
                     <ChevronUp
-                      className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
+                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
                     />
                   </button>
                 </div>
