@@ -30,7 +30,10 @@ export const TabMenu: React.FC<TabMenuProps> = (props) => {
         {items.map((item) => (
           <button 
             key={item.id}
-            onClick={() => onItemClick(item.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onItemClick(item.id);
+            }}
             className={`${
               activeItemId === item.id
                 ? 'text-white border-b-2 border-steel-blue'

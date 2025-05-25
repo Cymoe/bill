@@ -64,7 +64,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const saved = localStorage.getItem('sidebarCollapsed');
+    return saved ? JSON.parse(saved) : false;
+  });
   // Line item modal replaced with drawer
   const [isProductModalOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -325,6 +328,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     );
   }
 
+  // Debug function to track sidebar state changes
+  const setSidebarCollapsedWithLogging = (value: boolean | ((prev: boolean) => boolean)) => {
+    const newValue = typeof value === 'function' ? value(isSidebarCollapsed) : value;
+    console.log('Sidebar state changing:', { from: isSidebarCollapsed, to: newValue, stack: new Error().stack });
+    setIsSidebarCollapsed(value);
+    localStorage.setItem('sidebarCollapsed', JSON.stringify(newValue));
+  };
+
   return (
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
     <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
@@ -415,7 +426,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </button>
             )}
             <button
-              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onClick={() => setSidebarCollapsedWithLogging(!isSidebarCollapsed)}
               className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-md bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
               aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             >
@@ -987,8 +998,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div 
                     className="relative w-6 h-6 cursor-pointer hover:scale-110 transition-transform duration-200"
                     title="Quick Start Progress: 1/5 steps completed"
-                    onClick={() => {
-                      setIsSidebarCollapsed(false);
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSidebarCollapsedWithLogging(false);
                       setIsQuickStartCollapsed(false);
                     }}
                   >
