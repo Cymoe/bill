@@ -50,8 +50,8 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
         className="absolute inset-0 bg-black transition-opacity duration-300 z-[10000] opacity-50"
         onClick={onClose}
       />
-      <div className="fixed w-full md:w-1/2 lg:w-2/5 bg-[#121212] shadow-xl overflow-hidden top-0 bottom-0 right-0 h-full z-[10001]">
-        <div className="flex justify-between items-center p-4 border-b border-[#333333] bg-[#121212] sticky top-0 z-10">
+      <div className="fixed w-full md:w-1/2 lg:w-2/5 bg-[#121212] shadow-xl overflow-hidden top-0 bottom-0 right-0 h-full z-[10001] flex flex-col">
+        <div className="flex justify-between items-center p-4 border-b border-[#333333] bg-[#121212] flex-shrink-0">
           <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">New Line Item</h2>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-[#F9D71C]">
             <X className="w-6 h-6" />
@@ -156,7 +156,7 @@ export const LineItemModal: React.FC<LineItemModalProps> = ({ onClose, onSave })
           </form>
         </div>
 
-        <div className="border-t border-[#333333] p-4 bg-[#121212] sticky bottom-0 z-10 mt-auto">
+        <div className="border-t border-[#333333] p-4 bg-[#121212] flex-shrink-0">
           <div className="grid grid-cols-2 gap-4">
             <button
               type="button"

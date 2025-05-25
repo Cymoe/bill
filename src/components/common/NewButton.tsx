@@ -26,7 +26,13 @@ export const NewButton: React.FC<NewButtonProps> = ({
       onClick={onClick}
       className={`flex items-center gap-2 ${color === 'ghost' ? '' : 'h-7 px-3 -mt-0.5 rounded font-medium uppercase text-sm tracking-wide'} ${colorStyles} ${className}`}
     >
-      <span className={color === 'ghost' ? 'text-[#336699] text-xl font-bold leading-none' : 'text-base font-bold leading-none'}>+</span> {label}
+      <span className={
+        color === 'ghost' 
+          ? 'text-[#336699] text-xl font-bold leading-none' 
+          : color === 'yellow'
+          ? 'text-[#336699] text-base font-bold leading-none'
+          : 'text-base font-bold leading-none'
+      }>+</span> {label}
     </button>
   );
 }; 

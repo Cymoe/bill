@@ -4,6 +4,7 @@ import { Download, ChevronRight, Share2, Copy } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import TabMenu from '../common/TabMenu';
 import { DashboardLayout } from '../layouts/DashboardLayout';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewInvoiceModal } from './NewInvoiceModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
@@ -204,8 +205,13 @@ export const InvoiceList: React.FC = () => {
 
   return (
     <DashboardLayout>
-      <PageHeader
-        hideTitle={true}
+      <PageHeaderBar
+        title="Invoices"
+        searchPlaceholder="Search invoices..."
+        searchValue={searchTerm}
+        onSearch={setSearchTerm}
+        onAddClick={() => setShowNewModal(true)}
+        addButtonLabel="Invoice"
       />
       {/* Filter Menu */}
       {showFilterMenu && (

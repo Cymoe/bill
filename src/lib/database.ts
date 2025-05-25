@@ -10,6 +10,7 @@ export type Tables = {
     budget: number;
     start_date: string;
     end_date: string;
+    category?: string;
     created_at: string;
     updated_at: string;
   };

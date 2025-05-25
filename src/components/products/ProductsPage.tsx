@@ -5,6 +5,7 @@ import { ProductVariantComparison } from './ProductVariantComparison';
 import { useNavigate } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
 import { DashboardLayout } from '../layouts/DashboardLayout';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -328,8 +329,13 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full w-full p-0 m-0 overflow-hidden">
-        <PageHeader
-          hideTitle={true}
+        <PageHeaderBar
+          title="Products"
+          searchPlaceholder="Search products..."
+          searchValue={searchTerm}
+          onSearch={setSearchTerm}
+          onAddClick={() => setEditingProduct('new')}
+          addButtonLabel="Product"
         />
         {/* Removed duplicate New Product button */}
         {/* Mobile filter and sort options - only visible on mobile */}

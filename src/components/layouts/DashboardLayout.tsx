@@ -1,56 +1,36 @@
-import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, createContext } from 'react';
+import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import type { LucideIcon } from 'lucide-react';
-import {
-  LayoutDashboard,
-  Users,
-  FileText,
-  FileStack,
-  Menu,
-  X,
-  Book,
-  Sun,
-  Moon,
-  FolderKanban,
-  User,
-  LogOut,
-  Plus,
-  ChevronUp,
-  ChevronDown,
-  ChevronRight,
+import { 
+  LayoutDashboard, 
+  Users, 
+  FolderKanban, 
+  FileText, 
+  Book, 
+  Plus, 
+  Menu, 
+  X, 
+  ChevronDown, 
+  ChevronRight, 
   ChevronLeft,
-  Box,
+  MessageSquare,
+  LogOut,
+  TrendingUp,
   DollarSign,
   Target,
   Clock,
-  Building2,
-  CheckCircle2,
-  ArrowUp,
-  ArrowDown,
+  FileStack,
   Zap,
-  Trophy,
-  Calendar,
-  Activity,
-  Eye,
-  Star,
-  Flame,
-  ThumbsUp,
-  MessageSquare,
-  Phone,
   AlertTriangle,
-  TrendingDown,
-  Timer,
-  Wrench,
-  Calculator,
-  BarChart3,
-  PiggyBank,
-  TrendingUp
+  ChevronUp,
+  CheckCircle2,
+  User
 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { NewClientModal } from '../clients/NewClientModal';
 import ProductForm from '../products/ProductForm';
 import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
 import { useProductDrawer } from '../../contexts/ProductDrawerContext';
-// NewPackageModal import removed as part of simplification
 
 interface SidebarItem {
   icon?: LucideIcon;
@@ -65,9 +45,6 @@ interface SidebarSection {
   badge?: string;
   items: SidebarItem[];
 }
-
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -84,7 +61,6 @@ export const MobileCreateMenuContext = createContext<{ isCreateMenuOpen: boolean
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
   const isAuthenticated = !!session;
-  const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -126,7 +102,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [globalSearch, setGlobalSearch] = useState('');
   const [showNewProjectDrawer, setShowNewProjectDrawer] = useState(false);
   const { openProductDrawer } = useProductDrawer();
-  const [isQuickStartCollapsed, setIsQuickStartCollapsed] = useState(false);
+  const [isQuickStartCollapsed, setIsQuickStartCollapsed] = useState(true);
 
   // Mock organizations
   const mockOrgs = [
@@ -341,7 +317,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
       <div className="min-h-screen bg-[#121212]">
         {/* Top Navbar - fixed, full-width for desktop and mobile, modified on dashboard */}
-        <div className={`flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-52 left-0 ${location.pathname === '/dashboard' ? 'md:hidden' : ''}`}>
+        {/* Hidden - now using PageHeaderBar component in each page */}
+        <div className={`hidden flex fixed top-0 right-0 h-16 bg-[#121212] border-b border-gray-700 items-center justify-between px-6 z-[9999] md:left-52 left-0`}>
           {/* Mobile Menu Toggle - Only visible on mobile */}
           <button
             onClick={() => setIsMobileMenuOpen(true)}
@@ -388,7 +365,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 if (path.startsWith('/clients')) setShowNewClientModal(true);
                 else if (path.startsWith('/products')) openProductDrawer();
                 else if (path.startsWith('/invoices')) setShowNewInvoiceDrawer(true);
-                else if (path.startsWith('/projects')) setShowNewProjectDrawer(true);
+                else if (path.startsWith('/projects')) navigate('/projects/new');
                 else setShowLineItemDrawer(true);
               }}
               className="flex items-center text-[#A3A6AE] hover:text-white transition-colors"
@@ -468,8 +445,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 id="create-button"
               >
                 <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-                  <div className="w-5 h-5 rounded-full border border-[#9E9E9E] flex items-center justify-center mr-0">
-                    <Plus className="w-3.5 h-3.5" />
+                  <div className="w-5 h-5 rounded-full bg-[#336699] flex items-center justify-center mr-0">
+                    <Plus className="w-3.5 h-3.5 text-white" />
                   </div>
                   {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">Create</span>}
                 </div>
@@ -485,7 +462,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                   {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">ADVISOR</span>}
                 </div>
-                <ChevronRight className="w-4 h-4 text-[#9E9E9E]" />
+                {!isSidebarCollapsed && <ChevronRight className="w-4 h-4 text-[#9E9E9E]" />}
               </button>
             </div>
             
@@ -561,7 +538,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     <button 
                       onClick={() => {
                         setIsCreateMenuOpen(false);
-                        setShowNewProjectDrawer(true);
+                        navigate('/projects/new');
                       }}
                       className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
                     >
@@ -673,22 +650,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto">
           {/* Grid navigation */}
-          <div className={`px-2 pt-2 ${isSidebarCollapsed ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-1`}>
+          <div className={`${isSidebarCollapsed ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-0`}>
             {/* Dashboard */}
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>⠿</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">⠿</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Dashboard
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Dashboard</span>}
                 </>
               )}
             </NavLink>
@@ -698,16 +681,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/clients"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>👤</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">👤</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Clients
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Clients</span>}
                 </>
               )}
             </NavLink>
@@ -717,16 +706,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/projects"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📁</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">📁</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Projects
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Projects</span>}
                 </>
               )}
             </NavLink>
@@ -736,16 +731,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/invoices"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📄</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">📄</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Invoices
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Invoices</span>}
                 </>
               )}
             </NavLink>
@@ -755,16 +756,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/products"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📦</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">📦</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Products
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Products</span>}
                 </>
               )}
             </NavLink>
@@ -774,65 +781,93 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/price-book"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-[#333333] p-2 rounded-md flex flex-col items-center justify-center ${!isSidebarCollapsed ? 'border-l-2 border-[#336699]' : ''}`
-                  : "bg-[#1E1E1E] p-2 rounded-md flex flex-col items-center justify-center hover:bg-[#333333] transition-colors"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
-                  <div className="mb-0.5">
-                    <span className={`text-lg ${isActive ? 'text-white' : 'text-gray-300'}`}>📘</span>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-lg">📘</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Price Book
+                      </span>
+                    )}
                   </div>
-                  {!isSidebarCollapsed && <span className={`text-xs ${isActive ? 'text-white' : 'text-gray-300'}`}>Price Book</span>}
                 </>
               )}
             </NavLink>
           </div>
 
-          {/* Live Money Pulse - only visible when sidebar is expanded */}
+          {/* Live Revenue - only visible when sidebar is expanded */}
           {!isSidebarCollapsed && (
-            <div className="p-4 border-b border-gray-800">
-              <div className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 rounded-lg border border-[#336699]/30">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[#336699] font-bold text-sm flex items-center">
-                    <Zap className="h-4 w-4 mr-1 animate-pulse" />
-                    LIVE MONEY PULSE
-                  </h3>
-                  <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
-                </div>
-
-                {/* Time Period Selector */}
-                <div className="flex bg-gray-800/50 rounded-[4px] p-1 mb-3">
-                  {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
-                    <button
-                      key={period}
-                      onClick={() => setSelectedTimePeriod(period)}
-                      className={`flex-1 text-xs font-medium px-2 py-1 rounded-[2px] transition-all duration-200 ${
-                        selectedTimePeriod === period
-                          ? 'bg-[#336699] text-white'
-                          : 'text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {period}
-                    </button>
-                  ))}
+            <div className="p-3 border-b border-gray-800">
+              {/* First Card - Current Period Revenue */}
+              <div className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-2 mb-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[#336699] font-medium text-xs">LIVE REVENUE</span>
+                  <div className="w-1.5 h-1.5 bg-[#336699] rounded-full animate-pulse"></div>
                 </div>
                 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">{timePeriodLabels[selectedTimePeriod]} Revenue</span>
-                    <span className="text-[#336699] font-bold animate-pulse">${currentData.revenue.toLocaleString()}</span>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-white text-sm font-bold">Today:</div>
+                    <div className="text-white text-lg font-bold">${currentData.revenue.toLocaleString()}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[#336699] text-xs">{currentData.percentage}%</div>
+                    <div className="text-[#336699] text-xs">goal</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Second Card - Detailed View with Time Period Selector */}
+              <div 
+                onClick={cycleTimePeriod}
+                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-2 cursor-pointer hover:border-[#336699]/50 transition-colors"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[#336699] font-medium text-xs">
+                    {selectedTimePeriod === 'D' ? 'TODAY' : 
+                     selectedTimePeriod === 'W' ? 'THIS WEEK' : 
+                     selectedTimePeriod === 'M' ? 'THIS MONTH' : 
+                     selectedTimePeriod === 'Q' ? 'QUARTER' : 'YEAR'}
+                  </span>
+                  <div className="flex space-x-0.5">
+                    {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
+                      <div
+                        key={period}
+                        className={`w-4 h-4 rounded-[2px] flex items-center justify-center text-xs font-medium ${
+                          selectedTimePeriod === period
+                            ? 'bg-[#336699] text-white'
+                            : 'bg-[#333333] text-gray-400'
+                        }`}
+                      >
+                        {period}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white font-medium">Revenue:</span>
+                    <span className="text-white font-medium">${currentData.revenue.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-white font-medium">Profit:</span>
+                    <span className="text-white font-medium">${currentData.profit.toLocaleString()}</span>
                   </div>
                   
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-sm">Pure Profit</span>
-                    <span className="text-white font-bold">${currentData.profit.toLocaleString()}</span>
+                  {/* Progress Bar */}
+                  <div className="w-full bg-[#333333] rounded-full h-1.5 mt-2">
+                    <div className="bg-[#336699] h-1.5 rounded-full transition-all duration-300" style={{width: `${currentData.percentage}%`}}></div>
                   </div>
                   
-                  <div className="w-full bg-gray-800 rounded-full h-2">
-                    <div className="bg-[#336699] h-2 rounded-full animate-pulse" style={{width: `${currentData.percentage}%`}}></div>
-                  </div>
-                  <div className="text-xs text-[#336699] text-center">{currentData.percentage}% of {selectedTimePeriod === 'D' ? 'daily' : selectedTimePeriod === 'W' ? 'weekly' : selectedTimePeriod === 'M' ? 'monthly' : selectedTimePeriod === 'Q' ? 'quarterly' : 'yearly'} goal</div>
+                  <div className="text-gray-400 text-xs text-center mt-1">{currentData.percentage}% of goal</div>
                 </div>
               </div>
             </div>
@@ -894,7 +929,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               >
                 <div className="flex items-center">
                   <Zap className="h-4 w-4 mr-2" />
-                  <span className="text-sm font-medium">QUICK START GUIDE</span>
+                  <span className="text-xs font-medium">QUICK START</span>
                   <span className="ml-2 text-xs bg-[#F9D71C] text-[#121212] px-2 py-0.5 rounded-[4px] font-bold">1/5</span>
                 </div>
                 <ChevronUp className={`h-4 w-4 transition-transform duration-200 ${isQuickStartCollapsed ? 'rotate-180' : 'rotate-0'}`} />
@@ -952,23 +987,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             {/* Dropdown Menu - positioned absolutely above user info */}
             {isProfileMenuOpen && (
               <div className={`absolute bottom-full ${isSidebarCollapsed ? 'left-0 w-36' : 'left-0 right-0'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-50`}>
-                <button
-                  onClick={toggleTheme}
-                  className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
-                >
-                  {theme === 'light' ? (
-                    <>
-                      <Moon className="w-4 h-4 mr-3 text-[#9E9E9E]" />
-                      <span className="uppercase tracking-wider text-xs font-medium">DARK MODE</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sun className="w-4 h-4 mr-3 text-[#9E9E9E]" />
-                      <span className="uppercase tracking-wider text-xs font-medium">LIGHT MODE</span>
-                    </>
-                  )}
-                </button>
-                <div className="h-px bg-[#333333]"></div>
                 <button
                   onClick={() => {
                     signOut();
@@ -1035,14 +1053,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         </div>
         {/* Main Content - margin left for sidebar only */}
-        <div className={`flex-1 ${location.pathname.startsWith('/products') ? 
-          (isSidebarCollapsed ? 'md:ml-14 pt-[3.5rem]' : 'md:ml-48 pt-[3.5rem]') : 
-          location.pathname === '/dashboard' ?
-          (isSidebarCollapsed ? 'md:ml-14 pt-0' : 'md:ml-48 pt-0') :
-          (isSidebarCollapsed ? 'md:ml-14 pt-16' : 'md:ml-48 pt-16')} 
-          px-0 bg-[#121212] transition-all duration-300`}>
+        <div className={`flex-1 ${isSidebarCollapsed ? 'md:ml-14' : 'md:ml-48'} px-0 bg-[#121212] transition-all duration-300`}>
           {/* Render children with setTriggerNewProduct prop if possible */}
-          <div className="h-full w-full -mt-16 pt-16 -ml-0 px-0">
+          <div className="h-full w-full">
             {children}
           </div>
         </div>
@@ -1221,7 +1234,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[#336699] font-bold text-sm flex items-center">
                       <Zap className="h-4 w-4 mr-1 animate-pulse" />
-                      LIVE MONEY PULSE
+                      LIVE REVENUE
                     </h3>
                     <div className="flex items-center space-x-2">
                       <div className="w-2 h-2 bg-[#336699] rounded-full animate-pulse"></div>
@@ -1253,73 +1266,55 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Fixed User Section at Bottom */}
-            <div className="border-t border-[#333333] bg-[#121212] flex-shrink-0">
-              {/* Mobile Profile Dropdown Menu */}
-              {isProfileMenuOpen && (
-                <div className="bg-[#1E1E1E] border-t border-[#333333]">
-                  <button
-                    onClick={toggleTheme}
-                    className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
-                  >
-                    {theme === 'light' ? (
-                      <>
-                        <Moon className="w-4 h-4 mr-3 text-[#9E9E9E]" />
-                        <span className="uppercase tracking-wider text-xs font-medium">DARK MODE</span>
-                      </>
-                    ) : (
-                      <>
-                        <Sun className="w-4 h-4 mr-3 text-[#9E9E9E]" />
-                        <span className="uppercase tracking-wider text-xs font-medium">LIGHT MODE</span>
-                      </>
-                    )}
-                  </button>
-                  <div className="h-px bg-[#333333]"></div>
-                  <button
-                    onClick={() => {
-                      signOut();
-                      setIsProfileMenuOpen(false);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
-                  >
-                    <LogOut className="w-4 h-4 mr-3 text-[#9E9E9E]" />
-                    <span className="uppercase tracking-wider text-xs font-medium">SIGN OUT</span>
-                  </button>
-                </div>
-              )}
-              
-              <div className="px-3 py-2.5">
-                <div className="flex items-center">
-                  <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {user?.user_metadata?.avatar_url ? (
-                      <img
-                        src={user.user_metadata.avatar_url}
-                        alt={user.user_metadata.full_name || 'User'}
-                        className="w-full h-full object-cover"
+              {/* Fixed User Section at Bottom */}
+              <div className="border-t border-[#333333] bg-[#121212] flex-shrink-0">
+                {/* Mobile Profile Dropdown Menu */}
+                {isProfileMenuOpen && (
+                  <div className="bg-[#1E1E1E] border-t border-[#333333]">
+                    <button
+                      onClick={() => {
+                        signOut();
+                        setIsProfileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center px-4 py-3 text-sm text-white text-opacity-90 hover:bg-[#333333] transition-colors duration-200"
+                    >
+                      <LogOut className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                      <span className="uppercase tracking-wider text-xs font-medium">SIGN OUT</span>
+                    </button>
+                  </div>
+                )}
+                
+                <div className="px-3 py-2.5">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {user?.user_metadata?.avatar_url ? (
+                        <img
+                          src={user.user_metadata.avatar_url}
+                          alt={user.user_metadata.full_name || 'User'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <User className="w-4 h-4 text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 ml-2 min-w-0">
+                      <p className="text-xs font-medium text-white truncate">
+                        {user?.user_metadata?.full_name || 'User'}
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate">
+                        {user?.email}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                      className="ml-1.5 p-0.5 rounded-full hover:bg-gray-800 transition-colors duration-200"
+                    >
+                      <ChevronUp
+                        className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
                       />
-                    ) : (
-                      <User className="w-4 h-4 text-gray-400" />
-                    )}
+                    </button>
                   </div>
-                  <div className="flex-1 ml-2 min-w-0">
-                    <p className="text-xs font-medium text-white truncate">
-                      {user?.user_metadata?.full_name || 'User'}
-                    </p>
-                    <p className="text-[10px] text-gray-400 truncate">
-                      {user?.email}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                    className="ml-1.5 p-0.5 rounded-full hover:bg-gray-800 transition-colors duration-200"
-                  >
-                    <ChevronUp
-                      className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-0' : 'rotate-180'}`}
-                    />
-                  </button>
                 </div>
               </div>
             </div>
@@ -1485,7 +1480,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 <button 
                   onClick={() => {
                     setIsCreateMenuOpen(false);
-                    setShowNewProjectDrawer(true);
+                    navigate('/projects/new');
                   }}
                   className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
                 >
@@ -1522,7 +1517,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   className="flex items-center w-full p-4 mb-4 text-white bg-[#1E1E1E] rounded-[4px] border border-[#333333]"
                 >
                   <div className="w-10 h-10 rounded-[4px] bg-[#336699] text-white flex items-center justify-center mr-4">
-                    <FileStack className="w-6 h-6" />
+                    <FileStack size={20} />
                   </div>
                   <div className="text-left">
                     <div className="font-medium text-white">Product</div>

@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import TabMenu from '../common/TabMenu';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
+import { LineItemModal } from '../modals/LineItemModal';
 import { MoreVertical, Filter, Minimize2 } from 'lucide-react';
 import './price-book.css';
 
@@ -355,6 +357,14 @@ export const PriceBook = () => {
 
   return (
     <DashboardLayout>
+      <PageHeaderBar 
+        title="Price Book"
+        searchPlaceholder="Search price book..."
+        searchValue={searchInput}
+        onSearch={setSearchInput}
+        onAddClick={() => setShowNewLineItemModal(true)}
+        addButtonLabel="Line Item"
+      />
       <div className="flex flex-col h-full price-book-container">
         {/* Trade Filter & Sort Controls */}
         <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
@@ -651,6 +661,36 @@ export const PriceBook = () => {
                 setShowProductMenu(false);
               } catch (error) {
                 console.error('Error updating product:', error);
+              }
+            }}
+          />
+        )}
+
+        {/* New Line Item Modal - for creating new items */}
+        {showNewLineItemModal && (
+          <LineItemModal
+            onClose={() => setShowNewLineItemModal(false)}
+            onSave={async (data) => {
+              try {
+                // Create new product
+                const { error } = await supabase
+                  .from('products')
+                  .insert({
+                    ...data,
+                    user_id: user?.id,
+                    status: 'active',
+                    favorite: false,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  });
+                
+                if (error) throw error;
+                
+                // Refresh products list
+                fetchProducts();
+                setShowNewLineItemModal(false);
+              } catch (error) {
+                console.error('Error creating product:', error);
               }
             }}
           />

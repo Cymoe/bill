@@ -444,20 +444,23 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
 
   return (
     <div className="h-full flex flex-col bg-[#121212] text-white">
-      <div className="flex-1 overflow-y-auto" style={{ height: 'calc(100vh - 80px)' }}>
-        <form onSubmit={handleSubmit} className="p-6 pb-24">{/* Added extra padding at bottom to prevent content from being hidden behind fixed footer */}
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold uppercase font-['Roboto_Condensed']">
-            {editingProduct?.variant 
-              ? 'Edit Variant' 
-              : editingProduct 
-                ? 'Edit Product' 
-                : 'New Product'}
-          </h2>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-300 transition-opacity">
-            <X className="h-6 w-6" />
-          </button>
-        </div>
+      {/* Header - Fixed at top */}
+      <div className="flex justify-between items-center p-6 border-b border-[#333333] bg-[#121212] flex-shrink-0">
+        <h2 className="text-xl font-bold uppercase font-['Roboto_Condensed']">
+          {editingProduct?.variant 
+            ? 'Edit Variant' 
+            : editingProduct 
+              ? 'Edit Product' 
+              : 'New Product'}
+        </h2>
+        <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-300 transition-opacity">
+          <X className="h-6 w-6" />
+        </button>
+      </div>
+      
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6" id="product-assembly-form">
       
       {editingProduct?.variant && (
         <div className="mb-6 p-4 bg-[#333333] rounded border-l-4 border-[#336699]">
@@ -747,24 +750,26 @@ export const ProductAssemblyForm: React.FC<ProductAssemblyFormProps> = ({ lineIt
       </div>
         </form>
       </div>
-      <div className="sticky bottom-0 left-0 right-0 p-6 bg-[#121212] border-t border-[#333333] z-10">
-        <div className="flex gap-4 max-w-full">
+      
+      {/* Footer - Fixed at bottom */}
+      <div className="border-t border-[#333333] p-4 bg-[#121212] flex-shrink-0">
+        <div className="grid grid-cols-2 gap-4">
           <button 
             type="button" 
             onClick={handleCancel} 
-            className="w-1/2 h-12 px-4 py-2 border border-gray-700 rounded text-white hover:bg-[#1E1E1E] transition-colors font-['Roboto'] font-medium"
+            className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium uppercase tracking-wider h-10"
           >
             Cancel
           </button>
           <button 
-            type="submit" 
-            className="w-1/2 h-12 px-4 py-2 bg-[#336699] text-white rounded hover:bg-opacity-80 transition-colors font-['Roboto'] font-medium"
+            type="submit"
+            form="product-assembly-form" 
+            className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 font-['Roboto'] font-medium uppercase tracking-wider h-10"
           >
             Save
           </button>
         </div>
       </div>
-      {/* Product Options Section removed for cleaner UI */}
     </div>
   );
 };

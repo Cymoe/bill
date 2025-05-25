@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MoreVertical } from 'lucide-react';
 import { DashboardLayout } from '../layouts/DashboardLayout';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import { Dropdown } from '../common/Dropdown';
 import { NewClientModal } from './NewClientModal';
 import { EditClientModal } from './EditClientModal';
@@ -24,8 +25,7 @@ type Client = {
 
 export const ClientList: React.FC = () => {
   const { user } = useAuth();
-  // We'll keep searchTerm for filtering but remove the setter since it's not being used in the UI currently
-  const searchTerm = '';
+  const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
@@ -95,6 +95,15 @@ export const ClientList: React.FC = () => {
 
   return (
     <DashboardLayout>
+      <PageHeaderBar 
+        title="Clients"
+        searchPlaceholder="Search clients..."
+        searchValue={searchTerm}
+        onSearch={setSearchTerm}
+        onAddClick={() => setShowNewModal(true)}
+        addButtonLabel="Client"
+      />
+      
       <div className="space-y-0 bg-[#121212]">
 
         {/* Desktop list */}

@@ -63,7 +63,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   return (
     <form onSubmit={handleSubmit} className="h-full flex flex-col bg-[#121212] overflow-hidden">
       {/* Header - Fixed at top */}
-      <div className="flex items-center justify-between p-4 border-b border-[#333333] bg-[#121212] sticky top-0 z-10">
+      <div className="flex items-center justify-between p-4 border-b border-[#333333] bg-[#121212] flex-shrink-0">
         <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">{title}</h2>
         <button
           type="button"
@@ -166,7 +166,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       </div>
 
       {/* Footer - Fixed at bottom */}
-      <div className="border-t border-[#333333] p-4 bg-[#121212] sticky bottom-0 z-10 mt-auto">
+      <div className="border-t border-[#333333] p-4 bg-[#121212] flex-shrink-0">
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
