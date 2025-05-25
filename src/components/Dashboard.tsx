@@ -6,6 +6,7 @@ import { RevenueProgress } from './dashboard/RevenueProgress';
 import { MetricCard } from './dashboard/MetricCard';
 import { RevenueChart } from './dashboard/RevenueChart';
 import { YearlyTrendChart } from './dashboard/YearlyTrendChart';
+import { ProfitAlertsWidget } from './dashboard/ProfitAlertsWidget';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { CardSkeleton } from './skeletons/CardSkeleton';
 import { ChartSkeleton } from './skeletons/ChartSkeleton';
@@ -195,6 +196,9 @@ export const Dashboard: React.FC = () => {
             </>
           )}
         </div>
+
+        {/* Profit Alerts Widget */}
+        <ProfitAlertsWidget />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {isLoading ? (

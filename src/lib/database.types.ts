@@ -1,9 +1,11 @@
 export interface ClientInput {
-  company_name: string;
   name: string;
   email: string;
   phone?: string | null;
   address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
   user_id?: string;
 }
 

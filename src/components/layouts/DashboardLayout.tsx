@@ -81,6 +81,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const createDropdownRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
+  const quickStartRef = useRef<HTMLDivElement>(null);
   const [selectedIndustry, setSelectedIndustry] = useState('All Trades');
   const industries = [
     'All Trades',
@@ -103,6 +104,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [showNewProjectDrawer, setShowNewProjectDrawer] = useState(false);
   const { openProductDrawer } = useProductDrawer();
   const [isQuickStartCollapsed, setIsQuickStartCollapsed] = useState(true);
+  const [isQuickStartDismissed, setIsQuickStartDismissed] = useState(false);
 
   // Mock organizations
   const mockOrgs = [
@@ -286,6 +288,18 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [orgDropdownOpen]);
+
+  // Close Quick Start dropdown on outside click
+  useEffect(() => {
+    if (isQuickStartCollapsed || isSidebarCollapsed) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (quickStartRef.current && !quickStartRef.current.contains(event.target as Node)) {
+        setIsQuickStartCollapsed(true);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isQuickStartCollapsed, isSidebarCollapsed]);
 
   // Navigation items moved to sidebar for better ergonomics
 
@@ -656,15 +670,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/dashboard"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">⠿</span>
+                      <span className="text-base">⠿</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -681,15 +695,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/clients"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">👤</span>
+                      <span className="text-base">👤</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -706,15 +720,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/projects"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">📁</span>
+                      <span className="text-base">📁</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -731,15 +745,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/invoices"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">📄</span>
+                      <span className="text-base">📄</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -756,15 +770,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/products"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">📦</span>
+                      <span className="text-base">📦</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -781,15 +795,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               to="/price-book"
               className={({ isActive }) =>
                 isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center aspect-square relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center aspect-square hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#252525] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-lg">📘</span>
+                      <span className="text-base">📘</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -802,180 +816,211 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </NavLink>
           </div>
 
-          {/* Live Revenue - only visible when sidebar is expanded */}
-          {!isSidebarCollapsed && (
-            <div className="p-3 border-b border-gray-800">
-              {/* First Card - Current Period Revenue */}
-              <div className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-2 mb-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[#336699] font-medium text-xs">LIVE REVENUE</span>
-                  <div className="w-1.5 h-1.5 bg-[#336699] rounded-full animate-pulse"></div>
-                </div>
-                
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="text-white text-sm font-bold">Today:</div>
-                    <div className="text-white text-lg font-bold">${currentData.revenue.toLocaleString()}</div>
+          {/* Live Revenue - visible in both expanded and collapsed states */}
+          <div className="p-3">
+            {!isSidebarCollapsed ? (
+              <div className="bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 p-4 rounded-[4px] border border-[#336699]/30">
+                {/* Header with time period selector */}
+                <div className="mb-3">
+                  <div className="flex items-center mb-2">
+                    <Zap className="h-4 w-4 mr-2 text-[#336699] animate-pulse" />
+                    <span className="text-[#336699] font-bold text-sm">LIVE REVENUE</span>
                   </div>
-                  <div className="text-right">
-                    <div className="text-[#336699] text-xs">{currentData.percentage}%</div>
-                    <div className="text-[#336699] text-xs">goal</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Second Card - Detailed View with Time Period Selector */}
-              <div 
-                onClick={cycleTimePeriod}
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-2 cursor-pointer hover:border-[#336699]/50 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[#336699] font-medium text-xs">
-                    {selectedTimePeriod === 'D' ? 'TODAY' : 
-                     selectedTimePeriod === 'W' ? 'THIS WEEK' : 
-                     selectedTimePeriod === 'M' ? 'THIS MONTH' : 
-                     selectedTimePeriod === 'Q' ? 'QUARTER' : 'YEAR'}
-                  </span>
-                  <div className="flex space-x-0.5">
+                  <div className="flex items-center justify-center space-x-1">
                     {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
-                      <div
+                      <button
                         key={period}
-                        className={`w-4 h-4 rounded-[2px] flex items-center justify-center text-xs font-medium ${
+                        onClick={() => setSelectedTimePeriod(period)}
+                        className={`w-6 h-6 rounded-[2px] flex items-center justify-center text-xs font-bold transition-colors hover:opacity-80 ${
                           selectedTimePeriod === period
                             ? 'bg-[#336699] text-white'
-                            : 'bg-[#333333] text-gray-400'
+                            : 'bg-[#333333] text-gray-400 hover:bg-[#404040]'
                         }`}
                       >
                         {period}
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
-                
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white font-medium">Revenue:</span>
-                    <span className="text-white font-medium">${currentData.revenue.toLocaleString()}</span>
+
+                {/* Revenue and Profit Display */}
+                <div className="space-y-2 mb-3">
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">Revenue</div>
+                    <div className="text-white text-sm font-bold">${currentData.revenue.toLocaleString()}</div>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white font-medium">Profit:</span>
-                    <span className="text-white font-medium">${currentData.profit.toLocaleString()}</span>
+                  <div>
+                    <div className="text-gray-400 text-xs mb-1">Profit</div>
+                    <div className="text-white text-sm font-bold">${currentData.profit.toLocaleString()}</div>
                   </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="w-full bg-[#333333] rounded-full h-1.5 mt-2">
-                    <div className="bg-[#336699] h-1.5 rounded-full transition-all duration-300" style={{width: `${currentData.percentage}%`}}></div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mb-2">
+                  <div className="w-full bg-[#333333] rounded-full h-2">
+                    <div 
+                      className="bg-[#336699] h-2 rounded-full transition-all duration-300" 
+                      style={{width: `${currentData.percentage}%`}}
+                    ></div>
                   </div>
-                  
-                  <div className="text-gray-400 text-xs text-center mt-1">{currentData.percentage}% of goal</div>
+                </div>
+
+                {/* Goal Progress - Fixed width container */}
+                <div className="text-center">
+                  <span className="text-[#336699] text-sm font-bold">{currentData.percentage}% of goal</span>
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              /* Collapsed state - just lightning bolt */
+              <div 
+                onClick={cycleTimePeriod}
+                className="w-8 h-8 bg-gradient-to-r from-[#336699]/30 to-[#0D47A1]/20 rounded-[4px] border border-[#336699]/30 cursor-pointer hover:from-[#336699]/40 hover:to-[#0D47A1]/30 transition-all duration-200 flex items-center justify-center mx-auto"
+                title={`${timePeriodLabels[selectedTimePeriod]} Revenue: $${currentData.revenue.toLocaleString()}`}
+              >
+                <Zap className="h-4 w-4 text-[#336699] animate-pulse" />
+              </div>
+            )}
+          </div>
           
-          {/* Profit Alerts - Urgent Money Actions - only visible when sidebar is expanded */}
-          {!isSidebarCollapsed && (
-            <div className="p-4 border-b border-gray-800">
-              <h3 className="text-yellow-400 font-bold text-sm mb-3 flex items-center">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                PROFIT ALERTS
-              </h3>
-              
-              <div className="space-y-3">
-                <div className="bg-red-900/30 p-3 rounded-lg border border-red-600/30">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-2 h-2 bg-red-400 rounded-full mt-2 animate-pulse"></div>
-                    <div className="flex-1">
-                      <p className="text-red-400 text-xs font-medium">Invoice overdue</p>
-                      <p className="text-white text-sm font-bold">$8,900</p>
-                      <p className="text-gray-400 text-xs">Johnson Kitchen - 47 days</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-yellow-900/30 p-3 rounded-lg border border-yellow-600/30">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-2 h-2 bg-yellow-400 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-yellow-400 text-xs font-medium">Lead going cold</p>
-                      <p className="text-white text-sm font-bold">$95K opportunity</p>
-                      <p className="text-gray-400 text-xs">4 days no contact</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="bg-green-900/30 p-3 rounded-lg border border-green-600/30">
-                  <div className="flex items-start space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-green-400 text-xs font-medium">Pricing opportunity</p>
-                      <p className="text-white text-sm font-bold">+$1,840/project</p>
-                      <p className="text-gray-400 text-xs">Increase material markup</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Profit Alerts section removed for cleaner pilot cockpit aesthetic */}
           </div>
 
           <div className="mt-auto">
-          {/* Quick Start Guide - Collapsible onboarding at bottom - only visible when sidebar is expanded */}
-          {!isSidebarCollapsed && (
-            <div className="border-b border-gray-700">
-              <button
-                onClick={() => setIsQuickStartCollapsed(!isQuickStartCollapsed)}
-                className="w-full p-3 flex items-center justify-between text-gray-400 hover:text-white transition-colors"
-              >
-                <div className="flex items-center">
-                  <Zap className="h-4 w-4 mr-2" />
-                  <span className="text-xs font-medium">QUICK START</span>
-                  <span className="ml-2 text-xs bg-[#F9D71C] text-[#121212] px-2 py-0.5 rounded-[4px] font-bold">1/5</span>
-                </div>
-                <ChevronUp className={`h-4 w-4 transition-transform duration-200 ${isQuickStartCollapsed ? 'rotate-180' : 'rotate-0'}`} />
-              </button>
-              
-              {!isQuickStartCollapsed && (
-                <div className="px-3 pb-3">
-                  <div className="space-y-2">
-                    <div className="bg-[#388E3C]/20 border border-[#388E3C]/30 rounded-[4px] p-2 flex items-center">
-                      <CheckCircle2 className="h-3 w-3 text-[#388E3C] mr-2 flex-shrink-0" />
-                      <span className="text-white text-xs">Add your first client</span>
-                    </div>
-                    
-                    <div className="bg-[#1E1E1E] border border-[#336699]/30 rounded-[4px] p-2 hover:border-[#336699]/50 transition-colors cursor-pointer flex items-center">
-                      <div className="w-3 h-3 border border-[#336699] rounded-full mr-2 flex-shrink-0 flex items-center justify-center">
-                        <div className="w-1 h-1 bg-[#336699] rounded-full"></div>
-                      </div>
-                      <span className="text-white text-xs">Create your first project</span>
-                    </div>
-                    
-                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
-                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
-                      <span className="text-gray-400 text-xs">Set up your price book</span>
-                    </div>
-                    
-                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
-                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
-                      <span className="text-gray-400 text-xs">Send your first invoice</span>
-                    </div>
-                    
-                    <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
-                      <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
-                      <span className="text-gray-400 text-xs">Try the ADVISOR feature</span>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 flex items-center justify-between">
+          {/* Quick Start Guide - Collapsible onboarding at bottom */}
+          {!isQuickStartDismissed && (
+            <div className="border-t border-gray-700" ref={quickStartRef}>
+              {!isSidebarCollapsed ? (
+                /* Expanded state - full Quick Start guide */
+                <>
+                  <button
+                    onClick={() => setIsQuickStartCollapsed(!isQuickStartCollapsed)}
+                    className="w-full p-2 flex items-center justify-between text-gray-400 hover:text-white transition-colors"
+                  >
                     <div className="flex items-center">
-                      <div className="w-full bg-gray-800 rounded-full h-1 w-16">
-                        <div className="bg-[#F9D71C] h-1 rounded-full" style={{width: '20%'}}></div>
+                      {/* Circular Progress Indicator */}
+                      <div className="relative w-6 h-6 mr-2">
+                        <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 24 24">
+                          {/* Background circle */}
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="9"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                          />
+                          {/* Progress circle */}
+                          <circle
+                            cx="12"
+                            cy="12"
+                            r="9"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            fill="none"
+                            strokeDasharray={`${2 * Math.PI * 9}`}
+                            strokeDashoffset={`${2 * Math.PI * 9 * (1 - 0.2)}`}
+                            className="text-[#F9D71C] transition-all duration-300"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                        {/* Center number showing current step */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-[#F9D71C] text-sm font-bold leading-none">1</span>
+                        </div>
                       </div>
-                      <span className="text-gray-400 text-xs ml-2">1/5</span>
+                      <span className="text-xs font-medium">QUICK START</span>
                     </div>
-                    <button className="text-[#336699] text-xs font-medium hover:text-white transition-colors">
-                      SKIP
-                    </button>
+                    <ChevronUp className={`h-4 w-4 transition-transform duration-200 ${isQuickStartCollapsed ? 'rotate-180' : 'rotate-0'}`} />
+                  </button>
+                  
+                  {!isQuickStartCollapsed && (
+                    <div className="px-2 pb-2">
+                      <div className="space-y-2">
+                        <div className="bg-[#388E3C]/20 border border-[#388E3C]/30 rounded-[4px] p-2 flex items-center">
+                          <CheckCircle2 className="h-3 w-3 text-[#388E3C] mr-2 flex-shrink-0" />
+                          <span className="text-white text-xs">Add your first client</span>
+                        </div>
+                        
+                        <div className="bg-[#1E1E1E] border border-[#336699]/30 rounded-[4px] p-2 hover:border-[#336699]/50 transition-colors cursor-pointer flex items-center">
+                          <div className="w-3 h-3 border border-[#336699] rounded-full mr-2 flex-shrink-0 flex items-center justify-center">
+                            <div className="w-1 h-1 bg-[#336699] rounded-full"></div>
+                          </div>
+                          <span className="text-white text-xs">Create your first project</span>
+                        </div>
+                        
+                        <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                          <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                          <span className="text-gray-400 text-xs">Set up your price book</span>
+                        </div>
+                        
+                        <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                          <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                          <span className="text-gray-400 text-xs">Send your first invoice</span>
+                        </div>
+                        
+                        <div className="bg-[#1E1E1E] border border-gray-600/30 rounded-[4px] p-2 flex items-center opacity-75">
+                          <div className="w-3 h-3 border border-gray-500 rounded-full mr-2 flex-shrink-0"></div>
+                          <span className="text-gray-400 text-xs">Try the ADVISOR feature</span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-full bg-gray-800 rounded-full h-1 w-16">
+                            <div className="bg-[#F9D71C] h-1 rounded-full" style={{width: '20%'}}></div>
+                          </div>
+                          <span className="text-gray-400 text-xs ml-2">1/5</span>
+                        </div>
+                        <button 
+                          onClick={() => setIsQuickStartDismissed(true)}
+                          className="text-[#336699] text-xs font-medium hover:text-white transition-colors"
+                        >
+                          SKIP
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Collapsed state - just progress circle */
+                <div className="p-2 flex justify-center">
+                  <div 
+                    className="relative w-6 h-6 cursor-pointer hover:scale-110 transition-transform duration-200"
+                    title="Quick Start Progress: 1/5 steps completed"
+                    onClick={() => {
+                      setIsSidebarCollapsed(false);
+                      setIsQuickStartCollapsed(false);
+                    }}
+                  >
+                    <svg className="w-6 h-6 transform -rotate-90" viewBox="0 0 24 24">
+                      {/* Background circle */}
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        className="text-gray-600"
+                      />
+                      {/* Progress circle */}
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 9}`}
+                        strokeDashoffset={`${2 * Math.PI * 9 * (1 - 0.2)}`}
+                        className="text-[#F9D71C] transition-all duration-300"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    {/* Center text showing completion */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[#F9D71C] text-xs font-bold">1</span>
+                    </div>
                   </div>
                 </div>
               )}

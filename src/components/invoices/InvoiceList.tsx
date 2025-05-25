@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Download, ChevronRight, Share2, Copy } from 'lucide-react';
+import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import TabMenu from '../common/TabMenu';
 import { DashboardLayout } from '../layouts/DashboardLayout';
@@ -39,6 +39,7 @@ export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -50,6 +51,45 @@ export const InvoiceList: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  
+  // Advanced filter states
+  const [selectedClientId, setSelectedClientId] = useState('all');
+  const [minAmount, setMinAmount] = useState('');
+  const [maxAmount, setMaxAmount] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [dueDateFrom, setDueDateFrom] = useState('');
+  const [dueDateTo, setDueDateTo] = useState('');
+  const [selectedDateRange, setSelectedDateRange] = useState('all');
+  const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
+  
+  // Refs for click outside
+  const filterMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => setSearchTerm(searchInput), 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  // Close menus when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(event.target as Node)) {
+        setShowOptionsMenu(false);
+      }
+      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+        setShowFilterMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -89,12 +129,104 @@ export const InvoiceList: React.FC = () => {
     }
   };
 
-  const filteredInvoices = invoices.filter((invoice) => {
-    const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
-    const matchesSearch = displayNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = selectedStatus === 'all' || invoice.status === selectedStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredInvoices = useMemo(() => {
+    let filtered = [...invoices];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter((invoice) => {
+        const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
+        const client = clients.find(c => c.id === invoice.client_id);
+        const clientName = client?.name || '';
+        return (
+          displayNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          clientName.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      });
+    }
+
+    // Status filter
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(invoice => invoice.status === selectedStatus);
+    }
+
+    // Client filter
+    if (selectedClientId !== 'all') {
+      filtered = filtered.filter(invoice => invoice.client_id === selectedClientId);
+    }
+
+    // Amount range filter
+    if (minAmount !== '') {
+      filtered = filtered.filter(invoice => invoice.amount >= parseFloat(minAmount));
+    }
+    if (maxAmount !== '') {
+      filtered = filtered.filter(invoice => invoice.amount <= parseFloat(maxAmount));
+    }
+
+    // Date range filters
+    if (dateFrom) {
+      filtered = filtered.filter(invoice => new Date(invoice.issue_date) >= new Date(dateFrom));
+    }
+    if (dateTo) {
+      filtered = filtered.filter(invoice => new Date(invoice.issue_date) <= new Date(dateTo));
+    }
+    if (dueDateFrom) {
+      filtered = filtered.filter(invoice => new Date(invoice.due_date) >= new Date(dueDateFrom));
+    }
+    if (dueDateTo) {
+      filtered = filtered.filter(invoice => new Date(invoice.due_date) <= new Date(dueDateTo));
+    }
+
+    // Quick date range filter
+    if (selectedDateRange !== 'all') {
+      const now = new Date();
+      let cutoff = new Date();
+      if (selectedDateRange === '7d') cutoff.setDate(now.getDate() - 7);
+      if (selectedDateRange === '30d') cutoff.setDate(now.getDate() - 30);
+      if (selectedDateRange === '90d') cutoff.setDate(now.getDate() - 90);
+      filtered = filtered.filter(invoice => new Date(invoice.issue_date) >= cutoff);
+    }
+
+    // Sort by amount
+    return filtered.sort((a, b) => {
+      if (amountSort === 'asc') {
+        return a.amount - b.amount;
+      } else {
+        return b.amount - a.amount;
+      }
+    });
+  }, [invoices, searchTerm, selectedStatus, selectedClientId, minAmount, maxAmount, dateFrom, dateTo, dueDateFrom, dueDateTo, selectedDateRange, amountSort, clients]);
+
+  const toggleAmountSort = () => {
+    setAmountSort(amountSort === 'asc' ? 'desc' : 'asc');
+  };
+
+  // Reset filters function
+  const resetFilters = () => {
+    setSelectedClientId('all');
+    setMinAmount('');
+    setMaxAmount('');
+    setDateFrom('');
+    setDateTo('');
+    setDueDateFrom('');
+    setDueDateTo('');
+    setSelectedDateRange('all');
+    setSearchInput('');
+    setSelectedStatus('all');
+  };
+
+  // Functions for the options menu
+  const handleImportInvoices = () => {
+    console.log('Import invoices clicked');
+  };
+
+  const handleExportToCSV = () => {
+    exportInvoicesToCSV(filteredInvoices, clients, products);
+  };
+
+  const handlePrintInvoices = () => {
+    console.log('Print invoices clicked');
+  };
 
   const getStatusStyle = (status: string) => {
     const baseStyle = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full ";
@@ -208,133 +340,233 @@ export const InvoiceList: React.FC = () => {
       <PageHeaderBar
         title="Invoices"
         searchPlaceholder="Search invoices..."
-        searchValue={searchTerm}
-        onSearch={setSearchTerm}
+        searchValue={searchInput}
+        onSearch={setSearchInput}
         onAddClick={() => setShowNewModal(true)}
         addButtonLabel="Invoice"
       />
-      {/* Filter Menu */}
-      {showFilterMenu && (
-        <div className="p-4 bg-[#1E2130] border border-gray-800 rounded-lg mx-4 mt-4 shadow-lg">
-          <h3 className="text-lg font-medium text-white mb-4">Filter By</h3>
-          
-          <div className="space-y-6">
-            {/* Status Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Status</label>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                {statusFilters.map((filter) => (
-                  <button
-                    key={filter.value}
-                    onClick={() => setSelectedStatus(filter.value)}
-                    className={`px-3 py-2 text-sm rounded-lg ${selectedStatus === filter.value ? 'bg-blue-600 text-white' : 'bg-[#232635] text-gray-400 hover:bg-[#2A2F40]'}`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Date Range Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Date Range</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">From</label>
-                  <input 
-                    type="date" 
-                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">To</label>
-                  <input 
-                    type="date" 
-                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Amount Range Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Price Range</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <input 
-                    type="number" 
-                    placeholder="Min" 
-                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <input 
-                    type="number" 
-                    placeholder="Max" 
-                    className="w-full bg-[#232635] border border-gray-700 rounded-lg px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Filter Actions */}
-            <div className="flex justify-between pt-2">
-              <button 
-                className="px-6 py-2 bg-[#232635] text-gray-400 rounded-lg hover:bg-[#2A2F40]"
-                onClick={() => setShowFilterMenu(false)}
-              >
-                Reset
-              </button>
-              <button 
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                onClick={() => setShowFilterMenu(false)}
-              >
-                Apply Filters
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       
       {/* Invoice summary cards */}
-      <div className="hidden md:flex gap-0">
+      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
         {/* Total Outstanding */}
-        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-          <span className="text-sm text-gray-400 mb-1">Total Outstanding</span>
-          <span className="text-2xl font-bold text-white">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
-          <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status !== 'paid').length} invoices</span>
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#D32F2F]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Outstanding</div>
+          <div className="text-3xl font-bold text-[#D32F2F] mb-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
+          <div className="text-sm text-gray-400">{invoices.filter(inv => inv.status !== 'paid').length} invoices</div>
         </div>
+        
         {/* Draft Invoices */}
-        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-          <span className="text-sm text-gray-400 mb-1">Draft Invoices</span>
-          <span className="text-2xl font-bold text-white">{invoices.filter(inv => inv.status === 'draft').length}</span>
-          <button className="mt-2 bg-[#35384A] text-gray-400 text-xs font-medium rounded-full px-4 py-1 cursor-not-allowed" disabled>Finalize</button>
-        </div>
-        {/* Overdue */}
-        <div className="flex-1 border border-[#35384A] border-r-0 p-4 flex flex-col justify-center min-w-[180px]">
-          <span className="text-sm text-gray-400 mb-1">Overdue</span>
-          <span className="text-2xl font-bold text-white">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</span>
-          <span className="text-xs text-gray-500">{invoices.filter(inv => inv.status === 'overdue').length} invoices</span>
-        </div>
-        {/* Paid */}
-        <div className="flex-1 border border-[#35384A] p-4 flex flex-col justify-center min-w-[180px]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Paid</span>
-            <select
-              value={paidPeriod}
-              onChange={e => setPaidPeriod(e.target.value as any)}
-              className="bg-[#35384A] text-xs text-[#6BFF90] rounded px-2 py-1 outline-none border-none"
-            >
-              <option value="month">This Month</option>
-              <option value="quarter">This Quarter</option>
-              <option value="year">This Year</option>
-              <option value="all">All Time</option>
-            </select>
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#9E9E9E]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Draft Invoices</div>
+          <div className="text-3xl font-bold text-[#9E9E9E] mb-1">{invoices.filter(inv => inv.status === 'draft').length}</div>
+          <div className="text-sm text-gray-400">
+            <button className="bg-[#336699] text-white text-xs font-medium rounded-full px-4 py-1 hover:bg-[#2851A3] transition-colors">
+              Finalize
+            </button>
           </div>
-          <span className="text-2xl font-bold" style={{ color: '#6BFF90' }}>{formatCurrency(paidAmountForPeriod)}</span>
-          <span className="text-xs text-gray-500">{paidInvoicesForPeriod.length} invoices</span>
+        </div>
+        
+        {/* Overdue */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Overdue</div>
+          <div className="text-3xl font-bold text-[#F9D71C] mb-1">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</div>
+          <div className="text-sm text-gray-400">{invoices.filter(inv => inv.status === 'overdue').length} invoices</div>
+        </div>
+        
+        {/* Paid */}
+        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#388E3C]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Paid</div>
+          <div className="text-3xl font-bold text-[#388E3C] mb-1">{formatCurrency(paidAmountForPeriod)}</div>
+          <div className="text-sm text-gray-400">{paidInvoicesForPeriod.length} invoices</div>
         </div>
       </div>
+      
+      {/* Filter Controls */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+        {/* Left side - View Mode and Primary Filter */}
+        <div className="flex items-center gap-4">
+          {/* View Mode Toggles - More Prominent */}
+          <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
+            <button
+              className="px-4 py-2 bg-[#336699] text-white"
+            >
+              List
+            </button>
+            <button
+              className="px-4 py-2 text-gray-400 hover:bg-gray-700"
+            >
+              Cards
+            </button>
+          </div>
+
+          {/* Primary Client Filter - More Prominent */}
+          <div className="relative">
+            <select
+              className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
+              value={selectedClientId}
+              onChange={(e) => setSelectedClientId(e.target.value)}
+            >
+              <option value="all">All Clients ({clients.length})</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>{client.name}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+              <ChevronDown size={16} />
+            </div>
+          </div>
+
+          {/* More Filters Button */}
+          <div className="relative" ref={filterMenuRef}>
+            <button 
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
+            >
+              <Filter size={16} />
+              More Filters
+            </button>
+            {showFilterMenu && (
+              <div className="absolute left-0 top-full mt-2 w-80 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+                <div className="p-4 space-y-4">
+                  {/* Quick Date Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Quick Date Range</label>
+                    <select
+                      value={selectedDateRange}
+                      onChange={(e) => setSelectedDateRange(e.target.value)}
+                      className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                    >
+                      <option value="all">All Time</option>
+                      <option value="7d">Last 7 Days</option>
+                      <option value="30d">Last 30 Days</option>
+                      <option value="90d">Last 90 Days</option>
+                    </select>
+                  </div>
+
+                  {/* Custom Date Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Custom Date Range</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        placeholder="From"
+                        value={dateFrom}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        type="date"
+                        placeholder="To"
+                        value={dateTo}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Due Date Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Due Date Range</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="date"
+                        placeholder="From"
+                        value={dueDateFrom}
+                        onChange={(e) => setDueDateFrom(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        type="date"
+                        placeholder="To"
+                        value={dueDateTo}
+                        onChange={(e) => setDueDateTo(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Amount Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Amount Range</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={minAmount}
+                        onChange={(e) => setMinAmount(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={maxAmount}
+                        onChange={(e) => setMaxAmount(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Filter Actions */}
+                  <div className="flex justify-between pt-2">
+                    <button 
+                      className="px-4 py-2 bg-[#232323] text-gray-400 rounded text-sm hover:bg-[#2A2A2A]"
+                      onClick={resetFilters}
+                    >
+                      Reset All
+                    </button>
+                    <button 
+                      className="px-4 py-2 bg-[#336699] text-white rounded text-sm hover:bg-[#2851A3]"
+                      onClick={() => setShowFilterMenu(false)}
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right side - Options Menu */}
+        <div className="flex items-center">
+          <div className="relative" ref={optionsMenuRef}>
+            <button
+              className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
+              onClick={() => setShowOptionsMenu(v => !v)}
+              aria-label="More options"
+            >
+              <MoreVertical size={20} className="text-gray-400" />
+            </button>
+            {showOptionsMenu && (
+              <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handleImportInvoices(); }}
+                >
+                  Import Invoices
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
+                >
+                  Export to CSV
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handlePrintInvoices(); }}
+                >
+                  Print Invoices
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
       {/* Global subnav tabs (now below summary cards, above table) */}
       <TabMenu
         items={statusFilters.map(filter => ({
@@ -373,7 +605,12 @@ export const InvoiceList: React.FC = () => {
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DATE</th>
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DUE</th>
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">STATUS</th>
-                      <th className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">AMOUNT</th>
+                      <th 
+                        className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase cursor-pointer hover:text-[#336699] transition-colors"
+                        onClick={toggleAmountSort}
+                      >
+                        AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
+                      </th>
                       <th className="w-8 px-3 py-4"></th>
                     </tr>
                   </thead>

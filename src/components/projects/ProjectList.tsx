@@ -10,6 +10,7 @@ import { NewButton } from '../common/NewButton';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { Dropdown } from '../common/Dropdown';
 import { formatCurrency } from '../../utils/format';
+import TabMenu from '../common/TabMenu';
 
 type Project = Tables['projects'];
 
@@ -20,6 +21,7 @@ export const ProjectList: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   
   // Load view preference from localStorage - default to 'card'
   const [viewType, setViewType] = useState<'card' | 'gantt'>(() => {
@@ -60,13 +62,14 @@ export const ProjectList: React.FC = () => {
     { id: 'general', name: 'General', icon: '📋' },
   ];
 
-  // Filter projects by category and search
+  // Filter projects by category, status, and search
   const filteredProjects = projects.filter(project => {
     const matchesCategory = selectedCategory === 'all' || project.category === selectedCategory;
+    const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
     const matchesSearch = searchQuery === '' || 
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesStatus && matchesSearch;
   });
 
   // Get count for each category
@@ -204,50 +207,88 @@ export const ProjectList: React.FC = () => {
       </div>
 
       {/* Projects Section */}
-      <div className="px-8 pb-8">
-        {/* Section Header with View Options and Category Filter */}
-        <div className="flex items-center justify-between py-8">
+      <div className="pb-8">
+        {/* Filter Controls */}
+        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+          {/* Left side - View Mode and Primary Filter */}
           <div className="flex items-center gap-4">
-            <div className="flex bg-[#1a1a1a] rounded-lg border border-[#333333] overflow-hidden">
+            {/* View Mode Toggles - More Prominent */}
+            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
               <button
+                className={`px-4 py-2 ${viewType === 'card' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewType('card')}
-                className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
-                  viewType === 'card' 
-                    ? 'bg-[#333333] text-white' 
-                    : 'text-gray-500 hover:text-white'
-                }`}
               >
                 Cards
               </button>
               <button
+                className={`px-4 py-2 ${viewType === 'gantt' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
                 onClick={() => setViewType('gantt')}
-                className={`px-4 py-2 text-sm font-medium transition-all duration-200 ${
-                  viewType === 'gantt' 
-                    ? 'bg-[#333333] text-white' 
-                    : 'text-gray-500 hover:text-white'
-                }`}
               >
                 Gantt
               </button>
             </div>
-            
-            {/* Category Filter Dropdown */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="h-10 px-3 pr-8 bg-[#1a1a1a] border border-[#333333] rounded-lg text-white text-sm font-medium appearance-none cursor-pointer hover:border-[#555555] focus:outline-none focus:ring-2 focus:ring-[#336699] focus:border-transparent"
-            >
-              {categories.map((category) => {
-                const count = getCategoryCount(category.id);
-                return (
-                  <option key={category.id} value={category.id} className="bg-[#1a1a1a] text-white">
-                    {category.icon} {category.name} ({count})
-                  </option>
-                );
-              })}
-            </select>
+
+            {/* Primary Category Filter - More Prominent */}
+            <div className="relative">
+              <select
+                className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+              >
+                {categories.map((category) => {
+                  const count = getCategoryCount(category.id);
+                  return (
+                    <option key={category.id} value={category.id}>
+                      {category.icon} {category.name} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+                </svg>
+              </div>
+            </div>
+
+            {/* More Filters Button */}
+            <div className="relative">
+              <button 
+                className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z"></path>
+                </svg>
+                More Filters
+              </button>
+            </div>
+          </div>
+
+          {/* Right side - Options Menu */}
+          <div className="flex items-center">
+            <div className="relative">
+              <button
+                className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
+                aria-label="More options"
+              >
+                <MoreVertical size={20} className="text-gray-400" />
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Status Filter Tabs */}
+        <TabMenu
+          items={[
+            { id: 'all', label: 'All Projects', count: projects.length },
+            { id: 'active', label: 'Active', count: projects.filter(p => p.status === 'active').length },
+            { id: 'on-hold', label: 'On Hold', count: projects.filter(p => p.status === 'on-hold').length },
+            { id: 'completed', label: 'Completed', count: projects.filter(p => p.status === 'completed').length },
+            { id: 'cancelled', label: 'Cancelled', count: projects.filter(p => p.status === 'cancelled').length }
+          ]}
+          activeItemId={selectedStatus}
+          onItemClick={(id) => setSelectedStatus(id as 'all' | 'active' | 'on-hold' | 'completed' | 'cancelled')}
+        />
 
         {loading ? (
           <TableSkeleton rows={5} columns={6} />
@@ -384,6 +425,7 @@ export const ProjectList: React.FC = () => {
                     <button 
                       onClick={() => {
                         setSelectedCategory('all');
+                        setSelectedStatus('all');
                         setSearchQuery('');
                       }}
                       className="px-4 py-2 bg-[#336699] text-white rounded-lg font-medium hover:bg-[#2851A3] transition-colors"

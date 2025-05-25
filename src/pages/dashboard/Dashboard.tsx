@@ -13,6 +13,7 @@ import {
   Menu
 } from "lucide-react";
 import { MobileMenuContext } from '../../components/layouts/DashboardLayout';
+import { ProfitAlertsWidget } from '../../components/dashboard/ProfitAlertsWidget';
 
 // Mobile Menu Button Component
 const MobileMenuButton = () => {
@@ -135,80 +136,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Profit Boosters */}
-        <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white uppercase tracking-wide flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2 text-[#336699]" />
-              PROFIT BOOSTERS
-            </h2>
-            <div className="bg-[#336699]/20 px-3 py-1 rounded-[4px] border border-[#336699]/30">
-              <span className="text-[#336699] text-sm font-bold">+$89K/YEAR POTENTIAL</span>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="bg-[#121212] p-5 rounded-[4px] border border-[#333333]">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2">
-                    <Calculator className="h-5 w-5 text-[#336699] mr-2" />
-                    <h3 className="font-bold text-white uppercase tracking-wide">MATERIAL MARKUP GOLDMINE</h3>
-                  </div>
-                  <p className="text-gray-300 mb-2 text-sm">Your current markup: <span className="text-[#D32F2F] font-bold">18%</span> • Industry standard: <span className="text-[#388E3C] font-bold">28%</span></p>
-                  <p className="text-xs text-gray-400">Last 5 projects: Johnson Kitchen ($8,400 materials), Chen Deck ($3,200 materials)</p>
-                </div>
-                <div className="text-right ml-6">
-                  <div className="text-2xl font-mono font-bold text-white mb-1">+$1,840</div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide mb-3">PER PROJECT</div>
-                  <button className="bg-[#336699] hover:bg-[#0D47A1] text-white px-4 py-2 rounded-[4px] font-medium transition-colors uppercase text-sm tracking-wide">
-                    Update Pricing
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-[#121212] p-5 rounded-[4px] border border-[#333333]">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2">
-                    <Clock className="h-5 w-5 text-[#336699] mr-2" />
-                    <h3 className="font-bold text-white uppercase tracking-wide">INVOICE SPEED = CASH SPEED</h3>
-                  </div>
-                  <p className="text-gray-300 mb-2 text-sm">You send invoices <span className="text-[#D32F2F] font-bold">6.3 days</span> after completion • Best practice: <span className="text-[#388E3C] font-bold">Same day</span></p>
-                  <p className="text-xs text-gray-400">Getting paid faster = better cash flow = less stress</p>
-                </div>
-                <div className="text-right ml-6">
-                  <div className="text-2xl font-mono font-bold text-white mb-1">12 days</div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide mb-3">FASTER PAYMENT</div>
-                  <button className="bg-[#336699] hover:bg-[#0D47A1] text-white px-4 py-2 rounded-[4px] font-medium transition-colors uppercase text-sm tracking-wide">
-                    Set Auto-Send
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-[#121212] p-5 rounded-[4px] border border-[#333333]">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center mb-2">
-                    <Target className="h-5 w-5 text-[#336699] mr-2" />
-                    <h3 className="font-bold text-white uppercase tracking-wide">HIGH-VALUE CLIENT MAGNET</h3>
-                  </div>
-                  <p className="text-gray-300 mb-2 text-sm">Your $25K+ clients live within <span className="text-[#388E3C] font-bold">3 miles downtown</span></p>
-                  <p className="text-xs text-gray-400">Target zip codes: 78701, 78703, 78704 • Higher budgets, faster decisions</p>
-                </div>
-                <div className="text-right ml-6">
-                  <div className="text-2xl font-mono font-bold text-white mb-1">+47%</div>
-                  <div className="text-xs text-gray-400 uppercase tracking-wide mb-3">PROFIT MARGINS</div>
-                  <button className="bg-[#336699] hover:bg-[#0D47A1] text-white px-4 py-2 rounded-[4px] font-medium transition-colors uppercase text-sm tracking-wide">
-                    Target Area
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Profit Alerts Widget */}
+        <ProfitAlertsWidget />
 
         {/* Project Performance & Efficiency */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

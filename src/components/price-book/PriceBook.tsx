@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import TabMenu from '../common/TabMenu';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { LineItemModal } from '../modals/LineItemModal';
-import { MoreVertical, Filter, Minimize2 } from 'lucide-react';
+import { MoreVertical, Filter, Minimize2, ChevronDown } from 'lucide-react';
 import './price-book.css';
 
 interface Product {
@@ -365,33 +365,133 @@ export const PriceBook = () => {
         onAddClick={() => setShowNewLineItemModal(true)}
         addButtonLabel="Line Item"
       />
+      
+      {/* Price Book Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
+        {/* Total Items */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Items</div>
+          <div className="text-3xl font-bold text-white mb-1">{products.length}</div>
+          <div className="text-sm text-gray-400">Total Value: {formatCurrency(products.reduce((sum, p) => sum + p.price, 0))}</div>
+        </div>
+        
+        {/* Most Popular Category */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Most Used</div>
+          <div className="text-3xl font-bold text-[#10b981] mb-1">
+            {(() => {
+              const materialCount = products.filter(p => p.type === 'material').length;
+              const laborCount = products.filter(p => p.type === 'labor').length;
+              const equipmentCount = products.filter(p => p.type === 'equipment').length;
+              const serviceCount = products.filter(p => p.type === 'service').length;
+              const subCount = products.filter(p => p.type === 'subcontractor').length;
+              
+              const counts = [
+                { type: 'Material', count: materialCount },
+                { type: 'Labor', count: laborCount },
+                { type: 'Equipment', count: equipmentCount },
+                { type: 'Service', count: serviceCount },
+                { type: 'Subcontractor', count: subCount }
+              ];
+              
+              const mostUsed = counts.reduce((max, current) => current.count > max.count ? current : max, counts[0]);
+              return mostUsed?.type || 'Material';
+            })()}
+          </div>
+          <div className="text-sm text-gray-400">
+            {(() => {
+              const materialCount = products.filter(p => p.type === 'material').length;
+              const laborCount = products.filter(p => p.type === 'labor').length;
+              const equipmentCount = products.filter(p => p.type === 'equipment').length;
+              const serviceCount = products.filter(p => p.type === 'service').length;
+              const subCount = products.filter(p => p.type === 'subcontractor').length;
+              
+              const counts = [
+                { type: 'material', count: materialCount },
+                { type: 'labor', count: laborCount },
+                { type: 'equipment', count: equipmentCount },
+                { type: 'service', count: serviceCount },
+                { type: 'subcontractor', count: subCount }
+              ];
+              
+              const mostUsed = counts.reduce((max, current) => current.count > max.count ? current : max, counts[0]);
+              return mostUsed?.count || 0;
+            })()} items
+          </div>
+        </div>
+        
+        {/* Average Price */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Average Price</div>
+          <div className="text-3xl font-bold text-[#3b82f6] mb-1">
+            {formatCurrency(products.length > 0 ? products.reduce((sum, p) => sum + p.price, 0) / products.length : 0)}
+          </div>
+          <div className="text-sm text-gray-400">
+            {products.length > 0 ? `Range: ${formatCurrency(Math.min(...products.map(p => p.price)))} - ${formatCurrency(Math.max(...products.map(p => p.price)))}` : 'No items yet'}
+          </div>
+        </div>
+        
+        {/* Recent Additions */}
+        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Recent Additions</div>
+          <div className="text-3xl font-bold text-[#F9D71C] mb-1">
+            {(() => {
+              const thirtyDaysAgo = new Date();
+              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+              return products.filter(p => new Date(p.created_at) >= thirtyDaysAgo).length;
+            })()}
+          </div>
+          <div className="text-sm text-gray-400">Last 30 days</div>
+        </div>
+      </div>
+      
       <div className="flex flex-col h-full price-book-container">
         {/* Trade Filter & Sort Controls */}
         <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-          {/* Left side - Trade and Filter controls */}
+          {/* Left side - View Mode and Primary Filter */}
           <div className="flex items-center gap-4">
-            {/* Trade Filter */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-400">Trade:</label>
+            {/* View Mode Toggles - More Prominent */}
+            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
+              <button
+                className="px-4 py-2 bg-[#336699] text-white"
+              >
+                List
+              </button>
+              <button
+                className="px-4 py-2 text-gray-400 hover:bg-gray-700"
+              >
+                Cards
+              </button>
+            </div>
+
+            {/* Primary Trade Filter - More Prominent */}
+            <div className="relative">
               <select
-                className="bg-[#232323] border border-gray-700 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#336699]"
+                className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
                 value={selectedTradeId}
                 onChange={(e) => setSelectedTradeId(e.target.value)}
               >
-                <option value="all">All Trades</option>
+                <option value="all">All Trades ({trades.length})</option>
                 {trades.map(trade => (
                   <option key={trade.id} value={trade.id}>{trade.name}</option>
                 ))}
               </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                <ChevronDown size={16} />
+              </div>
             </div>
 
-            {/* Filter Button and Menu */}
-            <div className="flex items-center gap-2 relative" ref={filterMenuRef}>
+            {/* More Filters Button */}
+            <div className="relative" ref={filterMenuRef}>
               <button 
                 onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-[#232323] border border-gray-700 rounded text-sm text-white hover:bg-[#2A2A2A] transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
               >
-                <Filter size={14} />
+                <Filter size={16} />
                 More Filters
               </button>
               {showFilterMenu && (
@@ -495,49 +595,49 @@ export const PriceBook = () => {
             </div>
           </div>
 
-          {/* Right side - Condense Table Toggle and Options */}
+          {/* Right side - Condensed Toggle and Options Menu */}
           <div className="flex items-center gap-4">
+            {/* Condensed View Toggle */}
             <button
-              onClick={() => setCondensed(v => !v)}
-              className={`px-3 py-1.5 rounded border border-[#336699] text-[#336699] bg-[#232323] hover:bg-[#181818] transition-colors text-xs font-medium uppercase tracking-wide flex items-center justify-center ${condensed ? 'bg-[#336699] text-white' : ''}`}
-              aria-label={condensed ? 'Expanded Table' : 'Condense Table'}
+              onClick={() => setCondensed(!condensed)}
+              className="flex items-center gap-2 px-3 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
+              title={condensed ? "Expand view" : "Condense view"}
             >
-              <Minimize2 className="w-4 h-4" />
+              <Minimize2 size={16} />
+              {condensed ? "Expand" : "Condense"}
             </button>
-            {/* Three-dot menu */}
-            <div className="flex items-center gap-2">
-              {/* Three-dot menu */}
-              <div className="relative" ref={optionsMenuRef}>
-                <button
-                  className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
-                  onClick={() => setShowOptionsMenu(v => !v)}
-                  aria-label="More options"
-                >
-                  <MoreVertical size={20} className="text-gray-400" />
-                </button>
-                {showOptionsMenu && (
-                  <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                      onClick={() => { setShowOptionsMenu(false); handleImportItems(); }}
-                    >
-                      Import Items
-                    </button>
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                      onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
-                    >
-                      Export to CSV
-                    </button>
-                    <button
-                      className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                      onClick={() => { setShowOptionsMenu(false); handlePrintPriceBook(); }}
-                    >
-                      Print Price Book
-                    </button>
-                  </div>
-                )}
-              </div>
+
+            {/* Options Menu */}
+            <div className="relative" ref={optionsMenuRef}>
+              <button
+                className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
+                onClick={() => setShowOptionsMenu(v => !v)}
+                aria-label="More options"
+              >
+                <MoreVertical size={20} className="text-gray-400" />
+              </button>
+              {showOptionsMenu && (
+                <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); /* handleImportItems(); */ }}
+                  >
+                    Import Items
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); /* handleExportToCSV(); */ }}
+                  >
+                    Export to CSV
+                  </button>
+                  <button
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); /* handlePrintPriceBook(); */ }}
+                  >
+                    Print Price Book
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
