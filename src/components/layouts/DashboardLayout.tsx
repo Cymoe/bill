@@ -123,6 +123,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return saved ? JSON.parse(saved) : false;
   });
   const [projectsSortOrder, setProjectsSortOrder] = useState<'latest' | 'earliest'>('latest');
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Mock organizations
   const mockOrgs = [
@@ -458,6 +460,25 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       return a.id - b.id; // Lower ID = older
     }
   });
+
+  // Close dropdown menus on outside click
+  useEffect(() => {
+    if (!openDropdownId) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      
+      // Check if click is outside all dropdown menus
+      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
+        !ref || !ref.contains(target)
+      );
+      
+      if (isOutsideDropdown) {
+        setOpenDropdownId(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownId]);
 
   return (
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
@@ -1945,29 +1966,171 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               <div className="flex-1 overflow-y-auto min-h-0">
                 <div className="space-y-0">
                   {sortedProjects.map((project, index) => (
-                    <button
-                      key={project.id}
-                      onClick={() => {
-                        navigate(`/projects/${project.id}`);
-                        setIsProjectsSidebarOpen(false);
-                      }}
-                      className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center mb-0.5">
-                            <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
-                              project.status === 'completed' ? 'bg-green-500' :
-                              project.status === 'active' ? 'bg-green-500' :
-                              'bg-yellow-500'
-                            }`}></div>
-                            <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
+                    <div key={project.id} className="relative">
+                      <button
+                        onClick={() => {
+                          navigate(`/projects/${project.id}`);
+                          if (!isProjectsSidebarLocked) {
+                            setIsProjectsSidebarOpen(false);
+                          }
+                        }}
+                        className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center mb-0.5">
+                              <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
+                                project.status === 'completed' ? 'bg-green-500' :
+                                project.status === 'active' ? 'bg-green-500' :
+                                'bg-yellow-500'
+                              }`}></div>
+                              <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
+                            </div>
+                            <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
                           </div>
-                          <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
+                            
+                            {/* Action buttons - only show on hover */}
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ml-2">
+                              <div className="relative">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const dropdownId = `project-${project.id}`;
+                                    setOpenDropdownId(openDropdownId === dropdownId ? null : dropdownId);
+                                  }}
+                                  className="w-4 h-4 flex items-center justify-center rounded hover:bg-[#336699] transition-colors"
+                                  title="More options"
+                                >
+                                  <svg className="w-3 h-3 text-gray-400 hover:text-white" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                  </svg>
+                                </button>
+                                
+                                {/* Dropdown Menu */}
+                                {openDropdownId === `project-${project.id}` && (
+                                  <div 
+                                    ref={(el) => dropdownRefs.current[`project-${project.id}`] = el}
+                                    className="absolute right-0 top-full mt-1 w-48 bg-[#2A2A2A] border border-[#404040] rounded-[4px] shadow-lg z-[10001] py-1"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/projects/${project.id}/edit`);
+                                        setOpenDropdownId(null);
+                                        if (!isProjectsSidebarLocked) {
+                                          setIsProjectsSidebarOpen(false);
+                                        }
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      Edit Project
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`Add note to ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                      </svg>
+                                      Add Note
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`View timeline for ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                      </svg>
+                                      View Timeline
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`View photos for ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                      View Photos
+                                    </button>
+                                    <div className="border-t border-[#404040] my-1"></div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`Create invoice for ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      Create Invoice
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`Generate estimate for ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                      </svg>
+                                      Generate Estimate
+                                    </button>
+                                    <div className="border-t border-[#404040] my-1"></div>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`Mark ${project.name} as complete`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-green-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      Mark Complete
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        console.log(`Archive ${project.name}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-yellow-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8l6 6 6-6" />
+                                      </svg>
+                                      Archive Project
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <span className="text-[#6b7280] text-xs font-medium ml-2 leading-tight">{project.progress}%</span>
-                      </div>
-                    </button>
+                      </button>
+                    </div>
                   ))}
                   
                   {sortedProjects.length === 0 && (
