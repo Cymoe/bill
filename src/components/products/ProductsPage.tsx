@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ProductComparisonModal from './ProductComparisonModal';
 import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package } from 'lucide-react';
 import { ProductVariantComparison } from './ProductVariantComparison';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +12,9 @@ import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { ProductOptionsDemo } from './ProductOptionsDemo';
 import { PageHeader } from '../common/PageHeader';
 import { NewButton } from '../common/NewButton';
+import TabMenu from '../common/TabMenu';
+import { TableSkeleton } from '../skeletons/TableSkeleton';
+import { CardSkeleton } from '../skeletons/CardSkeleton';
 
 // Product type
 export type Product = {
@@ -65,6 +67,7 @@ export interface ProductsPageProps {
 export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPageProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -88,10 +91,15 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<any>(null);
+  const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Check if tutorial mode is enabled via URL parameter
+  const searchParams = new URLSearchParams(location.search);
+  const showTutorial = searchParams.get('tutorial') === 'true';
 
   // Debounce search input
   useEffect(() => {
@@ -324,22 +332,203 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     </div>
   );
 
-  // Empty state component
-  const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center py-20 px-4">
-      <div className="w-16 h-16 bg-[#333333] rounded flex items-center justify-center mb-4 border-l-4 border-[#336699]">
-        <Package size={32} className="text-[#336699] opacity-60" />
+  // Contextual Onboarding Component
+  const ContextualOnboarding = () => {
+    // Show onboarding if no products OR if tutorial=true in URL
+    if (products.length > 0 && !showTutorial) return null;
+
+    return (
+      <div className="max-w-4xl mx-auto p-8">
+        {/* Welcome Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">📦</span>
       </div>
-      <h3 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase mb-2">No products found</h3>
-      <p className="text-gray-400 text-center max-w-md mb-6 font-['Roboto']">Try adjusting your filters or create your first product to get started.</p>
+          <h2 className="text-2xl font-bold text-white mb-2">Welcome to Product Management</h2>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Build your product catalog with materials, labor, and services. Create variants, track pricing, 
+            and streamline your estimating process. Let's add your first product.
+          </p>
+        </div>
+
+        {/* Video Section */}
+        <div className="mb-8">
+          <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold flex items-center">
+                <span className="text-[#336699] mr-2">🎥</span>
+                Watch: Product Catalog Setup
+              </h3>
+              <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">6 min</span>
+            </div>
+            
+            {/* Video Embed Container */}
+            <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
+              {/* Replace this iframe src with your actual Loom video URL */}
+              <iframe
+                src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
+                frameBorder="0"
+                allowFullScreen
+                className="absolute top-0 left-0 w-full h-full"
+                title="Product Catalog Setup"
+              ></iframe>
+              
+              {/* Placeholder for when no video is set */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-white text-xl">▶</span>
+                  </div>
+                  <p className="text-gray-400 text-sm">Video coming soon</p>
+                  <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-gray-400 text-sm mt-3">
+              Learn how to build a comprehensive product catalog that speeds up your estimating 
+              and keeps your pricing consistent across all projects.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Start Steps */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {/* Step 1 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                1
+              </div>
+              <h3 className="text-white font-bold">Add Your First Product</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Start with a common material, service, or labor item you use frequently in projects.
+            </p>
       <button
         onClick={() => setEditingProduct('new')}
-        className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-opacity-80 text-white rounded transition-colors"
+              className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
       >
-        <span className="text-lg">+</span> New Product
+              CREATE PRODUCT
       </button>
     </div>
-  );
+
+          {/* Step 2 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                2
+              </div>
+              <h3 className="text-gray-400 font-bold">Create Variants</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Add different sizes, grades, or options for your products to cover all scenarios.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+
+          {/* Step 3 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                3
+              </div>
+              <h3 className="text-gray-400 font-bold">Use in Estimates</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Build estimates faster by selecting products from your catalog with consistent pricing.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+        </div>
+
+        {/* Tips Section */}
+        <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+          <h3 className="text-white font-bold mb-4 flex items-center">
+            <span className="text-[#F9D71C] mr-2">💡</span>
+            Pro Tips for Product Management
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Include all costs</p>
+                  <p className="text-gray-400 text-xs">Factor in material, labor, overhead, and profit margins</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Use clear naming</p>
+                  <p className="text-gray-400 text-xs">Make products easy to find with descriptive names</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Update prices regularly</p>
+                  <p className="text-gray-400 text-xs">Keep pricing current with market rates and supplier costs</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Organize by trade</p>
+                  <p className="text-gray-400 text-xs">Group products by trade for easier navigation</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Product Categories */}
+        <div className="text-center mt-8">
+          <p className="text-gray-400 text-sm mb-4">
+            Common product categories to get you started:
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              🧱 Materials
+            </button>
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              👷 Labor
+            </button>
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              🔧 Tools & Equipment
+            </button>
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              🚚 Services
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Helper functions for UI elements
   const getVariantColor = (variant: any) => {
@@ -380,509 +569,450 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   };
 
   return (
-    <DashboardLayout>
-      <div className="flex flex-col h-full w-full p-0 m-0 overflow-hidden">
-        <PageHeaderBar
-          title="Products"
-          searchPlaceholder="Search products..."
-          searchValue={searchInput}
-          onSearch={setSearchInput}
-          onAddClick={() => setEditingProduct('new')}
-          addButtonLabel="Product"
-        />
-        
-        {/* Product Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
-          {/* Total Products */}
-          <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-            <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
-            <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Products</div>
-            <div className="text-3xl font-bold text-white mb-1">{products.length}</div>
-            <div className="text-sm text-gray-400">In inventory</div>
-          </div>
-          
-          {/* Recent Additions */}
-          <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
-            <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Added This Month</div>
-            <div className="text-3xl font-bold text-[#10b981] mb-1">{recentProducts.length}</div>
-            <div className="text-sm text-gray-400">Last 30 days</div>
-          </div>
-          
-          {/* Average Price */}
-          <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
-            <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Average Price</div>
-            <div className="text-3xl font-bold text-[#3b82f6] mb-1">{formatCurrency(averagePrice)}</div>
-            <div className="text-sm text-gray-400">Per item</div>
-          </div>
-          
-          {/* Most Used Type */}
-          <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
-            <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
-            <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Most Used</div>
-            <div className="text-3xl font-bold text-[#F9D71C] mb-1">{mostUsedType.type}</div>
-            <div className="text-sm text-gray-400">{mostUsedType.count} items</div>
-          </div>
+    <>
+      <PageHeaderBar 
+        title="Products"
+        searchPlaceholder="Search products..."
+        searchValue={searchInput}
+        onSearch={setSearchInput}
+        onAddClick={() => setEditingProduct('new')}
+        addButtonLabel="Product"
+      />
+      
+      {/* Product Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
+        {/* Total Products */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Products</div>
+          <div className="text-3xl font-bold text-white mb-1">{products.length}</div>
+          <div className="text-sm text-gray-400">In inventory</div>
+            </div>
+
+        {/* Recent Additions */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Added This Month</div>
+          <div className="text-3xl font-bold text-[#10b981] mb-1">{recentProducts.length}</div>
+          <div className="text-sm text-gray-400">Last 30 days</div>
+            </div>
+
+        {/* Average Price */}
+        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Average Price</div>
+          <div className="text-3xl font-bold text-[#3b82f6] mb-1">{formatCurrency(averagePrice)}</div>
+          <div className="text-sm text-gray-400">Per item</div>
         </div>
+        
+        {/* Most Used Type */}
+        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
+          <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
+          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Most Used</div>
+          <div className="text-3xl font-bold text-[#F9D71C] mb-1">{mostUsedType.type}</div>
+          <div className="text-sm text-gray-400">{mostUsedType.count} items</div>
+        </div>
+      </div>
 
-        {/* Filter Controls */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-          {/* Left side - View Mode and Primary Filter */}
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggles - More Prominent */}
-            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
-              <button
-                className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-                onClick={() => setViewMode('cards')}
-              >
-                Cards
-              </button>
+      {/* Filter Controls */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
+        {/* Left side - View Mode and Primary Filter */}
+        <div className="flex items-center gap-4">
+          {/* View Mode Toggles - More Prominent */}
+          <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
+                  <button
+              className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+              onClick={() => setViewMode('list')}
+                >
+              List
+                  </button>
+                    <button
+              className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+              onClick={() => setViewMode('cards')}
+                  >
+              Cards
+                    </button>
             </div>
 
-            {/* Primary Trade Filter - More Prominent */}
+          {/* Primary Trade Filter - More Prominent */}
             <div className="relative">
-              <select
-                className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="all">All Trades ({trades.length})</option>
-                {trades.map(trade => (
-                  <option key={trade.id} value={trade.id}>{trade.name}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                <ChevronDown size={16} />
-              </div>
+            <select
+              className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+            >
+              <option value="all">All Trades ({trades.length})</option>
+              {trades.map(trade => (
+                <option key={trade.id} value={trade.id}>{trade.name}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+              <ChevronDown size={16} />
+            </div>
             </div>
 
-            {/* More Filters Button */}
-            <div className="relative" ref={filterMenuRef}>
-              <button 
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
-              >
-                <Filter size={16} />
-                More Filters
-              </button>
-              {showFilterMenu && (
-                <div className="absolute left-0 top-full mt-2 w-80 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                  <div className="p-4 space-y-4">
-                    {/* Variant Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Product Type</label>
-                      <select
-                        value={selectedVariantFilter}
-                        onChange={(e) => setSelectedVariantFilter(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="all">All Products</option>
-                        <option value="with-variants">With Variants</option>
-                        <option value="without-variants">Without Variants</option>
-                      </select>
-                    </div>
+          {/* More Filters Button */}
+          <div className="relative" ref={filterMenuRef}>
+            <button
+              onClick={() => setShowFilterMenu(!showFilterMenu)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
+            >
+              <Filter size={16} />
+              More Filters
+            </button>
+            {showFilterMenu && (
+              <div className="absolute left-0 top-full mt-2 w-80 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+                <div className="p-4 space-y-4">
+                  {/* Variant Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Product Type</label>
+                    <select
+                      value={selectedVariantFilter}
+                      onChange={(e) => setSelectedVariantFilter(e.target.value)}
+                      className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                    >
+                      <option value="all">All Products</option>
+                      <option value="with-variants">With Variants</option>
+                      <option value="without-variants">Without Variants</option>
+                    </select>
+                  </div>
 
-                    {/* Date Range Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Date Added</label>
-                      <select
-                        value={selectedDateRange}
-                        onChange={(e) => setSelectedDateRange(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="all">All Time</option>
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="90d">Last 90 Days</option>
-                      </select>
-                    </div>
+                  {/* Date Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Date Added</label>
+                    <select
+                      value={selectedDateRange}
+                      onChange={(e) => setSelectedDateRange(e.target.value)}
+                      className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                    >
+                      <option value="all">All Time</option>
+                      <option value="7d">Last 7 Days</option>
+                      <option value="30d">Last 30 Days</option>
+                      <option value="90d">Last 90 Days</option>
+                    </select>
+                  </div>
 
-                    {/* Price Range Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Price Range</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={priceMin}
-                          onChange={(e) => setPriceMin(e.target.value)}
-                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={priceMax}
-                          onChange={(e) => setPriceMax(e.target.value)}
-                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Sort Options */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Sort By</label>
-                      <select
-                        value={`${sortBy}-${sortOrder}`}
-                        onChange={(e) => {
-                          const [field, order] = e.target.value.split('-');
-                          setSortBy(field);
-                          setSortOrder(order as 'asc' | 'desc');
-                        }}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="created_at-desc">Newest First</option>
-                        <option value="created_at-asc">Oldest First</option>
-                        <option value="name-asc">Name A-Z</option>
-                        <option value="name-desc">Name Z-A</option>
-                        <option value="price-desc">Price High-Low</option>
-                        <option value="price-asc">Price Low-High</option>
-                      </select>
-                    </div>
-
-                    {/* Filter Actions */}
-                    <div className="flex justify-between pt-2">
-                      <button 
-                        className="px-4 py-2 bg-[#232323] text-gray-400 rounded text-sm hover:bg-[#2A2A2A]"
-                        onClick={resetFilters}
-                      >
-                        Reset All
-                      </button>
-                      <button 
-                        className="px-4 py-2 bg-[#336699] text-white rounded text-sm hover:bg-[#2851A3]"
-                        onClick={() => setShowFilterMenu(false)}
-                      >
-                        Apply Filters
-                      </button>
+                  {/* Price Range Filter */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Price Range</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Min"
+                        value={priceMin}
+                        onChange={(e) => setPriceMin(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Max"
+                        value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)}
+                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                      />
                     </div>
                   </div>
+
+                  {/* Sort Options */}
+                  <div>
+                    <label className="block text-sm text-gray-400 mb-2">Sort By</label>
+                    <select
+                      value={`${sortBy}-${sortOrder}`}
+                      onChange={(e) => {
+                        const [field, order] = e.target.value.split('-');
+                        setSortBy(field);
+                        setSortOrder(order as 'asc' | 'desc');
+                      }}
+                      className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
+                    >
+                      <option value="created_at-desc">Newest First</option>
+                      <option value="created_at-asc">Oldest First</option>
+                      <option value="name-asc">Name A-Z</option>
+                      <option value="name-desc">Name Z-A</option>
+                      <option value="price-desc">Price High-Low</option>
+                      <option value="price-asc">Price Low-High</option>
+                    </select>
+                  </div>
+
+                  {/* Filter Actions */}
+                  <div className="flex justify-between pt-2">
+                  <button
+                      className="px-4 py-2 bg-[#232323] text-gray-400 rounded text-sm hover:bg-[#2A2A2A]"
+                      onClick={resetFilters}
+                >
+                      Reset All
+                  </button>
+                  <button
+                      className="px-4 py-2 bg-[#336699] text-white rounded text-sm hover:bg-[#2851A3]"
+                      onClick={() => setShowFilterMenu(false)}
+                >
+                      Apply Filters
+                  </button>
                 </div>
-              )}
             </div>
           </div>
-
-          {/* Right side - Options Menu */}
-          <div className="flex items-center">
-            <div className="relative" ref={optionsMenuRef}>
-              <button
-                className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
-                onClick={() => setShowOptionsMenu(v => !v)}
-                aria-label="More options"
-              >
-                <MoreVertical size={20} className="text-gray-400" />
-              </button>
-              {showOptionsMenu && (
-                <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleImportItems(); }}
-                  >
-                    Import Products
-                  </button>
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
-                  >
-                    Export to CSV
-                  </button>
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handlePrintPriceBook(); }}
-                  >
-                    Print Products
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-hidden">
-          {/* List View */}
-          {viewMode === 'list' && (
-            <div className="px-0 py-2 w-full">
-              {isLoading ? (
-                <LoadingIndicator />
-              ) : filteredProducts.length === 0 ? (
-                <EmptyState />
-              ) : (
-                <div className="space-y-4">
-                  {filteredProducts.map(product => (
-                    <div key={product.id} className="bg-[#121212] rounded overflow-hidden">
-                      {/* Base Product Header - Entire row clickable */}
-                      <div
-                        className="bg-[#333333] p-4 flex justify-between items-center cursor-pointer hover:bg-[#1E1E1E] transition-colors"
-                        onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                      >
-                        <div className="flex items-center gap-3">
-                          <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
-                          <div>
-                            <h2 className="text-xl font-bold text-white">{product.name}</h2>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-gray-400 text-sm">
-                                {product.trade?.name || 'General'} •
-                                {product.variants && product.variants.length > 0 ?
-                                  <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> :
-                                  <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
-                                }
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Create a new variant product with parent info pre-filled
-                              setEditingProduct({
-                                id: '',
-                                name: '',
-                                description: '',
-                                user_id: user?.id || '',
-                                status: 'draft',
-                                is_base_product: false,
-                                parent_product_id: product.id,
-                                parent_name: product.name,
-                                category: product.category,
-                                variant: true // Flag to indicate this is a variant
-                              });
-                            }}
-                          >
-                            + Add Variant
-                          </button>
-                          <button
-                            className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors flex items-center gap-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Use our new variant comparison drawer instead of the modal
-                              setSelectedVariantProduct(product);
-                              setShowVariantComparison(true);
-                            }}
-                          >
-                            <BarChart3 size={16} />
-                            Compare
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Variants List - Only shown when expanded and not collapsed */}
-                      {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
-                        <div className="p-4 space-y-2 relative">
-                          {/* Vertical connecting line */}
-                          <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#336699] opacity-70"></div>
-
-                          {product.variants.map((variant: any, idx: number) => (
-                            <div
-                              key={variant.id}
-                              className="flex items-center justify-between p-4 border border-gray-700 rounded border-l-4 border-[#336699] cursor-pointer hover:bg-[#333333] transition-colors relative ml-4"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Open the drawer to edit this variant
-                                setEditingProduct(variant);
-                              }}
-                            >
-                              {/* Horizontal connecting line */}
-                              <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
-
-                              <div className="flex items-center gap-3">
-                                <div className="w-4 h-4 rounded ${getVariantColor(variant.variant_name)} border-2 border-[#336699] flex items-center justify-center">
-                                  <span className="text-[8px] text-white font-bold">{idx + 1}</span>
-                                </div>
-                                <span className="font-medium text-white font-['Roboto']">{variant.variant_name || variant.name}</span>
-                                <span className="text-gray-400 text-sm font-['Roboto']">({variant.items?.length || 0} items)</span>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <span className="text-sm font-medium font-['Roboto_Condensed'] text-white font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
-                                <button
-                                  className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    // Clone this variant logic
-                                    setEditingProduct({
-                                      id: '',
-                                      name: `${variant.name} (Copy)`,
-                                      description: variant.description,
-                                      user_id: user?.id || '',
-                                      status: 'draft',
-                                      is_base_product: false,
-                                      parent_product_id: product.id,
-                                      parent_name: product.name,
-                                      price: variant.price,
-                                      unit: variant.unit,
-                                      trade_id: variant.trade_id,
-                                      category: product.category,
-                                      variant: true // Flag to indicate this is a variant
-                                    });
-                                  }}
-                                >
-                                  Clone Variant
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* If this is a standalone product with no variants */}
-                      {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
-                        <div className="p-4">
-                          <div
-                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#333333] transition-colors rounded border-l-4 border-[#336699]"
-                            onClick={() => navigate(`/products/edit/${product.id}`)}
-                          >
-                            <div className="flex items-center gap-3">
-                              <span className="text-gray-400 text-sm">({product.items?.length || 0} items)</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-lg font-bold font-['Roboto_Condensed'] text-white">{formatCurrency(product.price || 0)}</span>
-                              <button
-                                className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Create a variant of this product
-                                  setEditingProduct({
-                                    id: '',
-                                    name: '',
-                                    description: '',
-                                    user_id: user?.id || '',
-                                    status: 'draft',
-                                    is_base_product: false,
-                                    parent_product_id: product.id,
-                                    parent_name: product.name,
-                                    category: product.category,
-                                    variant: true // Flag to indicate this is a variant
-                                  });
-                                }}
-                              >
-                                + Add Variant
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+        {/* Right side - Options Menu */}
+        <div className="flex items-center">
+          <div className="relative" ref={optionsMenuRef}>
+              <button
+              className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
+              onClick={() => setShowOptionsMenu(v => !v)}
+              aria-label="More options"
+              >
+              <MoreVertical size={20} className="text-gray-400" />
+              </button>
+            {showOptionsMenu && (
+              <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
+              <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handleImportItems(); }}
+              >
+                  Import Products
+              </button>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
+            >
+                  Export to CSV
+                </button>
+                <button
+                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
+                  onClick={() => { setShowOptionsMenu(false); handlePrintPriceBook(); }}
+                >
+                  Print Products
+                </button>
             </div>
-          )}
+            )}
+          </div>
+            </div>
+        </div>
 
-          {/* Card View */}
-          {viewMode === 'cards' && (
-            <div className="px-0 py-2 w-full">
-              {isLoading ? (
-                <LoadingIndicator />
-              ) : filteredProducts.length === 0 ? (
-                <EmptyState />
+      {/* Content Area */}
+      <div className="flex-1 overflow-hidden">
+        {/* List View */}
+        {viewMode === 'list' && (
+          <div className="px-0 py-2 w-full">
+            {isLoading ? (
+              <LoadingIndicator />
+            ) : filteredProducts.length === 0 ? (
+              products.length === 0 || showTutorial ? (
+                <ContextualOnboarding />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredProducts.map(product => (
+                <div className="text-center py-20">
+                  <div className="text-gray-400 text-lg mb-4">No products match your search</div>
+                  <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
+                </div>
+              )
+            ) : (
+              <div className="space-y-4">
+                {filteredProducts.map(product => (
+                  <div key={product.id} className="bg-[#121212] rounded overflow-hidden">
+                    {/* Base Product Header - Entire row clickable */}
                     <div
-                      key={product.id}
-                      className="bg-[#121212] rounded overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer"
-                      onClick={() => navigate(`/products/edit/${product.id}`)}
+                      className="bg-[#333333] p-4 flex justify-between items-center cursor-pointer hover:bg-[#1E1E1E] transition-colors"
+                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
                     >
-                      <div className="p-5 border-b border-gray-700">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h2 className="text-xl font-bold font-['Roboto_Condensed'] mb-1 text-white">{product.name}</h2>
-                            <div className="text-sm text-gray-400 font-['Roboto'] font-['Roboto'] mb-2">
+                      <div className="flex items-center gap-3">
+                        <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
+                        <div>
+                          <h2 className="text-xl font-bold text-white">{product.name}</h2>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-gray-400 text-sm">
                               {product.trade?.name || 'General'} •
                               {product.variants && product.variants.length > 0 ?
                                 <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> :
                                 <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
                               }
-                            </div>
-                          </div>
-                          <div className="text-4xl">
-                            {getCategoryEmoji(product.category || '')}
+                            </span>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-300 line-clamp-2">{product.description}</p>
                       </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Create a new variant product with parent info pre-filled
+                            setEditingProduct({
+                              id: '',
+                              name: '',
+                              description: '',
+                              user_id: user?.id || '',
+                              status: 'draft',
+                              is_base_product: false,
+                              parent_product_id: product.id,
+                              parent_name: product.name,
+                              category: product.category,
+                              variant: true // Flag to indicate this is a variant
+                            });
+                          }}
+                        >
+                          + Add Variant
+                        </button>
+                        <button
+                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors flex items-center gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Use our new variant comparison drawer instead of the modal
+                            setSelectedVariantProduct(product);
+                            setShowVariantComparison(true);
+                          }}
+                        >
+                          <BarChart3 size={16} />
+                          Compare
+                        </button>
+                      </div>
+                    </div>
 
-                      {product.variants && product.variants.length > 0 ? (
-                        <div className="p-3 bg-[#333333] border-b border-gray-700">
-                          <div className="text-sm font-medium font-['Roboto_Condensed'] text-gray-300 mb-2">Available Variants:</div>
-                          <div className="space-y-1.5">
-                            {product.variants.map((variant: any, index: number) => (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center p-1 hover:bg-gray-700 rounded cursor-pointer transition-colors"
+                    {/* Variants List - Only shown when expanded and not collapsed */}
+                    {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
+                      <div className="p-4 space-y-2 relative">
+                        {/* Vertical connecting line */}
+                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#336699] opacity-70"></div>
+
+                        {product.variants.map((variant: any, idx: number) => (
+                          <div
+                            key={variant.id}
+                            className="flex items-center justify-between p-4 border border-gray-700 rounded border-l-4 border-[#336699] cursor-pointer hover:bg-[#333333] transition-colors relative ml-4"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the drawer to edit this variant
+                              setEditingProduct(variant);
+                            }}
+                          >
+                            {/* Horizontal connecting line */}
+                            <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
+
+                            <div className="flex items-center gap-3">
+                              <div className="w-4 h-4 rounded ${getVariantColor(variant.variant_name)} border-2 border-[#336699] flex items-center justify-center">
+                                <span className="text-[8px] text-white font-bold">{idx + 1}</span>
+                              </div>
+                              <span className="font-medium text-white font-['Roboto']">{variant.variant_name || variant.name}</span>
+                              <span className="text-gray-400 text-sm font-['Roboto']">({variant.items?.length || 0} items)</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                              <span className="text-sm font-medium font-['Roboto_Condensed'] text-white font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
+                              <button
+                                className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  // Open the drawer to edit this variant
-                                  setEditingProduct(variant);
+                                  // Clone this variant logic
+                                  setEditingProduct({
+                                    id: '',
+                                    name: `${variant.name} (Copy)`,
+                                    description: variant.description,
+                                    user_id: user?.id || '',
+                                    status: 'draft',
+                                    is_base_product: false,
+                                    parent_product_id: product.id,
+                                    parent_name: product.name,
+                                    price: variant.price,
+                                    unit: variant.unit,
+                                    trade_id: variant.trade_id,
+                                    category: product.category,
+                                    variant: true // Flag to indicate this is a variant
+                                  });
                                 }}
                               >
-                                <div className="flex items-center">
-                                  <div className={`w-2 h-2 rounded mr-2 ${getVariantColor(variant.variant_name)}`}></div>
-                                  <span className="text-sm truncate max-w-[160px] text-white">{variant.variant_name || variant.name}</span>
-                                </div>
-                                <span className="text-lg font-medium text-white mb-1 font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
-                              </div>
-                            ))}
+                                Clone Variant
+                              </button>
+                            </div>
                           </div>
-                          <button
-                            className="mt-3 w-full flex items-center justify-center gap-2 bg-[#336699] hover:bg-opacity-80 text-white py-2 px-4 rounded text-sm font-medium font-['Roboto_Condensed'] transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedVariantProduct(product);
-                              setShowVariantComparison(true);
-                            }}
-                          >
-                            <BarChart3 size={16} />
-                            Compare Variants
-                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* If this is a standalone product with no variants */}
+                    {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
+                      <div className="p-4">
+                        <div
+                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#333333] transition-colors rounded border-l-4 border-[#336699]"
+                          onClick={() => navigate(`/products/edit/${product.id}`)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-400 text-sm">({product.items?.length || 0} items)</span>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-lg font-bold font-['Roboto_Condensed'] text-white">{formatCurrency(product.price || 0)}</span>
+                            <button
+                              className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Create a variant of this product
+                                setEditingProduct({
+                                  id: '',
+                                  name: '',
+                                  description: '',
+                                  user_id: user?.id || '',
+                                  status: 'draft',
+                                  is_base_product: false,
+                                  parent_product_id: product.id,
+                                  parent_name: product.name,
+                                  category: product.category,
+                                  variant: true // Flag to indicate this is a variant
+                                });
+                              }}
+                            >
+                              + Add Variant
+                            </button>
+                          </div>
                         </div>
-                      ) : (
-                        <div className="p-3 bg-[#333333] border-b border-gray-700">
-                          <div className="text-sm font-medium font-['Roboto_Condensed'] text-gray-300 mb-2">No variants available</div>
-                          <button
-                            className="mt-3 w-full flex items-center justify-center gap-2 bg-[#336699] hover:bg-opacity-80 text-white py-2 px-4 rounded text-sm font-medium font-['Roboto_Condensed'] transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Create a new variant product with parent info pre-filled
-                              setEditingProduct({
-                                id: '',
-                                name: '',
-                                description: '',
-                                user_id: user?.id || '',
-                                status: 'draft',
-                                is_base_product: false,
-                                parent_product_id: product.id,
-                                parent_name: product.name,
-                                category: product.category,
-                                variant: true // Flag to indicate this is a variant
-                              });
-                            }}
-                          >
-                            + Add Variant
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Card View */}
+        {viewMode === 'cards' && (
+          <div className="px-0 py-2 w-full">
+            {isLoading ? (
+              <LoadingIndicator />
+            ) : filteredProducts.length === 0 ? (
+              products.length === 0 || showTutorial ? (
+                <ContextualOnboarding />
+              ) : (
+                <div className="text-center py-20">
+                  <div className="text-gray-400 text-lg mb-4">No products match your search</div>
+                  <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
+                          </div>
+              )
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
+                {filteredProducts.map(product => (
+                  <div key={product.id} className="bg-[#333333] rounded-[4px] p-6 border border-[#404040] hover:border-[#336699] transition-colors">
+                    <h3 className="text-white font-bold mb-2">{product.name}</h3>
+                    <p className="text-gray-400 text-sm mb-4">{product.description}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[#336699] font-bold">{formatCurrency(product.price || 0)}</span>
+                        <button
+                        onClick={() => setEditingProduct(product)}
+                        className="bg-[#336699] text-white px-3 py-1 rounded text-sm hover:bg-[#2A5580] transition-colors"
+                      >
+                        Edit
+                        </button>
+                      </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
         {/* Modals */}
         {deletingProduct && (
           <DeleteConfirmationModal
             title="Delete Product"
             message="Are you sure you want to delete this product? This action cannot be undone."
-            onConfirm={() => confirmDelete((deletingProduct as Product).id)}
+          onConfirm={() => confirmDelete((deletingProduct as Product).id)}
             onCancel={() => setDeletingProduct(null)}
           />
         )}
@@ -937,7 +1067,6 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
             </div>
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </>
   );
 };

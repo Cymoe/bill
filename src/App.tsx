@@ -101,7 +101,9 @@ function AppRoutes() {
         path="/clients"
         element={
           <ProtectedRoute>
-            <ClientList />
+            <DashboardLayout>
+              <ClientList />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -109,7 +111,9 @@ function AppRoutes() {
         path="/products"
         element={
           <ProtectedRoute>
-            <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
+            <DashboardLayout>
+              <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -117,7 +121,9 @@ function AppRoutes() {
         path="/products/demo"
         element={
           <ProtectedRoute>
-            <ProductCardViewDemo />
+            <DashboardLayout>
+              <ProductCardViewDemo />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -125,7 +131,9 @@ function AppRoutes() {
         path="/products/variants"
         element={
           <ProtectedRoute>
-            <ProductVariantsDemo />
+            <DashboardLayout>
+              <ProductVariantsDemo />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -133,7 +141,9 @@ function AppRoutes() {
         path="/products/new"
         element={
           <ProtectedRoute>
-            <Navigate to="/products" replace />
+            <DashboardLayout>
+              <Navigate to="/products" replace />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -141,7 +151,9 @@ function AppRoutes() {
         path="/products/edit/:id"
         element={
           <ProtectedRoute>
-            <Navigate to="/products" replace />
+            <DashboardLayout>
+              <Navigate to="/products" replace />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -149,7 +161,9 @@ function AppRoutes() {
         path="/products/variant/new"
         element={
           <ProtectedRoute>
-            <Navigate to="/products" replace />
+            <DashboardLayout>
+              <Navigate to="/products" replace />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -157,7 +171,9 @@ function AppRoutes() {
         path="/invoices"
         element={
           <ProtectedRoute>
-            <InvoiceList />
+            <DashboardLayout>
+              <InvoiceList />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -165,7 +181,9 @@ function AppRoutes() {
         path="/invoices/:id"
         element={
           <ProtectedRoute>
-            <InvoiceDetail />
+            <DashboardLayout>
+              <InvoiceDetail />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -174,7 +192,9 @@ function AppRoutes() {
         path="/bills"
         element={
           <ProtectedRoute>
-            <BillsList />
+            <DashboardLayout>
+              <BillsList />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -182,7 +202,9 @@ function AppRoutes() {
         path="/profile"
         element={
           <ProtectedRoute>
-            <UserProfile />
+            <DashboardLayout>
+              <UserProfile />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -192,7 +214,9 @@ function AppRoutes() {
         path="/chat"
         element={
           <ProtectedRoute>
-            <ChatManagementSystem />
+            <DashboardLayout>
+              <ChatManagementSystem />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -208,7 +232,9 @@ function AppRoutes() {
         path="/projects"
         element={
           <ProtectedRoute>
-            <ProjectList />
+            <DashboardLayout>
+              <ProjectList />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -216,7 +242,9 @@ function AppRoutes() {
         path="/projects/new"
         element={
           <ProtectedRoute>
-            <ProjectForm />
+            <DashboardLayout>
+              <ProjectForm />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -224,7 +252,9 @@ function AppRoutes() {
         path="/projects/:id"
         element={
           <ProtectedRoute>
-            <ProjectDetails />
+            <DashboardLayout>
+              <ProjectDetails />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -232,7 +262,9 @@ function AppRoutes() {
         path="/projects/:id/edit"
         element={
           <ProtectedRoute>
-            <ProjectForm />
+            <DashboardLayout>
+              <ProjectForm />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -242,7 +274,9 @@ function AppRoutes() {
         path="/price-book"
         element={
           <ProtectedRoute>
-            <PriceBook />
+            <DashboardLayout>
+              <PriceBook />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />
@@ -250,7 +284,9 @@ function AppRoutes() {
         path="/line-item-test"
         element={
           <ProtectedRoute>
-            <LineItemTestPage />
+            <DashboardLayout>
+              <LineItemTestPage />
+            </DashboardLayout>
           </ProtectedRoute>
         }
       />

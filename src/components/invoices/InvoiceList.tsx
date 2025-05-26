@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import TabMenu from '../common/TabMenu';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewInvoiceModal } from './NewInvoiceModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
@@ -37,6 +36,7 @@ type InvoiceStatus = 'all' | 'draft' | 'sent' | 'paid' | 'overdue';
 
 export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -67,6 +67,10 @@ export const InvoiceList: React.FC = () => {
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Check if tutorial mode is enabled via URL parameter
+  const searchParams = new URLSearchParams(location.search);
+  const showTutorial = searchParams.get('tutorial') === 'true';
 
   // Debounce search input
   useEffect(() => {
@@ -135,7 +139,7 @@ export const InvoiceList: React.FC = () => {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter((invoice) => {
-        const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
+    const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
         const client = clients.find(c => c.id === invoice.client_id);
         const clientName = client?.name || '';
         return (
@@ -335,14 +339,212 @@ export const InvoiceList: React.FC = () => {
   }, [paidInvoices, paidPeriod]);
   const paidAmountForPeriod = paidInvoicesForPeriod.reduce((sum, inv) => sum + inv.amount, 0);
 
+  // Contextual Onboarding Component
+  const ContextualOnboarding = () => {
+    // Show onboarding if no invoices OR if tutorial=true in URL
+    if (invoices.length > 0 && !showTutorial) return null;
+
   return (
-    <DashboardLayout>
-      <PageHeaderBar
+      <div className="max-w-4xl mx-auto p-8">
+        {/* Welcome Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">💰</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Welcome to Invoice Management</h2>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Invoices are how you get paid. Create professional invoices, track payments, and manage 
+            your cash flow all in one place. Let's get your first invoice set up.
+          </p>
+        </div>
+
+        {/* Video Section */}
+        <div className="mb-8">
+          <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold flex items-center">
+                <span className="text-[#336699] mr-2">🎥</span>
+                Watch: Invoice Management Walkthrough
+              </h3>
+              <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">5 min</span>
+            </div>
+            
+            {/* Video Embed Container */}
+            <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
+              {/* Replace this iframe src with your actual Loom video URL */}
+              <iframe
+                src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
+                frameBorder="0"
+                allowFullScreen
+                className="absolute top-0 left-0 w-full h-full"
+                title="Invoice Management Walkthrough"
+              ></iframe>
+              
+              {/* Placeholder for when no video is set */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-white text-xl">▶</span>
+                  </div>
+                  <p className="text-gray-400 text-sm">Video coming soon</p>
+                  <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-gray-400 text-sm mt-3">
+              Watch me create a professional invoice from scratch and show you how to track 
+              payments and manage your cash flow like a pro.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Start Steps */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {/* Step 1 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                1
+              </div>
+              <h3 className="text-white font-bold">Create Your First Invoice</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Generate a professional invoice for completed work or upcoming projects.
+            </p>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+            >
+              CREATE INVOICE
+            </button>
+          </div>
+
+          {/* Step 2 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                2
+              </div>
+              <h3 className="text-gray-400 font-bold">Send & Track</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Send invoices to clients and track when they're viewed and paid.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+
+          {/* Step 3 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                3
+              </div>
+              <h3 className="text-gray-400 font-bold">Get Paid</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Accept payments online and automatically mark invoices as paid.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+        </div>
+
+        {/* Tips Section */}
+        <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+          <h3 className="text-white font-bold mb-4 flex items-center">
+            <span className="text-[#F9D71C] mr-2">💡</span>
+            Pro Tips for Invoice Management
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Set clear payment terms</p>
+                  <p className="text-gray-400 text-xs">Net 30, Net 15, or Due on Receipt - be specific</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Include detailed line items</p>
+                  <p className="text-gray-400 text-xs">Break down labor, materials, and any additional costs</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Follow up on overdue invoices</p>
+                  <p className="text-gray-400 text-xs">Set reminders and maintain professional communication</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Accept multiple payment methods</p>
+                  <p className="text-gray-400 text-xs">Make it easy for clients to pay you quickly</p>
+                </div>
+              </div>
+                </div>
+              </div>
+            </div>
+
+        {/* Invoice Templates */}
+        <div className="text-center mt-8">
+          <p className="text-gray-400 text-sm mb-4">
+            Need help getting started? Try our invoice templates:
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              💼 Service Invoice
+            </button>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+            >
+              🏗️ Construction Invoice
+            </button>
+              <button 
+              onClick={() => setShowNewModal(true)}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+              >
+              🔧 Repair Invoice
+              </button>
+              <button 
+              onClick={() => setShowNewModal(true)}
+              className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+              >
+              📋 Estimate Invoice
+              </button>
+            </div>
+          </div>
+        </div>
+    );
+  };
+
+  return (
+    <>
+      <PageHeaderBar 
         title="Invoices"
         searchPlaceholder="Search invoices..."
         searchValue={searchInput}
         onSearch={setSearchInput}
-        onAddClick={() => setShowNewModal(true)}
+        onAddClick={() => navigate('/invoices/new')}
         addButtonLabel="Invoice"
       />
       
@@ -580,6 +782,11 @@ export const InvoiceList: React.FC = () => {
         onItemClick={(id) => setSelectedStatus(id as InvoiceStatus)}
       />
       <div>
+        {/* Show contextual onboarding if no invoices and not loading */}
+        {!isLoading && (invoices.length === 0 || showTutorial) ? (
+          <ContextualOnboarding />
+        ) : (
+          <>
         {/* Desktop table */}
         <div className="hidden md:flex flex-col min-h-[calc(100vh-64px)]">
           <div className="flex-1 flex flex-col">
@@ -605,12 +812,12 @@ export const InvoiceList: React.FC = () => {
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DATE</th>
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DUE</th>
                       <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">STATUS</th>
-                      <th 
-                        className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase cursor-pointer hover:text-[#336699] transition-colors"
-                        onClick={toggleAmountSort}
-                      >
-                        AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
-                      </th>
+                          <th 
+                            className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase cursor-pointer hover:text-[#336699] transition-colors"
+                            onClick={toggleAmountSort}
+                          >
+                            AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
+                          </th>
                       <th className="w-8 px-3 py-4"></th>
                     </tr>
                   </thead>
@@ -734,6 +941,8 @@ export const InvoiceList: React.FC = () => {
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {showNewModal && (
@@ -754,6 +963,6 @@ export const InvoiceList: React.FC = () => {
           onClose={() => setViewInvoiceId(null)}
         />
       )}
-    </DashboardLayout>
+    </>
   );
 };

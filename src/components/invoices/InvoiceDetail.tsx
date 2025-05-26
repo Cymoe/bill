@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, Printer, CheckCircle, Pencil, MoreVertical } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Breadcrumbs } from '../common/Breadcrumbs';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { Dropdown } from '../common/Dropdown';
 import { EditInvoiceModal } from './EditInvoiceModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
@@ -73,19 +72,17 @@ export const InvoiceDetail: React.FC = () => {
 
   if (isLoading || !invoice || !client) {
     return (
-      <DashboardLayout>
-        <div className="space-y-4">
-          <div className="hidden md:block">
-            <Breadcrumbs 
-              items={[
-                { label: 'Invoices', href: '/invoices' },
-                { label: 'Loading...' }
-              ]} 
-            />
-          </div>
-          <DetailSkeleton />
+      <div className="space-y-4">
+        <div className="hidden md:block">
+          <Breadcrumbs 
+            items={[
+              { label: 'Invoices', href: '/invoices' },
+              { label: 'Loading...' }
+            ]} 
+          />
         </div>
-      </DashboardLayout>
+        <DetailSkeleton />
+      </div>
     );
   }
 
@@ -173,127 +170,125 @@ export const InvoiceDetail: React.FC = () => {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="space-y-4 md:space-y-6">
-        {/* Breadcrumbs */}
-        <div className="hidden md:block">
-          <Breadcrumbs 
-            items={[
-              { label: 'Invoices', href: '/invoices' },
-              { label: `INV-${invoice.id.slice(0, 8)}` }
-            ]} 
-          />
-        </div>
+    <div className="space-y-4 md:space-y-6">
+      {/* Breadcrumbs */}
+      <div className="hidden md:block">
+        <Breadcrumbs 
+          items={[
+            { label: 'Invoices', href: '/invoices' },
+            { label: `INV-${invoice.id.slice(0, 8)}` }
+          ]} 
+        />
+      </div>
 
-        {/* Mobile header */}
-        <div className="md:hidden flex items-center justify-between">
-          <button
-            onClick={() => navigate('/invoices')}
-            className="flex items-center text-gray-600 dark:text-gray-400"
-          >
-            <ArrowLeft className="w-5 h-5 mr-1" />
-            Back
-          </button>
-          <Dropdown
-            trigger={<MoreVertical className="w-6 h-6" />}
-            items={getDropdownItems()}
-          />
-        </div>
+      {/* Mobile header */}
+      <div className="md:hidden flex items-center justify-between">
+        <button
+          onClick={() => navigate('/invoices')}
+          className="flex items-center text-gray-600 dark:text-gray-400"
+        >
+          <ArrowLeft className="w-5 h-5 mr-1" />
+          Back
+        </button>
+        <Dropdown
+          trigger={<MoreVertical className="w-6 h-6" />}
+          items={getDropdownItems()}
+        />
+      </div>
 
-        {/* Invoice details */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="flex justify-between items-center p-6 pb-0">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Invoice {`INV-${invoice.id.slice(0, 8)}`}
-            </h1>
-            <div className="flex items-center gap-4">
-              <span className={getStatusStyle(invoice.status)}>
-                {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-              </span>
-              <Dropdown
-                trigger={<MoreVertical className="w-6 h-6" />}
-                items={getDropdownItems()}
-              />
+      {/* Invoice details */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="flex justify-between items-center p-6 pb-0">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Invoice {`INV-${invoice.id.slice(0, 8)}`}
+          </h1>
+          <div className="flex items-center gap-4">
+            <span className={getStatusStyle(invoice.status)}>
+              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+            </span>
+            <Dropdown
+              trigger={<MoreVertical className="w-6 h-6" />}
+              items={getDropdownItems()}
+            />
+          </div>
+        </div>
+        <div className="p-6 space-y-6">
+          {/* Client info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Bill To
+              </h3>
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="font-medium">{client.company}</p>
+                <p>{client.name}</p>
+                <p>{client.email}</p>
+                {client.phone && <p>{client.phone}</p>}
+                {client.address && <p>{client.address}</p>}
+              </div>
+            </div>
+            <div className="md:text-right">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <p>
+                  <span className="font-medium">Invoice Date: </span>
+                  {new Date(invoice.issue_date).toLocaleDateString()}
+                </p>
+                <p>
+                  <span className="font-medium">Due Date: </span>
+                  {new Date(invoice.due_date).toLocaleDateString()}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="p-6 space-y-6">
-            {/* Client info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  Bill To
-                </h3>
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <p className="font-medium">{client.company}</p>
-                  <p>{client.name}</p>
-                  <p>{client.email}</p>
-                  {client.phone && <p>{client.phone}</p>}
-                  {client.address && <p>{client.address}</p>}
-                </div>
-              </div>
-              <div className="md:text-right">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  <p>
-                    <span className="font-medium">Invoice Date: </span>
-                    {new Date(invoice.issue_date).toLocaleDateString()}
-                  </p>
-                  <p>
-                    <span className="font-medium">Due Date: </span>
-                    {new Date(invoice.due_date).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-            </div>
 
-            {/* Items */}
-            <div className="mt-8">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-700">
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Item
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Quantity
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Price
-                      </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                        Total
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                    {(invoice.invoice_items || []).map((item: any, index: number) => {
-                      const product = products.find(p => p.id === item.product_id);
-                      return (
-                        <tr key={index}>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            {product?.name || 'Unknown Product'}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {item.quantity}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {formatCurrency(item.unit_price)}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                            {formatCurrency(item.total_price)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-8 flex justify-end">
-                <div className="text-right">
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    Total: {formatCurrency(invoice.amount)}
-                  </p>
-                </div>
+          {/* Items */}
+          <div className="mt-8">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead>
+                  <tr className="bg-gray-50 dark:bg-gray-700">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Item
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Quantity
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Price
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                      Total
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {(invoice.invoice_items || []).map((item: any, index: number) => {
+                    const product = products.find(p => p.id === item.product_id);
+                    return (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                          {product?.name || 'Unknown Product'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
+                          {item.quantity}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
+                          {formatCurrency(item.unit_price)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
+                          {formatCurrency(item.total_price)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-8 flex justify-end">
+              <div className="text-right">
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  Total: {formatCurrency(invoice.amount)}
+                </p>
               </div>
             </div>
           </div>
@@ -325,6 +320,6 @@ export const InvoiceDetail: React.FC = () => {
           {error}
         </div>
       )}
-    </DashboardLayout>
+    </div>
   );
 };

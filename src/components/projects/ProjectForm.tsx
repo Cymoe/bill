@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ArrowLeft, Save, X } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { supabase } from '../../lib/supabase';
 import { Combobox } from '../ui/Combobox';
 
@@ -175,302 +175,300 @@ export const ProjectForm: React.FC = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-medium text-white">
-              {id ? 'Edit Project' : 'New Project'}
-            </h1>
-          </div>
+    <div className="max-w-7xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-medium text-white">
+            {id ? 'Edit Project' : 'New Project'}
+          </h1>
+        </div>
 
-          <div className="bg-[#1e2532] shadow px-4 py-5 rounded-lg sm:p-6">
-            <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-              <div className="sm:col-span-4">
-                <label htmlFor="name" className="block text-sm font-medium text-gray-400">
-                  Project Name
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-gray-400">Enter a descriptive name for your project</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-6">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-400">
-                  Description
-                </label>
-                <div className="mt-1">
-                  <textarea
-                    id="description"
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    rows={3}
-                    className="mt-1 block w-full px-3 py-2 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  <p className="mt-2 text-xs text-gray-400">Provide details about the project scope and objectives</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-3">
-                <label htmlFor="client" className="block text-sm font-medium text-gray-400">
-                  Client
-                </label>
-                <div className="mt-1">
-                  <select
-                    id="client_id"
-                    name="client_id"
-                    value={formData.client_id}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  >
-                    <option value="" className="text-gray-900">Select a client</option>
-                    {clients.map((client) => (
-                      <option key={client.id} value={client.id} className="text-gray-900">
-                        {client.name}
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-2 text-xs text-gray-400">Select the client this project belongs to</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-3">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-400">
-                  Status
-                </label>
-                <div className="mt-1">
-                  <select
-                    id="status"
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  >
-                    <option value="active" className="text-gray-900">Active</option>
-                    <option value="completed" className="text-gray-900">Completed</option>
-                    <option value="on-hold" className="text-gray-900">On Hold</option>
-                    <option value="cancelled" className="text-gray-900">Cancelled</option>
-                  </select>
-                  <p className="mt-2 text-xs text-gray-400">Current status of the project</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="budget" className="block text-sm font-medium text-gray-400">
-                  Budget
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="number"
-                    id="budget"
-                    name="budget"
-                    value={formData.budget}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-gray-400">Total budget allocated for this project</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="start_date" className="block text-sm font-medium text-gray-400">
-                  Start Date
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="date"
-                    id="start_date"
-                    name="start_date"
-                    value={formData.start_date}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-gray-400">When does the project begin?</p>
-                </div>
-              </div>
-
-              <div className="sm:col-span-2">
-                <label htmlFor="end_date" className="block text-sm font-medium text-gray-400">
-                  End Date
-                </label>
-                <div className="mt-1">
-                  <input
-                    type="date"
-                    id="end_date"
-                    name="end_date"
-                    value={formData.end_date}
-                    onChange={handleChange}
-                    className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-gray-400">Expected completion date</p>
-                </div>
-              </div>
-
-              {/* Line Items Section */}
-              <div className="sm:col-span-6 mt-6">
-                <div className="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.08)] p-4 rounded-xl backdrop-blur-md">
-                  <div className="flex items-center gap-4">
-                    <Combobox
-                      options={[
-                        { value: 'scratch', label: 'Empty Project' },
-                        ...templates.map(t => ({
-                          value: t.id,
-                          label: `${t.name} — $${(t.total_amount ?? 0).toLocaleString()}`
-                        }))
-                      ]}
-                      value={selectedTemplateId || ''}
-                      onChange={(value) => {
-                        setSelectedTemplateId(value);
-                        if (value === 'scratch') {
-                          setRawTemplateItems([]);
-                          setFormData(prev => ({
-                            ...prev,
-                            template_id: '',
-                            items: [{ product_id: '', quantity: 1, price: 0 }]
-                          }));
-                        } else {
-                          const selected = templates.find(t => t.id === value);
-                          
-                          // Get items from the template
-                          const templateItems = selected?.items || [];
-                          setRawTemplateItems(templateItems);
-                          
-                          if (templateItems.length > 0) {
-                            // Map template items using their product data
-                            const mappedItems = templateItems.map((item: { 
-                              product_id: string; 
-                              quantity: number; 
-                              price: number;
-                              product?: {
-                                id: string;
-                                name: string;
-                                price: number;
-                              }
-                            }) => {
-                              return {
-                                product_id: item.product_id,
-                                quantity: item.quantity,
-                                price: item.product?.price || item.price
-                              };
-                            });
-                            setFormData(prev => ({
-                              ...prev,
-                              template_id: value,
-                              items: mappedItems
-                            }));
-                          }
-                        }
-                      }}
-                      placeholder="Choose template..."
-                    />
-                  </div>
-                  <div className="text-lg font-medium text-white">
-                    Total Budget: ${calculateTotal().toFixed(2)}
-                  </div>
-                </div>
-                <div className="space-y-4">
-
-                  {formData.items.map((item, index) => (
-                    <div key={index} className="flex gap-4 items-start">
-                      <div className="flex-1">
-                        <select
-                          value={item.product_id}
-                          onChange={(e) => updateItem(index, 'product_id', e.target.value)}
-                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
-                        >
-                          <option value="">Choose product...</option>
-                          {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} (${product.price}/{product.unit})
-                            </option>
-                          ))}
-                          {/* Fallback for unknown product_id */}
-                          {item.product_id &&
-                            !products.some((p) => p.id === item.product_id) && (
-                              <option value={item.product_id}>
-                                Unknown product ({item.product_id})
-                              </option>
-                            )}
-                        </select>
-                      </div>
-                      <div className="w-24">
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
-                          min="1"
-                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
-                          placeholder="Qty"
-                        />
-                      </div>
-                      <div className="w-32">
-                        <input
-                          type="number"
-                          value={item.price}
-                          onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))}
-                          step="0.01"
-                          min="0"
-                          className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
-                          placeholder="Price"
-                        />
-                      </div>
-                      {formData.items.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="p-2 text-gray-400 hover:text-red-500"
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="mt-4 inline-flex items-center h-[40px] px-4 text-sm font-medium rounded-full text-white bg-[rgba(255,59,48,0.48)] hover:bg-[rgba(255,59,48,0.64)] focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
-                >
-                  Add Line Item
-                </button>
+        <div className="bg-[#1e2532] shadow px-4 py-5 rounded-lg sm:p-6">
+          <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            <div className="sm:col-span-4">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-400">
+                Project Name
+              </label>
+              <div className="mt-1">
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-400">Enter a descriptive name for your project</p>
               </div>
             </div>
-          </div>
 
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={() => navigate('/projects')}
-              className="inline-flex items-center h-10 px-4 rounded-md text-sm font-medium text-white bg-[#1e2532] hover:bg-[#2a3441] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center h-10 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              {loading ? 'Saving...' : id ? 'Update Project' : 'Create Project'}
-            </button>
+            <div className="sm:col-span-6">
+              <label htmlFor="description" className="block text-sm font-medium text-gray-400">
+                Description
+              </label>
+              <div className="mt-1">
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  rows={3}
+                  className="mt-1 block w-full px-3 py-2 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <p className="mt-2 text-xs text-gray-400">Provide details about the project scope and objectives</p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-3">
+              <label htmlFor="client" className="block text-sm font-medium text-gray-400">
+                Client
+              </label>
+              <div className="mt-1">
+                <select
+                  id="client_id"
+                  name="client_id"
+                  value={formData.client_id}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                >
+                  <option value="" className="text-gray-900">Select a client</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id} className="text-gray-900">
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-gray-400">Select the client this project belongs to</p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-3">
+              <label htmlFor="status" className="block text-sm font-medium text-gray-400">
+                Status
+              </label>
+              <div className="mt-1">
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                >
+                  <option value="active" className="text-gray-900">Active</option>
+                  <option value="completed" className="text-gray-900">Completed</option>
+                  <option value="on-hold" className="text-gray-900">On Hold</option>
+                  <option value="cancelled" className="text-gray-900">Cancelled</option>
+                </select>
+                <p className="mt-2 text-xs text-gray-400">Current status of the project</p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="budget" className="block text-sm font-medium text-gray-400">
+                Budget
+              </label>
+              <div className="mt-1">
+                <input
+                  type="number"
+                  id="budget"
+                  name="budget"
+                  value={formData.budget}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-400">Total budget allocated for this project</p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="start_date" className="block text-sm font-medium text-gray-400">
+                Start Date
+              </label>
+              <div className="mt-1">
+                <input
+                  type="date"
+                  id="start_date"
+                  name="start_date"
+                  value={formData.start_date}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-400">When does the project begin?</p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2">
+              <label htmlFor="end_date" className="block text-sm font-medium text-gray-400">
+                End Date
+              </label>
+              <div className="mt-1">
+                <input
+                  type="date"
+                  id="end_date"
+                  name="end_date"
+                  value={formData.end_date}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-400">Expected completion date</p>
+              </div>
+            </div>
+
+            {/* Line Items Section */}
+            <div className="sm:col-span-6 mt-6">
+              <div className="flex justify-between items-center mb-4 bg-[rgba(255,255,255,0.08)] p-4 rounded-xl backdrop-blur-md">
+                <div className="flex items-center gap-4">
+                  <Combobox
+                    options={[
+                      { value: 'scratch', label: 'Empty Project' },
+                      ...templates.map(t => ({
+                        value: t.id,
+                        label: `${t.name} — $${(t.total_amount ?? 0).toLocaleString()}`
+                      }))
+                    ]}
+                    value={selectedTemplateId || ''}
+                    onChange={(value) => {
+                      setSelectedTemplateId(value);
+                      if (value === 'scratch') {
+                        setRawTemplateItems([]);
+                        setFormData(prev => ({
+                          ...prev,
+                          template_id: '',
+                          items: [{ product_id: '', quantity: 1, price: 0 }]
+                        }));
+                      } else {
+                        const selected = templates.find(t => t.id === value);
+                        
+                        // Get items from the template
+                        const templateItems = selected?.items || [];
+                        setRawTemplateItems(templateItems);
+                        
+                        if (templateItems.length > 0) {
+                          // Map template items using their product data
+                          const mappedItems = templateItems.map((item: { 
+                            product_id: string; 
+                            quantity: number; 
+                            price: number;
+                            product?: {
+                              id: string;
+                              name: string;
+                              price: number;
+                            }
+                          }) => {
+                            return {
+                              product_id: item.product_id,
+                              quantity: item.quantity,
+                              price: item.product?.price || item.price
+                            };
+                          });
+                          setFormData(prev => ({
+                            ...prev,
+                            template_id: value,
+                            items: mappedItems
+                          }));
+                        }
+                      }
+                    }}
+                    placeholder="Choose template..."
+                  />
+                </div>
+                <div className="text-lg font-medium text-white">
+                  Total Budget: ${calculateTotal().toFixed(2)}
+                </div>
+              </div>
+              <div className="space-y-4">
+
+                {formData.items.map((item, index) => (
+                  <div key={index} className="flex gap-4 items-start">
+                    <div className="flex-1">
+                      <select
+                        value={item.product_id}
+                        onChange={(e) => updateItem(index, 'product_id', e.target.value)}
+                        className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                      >
+                        <option value="">Choose product...</option>
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} (${product.price}/{product.unit})
+                          </option>
+                        ))}
+                        {/* Fallback for unknown product_id */}
+                        {item.product_id &&
+                          !products.some((p) => p.id === item.product_id) && (
+                            <option value={item.product_id}>
+                              Unknown product ({item.product_id})
+                            </option>
+                          )}
+                      </select>
+                    </div>
+                    <div className="w-24">
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value))}
+                        min="1"
+                        className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                        placeholder="Qty"
+                      />
+                    </div>
+                    <div className="w-32">
+                      <input
+                        type="number"
+                        value={item.price}
+                        onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))}
+                        step="0.01"
+                        min="0"
+                        className="w-full h-[40px] bg-[rgba(255,255,255,0.08)] rounded-xl px-3 text-white backdrop-blur-md border-none focus:outline-none focus:ring-2 focus:ring-accent hover:bg-[rgba(255,255,255,0.16)] transition-colors"
+                        placeholder="Price"
+                      />
+                    </div>
+                    {formData.items.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        className="p-2 text-gray-400 hover:text-red-500"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={addItem}
+                className="mt-4 inline-flex items-center h-[40px] px-4 text-sm font-medium rounded-full text-white bg-[rgba(255,59,48,0.48)] hover:bg-[rgba(255,59,48,0.64)] focus:outline-none focus:ring-2 focus:ring-accent transition-colors"
+              >
+                Add Line Item
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
-    </DashboardLayout>
+        </div>
+
+        <div className="flex justify-end space-x-3">
+          <button
+            type="button"
+            onClick={() => navigate('/projects')}
+            className="inline-flex items-center h-10 px-4 rounded-md text-sm font-medium text-white bg-[#1e2532] hover:bg-[#2a3441] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex items-center h-10 px-4 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            {loading ? 'Saving...' : id ? 'Update Project' : 'Create Project'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 

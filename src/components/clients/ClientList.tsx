@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ChevronRight, MoreVertical, Filter, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -33,6 +32,7 @@ type Client = {
 
 export const ClientList: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -59,6 +59,10 @@ export const ClientList: React.FC = () => {
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Check if tutorial mode is enabled via URL parameter
+  const searchParams = new URLSearchParams(location.search);
+  const showTutorial = searchParams.get('tutorial') === 'true';
 
   // Debounce search input
   useEffect(() => {
@@ -93,9 +97,9 @@ export const ClientList: React.FC = () => {
     try {
       const [clientsRes, projectsRes] = await Promise.all([
         supabase
-          .from('clients')
-          .select('*')
-          .eq('user_id', user?.id)
+        .from('clients')
+        .select('*')
+        .eq('user_id', user?.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('projects')
@@ -139,7 +143,7 @@ export const ClientList: React.FC = () => {
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(client =>
-        client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         client.phone.includes(searchTerm) ||
         (client.city || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -321,8 +325,190 @@ export const ClientList: React.FC = () => {
   const averageClientValue = clientValues.size > 0 ? totalClientRevenue / clientValues.size : 0;
   const topClientValue = clientValues.size > 0 ? Math.max(...Array.from(clientValues.values())) : 0;
 
+  // Check if user is new (no clients and account created recently)
+  const isNewUser = clients.length === 0 && user?.created_at && 
+    new Date().getTime() - new Date(user.created_at).getTime() < 7 * 24 * 60 * 60 * 1000; // 7 days
+
+  // Contextual Onboarding Component
+  const ContextualOnboarding = () => {
+    // Show onboarding if no clients OR if tutorial=true in URL
+    if (clients.length > 0 && !showTutorial) return null;
+
+    return (
+      <div className="max-w-4xl mx-auto p-8">
+        {/* Welcome Header */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">👥</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-2">Welcome to Client Management</h2>
+          <p className="text-gray-400 max-w-2xl mx-auto">
+            Your clients are the foundation of your business. Let's get you set up with your first client 
+            so you can start tracking projects, sending invoices, and growing your revenue.
+          </p>
+        </div>
+
+        {/* Video Section */}
+        <div className="mb-8">
+          <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-white font-bold flex items-center">
+                <span className="text-[#336699] mr-2">🎥</span>
+                Watch: Client Management Walkthrough
+              </h3>
+              <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">3 min</span>
+            </div>
+            
+            {/* Video Embed Container */}
+            <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
+              {/* Replace this iframe src with your actual Loom video URL */}
+              <iframe
+                src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
+                frameBorder="0"
+                allowFullScreen
+                className="absolute top-0 left-0 w-full h-full"
+                title="Client Management Walkthrough"
+              ></iframe>
+              
+              {/* Placeholder for when no video is set */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
+                    <span className="text-white text-xl">▶</span>
+                  </div>
+                  <p className="text-gray-400 text-sm">Video coming soon</p>
+                  <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-gray-400 text-sm mt-3">
+              Watch me walk through setting up your first client and explain how client management 
+              works in real construction businesses.
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Start Steps */}
+        <div className="grid md:grid-cols-3 gap-6 mb-8">
+          {/* Step 1 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                1
+              </div>
+              <h3 className="text-white font-bold">Add Your First Client</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Start by adding a client you're currently working with or planning to work with.
+            </p>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+            >
+              ADD CLIENT
+            </button>
+          </div>
+
+          {/* Step 2 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                2
+              </div>
+              <h3 className="text-gray-400 font-bold">Create a Project</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Once you have a client, create your first project to start tracking progress and costs.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+
+          {/* Step 3 */}
+          <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                3
+              </div>
+              <h3 className="text-gray-400 font-bold">Send an Invoice</h3>
+            </div>
+            <p className="text-gray-400 text-sm mb-4">
+              Generate professional invoices and start getting paid for your work.
+            </p>
+            <button
+              disabled
+              className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+            >
+              COMING NEXT
+            </button>
+          </div>
+        </div>
+
+        {/* Tips Section */}
+        <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+          <h3 className="text-white font-bold mb-4 flex items-center">
+            <span className="text-[#F9D71C] mr-2">💡</span>
+            Pro Tips for Client Management
+          </h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Keep detailed contact info</p>
+                  <p className="text-gray-400 text-xs">Include phone, email, and full address for easy communication</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Track project history</p>
+                  <p className="text-gray-400 text-xs">See all past projects and total value per client</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Use filters and search</p>
+                  <p className="text-gray-400 text-xs">Quickly find clients by location, value, or project count</p>
+                </div>
+              </div>
+              <div className="flex items-start">
+                <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                <div>
+                  <p className="text-white text-sm font-medium">Monitor client value</p>
+                  <p className="text-gray-400 text-xs">Track total revenue and identify your best clients</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Import Option */}
+        <div className="text-center mt-8">
+          <p className="text-gray-400 text-sm mb-4">
+            Already have clients in another system?
+          </p>
+          <button
+            onClick={handleImportClients}
+            className="text-[#336699] hover:text-white transition-colors font-medium text-sm"
+          >
+            IMPORT FROM CSV →
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <DashboardLayout>
+    <>
       <PageHeaderBar 
         title="Clients"
         searchPlaceholder="Search clients..."
@@ -339,10 +525,10 @@ export const ClientList: React.FC = () => {
           <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
           <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Clients</div>
           <div className="text-3xl font-bold text-white mb-1">{clients.length}</div>
-          <div className="text-sm text-gray-400">Active relationships</div>
+          <div className="text-sm text-gray-400">Total Revenue: {formatCurrency(totalClientRevenue)}</div>
         </div>
         
-        {/* Recent Additions */}
+        {/* New This Month */}
         <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
           <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
           <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">New This Month</div>
@@ -555,27 +741,31 @@ export const ClientList: React.FC = () => {
       </div>
 
       <div className="space-y-0 bg-[#121212]">
-
-        {/* Desktop view */}
+        {/* Show contextual onboarding if no clients and not loading */}
+        {!isLoading && (clients.length === 0 || showTutorial) ? (
+          <ContextualOnboarding />
+        ) : (
+          <>
+            {/* Desktop view */}
         <div className="hidden md:block">
           {isLoading ? (
-            viewMode === 'list' ? (
-              <TableSkeleton rows={5} columns={4} />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-              </div>
-            )
-          ) : viewMode === 'list' ? (
+                viewMode === 'list' ? (
+            <TableSkeleton rows={5} columns={4} />
+          ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                  </div>
+                )
+              ) : viewMode === 'list' ? (
             <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden">
               <div className="max-h-[calc(100vh-100px)] overflow-y-auto">
                 <table className="min-w-full divide-y divide-[#333333]">
                   <thead className="bg-[#1E1E1E] sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                        NAME
+                            NAME
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
                         EMAIL
@@ -583,12 +773,12 @@ export const ClientList: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
                         PHONE
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                        VALUE
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                        PROJECTS
-                      </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                            VALUE
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
+                            PROJECTS
+                          </th>
                       <th className="relative px-6 py-3">
                         <span className="sr-only">Actions</span>
                       </th>
@@ -599,10 +789,10 @@ export const ClientList: React.FC = () => {
                       <tr key={client.id}>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-[#FFFFFF] font-['Roboto']">
-                            {client.name}
-                          </div>
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto']">
-                            {client.city && client.state ? `${client.city}, ${client.state}` : ''}
+                                {client.name}
+                              </div>
+                              <div className="text-xs text-[#9E9E9E] font-['Roboto']">
+                                {client.city && client.state ? `${client.city}, ${client.state}` : ''}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -611,33 +801,33 @@ export const ClientList: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-[#9E9E9E] font-['Roboto_Mono'] font-medium">{client.phone}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-[#388E3C] font-['Roboto_Mono']">
-                            {formatCurrency(client.totalValue || 0)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-[#336699] font-['Roboto_Mono'] font-medium">
-                            {client.projectCount || 0}
-                          </div>
-                        </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-[#388E3C] font-['Roboto_Mono']">
+                                {formatCurrency(client.totalValue || 0)}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm text-[#336699] font-['Roboto_Mono'] font-medium">
+                                {client.projectCount || 0}
+                              </div>
+                            </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <Dropdown
                             trigger={
-                              <button className="text-[#9E9E9E] hover:text-[#F9D71C]">
+                                  <button className="text-[#9E9E9E] hover:text-[#F9D71C] p-1">
                                 <MoreVertical className="w-5 h-5" />
                               </button>
                             }
                             items={[
                               {
                                 label: 'Edit',
-                                onClick: () => setEditingClient(client),
+                                    onClick: () => setEditingClient(client)
                               },
                               {
                                 label: 'Delete',
                                 onClick: () => setDeletingClient(client),
-                                className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]',
-                              },
+                                    className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
+                                  }
                             ]}
                           />
                         </td>
@@ -647,93 +837,93 @@ export const ClientList: React.FC = () => {
                 </table>
               </div>
             </div>
-          ) : (
-            /* Cards View */
-            <div className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredClients.map((client) => (
-                  <div
-                    key={client.id}
-                    className="bg-[#333333] rounded-[4px] shadow-lg border border-[#404040] hover:border-[#336699] transition-colors"
-                  >
-                    {/* Card Header */}
-                    <div className="p-6 border-b border-[#404040]">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-[#FFFFFF] font-['Roboto_Condensed'] uppercase mb-1">
-                            {client.name}
-                          </h3>
-                          <p className="text-sm text-[#9E9E9E] font-['Roboto']">
-                            {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
-                          </p>
+              ) : (
+                /* Cards View */
+                <div className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredClients.map((client) => (
+                      <div
+                        key={client.id}
+                        className="bg-[#333333] rounded-[4px] shadow-lg border border-[#404040] hover:border-[#336699] transition-colors"
+                      >
+                        {/* Card Header */}
+                        <div className="p-6 border-b border-[#404040]">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-[#FFFFFF] font-['Roboto_Condensed'] uppercase mb-1">
+                                {client.name}
+                              </h3>
+                              <p className="text-sm text-[#9E9E9E] font-['Roboto']">
+                                {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
+                              </p>
+                            </div>
+                            <Dropdown
+                              trigger={
+                                <button className="ml-4 p-2 text-[#9E9E9E] hover:text-[#F9D71C] hover:bg-[#404040] rounded transition-colors">
+                                  <MoreVertical className="w-5 h-5" />
+                                </button>
+                              }
+                              items={[
+                                {
+                                  label: 'Edit',
+                                  onClick: () => setEditingClient(client)
+                                },
+                                {
+                                  label: 'Delete',
+                                  onClick: () => setDeletingClient(client),
+                                  className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
+                                }
+                              ]}
+                            />
+                          </div>
                         </div>
-                        <Dropdown
-                          trigger={
-                            <button className="ml-4 p-2 text-[#9E9E9E] hover:text-[#F9D71C] hover:bg-[#404040] rounded transition-colors">
-                              <MoreVertical className="w-5 h-5" />
-                            </button>
-                          }
-                          items={[
-                            {
-                              label: 'Edit',
-                              onClick: () => setEditingClient(client)
-                            },
-                            {
-                              label: 'Delete',
-                              onClick: () => setDeletingClient(client),
-                              className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
-                            }
-                          ]}
-                        />
-                      </div>
-                    </div>
 
-                    {/* Card Body */}
-                    <div className="p-6">
-                      {/* Contact Info */}
-                      <div className="space-y-3 mb-6">
-                        <div className="flex items-center">
-                          <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Email:</span>
-                          <span className="text-sm text-[#336699] font-['Roboto'] ml-2">{client.email}</span>
-                        </div>
-                        {client.phone && (
-                          <div className="flex items-center">
-                            <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Phone:</span>
-                            <span className="text-sm text-[#FFFFFF] font-['Roboto_Mono'] ml-2">{client.phone}</span>
+                        {/* Card Body */}
+                        <div className="p-6">
+                          {/* Contact Info */}
+                          <div className="space-y-3 mb-6">
+                            <div className="flex items-center">
+                              <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Email:</span>
+                              <span className="text-sm text-[#336699] font-['Roboto'] ml-2">{client.email}</span>
+                            </div>
+                            {client.phone && (
+                              <div className="flex items-center">
+                                <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Phone:</span>
+                                <span className="text-sm text-[#FFFFFF] font-['Roboto_Mono'] ml-2">{client.phone}</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
 
-                      {/* Metrics */}
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#388E3C]">
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Total Value</div>
-                          <div className="text-lg font-bold text-[#388E3C] font-['Roboto_Mono']">
-                            {formatCurrency(client.totalValue || 0)}
+                          {/* Metrics */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#388E3C]">
+                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Total Value</div>
+                              <div className="text-lg font-bold text-[#388E3C] font-['Roboto_Mono']">
+                                {formatCurrency(client.totalValue || 0)}
+                              </div>
+                            </div>
+                            <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#336699]">
+                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
+                              <div className="text-lg font-bold text-[#336699] font-['Roboto_Mono']">
+                                {client.projectCount || 0}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#336699]">
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
-                          <div className="text-lg font-bold text-[#336699] font-['Roboto_Mono']">
-                            {client.projectCount || 0}
-                          </div>
+
+                          {/* Last Activity */}
+                          {client.lastProjectDate && (
+                            <div className="mt-4 pt-4 border-t border-[#404040]">
+                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Last Project</div>
+                              <div className="text-sm text-[#FFFFFF] font-['Roboto']">
+                                {new Date(client.lastProjectDate).toLocaleDateString()}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
-
-                      {/* Last Activity */}
-                      {client.lastProjectDate && (
-                        <div className="mt-4 pt-4 border-t border-[#404040]">
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Last Project</div>
-                          <div className="text-sm text-[#FFFFFF] font-['Roboto']">
-                            {new Date(client.lastProjectDate).toLocaleDateString()}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
           )}
         </div>
 
@@ -746,19 +936,19 @@ export const ClientList: React.FC = () => {
               <CardSkeleton />
             </>
           ) : (
-            <div className="space-y-4 p-4">
+                <div className="space-y-4 p-4">
               {filteredClients.map((client) => (
                 <div
                   key={client.id}
                   className="bg-[#333333] rounded-[4px] shadow p-4 border-l-4 border-[#336699]"
                 >
-                  <div className="flex justify-between items-start mb-4">
+                      <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
                       <h3 className="text-sm font-medium text-[#FFFFFF] font-['Roboto_Condensed'] uppercase">
-                        {client.name}
+                            {client.name}
                       </h3>
                       <p className="text-xs text-[#9E9E9E] font-['Roboto'] mt-1">
-                        {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
+                            {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
                       </p>
                       <span className="text-sm text-[#336699] mt-2 block font-['Roboto']">
                         {client.email}
@@ -788,27 +978,29 @@ export const ClientList: React.FC = () => {
                       ]}
                     />
                   </div>
-                  
-                  {/* Mobile Metrics */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#388E3C]">
-                      <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Value</div>
-                      <div className="text-sm font-bold text-[#388E3C] font-['Roboto_Mono']">
-                        {formatCurrency(client.totalValue || 0)}
+                      
+                      {/* Mobile Metrics */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#388E3C]">
+                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Value</div>
+                          <div className="text-sm font-bold text-[#388E3C] font-['Roboto_Mono']">
+                            {formatCurrency(client.totalValue || 0)}
+                          </div>
+                        </div>
+                        <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#336699]">
+                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
+                          <div className="text-sm font-bold text-[#336699] font-['Roboto_Mono']">
+                            {client.projectCount || 0}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#336699]">
-                      <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
-                      <div className="text-sm font-bold text-[#336699] font-['Roboto_Mono']">
-                        {client.projectCount || 0}
-                      </div>
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+          </>
+        )}
       </div>
 
       {showNewModal && (
@@ -834,6 +1026,6 @@ export const ClientList: React.FC = () => {
           onCancel={() => setDeletingClient(null)}
         />
       )}
-    </DashboardLayout>
+    </>
   );
 };

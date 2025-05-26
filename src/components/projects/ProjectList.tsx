@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
-import { DashboardLayout } from '../layouts/DashboardLayout';
 import { PageHeader } from '../common/PageHeader';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewButton } from '../common/NewButton';
@@ -16,6 +15,7 @@ type Project = Tables['projects'];
 
 export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -24,15 +24,16 @@ export const ProjectList: React.FC = () => {
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   
   // Load view preference from localStorage - default to 'card'
-  const [viewType, setViewType] = useState<'card' | 'gantt'>(() => {
-    const saved = localStorage.getItem('projectsViewType');
-    return (saved === 'gantt' || saved === 'card') ? saved : 'card';
-  });
+  const [viewType, setViewType] = useState<'card' | 'gantt' | 'table'>('card');
 
   // Save view preference when it changes
   useEffect(() => {
     localStorage.setItem('projectsViewType', viewType);
   }, [viewType]);
+
+  // Check if tutorial mode is enabled via URL parameter
+  const searchParams = new URLSearchParams(location.search);
+  const showTutorial = searchParams.get('tutorial') === 'true';
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -161,7 +162,7 @@ export const ProjectList: React.FC = () => {
   };
 
   return (
-    <DashboardLayout>
+    <>
       {/* Header */}
       <PageHeaderBar 
         title="Projects"
@@ -290,8 +291,184 @@ export const ProjectList: React.FC = () => {
           onItemClick={(id) => setSelectedStatus(id as 'all' | 'active' | 'on-hold' | 'completed' | 'cancelled')}
         />
 
-        {loading ? (
-          <TableSkeleton rows={5} columns={6} />
+      {loading ? (
+        <TableSkeleton rows={5} columns={6} />
+        ) : projects.length === 0 || showTutorial ? (
+          // Contextual Onboarding for empty state
+          <div className="max-w-4xl mx-auto p-8">
+            {/* Welcome Header */}
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">🏗️</span>
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">Welcome to Project Management</h2>
+              <p className="text-gray-400 max-w-2xl mx-auto">
+                Projects are where the real work happens. Track progress, manage budgets, and keep everything 
+                organized from start to finish. Let's create your first project.
+              </p>
+            </div>
+
+            {/* Video Section */}
+            <div className="mb-8">
+              <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white font-bold flex items-center">
+                    <span className="text-[#336699] mr-2">🎥</span>
+                    Watch: Project Management Walkthrough
+                  </h3>
+                  <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">4 min</span>
+                </div>
+                
+                {/* Video Embed Container */}
+                <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
+                  {/* Replace this iframe src with your actual Loom video URL */}
+                  <iframe
+                    src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
+                    frameBorder="0"
+                    allowFullScreen
+                    className="absolute top-0 left-0 w-full h-full"
+                    title="Project Management Walkthrough"
+                  ></iframe>
+                  
+                  {/* Placeholder for when no video is set */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
+                        <span className="text-white text-xl">▶</span>
+                      </div>
+                      <p className="text-gray-400 text-sm">Video coming soon</p>
+                      <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-gray-400 text-sm mt-3">
+                  Watch me create a real project from start to finish and show you how to track 
+                  progress, manage budgets, and keep everything organized.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Start Steps */}
+            <div className="grid md:grid-cols-3 gap-6 mb-8">
+              {/* Step 1 */}
+              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                    1
+                  </div>
+                  <h3 className="text-white font-bold">Create Your First Project</h3>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">
+                  Set up a project with timeline, budget, and scope. This becomes your central hub for everything.
+                </p>
+                <button
+                  onClick={() => navigate('/projects/new')}
+                  className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+                >
+                  CREATE PROJECT
+                </button>
+              </div>
+
+              {/* Step 2 */}
+              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                    2
+                  </div>
+                  <h3 className="text-gray-400 font-bold">Track Progress</h3>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">
+                  Update project status, add photos, and keep clients informed with real-time progress.
+                </p>
+                <button
+                  disabled
+                  className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+                >
+                  COMING NEXT
+                </button>
+              </div>
+
+              {/* Step 3 */}
+              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+                <div className="flex items-center mb-4">
+                  <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                    3
+                  </div>
+                  <h3 className="text-gray-400 font-bold">Complete & Invoice</h3>
+                </div>
+                <p className="text-gray-400 text-sm mb-4">
+                  Mark projects complete and automatically generate invoices for final payment.
+                </p>
+                <button
+                  disabled
+                  className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+                >
+                  COMING NEXT
+                </button>
+              </div>
+            </div>
+
+            {/* Tips Section */}
+            <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+              <h3 className="text-white font-bold mb-4 flex items-center">
+                <span className="text-[#F9D71C] mr-2">💡</span>
+                Pro Tips for Project Management
+              </h3>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-white text-sm font-medium">Set realistic timelines</p>
+                      <p className="text-gray-400 text-xs">Add buffer time for permits, weather, and material delays</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-white text-sm font-medium">Track costs in real-time</p>
+                      <p className="text-gray-400 text-xs">Update budgets as you go to avoid surprises</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-white text-sm font-medium">Document everything</p>
+                      <p className="text-gray-400 text-xs">Photos and notes protect you and impress clients</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                    <div>
+                      <p className="text-white text-sm font-medium">Use project templates</p>
+                      <p className="text-gray-400 text-xs">Save time by reusing successful project structures</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Project Types */}
+            <div className="text-center mt-8">
+              <p className="text-gray-400 text-sm mb-4">
+                Popular project types to get you started:
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {categories.slice(1, 6).map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => navigate('/projects/new')}
+                    className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+                  >
+                    {category.icon} {category.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             {viewType === 'card' ? (
@@ -306,10 +483,10 @@ export const ProjectList: React.FC = () => {
                   
                   return (
                     <div
-                      key={project.id}
+                    key={project.id}
                       className="bg-[#1a1a1a] border border-[#333333] rounded-xl p-6 hover:transform hover:-translate-y-0.5 hover:shadow-2xl hover:border-[#555555] transition-all duration-300 cursor-pointer group"
                       onClick={() => navigate(`/projects/${project.id}`)}
-                    >
+                  >
                       {/* Card Header */}
                       <div className="flex items-start justify-between mb-4">
                         <div>
@@ -337,7 +514,7 @@ export const ProjectList: React.FC = () => {
                           </span>
                           <span className={`text-sm font-semibold ${getStatusColor(project.status).split(' ')[1]}`}>
                             {progress}%
-                          </span>
+                        </span>
                         </div>
                         <div className="w-full h-1.5 bg-[#333333] rounded-full overflow-hidden">
                           <div 
@@ -389,8 +566,8 @@ export const ProjectList: React.FC = () => {
                             Update
                           </button>
                         </div>
-                      </div>
-                    </div>
+          </div>
+        </div>
                   );
                 })}
               </div>
@@ -401,45 +578,30 @@ export const ProjectList: React.FC = () => {
               </div>
             )}
 
-            {/* Empty State */}
+            {/* Empty State for filtered results */}
             {filteredProjects.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 bg-[#1a1a1a] rounded-lg flex items-center justify-center mb-4">
                   <FolderKanban className="w-8 h-8 text-[#666666]" />
                 </div>
-                {projects.length === 0 ? (
-                  <>
-                    <h3 className="text-lg font-semibold text-white mb-2">No Projects Yet</h3>
-                    <p className="text-gray-500 text-sm mb-6">Create your first project to get started</p>
-                    <button 
-                      onClick={() => navigate('/projects/new')}
-                      className="px-4 py-2 bg-[#fbbf24] hover:bg-[#f59e0b] text-black font-medium rounded-lg transition-all"
-                    >
-                      Create First Project
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-lg font-semibold text-white mb-2">No Projects Found</h3>
-                    <p className="text-gray-500 text-sm mb-6">No projects match your search or filters</p>
-                    <button 
-                      onClick={() => {
-                        setSelectedCategory('all');
-                        setSelectedStatus('all');
-                        setSearchQuery('');
-                      }}
-                      className="px-4 py-2 bg-[#336699] text-white rounded-lg font-medium hover:bg-[#2851A3] transition-colors"
-                    >
-                      Clear Filters
-                    </button>
-                  </>
-                )}
+                <h3 className="text-lg font-semibold text-white mb-2">No Projects Found</h3>
+                <p className="text-gray-500 text-sm mb-6">No projects match your search or filters</p>
+                <button 
+                  onClick={() => {
+                    setSelectedCategory('all');
+                    setSelectedStatus('all');
+                    setSearchQuery('');
+                  }}
+                  className="px-4 py-2 bg-[#336699] text-white rounded-lg font-medium hover:bg-[#2851A3] transition-colors"
+                >
+                  Clear Filters
+                </button>
               </div>
             )}
           </>
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

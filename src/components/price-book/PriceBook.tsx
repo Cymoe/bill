@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { formatCurrency } from '../../utils/format';
-import { DashboardLayout, IndustryContext } from '../layouts/DashboardLayout';
+import { IndustryContext } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { LineItemModal } from '../modals/LineItemModal';
 import { MoreVertical, Filter, Minimize2, ChevronDown } from 'lucide-react';
 import './price-book.css';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface Product {
   id: string;
@@ -40,25 +41,12 @@ declare global {
   }
 }
 
-export const PriceBook = () => {
+export const PriceBook: React.FC = () => {
   const { user } = useAuth();
-  // Initialize with 'All Trades' instead of 'All Work Types'
+  const navigate = useNavigate();
+  const location = useLocation();
   const { selectedIndustry, setSelectedIndustry } = useContext(IndustryContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
-  
-  // Update the context if it's still using the old value
-  useEffect(() => {
-    // Expose a function to open the line item modal globally
-    // This allows the sidebar button to open the modal
-    window.openLineItemModal = () => {
-      setShowNewLineItemModal(true);
-    };
-    
-    // Clean up function
-    return () => {
-      delete window.openLineItemModal;
-    };
-  }, []);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -88,11 +76,16 @@ export const PriceBook = () => {
     }
     return false;
   });
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Check if tutorial mode is enabled via URL parameter
+  const searchParams = new URLSearchParams(location.search);
+  const showTutorial = searchParams.get('tutorial') === 'true';
   
   const togglePriceSort = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
   };
-  const [activeCategory, setActiveCategory] = useState<string>('all');
   
   // Subcategories by work type
   const subcategoriesByIndustry: { [key: string]: Subcategory[] } = {
@@ -356,7 +349,7 @@ export const PriceBook = () => {
   }, [condensed]);
 
   return (
-    <DashboardLayout>
+    <>
       <PageHeaderBar 
         title="Price Book"
         searchPlaceholder="Search price book..."
@@ -686,9 +679,202 @@ export const PriceBook = () => {
         {/* Products Table - full width */}
         <div className="mt-0 px-0">
           {filteredProducts.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 bg-[#181818]">
-              No pricing items found. Try adjusting your filters.
-            </div>
+            products.length === 0 || showTutorial ? (
+              // Contextual Onboarding for empty state
+              <div className="max-w-4xl mx-auto p-8">
+                {/* Welcome Header */}
+                <div className="text-center mb-8">
+                  <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-2xl">💰</span>
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">Welcome to Your Price Book</h2>
+                  <p className="text-gray-400 max-w-2xl mx-auto">
+                    Your price book is your competitive advantage. Build a comprehensive catalog of materials, 
+                    labor rates, and services with accurate pricing to create estimates faster and more consistently.
+                  </p>
+                </div>
+
+                {/* Video Section */}
+                <div className="mb-8">
+                  <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-white font-bold flex items-center">
+                        <span className="text-[#336699] mr-2">🎥</span>
+                        Watch: Building Your Price Book
+                      </h3>
+                      <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">7 min</span>
+                    </div>
+                    
+                    {/* Video Embed Container */}
+                    <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
+                      {/* Replace this iframe src with your actual Loom video URL */}
+                      <iframe
+                        src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
+                        frameBorder="0"
+                        allowFullScreen
+                        className="absolute top-0 left-0 w-full h-full"
+                        title="Building Your Price Book"
+                      ></iframe>
+                      
+                      {/* Placeholder for when no video is set */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
+                            <span className="text-white text-xl">▶</span>
+                          </div>
+                          <p className="text-gray-400 text-sm">Video coming soon</p>
+                          <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <p className="text-gray-400 text-sm mt-3">
+                      Learn how successful contractors build and maintain price books that give them 
+                      a competitive edge and ensure profitable projects every time.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Quick Start Steps */}
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  {/* Step 1 */}
+                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
+                    <div className="flex items-center mb-4">
+                      <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                        1
+                      </div>
+                      <h3 className="text-white font-bold">Add Your First Item</h3>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Start with a common material or labor rate you use frequently in your projects.
+                    </p>
+                    <button
+                      onClick={() => setShowNewLineItemModal(true)}
+                      className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+                    >
+                      ADD LINE ITEM
+                    </button>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+                    <div className="flex items-center mb-4">
+                      <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                        2
+                      </div>
+                      <h3 className="text-gray-400 font-bold">Organize by Trade</h3>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Group items by trade and category for easy navigation during estimating.
+                    </p>
+                    <button
+                      disabled
+                      className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+                    >
+                      COMING NEXT
+                    </button>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
+                    <div className="flex items-center mb-4">
+                      <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                        3
+                      </div>
+                      <h3 className="text-gray-400 font-bold">Use in Estimates</h3>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Pull items from your price book to create accurate estimates in seconds.
+                    </p>
+                    <button
+                      disabled
+                      className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
+                    >
+                      COMING NEXT
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tips Section */}
+                <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
+                  <h3 className="text-white font-bold mb-4 flex items-center">
+                    <span className="text-[#F9D71C] mr-2">💡</span>
+                    Pro Tips for Price Book Success
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start">
+                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Include markup in pricing</p>
+                          <p className="text-gray-400 text-xs">Factor in overhead, profit, and risk into every line item</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Update prices regularly</p>
+                          <p className="text-gray-400 text-xs">Review and adjust pricing quarterly to stay competitive</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-start">
+                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Track vendor pricing</p>
+                          <p className="text-gray-400 text-xs">Link items to vendors for easy price updates</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start">
+                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Use detailed descriptions</p>
+                          <p className="text-gray-400 text-xs">Include specs, brands, and installation notes</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Item Types */}
+                <div className="text-center mt-8">
+                  <p className="text-gray-400 text-sm mb-4">
+                    Common line item types to get you started:
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      onClick={() => setShowNewLineItemModal(true)}
+                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+                    >
+                      🧱 Materials
+                    </button>
+                    <button
+                      onClick={() => setShowNewLineItemModal(true)}
+                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+                    >
+                      👷 Labor Rates
+                    </button>
+                    <button
+                      onClick={() => setShowNewLineItemModal(true)}
+                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+                    >
+                      🔧 Equipment
+                    </button>
+                    <button
+                      onClick={() => setShowNewLineItemModal(true)}
+                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
+                    >
+                      🚚 Subcontractors
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-400 bg-[#181818]">
+                No pricing items found. Try adjusting your filters.
+              </div>
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className={`w-full border-collapse ${condensed ? 'condensed' : ''}`}>
@@ -796,6 +982,6 @@ export const PriceBook = () => {
           />
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 };
