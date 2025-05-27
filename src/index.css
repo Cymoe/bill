@@ -66,3 +66,9 @@ body.marketing-page {
 ::-webkit-scrollbar-thumb:hover {
   background: #6b7280;
 }
+
+/* Add this at the end of the file */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}

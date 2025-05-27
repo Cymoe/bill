@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus } from 'lucide-react';
+import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
-import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewButton } from '../common/NewButton';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { Dropdown } from '../common/Dropdown';
@@ -21,15 +20,50 @@ export const ProjectList: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   
-  // Load view preference from localStorage - default to 'card'
-  const [viewType, setViewType] = useState<'card' | 'gantt' | 'table'>('card');
+  // Additional filter states
+  const [dateRange, setDateRange] = useState<'all' | '7d' | '30d' | '90d'>('all');
+  const [budgetRange, setBudgetRange] = useState<'all' | 'under-10k' | '10k-50k' | '50k-100k' | 'over-100k'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'budget' | 'status'>('date');
+  
+  // Load view preference from localStorage - default to 'list'
+  const [viewType, setViewType] = useState<'list' | 'gantt'>('list');
+  
+  // Dropdown state management
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const moreFiltersRef = useRef<HTMLDivElement>(null);
 
   // Save view preference when it changes
   useEffect(() => {
     localStorage.setItem('projectsViewType', viewType);
   }, [viewType]);
+
+  // Close dropdown menus on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      
+      // Check if click is outside all dropdown menus
+      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
+        !ref || !ref.contains(target)
+      );
+      
+      if (isOutsideDropdown && openDropdownId) {
+        setOpenDropdownId(null);
+      }
+
+      // Check if click is outside more filters dropdown
+      if (moreFiltersRef.current && !moreFiltersRef.current.contains(target) && showMoreFilters) {
+        setShowMoreFilters(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownId, showMoreFilters]);
 
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -63,15 +97,71 @@ export const ProjectList: React.FC = () => {
     { id: 'general', name: 'General', icon: '📋' },
   ];
 
-  // Filter projects by category, status, and search
-  const filteredProjects = projects.filter(project => {
-    const matchesCategory = selectedCategory === 'all' || project.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
-    const matchesSearch = searchQuery === '' || 
-      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      project.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesStatus && matchesSearch;
-  });
+  // Sync search input with search query
+  useEffect(() => {
+    const handler = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
+
+  // Filter projects by category, status, search, date, and budget
+  const filteredProjects = useMemo(() => {
+    let filtered = projects.filter(project => {
+      const matchesCategory = selectedCategory === 'all' || project.category === selectedCategory;
+      const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
+      const matchesSearch = searchQuery === '' || 
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Date range filter
+      let matchesDate = true;
+      if (dateRange !== 'all') {
+        const projectDate = new Date(project.start_date);
+        const now = new Date();
+        const daysAgo = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
+        const cutoffDate = new Date(now.getTime() - (daysAgo * 24 * 60 * 60 * 1000));
+        matchesDate = projectDate >= cutoffDate;
+      }
+      
+      // Budget range filter
+      let matchesBudget = true;
+      if (budgetRange !== 'all') {
+        const budget = project.budget;
+        switch (budgetRange) {
+          case 'under-10k':
+            matchesBudget = budget < 10000;
+            break;
+          case '10k-50k':
+            matchesBudget = budget >= 10000 && budget < 50000;
+            break;
+          case '50k-100k':
+            matchesBudget = budget >= 50000 && budget < 100000;
+            break;
+          case 'over-100k':
+            matchesBudget = budget >= 100000;
+            break;
+        }
+      }
+      
+      return matchesCategory && matchesStatus && matchesSearch && matchesDate && matchesBudget;
+    });
+
+    // Sort the filtered results
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'budget':
+          return b.budget - a.budget;
+        case 'status':
+          return a.status.localeCompare(b.status);
+        case 'date':
+        default:
+          return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+      }
+    });
+
+    return filtered;
+  }, [projects, selectedCategory, selectedStatus, searchQuery, dateRange, budgetRange, sortBy]);
 
   // Get count for each category
   const getCategoryCount = (categoryId: string) => {
@@ -162,77 +252,70 @@ export const ProjectList: React.FC = () => {
   };
 
   return (
-    <>
+    <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
-      <PageHeaderBar 
-        title="Projects"
-        searchPlaceholder="Search projects..."
-        searchValue={searchQuery}
-        onSearch={setSearchQuery}
-        onAddClick={() => navigate('/projects/new')}
-      />
-      
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
-        {/* Total Projects */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Projects</div>
-          <div className="text-3xl font-bold text-white mb-1">{projects.length}</div>
-          <div className="text-sm text-gray-400">Total Budget: {formatCurrency(totalBudget)}</div>
-        </div>
-        
-        {/* Active Projects */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Active Projects</div>
-          <div className="text-3xl font-bold text-[#10b981] mb-1">{activeProjects.length}</div>
-          <div className="text-sm text-gray-400">Budget: {formatCurrency(activeBudget)}</div>
-        </div>
-        
-        {/* On Hold */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#f59e0b]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">On Hold</div>
-          <div className="text-3xl font-bold text-[#f59e0b] mb-1">{onHoldProjects.length}</div>
-          <div className="text-sm text-gray-400">{formatCurrency(onHoldBudget)}</div>
-        </div>
-        
-        {/* Completed */}
-        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Completed</div>
-          <div className="text-3xl font-bold text-[#3b82f6] mb-1">{completedProjects.length}</div>
-          <div className="text-sm text-gray-400">{formatCurrency(completedBudget)}</div>
-        </div>
-      </div>
-
-      {/* Projects Section */}
-      <div className="pb-8">
-        {/* Filter Controls */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-          {/* Left side - View Mode and Primary Filter */}
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggles - More Prominent */}
-            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
-              <button
-                className={`px-4 py-2 ${viewType === 'card' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-                onClick={() => setViewType('card')}
-              >
-                Cards
-              </button>
-              <button
-                className={`px-4 py-2 ${viewType === 'gantt' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-                onClick={() => setViewType('gantt')}
-              >
-                Gantt
-              </button>
+      <div className="border-b border-[#333333]">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Projects</h1>
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
             </div>
+            <button
+              onClick={() => navigate('/projects/new')}
+              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        
+        {/* Stats Bar */}
+        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Projects:</span>
+            <span className="font-mono font-medium">{projects.length}</span>
+            <span className="text-gray-500 text-xs">({formatCurrency(totalBudget)})</span>
+          </div>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Active:</span>
+            <span className="font-medium text-[#10b981]">{activeProjects.length}</span>
+            <span className="text-gray-500 text-xs">({Math.round((activeProjects.length / projects.length) * 100) || 0}%)</span>
+          </div>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Avg Budget:</span>
+            <span className="font-mono font-medium text-[#336699]">{formatCurrency(projects.length > 0 ? totalBudget / projects.length : 0)}</span>
+          </div>
+        </div>
 
-            {/* Primary Category Filter - More Prominent */}
+        {/* Controls Bar */}
+        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="relative">
               <select
-                className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
+                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as 'all' | 'active' | 'on-hold' | 'completed' | 'cancelled')}
+              >
+                <option value="all">All Statuses ({projects.length})</option>
+                <option value="active">Active ({projects.filter(p => p.status === 'active').length})</option>
+                <option value="on-hold">On Hold ({projects.filter(p => p.status === 'on-hold').length})</option>
+                <option value="completed">Completed ({projects.filter(p => p.status === 'completed').length})</option>
+                <option value="cancelled">Cancelled ({projects.filter(p => p.status === 'cancelled').length})</option>
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
@@ -240,43 +323,132 @@ export const ProjectList: React.FC = () => {
                   const count = getCategoryCount(category.id);
                   return (
                     <option key={category.id} value={category.id}>
-                      {category.icon} {category.name} ({count})
+                      {category.name} ({count})
                     </option>
                   );
                 })}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-              </div>
+              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
-
-            {/* More Filters Button */}
-            <div className="relative">
+            <div className="relative" ref={moreFiltersRef}>
               <button 
-                className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
+                onClick={() => setShowMoreFilters(!showMoreFilters)}
+                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
+                  showMoreFilters ? 'bg-[#252525]' : ''
+                }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.414A1 1 0 013 6.707V4z"></path>
-                </svg>
-                More Filters
+                <Filter className="w-4 h-4" />
+                <span>More Filters</span>
               </button>
+              
+              {/* More Filters Dropdown */}
+              {showMoreFilters && (
+                <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
+                  <div className="space-y-4">
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Date Range
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value as 'all' | '7d' | '30d' | '90d')}
+                      >
+                        <option value="all">All Time</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                      </select>
+                    </div>
+
+                    {/* Budget Range Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Budget Range
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={budgetRange}
+                        onChange={(e) => setBudgetRange(e.target.value as 'all' | 'under-10k' | '10k-50k' | '50k-100k' | 'over-100k')}
+                      >
+                        <option value="all">All Budgets</option>
+                        <option value="under-10k">Under $10,000</option>
+                        <option value="10k-50k">$10,000 - $50,000</option>
+                        <option value="50k-100k">$50,000 - $100,000</option>
+                        <option value="over-100k">Over $100,000</option>
+                      </select>
+                    </div>
+
+                    {/* Sort By */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Sort By
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as 'name' | 'date' | 'budget' | 'status')}
+                      >
+                        <option value="date">Date Created (Newest)</option>
+                        <option value="name">Project Name (A-Z)</option>
+                        <option value="budget">Budget (Highest)</option>
+                        <option value="status">Status</option>
+                      </select>
+                    </div>
+
+                    {/* Clear Filters */}
+                    <div className="pt-2 border-t border-[#333333]">
+                      <button
+                        onClick={() => {
+                          setDateRange('all');
+                          setBudgetRange('all');
+                          setSortBy('date');
+                          setSelectedCategory('all');
+                          setSelectedStatus('all');
+                          setSearchInput('');
+                          setSearchQuery('');
+                        }}
+                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                      >
+                        Clear All Filters
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Right side - Options Menu */}
-          <div className="flex items-center">
-            <div className="relative">
+          <div className="flex items-center gap-2">
+            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
               <button
-                className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
-                aria-label="More options"
+                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                  viewType === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
+                }`}
+                onClick={() => setViewType('list')}
               >
-                <MoreVertical size={20} className="text-gray-400" />
+                <List className="w-4 h-4" />
+                List
+              </button>
+              <button
+                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                  viewType === 'gantt' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
+                }`}
+                onClick={() => setViewType('gantt')}
+              >
+                <Calendar className="w-4 h-4" />
+                Gantt
               </button>
             </div>
+            <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors">
+              <MoreVertical className="w-4 h-4" />
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* Projects Section */}
+      <div className="pb-8">
 
         {/* Status Filter Tabs */}
         <TabMenu
@@ -471,110 +643,196 @@ export const ProjectList: React.FC = () => {
           </div>
         ) : (
           <>
-            {viewType === 'card' ? (
-              // Card View
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredProjects.map((project) => {
-                  const progress = getProjectProgress(project.status);
-                  const progressColorClass = project.status === 'completed' ? 'bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8]' :
-                                            project.status === 'active' ? 'bg-gradient-to-r from-[#10b981] to-[#059669]' :
-                                            project.status === 'on-hold' ? 'bg-gradient-to-r from-[#f59e0b] to-[#d97706]' :
-                                            'bg-gray-600';
+            {viewType === 'list' ? (
+              // List View - Mimics the sidebar projects list
+              <div className="bg-[#1a1a1a] border border-[#333333] rounded-xl overflow-hidden">
+                <div className="space-y-0">
+                  {filteredProjects.map((project, index) => {
+                    const progress = getProjectProgress(project.status);
+                    return (
+                      <div key={project.id} className="relative">
+                        <button
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                          className={`w-full text-left p-4 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center mb-1">
+                                <div className={`w-2 h-2 rounded-full mr-3 flex-shrink-0 ${
+                                  project.status === 'completed' ? 'bg-green-500' :
+                                  project.status === 'active' ? 'bg-green-500' :
+                                  project.status === 'on-hold' ? 'bg-yellow-500' :
+                                  'bg-gray-500'
+                                }`}></div>
+                                <span className="text-white text-sm font-medium truncate leading-tight">{project.name}</span>
+                                <span className={`ml-3 px-2 py-0.5 rounded text-xs font-medium ${getStatusBadgeStyle(project.status)}`}>
+                                  {project.status.replace('-', ' ').toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="flex items-center text-gray-400 text-xs ml-5 space-x-4">
+                                <span className="uppercase tracking-wide">Client Name</span>
+                                <span>{formatCurrency(project.budget)}</span>
+                                <span>{new Date(project.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-[#6b7280] text-sm font-medium leading-tight">{progress}%</span>
+                              
+                              {/* Action buttons - only show on hover */}
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 ml-2">
+                                <div className="relative">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const dropdownId = `project-${project.id}`;
+                                      setOpenDropdownId(openDropdownId === dropdownId ? null : dropdownId);
+                                    }}
+                                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#336699] transition-colors"
+                                    title="More options"
+                                  >
+                                    <svg className="w-4 h-4 text-gray-400 hover:text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                                    </svg>
+                                  </button>
+                                  
+                                  {/* Dropdown Menu */}
+                                  {openDropdownId === `project-${project.id}` && (
+                                    <div 
+                                      ref={(el) => dropdownRefs.current[`project-${project.id}`] = el}
+                                      className="absolute right-0 top-full mt-1 w-48 bg-[#2A2A2A] border border-[#404040] rounded-[4px] shadow-lg z-[10001] py-1"
+                                    >
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/projects/${project.id}/edit`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        Edit Project
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`Add note to ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Note
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`View timeline for ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        View Timeline
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`View photos for ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        View Photos
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`Create invoice for ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        Create Invoice
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`Generate estimate for ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                        </svg>
+                                        Generate Estimate
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`Mark ${project.name} as complete`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-green-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Mark Complete
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          console.log(`Archive ${project.name}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-yellow-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8l6 6 6-6" />
+                                        </svg>
+                                        Archive Project
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
                   
-                  return (
-                    <div
-                    key={project.id}
-                      className="bg-[#1a1a1a] border border-[#333333] rounded-xl p-6 hover:transform hover:-translate-y-0.5 hover:shadow-2xl hover:border-[#555555] transition-all duration-300 cursor-pointer group"
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                  >
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-white mb-2">
-                            {project.name}
-                          </h3>
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
-                            <span>Client Name</span>
-                            <span>{project.status === 'completed' ? 'Completed' : 'Started'} {new Date(project.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                          </div>
-                        </div>
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${getStatusBadgeStyle(project.status)}`}>
-                          {project.status.replace('-', ' ')}
-                        </span>
-                      </div>
-                      
-                      {/* Progress Section */}
-                      <div className="mb-6">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-400">
-                            {project.status === 'active' ? 'Installation Phase' :
-                             project.status === 'on-hold' ? 'Awaiting Permits' :
-                             project.status === 'completed' ? 'Project Complete' :
-                             'Not Started'}
-                          </span>
-                          <span className={`text-sm font-semibold ${getStatusColor(project.status).split(' ')[1]}`}>
-                            {progress}%
-                        </span>
-                        </div>
-                        <div className="w-full h-1.5 bg-[#333333] rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all duration-500 ${progressColorClass}`}
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Footer */}
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-xl font-semibold text-white">
-                            {formatCurrency(project.budget)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {project.status === 'completed' ? 'Invoiced & paid' :
-                             project.status === 'active' ? 'On budget' :
-                             project.status === 'on-hold' ? 'Permit fees pending' :
-                             'Not started'}
-                          </div>
-                        </div>
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle photos action
-                            }}
-                            className="px-3 py-1 text-xs rounded-md border border-[#444444] bg-[#222222] text-gray-400 hover:bg-[#333333] hover:text-white hover:border-[#555555] transition-all"
-                          >
-                            Photos
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle invoice action
-                            }}
-                            className="px-3 py-1 text-xs rounded-md border border-[#444444] bg-[#222222] text-gray-400 hover:bg-[#333333] hover:text-white hover:border-[#555555] transition-all"
-                          >
-                            Invoice
-                          </button>
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle update action
-                            }}
-                            className="px-3 py-1 text-xs rounded-md border border-[#444444] bg-[#222222] text-gray-400 hover:bg-[#333333] hover:text-white hover:border-[#555555] transition-all"
-                          >
-                            Update
-                          </button>
-                        </div>
-          </div>
-        </div>
-                  );
-                })}
+                  {filteredProjects.length === 0 && (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-sm">No projects found</div>
+                      <div className="text-gray-500 text-xs mt-1">Try adjusting your search or filters</div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               // Gantt Chart View
               <div className="bg-[#1a1a1a] border border-[#333333] rounded-xl p-6 overflow-x-auto">
-                <GanttChart data={generateGanttData()} />
+                <div className="text-center py-12">
+                  <div className="text-gray-400 text-lg mb-2">Gantt Chart View</div>
+                  <div className="text-gray-500 text-sm">Coming soon...</div>
+                </div>
               </div>
             )}
 
@@ -601,104 +859,6 @@ export const ProjectList: React.FC = () => {
           </>
         )}
       </div>
-    </>
-  );
-};
-
-// Gantt Chart Component
-const GanttChart: React.FC<{ data: any }> = ({ data }) => {
-  const { today, daysInMonth, currentMonth, currentYear, projects } = data;
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  
-  // Generate array of days
-  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  
-  return (
-    <div>
-      {/* Header */}
-      <div className="grid grid-cols-[300px_1fr] mb-4 pb-4 border-b border-[#333333]">
-        <div className="text-sm font-semibold text-gray-500 uppercase">Projects Timeline</div>
-        <div className="grid grid-flow-col auto-cols-fr gap-px min-w-[800px]">
-          {days.map(day => {
-            const date = new Date(currentYear, currentMonth, day);
-            const isToday = day === today;
-            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
-            
-            return (
-              <div 
-                key={day} 
-                className={`text-center text-xs px-1 py-2 border-l border-[#333333] ${
-                  isToday ? 'bg-[#3b82f6]/10 text-[#3b82f6] font-semibold' : 
-                  isWeekend ? 'bg-white/[0.02]' : ''
-                } ${isToday ? 'relative' : ''}`}
-              >
-                {day}
-                {isToday && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-full bg-[#3b82f6]"></div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      
-      {/* Project Rows */}
-      {projects.map((project: any) => (
-        <div key={project.id} className="grid grid-cols-[300px_1fr] border-b border-[#333333] min-h-[60px] items-center">
-          <div className="p-4">
-            <div className="font-semibold text-sm text-white mb-1">{project.name}</div>
-            <div className="text-xs text-gray-500">Client Name</div>
-          </div>
-          <div className="grid grid-flow-col auto-cols-fr gap-px min-w-[800px] relative py-2">
-            {days.map(day => (
-              <div key={day} className="h-10 border-l border-[#333333] relative">
-                {day === today && (
-                  <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-full bg-[#3b82f6] z-10"></div>
-                )}
-              </div>
-            ))}
-            
-            {/* Project Bar */}
-            {project.startDay <= daysInMonth && (
-              <div
-                className={`absolute h-6 rounded-full flex items-center justify-center text-xs font-semibold text-white cursor-pointer z-20 transition-all hover:transform hover:scale-[1.02] hover:shadow-lg ${
-                  project.status === 'active' ? 'bg-gradient-to-r from-[#10b981] to-[#059669]' :
-                  project.status === 'completed' ? 'bg-gradient-to-r from-[#3b82f6] to-[#1d4ed8]' :
-                  project.status === 'on-hold' ? 'bg-gradient-to-r from-[#f59e0b] to-[#d97706] opacity-70' :
-                  'bg-gray-600'
-                }`}
-                style={{
-                  left: `${((project.startDay - 1) / daysInMonth) * 100}%`,
-                  width: `${((project.endDay - project.startDay + 1) / daysInMonth) * 100}%`,
-                  top: '50%',
-                  transform: 'translateY(-50%)'
-                }}
-              >
-                {project.progress}%
-                {project.progress > 0 && project.progress < 100 && (
-                  <div 
-                    className="absolute left-0 top-0 h-full bg-white/20 rounded-full"
-                    style={{ width: `${project.progress}%` }}
-                  />
-                )}
-              </div>
-            )}
-            
-            {/* Milestone for completed projects */}
-            {project.status === 'completed' && project.endDay <= daysInMonth && (
-              <div
-                className="absolute w-3 h-3 bg-[#fbbf24] border-2 border-[#0a0a0a] rounded-full z-30"
-                style={{
-                  left: `${((project.endDay - 0.5) / daysInMonth) * 100}%`,
-                  top: '50%',
-                  transform: 'translateY(-50%)'
-                }}
-                title="Project Completed"
-              />
-            )}
-          </div>
-        </div>
-      ))}
     </div>
   );
 };

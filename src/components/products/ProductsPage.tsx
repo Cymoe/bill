@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ProductComparisonModal from './ProductComparisonModal';
-import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package } from 'lucide-react';
+import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package, Search, Plus } from 'lucide-react';
 import { ProductVariantComparison } from './ProductVariantComparison';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
-import { PageHeaderBar } from '../common/PageHeaderBar';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -570,14 +569,43 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
   return (
     <>
-      <PageHeaderBar 
-        title="Products"
-        searchPlaceholder="Search products..."
-        searchValue={searchInput}
-        onSearch={setSearchInput}
-        onAddClick={() => setEditingProduct('new')}
-        addButtonLabel="Product"
-      />
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Products</h1>
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
+              <Search className="h-5 w-5 text-gray-400" />
+            </button>
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] p-2 rounded-full transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Products: </span>
+            <span className="text-white font-medium">{products.length}</span>
+            <span className="text-gray-500 ml-1">({recentProducts.length} recent)</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Avg Price: </span>
+            <span className="text-[#336699] font-medium">{formatCurrency(averagePrice)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Most Used: </span>
+            <span className="text-white font-medium">{mostUsedType.type} ({mostUsedType.count})</span>
+          </div>
+          <div>
+            <span className="text-gray-400">With Variants: </span>
+            <span className="text-[#10b981] font-medium">{products.filter(p => p.variants && p.variants.length > 0).length}</span>
+          </div>
+        </div>
+      </div>
       
       {/* Product Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">

@@ -33,9 +33,9 @@ const ChatConversationView: React.FC<ChatConversationViewProps> = ({
   }, [currentChat.messages, isTyping]);
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white flex flex-col">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Chat Header */}
-      <div className="border-b border-[#333333] bg-[#121212]/95 backdrop-blur sticky top-0 z-10">
+      <div className="border-b border-[#333333] backdrop-blur flex-shrink-0">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -66,7 +66,7 @@ const ChatConversationView: React.FC<ChatConversationViewProps> = ({
       </div>
 
       {/* Quick Actions */}
-      <div className="p-4 border-b border-[#333333]">
+      <div className="p-4 border-b border-[#333333] flex-shrink-0">
         <div className="flex flex-wrap gap-2">
           {quickActions.map((action, index) => (
             <button
@@ -166,7 +166,7 @@ const ChatConversationView: React.FC<ChatConversationViewProps> = ({
       </div>
 
       {/* Input Area */}
-      <div className="border-t border-[#333333] p-6 bg-[#121212]/95 backdrop-blur">
+      <div className="border-t border-[#333333] p-6 backdrop-blur flex-shrink-0">
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center space-x-4">
             <div className="flex-1 relative">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Search, Plus } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
@@ -175,13 +175,40 @@ export const ProjectForm: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-medium text-white">
-            {id ? 'Edit Project' : 'New Project'}
-          </h1>
+    <>
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">{id ? 'Edit Project' : 'New Project'}</h1>
+          <div className="flex items-center gap-3">
+            <button 
+              type="button"
+              onClick={() => navigate('/projects')}
+              className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
         </div>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Status: </span>
+            <span className="text-white font-medium">{id ? 'Editing' : 'Creating'}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Budget: </span>
+            <span className="text-[#336699] font-medium">${calculateTotal().toFixed(2)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Items: </span>
+            <span className="text-white font-medium">{formData.items.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto">
+        <form onSubmit={handleSubmit} className="space-y-6">
 
         <div className="bg-[#1e2532] shadow px-4 py-5 rounded-lg sm:p-6">
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
@@ -467,8 +494,9 @@ export const ProjectForm: React.FC = () => {
             {loading ? 'Saving...' : id ? 'Update Project' : 'Create Project'}
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </>
   );
 };
 

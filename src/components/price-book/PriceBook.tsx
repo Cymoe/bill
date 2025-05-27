@@ -1,13 +1,11 @@
-import { useState, useEffect, useMemo, useRef, useContext } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '../../utils/format';
-import { IndustryContext } from '../layouts/DashboardLayout';
-import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import TabMenu from '../common/TabMenu';
-import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { LineItemModal } from '../modals/LineItemModal';
-import { MoreVertical, Filter, Minimize2, ChevronDown } from 'lucide-react';
+import { EditLineItemModal } from '../modals/EditLineItemModal';
+import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search } from 'lucide-react';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -28,11 +26,7 @@ interface Product {
   sku?: string;
 }
 
-// Define the subcategory interface
-interface Subcategory {
-  name: string;
-  count: number;
-}
+
 
 // Add TypeScript declaration for the window object
 declare global {
@@ -45,8 +39,9 @@ export const PriceBook: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { selectedIndustry, setSelectedIndustry } = useContext(IndustryContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
+  const [showEditLineItemModal, setShowEditLineItemModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -59,10 +54,11 @@ export const PriceBook: React.FC = () => {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [showProductMenu, setShowProductMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [workTypeDropdownOpen, setWorkTypeDropdownOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [isClosingDropdown, setIsClosingDropdown] = useState(false);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All Items');
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -78,6 +74,8 @@ export const PriceBook: React.FC = () => {
   });
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedTrade, setSelectedTrade] = useState('all');
+  const [viewMode, setViewMode] = useState<'expanded' | 'condensed'>('expanded');
   
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -87,91 +85,130 @@ export const PriceBook: React.FC = () => {
     setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
   };
   
-  // Subcategories by work type
-  const subcategoriesByIndustry: { [key: string]: Subcategory[] } = {
-    'General Construction': [
-      { name: 'All General Construction Items', count: 98 },
-      { name: 'Foundation', count: 15 },
-      { name: 'Framing', count: 22 },
-      { name: 'Drywall', count: 18 },
-      { name: 'Insulation', count: 12 },
-      { name: 'Siding', count: 14 },
-      { name: 'Windows & Doors', count: 17 },
-    ],
-    'Plumbing': [
-      { name: 'All Plumbing Items', count: 76 },
-      { name: 'Fixtures', count: 25 },
-      { name: 'Pipes & Fittings', count: 30 },
-      { name: 'Water Heaters', count: 8 },
-      { name: 'Drainage', count: 13 },
-    ],
-    'Electrical': [
-      { name: 'All Electrical Items', count: 82 },
-      { name: 'Wiring', count: 20 },
-      { name: 'Panels & Breakers', count: 15 },
-      { name: 'Lighting', count: 25 },
-      { name: 'Outlets & Switches', count: 12 },
-      { name: 'Smart Home', count: 10 },
-    ],
-    'HVAC': [
-      { name: 'All HVAC Items', count: 65 },
-      { name: 'Heating', count: 18 },
-      { name: 'Cooling', count: 22 },
-      { name: 'Ventilation', count: 15 },
-      { name: 'Ductwork', count: 10 },
-    ],
-    'Carpentry': [
-      { name: 'All Carpentry Items', count: 70 },
-      { name: 'Rough Carpentry', count: 25 },
-      { name: 'Finish Carpentry', count: 30 },
-      { name: 'Cabinetry', count: 15 },
-    ],
-    'Painting': [
-      { name: 'All Painting Items', count: 45 },
-      { name: 'Interior', count: 20 },
-      { name: 'Exterior', count: 15 },
-      { name: 'Specialty Finishes', count: 10 },
-    ],
-    'Flooring': [
-      { name: 'All Flooring Items', count: 55 },
-      { name: 'Hardwood', count: 15 },
-      { name: 'Tile', count: 18 },
-      { name: 'Carpet', count: 12 },
-      { name: 'Vinyl/Laminate', count: 10 },
-    ],
-    'Roofing': [
-      { name: 'All Roofing Items', count: 40 },
-      { name: 'Shingles', count: 15 },
-      { name: 'Metal', count: 10 },
-      { name: 'Flat Roof', count: 8 },
-      { name: 'Gutters', count: 7 },
-    ],
-    'Landscaping': [
-      { name: 'All Landscaping Items', count: 50 },
-      { name: 'Hardscaping', count: 15 },
-      { name: 'Planting', count: 20 },
-      { name: 'Irrigation', count: 10 },
-      { name: 'Lighting', count: 5 },
-    ],
-    'Masonry': [
-      { name: 'All Masonry Items', count: 35 },
-      { name: 'Brick', count: 12 },
-      { name: 'Stone', count: 15 },
-      { name: 'Concrete', count: 8 },
-    ],
-    'All Trades': [
-      { name: 'All Items', count: 0 },
-    ],
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setShowEditLineItemModal(true);
   };
-  
-  // Reset the active category when industry changes and update subcategory
-  useEffect(() => {
-    setActiveCategory('all');
-    // Select the first subcategory when changing work types
-    if (selectedIndustry !== 'All Trades' && subcategoriesByIndustry[selectedIndustry]?.length > 0) {
-      setSelectedSubcategory(subcategoriesByIndustry[selectedIndustry][0].name);
+
+  const handleSaveEdit = async (data: Partial<Product>) => {
+    if (!editingProduct) return;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update(data)
+        .eq('id', editingProduct.id);
+
+      if (error) throw error;
+      
+      // Refresh the products list
+      await fetchProducts();
+      setShowEditLineItemModal(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
     }
-  }, [selectedIndustry]);
+  };
+
+  const handleDuplicateProduct = async (product: Product) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          name: `${product.name} (Copy)`,
+          description: product.description,
+          price: product.price,
+          unit: product.unit,
+          type: product.type,
+          user_id: user?.id,
+          status: product.status,
+          favorite: false,
+          vendor_id: product.vendor_id,
+          trade_id: product.trade_id
+        });
+
+      if (error) throw error;
+      await fetchProducts();
+      setActiveDropdown(null);
+    } catch (error) {
+      console.error('Error duplicating product:', error);
+    }
+  };
+
+  const handleDeleteProduct = async (product: Product) => {
+    if (!confirm(`Are you sure you want to delete "${product.name}"?`)) return;
+    
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', product.id);
+
+      if (error) throw error;
+      await fetchProducts();
+      setActiveDropdown(null);
+    } catch (error) {
+      console.error('Error deleting product:', error);
+    }
+  };
+
+  const handleToggleFavorite = async (product: Product) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .update({ favorite: !product.favorite })
+        .eq('id', product.id);
+
+      if (error) throw error;
+      await fetchProducts();
+      setActiveDropdown(null);
+    } catch (error) {
+      console.error('Error updating favorite:', error);
+    }
+  };
+
+  const handleAddToEstimate = async (product: Product) => {
+    try {
+      // Create a new draft invoice/estimate with this product
+      const { data: invoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          user_id: user?.id,
+          client_id: null, // Will be set later
+          amount: product.price,
+          status: 'draft',
+          issue_date: new Date().toISOString().split('T')[0],
+          due_date: null
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Add the product as an invoice item
+      const { error: itemError } = await supabase
+        .from('invoice_items')
+        .insert({
+          invoice_id: invoice.id,
+          product_id: product.id,
+          description: product.description,
+          quantity: 1,
+          unit_price: product.price,
+          total_price: product.price
+        });
+
+      if (itemError) throw itemError;
+
+      setActiveDropdown(null);
+      
+      // Navigate to the invoice/estimate page
+      navigate(`/invoices?new=${invoice.id}`);
+      
+    } catch (error) {
+      console.error('Error adding to estimate:', error);
+      alert('Failed to add item to estimate. Please try again.');
+    }
+  };
 
   // Functions for the new menu options
   const handleImportItems = () => {
@@ -198,13 +235,25 @@ export const PriceBook: React.FC = () => {
       if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
         setShowFilterMenu(false);
       }
+      
+      // Handle dropdown outside clicks
+      const target = event.target as HTMLElement;
+      const isDropdownContent = dropdownRef.current && dropdownRef.current.contains(target);
+      const isThreeDotsButton = target.closest('button')?.querySelector('.lucide-more-vertical');
+      
+      if (!isDropdownContent && !isThreeDotsButton && activeDropdown) {
+        setIsClosingDropdown(true);
+        setActiveDropdown(null);
+        // Reset the flag after a short delay
+        setTimeout(() => setIsClosingDropdown(false), 100);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [activeDropdown]);
 
   useEffect(() => {
     fetchProducts();
@@ -349,297 +398,80 @@ export const PriceBook: React.FC = () => {
   }, [condensed]);
 
   return (
-    <>
-      <PageHeaderBar 
-        title="Price Book"
-        searchPlaceholder="Search price book..."
-        searchValue={searchInput}
-        onSearch={setSearchInput}
-        onAddClick={() => setShowNewLineItemModal(true)}
-        addButtonLabel="Line Item"
-      />
-      
-      {/* Price Book Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
-        {/* Total Items */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-white"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Items</div>
-          <div className="text-3xl font-bold text-white mb-1">{products.length}</div>
-          <div className="text-sm text-gray-400">Total Value: {formatCurrency(products.reduce((sum, p) => sum + p.price, 0))}</div>
-        </div>
-        
-        {/* Most Popular Category */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#10b981]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Most Used</div>
-          <div className="text-3xl font-bold text-[#10b981] mb-1">
-            {(() => {
-              const materialCount = products.filter(p => p.type === 'material').length;
-              const laborCount = products.filter(p => p.type === 'labor').length;
-              const equipmentCount = products.filter(p => p.type === 'equipment').length;
-              const serviceCount = products.filter(p => p.type === 'service').length;
-              const subCount = products.filter(p => p.type === 'subcontractor').length;
-              
-              const counts = [
-                { type: 'Material', count: materialCount },
-                { type: 'Labor', count: laborCount },
-                { type: 'Equipment', count: equipmentCount },
-                { type: 'Service', count: serviceCount },
-                { type: 'Subcontractor', count: subCount }
-              ];
-              
-              const mostUsed = counts.reduce((max, current) => current.count > max.count ? current : max, counts[0]);
-              return mostUsed?.type || 'Material';
-            })()}
-          </div>
-          <div className="text-sm text-gray-400">
-            {(() => {
-              const materialCount = products.filter(p => p.type === 'material').length;
-              const laborCount = products.filter(p => p.type === 'labor').length;
-              const equipmentCount = products.filter(p => p.type === 'equipment').length;
-              const serviceCount = products.filter(p => p.type === 'service').length;
-              const subCount = products.filter(p => p.type === 'subcontractor').length;
-              
-              const counts = [
-                { type: 'material', count: materialCount },
-                { type: 'labor', count: laborCount },
-                { type: 'equipment', count: equipmentCount },
-                { type: 'service', count: serviceCount },
-                { type: 'subcontractor', count: subCount }
-              ];
-              
-              const mostUsed = counts.reduce((max, current) => current.count > max.count ? current : max, counts[0]);
-              return mostUsed?.count || 0;
-            })()} items
-          </div>
-        </div>
-        
-        {/* Average Price */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#3b82f6]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Average Price</div>
-          <div className="text-3xl font-bold text-[#3b82f6] mb-1">
-            {formatCurrency(products.length > 0 ? products.reduce((sum, p) => sum + p.price, 0) / products.length : 0)}
-          </div>
-          <div className="text-sm text-gray-400">
-            {products.length > 0 ? `Range: ${formatCurrency(Math.min(...products.map(p => p.price)))} - ${formatCurrency(Math.max(...products.map(p => p.price)))}` : 'No items yet'}
-          </div>
-        </div>
-        
-        {/* Recent Additions */}
-        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Recent Additions</div>
-          <div className="text-3xl font-bold text-[#F9D71C] mb-1">
-            {(() => {
-              const thirtyDaysAgo = new Date();
-              thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-              return products.filter(p => new Date(p.created_at) >= thirtyDaysAgo).length;
-            })()}
-          </div>
-          <div className="text-sm text-gray-400">Last 30 days</div>
-        </div>
-      </div>
-      
-      <div className="flex flex-col h-full price-book-container">
-        {/* Trade Filter & Sort Controls */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-          {/* Left side - View Mode and Primary Filter */}
-          <div className="flex items-center gap-4">
-            {/* View Mode Toggles - More Prominent */}
-            <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
-              <button
-                className="px-4 py-2 bg-[#336699] text-white"
-              >
-                List
-              </button>
-              <button
-                className="px-4 py-2 text-gray-400 hover:bg-gray-700"
-              >
-                Cards
-              </button>
-            </div>
-
-            {/* Primary Trade Filter - More Prominent */}
+    <div className="min-h-screen bg-[#121212] text-white">
+      {/* Header */}
+      <div className="border-b border-[#333333]">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Price Book</h1>
+          <div className="flex items-center gap-3">
             <div className="relative">
-              <select
-                className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
-                value={selectedTradeId}
-                onChange={(e) => setSelectedTradeId(e.target.value)}
-              >
-                <option value="all">All Trades ({trades.length})</option>
-                {trades.map(trade => (
-                  <option key={trade.id} value={trade.id}>{trade.name}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-                <ChevronDown size={16} />
-              </div>
-            </div>
-
-            {/* More Filters Button */}
-            <div className="relative" ref={filterMenuRef}>
-              <button 
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
-              >
-                <Filter size={16} />
-                More Filters
-              </button>
-              {showFilterMenu && (
-                <div className="absolute left-0 top-full mt-2 w-72 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                  <div className="p-4 space-y-4">
-                    {/* Status Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Status</label>
-                      <select
-                        value={selectedStatus}
-                        onChange={(e) => setSelectedStatus(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="active">Active</option>
-                        <option value="archived">Archived</option>
-                      </select>
-                    </div>
-
-                    {/* Favorites Filter */}
-                    <div className="flex items-center">
                       <input
-                        type="checkbox"
-                        id="favorites"
-                        checked={showFavoritesOnly}
-                        onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-                        className="rounded bg-[#181818] border-gray-700 text-[#336699]"
-                      />
-                      <label htmlFor="favorites" className="ml-2 text-sm text-white">Show Favorites Only</label>
-                    </div>
-
-                    {/* Date Range Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Date Updated</label>
-                      <select
-                        value={selectedDateRange}
-                        onChange={(e) => setSelectedDateRange(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="all">All Time</option>
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                      </select>
-                    </div>
-
-                    {/* Vendor Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Vendor</label>
-                      <select
-                        value={selectedVendorId}
-                        onChange={(e) => setSelectedVendorId(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="all">All Vendors</option>
-                        {vendors.map(vendor => (
-                          <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Price Range Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Price Range</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min"
-                          value={minPrice}
-                          onChange={(e) => setMinPrice(e.target.value)}
-                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max"
-                          value={maxPrice}
-                          onChange={(e) => setMaxPrice(e.target.value)}
-                          className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                        />
+                type="text"
+                placeholder="Search items..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
+        </div>
+            <button
+              onClick={() => setShowNewLineItemModal(true)}
+              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+          </div>
+        </div>
+        
+      {/* Stats Bar */}
+      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Items:</span>
+          <span className="font-mono font-medium">1,000</span>
+          <span className="text-gray-500 text-xs">($384,777.55)</span>
+          </div>
+        <div className="w-px h-4 bg-[#333333]" />
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Most Used:</span>
+          <span className="font-medium">Material</span>
+          <span className="text-gray-500 text-xs">(552)</span>
+        </div>
+        <div className="w-px h-4 bg-[#333333]" />
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400">Avg Price:</span>
+          <span className="font-mono font-medium text-[#336699]">$384.78</span>
                       </div>
                     </div>
 
-                    {/* Unit Filter */}
-                    <div>
-                      <label className="block text-sm text-gray-400 mb-2">Unit</label>
-                      <select
-                        value={selectedUnit}
-                        onChange={(e) => setSelectedUnit(e.target.value)}
-                        className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      >
-                        <option value="any">Any Unit</option>
-                        <option value="ea">Each (ea)</option>
-                        <option value="hr">Hour (hr)</option>
-                        <option value="ft">Feet (ft)</option>
-                        <option value="sq ft">Square Feet (sq ft)</option>
-                        <option value="cu yd">Cubic Yard (cu yd)</option>
-                      </select>
+      {/* Controls Bar */}
+      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 min-w-[180px] hover:bg-[#252525] transition-colors">
+              <span>All Trades</span>
+              <span className="text-gray-500">(56)</span>
+              <ChevronDown className="w-4 h-4 ml-auto text-gray-400" />
+                    </button>
                     </div>
+          <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors">
+            <Filter className="w-4 h-4" />
+            <span>More Filters</span>
+                    </button>
+                  </div>
+        <div className="flex items-center gap-2">
+            <button
+            onClick={() => setViewMode(viewMode === 'expanded' ? 'condensed' : 'expanded')}
+            className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors"
+            >
+            <span>{viewMode === 'expanded' ? 'Condense' : 'Expand'}</span>
+            </button>
+          <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors">
+            <MoreVertical className="w-4 h-4" />
+              </button>
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Right side - Condensed Toggle and Options Menu */}
-          <div className="flex items-center gap-4">
-            {/* Condensed View Toggle */}
-            <button
-              onClick={() => setCondensed(!condensed)}
-              className="flex items-center gap-2 px-3 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
-              title={condensed ? "Expand view" : "Condense view"}
-            >
-              <Minimize2 size={16} />
-              {condensed ? "Expand" : "Condense"}
-            </button>
-
-            {/* Options Menu */}
-            <div className="relative" ref={optionsMenuRef}>
-              <button
-                className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
-                onClick={() => setShowOptionsMenu(v => !v)}
-                aria-label="More options"
-              >
-                <MoreVertical size={20} className="text-gray-400" />
-              </button>
-              {showOptionsMenu && (
-                <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); /* handleImportItems(); */ }}
-                  >
-                    Import Items
-                  </button>
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); /* handleExportToCSV(); */ }}
-                  >
-                    Export to CSV
-                  </button>
-                  <button
-                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); /* handlePrintPriceBook(); */ }}
-                  >
-                    Print Price Book
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Content area for products */}
-        
-        {/* Category Tabs and three-dot menu */}
-        <div className="flex items-center justify-between px-0">
-          <div className="flex-grow">
+      {/* Category Tabs */}
             <TabMenu
               items={[
                 { id: 'all', label: 'All', count: products.length },
@@ -647,341 +479,214 @@ export const PriceBook: React.FC = () => {
                 { id: 'labor', label: 'Labor', count: products.filter(p => p.type === 'labor').length },
                 { id: 'equipment', label: 'Equipment', count: products.filter(p => p.type === 'equipment').length },
                 { id: 'service', label: 'Service', count: products.filter(p => p.type === 'service').length },
-                { id: 'subcontractor', label: 'Subcontractor', count: products.filter(p => p.type === 'subcontractor').length },
+          { id: 'subcontractor', label: 'Subcontractor', count: products.filter(p => p.type === 'subcontractor').length }
               ]}
               activeItemId={activeCategory}
               onItemClick={setActiveCategory}
             />
-          </div>
+
+      {/* Table Header */}
+      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] grid grid-cols-[100px_1fr_120px_100px_120px_120px_80px] gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
+        <div>Type</div>
+        <div>Name</div>
+        <div className="text-right">Price</div>
+        <div>Unit</div>
+        <div>Trade</div>
+        <div>Last Updated</div>
+        <div className="text-center">Actions</div>
         </div>
         
-        {/* Show subcategories if a specific work type is selected */}
-        {selectedIndustry !== 'All Trades' && (
-          <div className="px-8 py-4 bg-gray-900/30">
-            <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-sm text-gray-400">Subcategories:</span>
-              {subcategoriesByIndustry[selectedIndustry]?.map((sub, index) => (
-                index > 0 && (
-                  <button
-                    key={sub.name}
-                    className={`px-3 py-1 text-xs rounded-full ${selectedSubcategory === sub.name ? 'bg-blue-700 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700'}`}
-                    onClick={() => setSelectedSubcategory(sub.name)}
-                  >
-                    {sub.name.replace(`All ${selectedIndustry} Items`, '').trim()} 
-                    <span className="ml-1 opacity-60">{sub.count}</span>
-                  </button>
-                )
-              ))}
+      {/* Table Content */}
+      <div className="flex-1 overflow-y-auto">
+        {filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-16 h-16 bg-[#333333] rounded-full flex items-center justify-center mb-4">
+              <Plus className="w-8 h-8 text-gray-400" />
             </div>
+            <h3 className="text-lg font-medium text-white mb-2">No items in your price book yet</h3>
+            <p className="text-gray-400 mb-6 max-w-md">
+              Start building your price book by adding materials, labor, and services. This will help you create accurate estimates and invoices.
+            </p>
+            <button
+              onClick={() => setShowNewLineItemModal(true)}
+              className="bg-[#F9D71C] text-[#121212] px-6 py-3 rounded-[4px] font-medium hover:bg-[#e9c91c] transition-colors"
+            >
+              Add Your First Item
+            </button>
           </div>
-        )}
-
-        {/* Products Table - full width */}
-        <div className="mt-0 px-0">
-          {filteredProducts.length === 0 ? (
-            products.length === 0 || showTutorial ? (
-              // Contextual Onboarding for empty state
-              <div className="max-w-4xl mx-auto p-8">
-                {/* Welcome Header */}
-                <div className="text-center mb-8">
-                  <div className="w-16 h-16 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl">💰</span>
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Welcome to Your Price Book</h2>
-                  <p className="text-gray-400 max-w-2xl mx-auto">
-                    Your price book is your competitive advantage. Build a comprehensive catalog of materials, 
-                    labor rates, and services with accurate pricing to create estimates faster and more consistently.
-                  </p>
+        ) : (
+          <div className="divide-y divide-[#333333]">
+            {filteredProducts.map((product) => (
+              <div
+                key={product.id}
+                onClick={() => {
+                  // Don't open edit modal if dropdown is active or just closed
+                  if (activeDropdown || isClosingDropdown) {
+                    if (activeDropdown) setActiveDropdown(null);
+                    return;
+                  }
+                  handleEditProduct(product);
+                }}
+                className="px-6 py-4 grid grid-cols-[100px_1fr_120px_100px_120px_120px_80px] gap-4 items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer"
+              >
+                {/* Type */}
+                <div>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-[2px] text-xs font-medium ${
+                    product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
+                    product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
+                    product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
+                    product.type === 'service' ? 'bg-purple-500/20 text-purple-300' :
+                    'bg-gray-500/20 text-gray-300'
+                  }`}>
+                    {product.type}
+                  </span>
                 </div>
 
-                {/* Video Section */}
-                <div className="mb-8">
-                  <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-white font-bold flex items-center">
-                        <span className="text-[#336699] mr-2">🎥</span>
-                        Watch: Building Your Price Book
-                      </h3>
-                      <span className="text-xs text-gray-400 bg-[#333333] px-2 py-1 rounded">7 min</span>
+                {/* Name */}
+                <div className="min-w-0">
+                  <div className="font-medium text-white truncate">{product.name}</div>
+                  {product.description && (
+                    <div className="text-sm text-gray-400 truncate">{product.description}</div>
+                  )}
+                  {product.sku && (
+                    <div className="text-xs text-gray-500">SKU: {product.sku}</div>
+                  )}
                     </div>
                     
-                    {/* Video Embed Container */}
-                    <div className="relative w-full h-0 pb-[56.25%] bg-[#333333] rounded-[4px] overflow-hidden">
-                      {/* Replace this iframe src with your actual Loom video URL */}
-                      <iframe
-                        src="https://www.loom.com/embed/0c9786a7fd61445bbb23b6415602afe4"
-                        frameBorder="0"
-                        allowFullScreen
-                        className="absolute top-0 left-0 w-full h-full"
-                        title="Building Your Price Book"
-                      ></iframe>
+                {/* Price */}
+                <div className="font-mono font-medium text-white text-right">
+                  {formatCurrency(product.price)}
+                    </div>
+                    
+                {/* Unit */}
+                <div className="text-gray-300 capitalize truncate">{product.unit}</div>
+
+                {/* Trade */}
+                <div className="text-gray-300 truncate">{getTrade(product)}</div>
+
+                {/* Last Updated */}
+                <div className="text-gray-400 text-sm">
+                  {new Date(product.updated_at || product.created_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center justify-center relative">
+                    <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent row click
+                      e.preventDefault(); // Prevent any default behavior
                       
-                      {/* Placeholder for when no video is set */}
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="w-12 h-12 bg-[#336699] rounded-full flex items-center justify-center mx-auto mb-2">
-                            <span className="text-white text-xl">▶</span>
-                          </div>
-                          <p className="text-gray-400 text-sm">Video coming soon</p>
-                          <p className="text-gray-500 text-xs">Replace iframe src with your Loom URL</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <p className="text-gray-400 text-sm mt-3">
-                      Learn how successful contractors build and maintain price books that give them 
-                      a competitive edge and ensure profitable projects every time.
-                    </p>
-                  </div>
-                </div>
+                      // Toggle dropdown - if it's open for this product, close it, otherwise open it
+                      if (activeDropdown === product.id) {
+                        setActiveDropdown(null);
+                      } else {
+                        setActiveDropdown(product.id);
+                      }
+                    }}
+                    className="w-8 h-8 flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4 text-gray-400" />
+                    </button>
 
-                {/* Quick Start Steps */}
-                <div className="grid md:grid-cols-3 gap-6 mb-8">
-                  {/* Step 1 */}
-                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
-                    <div className="flex items-center mb-4">
-                      <div className="w-8 h-8 bg-[#336699] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-                        1
-                      </div>
-                      <h3 className="text-white font-bold">Add Your First Item</h3>
-                    </div>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Start with a common material or labor rate you use frequently in your projects.
-                    </p>
-                    <button
-                      onClick={() => setShowNewLineItemModal(true)}
-                      className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+                  {/* Dropdown Menu */}
+                  {activeDropdown === product.id && (
+                    <div
+                      ref={dropdownRef}
+                      className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
                     >
-                      ADD LINE ITEM
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditProduct(product);
+                          setActiveDropdown(null);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                        Edit Item
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicateProduct(product);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <Copy className="w-4 h-4 mr-3 text-gray-400" />
+                        Duplicate
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(product);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
+                        {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToEstimate(product);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
+                        Add to Current Estimate
+                    </button>
+                      
+                      <div className="border-t border-[#333333] my-1" />
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProduct(product);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4 mr-3 text-red-400" />
+                        Delete
                     </button>
                   </div>
-
-                  {/* Step 2 */}
-                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
-                    <div className="flex items-center mb-4">
-                      <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-                        2
-                      </div>
-                      <h3 className="text-gray-400 font-bold">Organize by Trade</h3>
-                    </div>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Group items by trade and category for easy navigation during estimating.
-                    </p>
-                    <button
-                      disabled
-                      className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
-                    >
-                      COMING NEXT
-                    </button>
-                  </div>
-
-                  {/* Step 3 */}
-                  <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#9E9E9E] opacity-75">
-                    <div className="flex items-center mb-4">
-                      <div className="w-8 h-8 bg-[#9E9E9E] rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-                        3
-                      </div>
-                      <h3 className="text-gray-400 font-bold">Use in Estimates</h3>
-                    </div>
-                    <p className="text-gray-400 text-sm mb-4">
-                      Pull items from your price book to create accurate estimates in seconds.
-                    </p>
-                    <button
-                      disabled
-                      className="w-full bg-[#9E9E9E] text-gray-500 py-2 px-4 rounded-[4px] cursor-not-allowed font-medium"
-                    >
-                      COMING NEXT
-                    </button>
-                  </div>
-                </div>
-
-                {/* Tips Section */}
-                <div className="bg-[#1E1E1E] rounded-[4px] p-6 border border-[#333333]">
-                  <h3 className="text-white font-bold mb-4 flex items-center">
-                    <span className="text-[#F9D71C] mr-2">💡</span>
-                    Pro Tips for Price Book Success
-                  </h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-white text-sm font-medium">Include markup in pricing</p>
-                          <p className="text-gray-400 text-xs">Factor in overhead, profit, and risk into every line item</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-white text-sm font-medium">Update prices regularly</p>
-                          <p className="text-gray-400 text-xs">Review and adjust pricing quarterly to stay competitive</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-white text-sm font-medium">Track vendor pricing</p>
-                          <p className="text-gray-400 text-xs">Link items to vendors for easy price updates</p>
-                        </div>
-                      </div>
-                      <div className="flex items-start">
-                        <div className="w-2 h-2 bg-[#336699] rounded-full mt-2 mr-3 flex-shrink-0"></div>
-                        <div>
-                          <p className="text-white text-sm font-medium">Use detailed descriptions</p>
-                          <p className="text-gray-400 text-xs">Include specs, brands, and installation notes</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Item Types */}
-                <div className="text-center mt-8">
-                  <p className="text-gray-400 text-sm mb-4">
-                    Common line item types to get you started:
-                  </p>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <button
-                      onClick={() => setShowNewLineItemModal(true)}
-                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
-                    >
-                      🧱 Materials
-                    </button>
-                    <button
-                      onClick={() => setShowNewLineItemModal(true)}
-                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
-                    >
-                      👷 Labor Rates
-                    </button>
-                    <button
-                      onClick={() => setShowNewLineItemModal(true)}
-                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
-                    >
-                      🔧 Equipment
-                    </button>
-                    <button
-                      onClick={() => setShowNewLineItemModal(true)}
-                      className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
-                    >
-                      🚚 Subcontractors
-                    </button>
-                  </div>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="text-center py-8 text-gray-400 bg-[#181818]">
-                No pricing items found. Try adjusting your filters.
-              </div>
-            )
-          ) : (
-            <div className="overflow-x-auto">
-              <table className={`w-full border-collapse ${condensed ? 'condensed' : ''}`}>
-                <thead>
-                  <tr className="bg-[#232323] text-left text-xs uppercase tracking-wider text-white border-b border-gray-700 font-['Roboto_Condensed']">
-                    <th className="py-3 px-3 w-[20%]">NAME</th>
-                    <th className="py-3 px-3 w-[30%]">DESCRIPTION</th>
-                    <th 
-                      className="py-3 px-3 text-right w-[15%] cursor-pointer hover:text-[#336699] transition-colors"
-                      onClick={togglePriceSort}
-                    >
-                      PRICE {priceSort === 'desc' ? '▼' : '▲'}
-                    </th>
-                    <th className="py-3 px-3 w-[10%] text-center">UNIT</th>
-                    <th className="py-3 px-3 w-[10%] text-center">TYPE</th>
-                    <th className="py-3 px-3 w-[15%] text-center">TRADE</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredProducts.map((product, index) => (
-                    <tr 
-                      key={product.id} 
-                      className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-[#181818]' : 'bg-[#1E1E1E]'} hover:bg-[#232323] cursor-pointer transition-colors`}
-                      onClick={() => {
-                        setSelectedProduct(product);
-                        setShowProductMenu(true);
-                      }}
-                    >
-                      <td className="py-3 px-3 font-medium text-white">{product.name}</td>
-                      <td className="py-3 px-3 text-gray-300">{product.description}</td>
-                      <td className="py-3 px-3 text-right font-medium text-white">{formatCurrency(product.price)}</td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="px-2 py-1 bg-[#333333] text-xs text-gray-300 rounded badge-unit">
-                          {product.unit}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center">
-                        <span className="px-2 py-1 bg-[#336699] text-xs text-white rounded badge-type">
-                          {product.type === 'subcontractor' ? 'Sub' : product.type.charAt(0).toUpperCase() + product.type.slice(1)}
-                        </span>
-                      </td>
-                      <td className="py-3 px-3 text-center text-gray-300 text-xs">
-                        {trades.find(t => t.id === product.trade_id)?.name || 'Unassigned'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            ))}
             </div>
           )}
         </div>
 
-        {/* Edit Line Item Modal - for editing existing items */}
-        {showProductMenu && selectedProduct && (
-          <EditLineItemModal
-            product={selectedProduct}
-            onClose={() => setShowProductMenu(false)}
-            onSave={async (updatedProduct) => {
-              try {
-                // Update existing product
-                const { error } = await supabase
-                  .from('products')
-                  .update(updatedProduct)
-                  .eq('id', selectedProduct.id);
-                
-                if (error) throw error;
-                
-                // Refresh products list
-                fetchProducts();
-                setShowProductMenu(false);
-              } catch (error) {
-                console.error('Error updating product:', error);
-              }
+      {/* New Line Item Modal */}
+      {showNewLineItemModal && (
+        <LineItemModal
+          onClose={() => setShowNewLineItemModal(false)}
+          onSave={() => {
+            setShowNewLineItemModal(false);
+            fetchProducts(); // Refresh the list
             }}
           />
         )}
 
-        {/* New Line Item Modal - for creating new items */}
-        {showNewLineItemModal && (
-          <LineItemModal
-            onClose={() => setShowNewLineItemModal(false)}
-            onSave={async (data) => {
-              try {
-                // Create new product
-                const { error } = await supabase
-                  .from('products')
-                  .insert({
-                    ...data,
-                    user_id: user?.id,
-                    status: 'active',
-                    favorite: false,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                  });
-                
-                if (error) throw error;
-                
-                // Refresh products list
-                fetchProducts();
-                setShowNewLineItemModal(false);
-              } catch (error) {
-                console.error('Error creating product:', error);
-              }
-            }}
+      {/* Edit Line Item Modal */}
+      {showEditLineItemModal && editingProduct && (
+        <EditLineItemModal
+          product={editingProduct}
+          onClose={() => {
+            setShowEditLineItemModal(false);
+            setEditingProduct(null);
+          }}
+          onSave={handleSaveEdit}
           />
         )}
       </div>
-    </>
   );
 };
+
+export default PriceBook;

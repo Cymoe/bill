@@ -209,14 +209,12 @@ function AppRoutes() {
         }
       />
       
-      {/* Chat Management System */}
+      {/* Chat Management System - redirect to dashboard since chat is in sidebar */}
       <Route
         path="/chat"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <ChatManagementSystem />
-            </DashboardLayout>
+            <Navigate to="/dashboard" replace />
           </ProtectedRoute>
         }
       />

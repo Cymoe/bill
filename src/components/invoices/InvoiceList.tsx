@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle, Search, Plus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import TabMenu from '../common/TabMenu';
-import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewInvoiceModal } from './NewInvoiceModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
@@ -63,6 +62,7 @@ export const InvoiceList: React.FC = () => {
   const [dueDateTo, setDueDateTo] = useState('');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -539,14 +539,43 @@ export const InvoiceList: React.FC = () => {
 
   return (
     <>
-      <PageHeaderBar 
-        title="Invoices"
-        searchPlaceholder="Search invoices..."
-        searchValue={searchInput}
-        onSearch={setSearchInput}
-        onAddClick={() => navigate('/invoices/new')}
-        addButtonLabel="Invoice"
-      />
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Invoices</h1>
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
+              <Search className="h-5 w-5 text-gray-400" />
+            </button>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] p-2 rounded-full transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Invoices: </span>
+            <span className="text-white font-medium">{invoices.length}</span>
+            <span className="text-gray-500 ml-1">({formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))})</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Outstanding: </span>
+            <span className="text-[#D32F2F] font-medium">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Paid: </span>
+            <span className="text-[#388E3C] font-medium">{formatCurrency(paidAmountForPeriod)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Overdue: </span>
+            <span className="text-[#F9D71C] font-medium">{invoices.filter(inv => inv.status === 'overdue').length}</span>
+          </div>
+        </div>
+      </div>
       
       {/* Invoice summary cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
@@ -594,12 +623,14 @@ export const InvoiceList: React.FC = () => {
           {/* View Mode Toggles - More Prominent */}
           <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
             <button
-              className="px-4 py-2 bg-[#336699] text-white"
+              className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+              onClick={() => setViewMode('list')}
             >
               List
             </button>
             <button
-              className="px-4 py-2 text-gray-400 hover:bg-gray-700"
+              className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
+              onClick={() => setViewMode('cards')}
             >
               Cards
             </button>
@@ -792,12 +823,12 @@ export const InvoiceList: React.FC = () => {
           <div className="flex-1 flex flex-col">
             {isLoading ? (
               <TableSkeleton rows={5} columns={7} />
-            ) : (
-              <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden border border-[#333333]">
-                <table className="min-w-full bg-[#121212]">
+            ) : viewMode === 'list' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr className="bg-[#1E1E1E] sticky top-0 z-10">
-                      <th className="w-12 px-3 py-4 align-middle">
+                    <tr className="bg-[#232323] text-left text-xs uppercase tracking-wider text-white border-b border-gray-700 font-['Roboto_Condensed']">
+                      <th className="py-3 px-3 w-12">
                         <div className="flex items-center h-full">
                           <input
                             type="checkbox"
@@ -807,28 +838,28 @@ export const InvoiceList: React.FC = () => {
                           />
                         </div>
                       </th>
-                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">INVOICE #</th>
-                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">CLIENT</th>
-                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DATE</th>
-                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">DUE</th>
-                      <th className="text-left px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase">STATUS</th>
-                          <th 
-                            className="text-right px-3 py-4 font-bold text-white font-['Roboto_Condensed'] uppercase cursor-pointer hover:text-[#336699] transition-colors"
-                            onClick={toggleAmountSort}
-                          >
-                            AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
-                          </th>
-                      <th className="w-8 px-3 py-4"></th>
+                      <th className="py-3 px-3 w-[15%]">INVOICE #</th>
+                      <th className="py-3 px-3 w-[20%]">CLIENT</th>
+                      <th className="py-3 px-3 w-[12%]">DATE</th>
+                      <th className="py-3 px-3 w-[12%]">DUE</th>
+                      <th className="py-3 px-3 w-[15%]">STATUS</th>
+                      <th 
+                        className="py-3 px-3 text-right w-[15%] cursor-pointer hover:text-[#336699] transition-colors"
+                        onClick={toggleAmountSort}
+                      >
+                        AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
+                      </th>
+                      <th className="py-3 px-3 w-8"></th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#333333]">
-                    {filteredInvoices.map((invoice) => (
+                  <tbody>
+                    {filteredInvoices.map((invoice, index) => (
                       <tr
                         key={invoice.id}
-                        className={`transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#1E1E1E]' : 'hover:bg-[#1E1E1E]'} cursor-pointer`}
+                        className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-[#181818]' : 'bg-[#1E1E1E]'} hover:bg-[#232323] cursor-pointer transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232323]' : ''}`}
                         onClick={() => toggleSelectRow(invoice.id)}
                       >
-                        <td className="px-3 py-4 align-middle">
+                        <td className="py-3 px-3">
                           <div className="flex items-center h-full" onClick={(e) => e.stopPropagation()}>
                             <input
                               type="checkbox"
@@ -838,22 +869,17 @@ export const InvoiceList: React.FC = () => {
                             />
                           </div>
                         </td>
-                        <td className="px-3 py-4 font-medium text-white font-['Roboto']">{`INV-${invoice.id.slice(0, 8)}`}</td>
-                        <td className="px-3 py-4 text-white font-['Roboto']">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
-                        <td className="px-3 py-4 text-white font-['Roboto']">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                        <td className="px-3 py-4 text-white font-['Roboto']">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                        <td className="px-3 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center">
-                              <span className="w-5 h-5 bg-[#333333] rounded-[4px] flex items-center justify-center mr-2">
-                                <span className="block w-2 h-2 bg-[#336699] rounded-[4px]"></span>
-                              </span>
-                              <span className="text-white text-sm font-['Roboto']">{invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}</span>
-                            </span>
-                          </div>
+                        <td className="py-3 px-3 font-medium text-white">{`INV-${invoice.id.slice(0, 8)}`}</td>
+                        <td className="py-3 px-3 text-gray-300">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
+                        <td className="py-3 px-3 text-gray-300">{new Date(invoice.issue_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-3 text-gray-300">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                        <td className="py-3 px-3">
+                          <span className="px-2 py-1 bg-[#336699] text-xs text-white rounded">
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          </span>
                         </td>
-                        <td className="px-3 py-4 text-right font-bold text-white font-['Roboto_Mono']">{formatCurrency(invoice.amount)}</td>
-                        <td className="px-3 py-4">
+                        <td className="py-3 px-3 text-right font-medium text-white">{formatCurrency(invoice.amount)}</td>
+                        <td className="py-3 px-3">
                           <div onClick={(e) => e.stopPropagation()}>
                             <Dropdown
                               trigger={
@@ -870,6 +896,132 @@ export const InvoiceList: React.FC = () => {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            ) : (
+              // Cards View
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
+                {filteredInvoices.map((invoice) => {
+                  const client = clients.find(c => c.id === invoice.client_id);
+                  const isSelected = selectedRows.includes(invoice.id);
+                  const isOverdue = invoice.status === 'overdue';
+                  const isPaid = invoice.status === 'paid';
+                  const isDraft = invoice.status === 'draft';
+                  
+                  return (
+                    <div
+                      key={invoice.id}
+                      className={`bg-[#333333] rounded-[4px] border-l-4 ${
+                        isPaid ? 'border-[#388E3C]' :
+                        isOverdue ? 'border-[#D32F2F]' :
+                        isDraft ? 'border-[#9E9E9E]' :
+                        'border-[#336699]'
+                      } p-4 cursor-pointer transition-all hover:bg-[#3A3A3A] ${isSelected ? 'bg-[#3A3A3A]' : ''}`}
+                      onClick={() => toggleSelectRow(invoice.id)}
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(invoice.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <span className="text-xs text-gray-400 font-mono">{`INV-${invoice.id.slice(0, 8)}`}</span>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Dropdown
+                            trigger={
+                              <button className="hover:text-[#F9D71C] p-1">
+                                <MoreVertical className="w-4 h-4 text-gray-400" />
+                              </button>
+                            }
+                            items={rowDropdownItems(invoice)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Client Name - Prominent */}
+                      <div className="mb-3">
+                        <h3 className="text-white font-medium text-base leading-tight">
+                          {client?.name || 'Unknown Client'}
+                        </h3>
+                        {client?.company && client.company !== client.name && (
+                          <p className="text-gray-400 text-sm">{client.company}</p>
+                        )}
+                      </div>
+
+                      {/* Amount - Large and prominent */}
+                      <div className="mb-3">
+                        <div className="text-xl font-bold text-white font-mono">
+                          {formatCurrency(invoice.amount)}
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="mb-3">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${
+                          isPaid ? 'bg-[#388E3C] text-white' :
+                          isOverdue ? 'bg-[#D32F2F] text-white' :
+                          isDraft ? 'bg-[#9E9E9E] text-white' :
+                          'bg-[#336699] text-white'
+                        }`}>
+                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </span>
+                      </div>
+
+                      {/* Dates - Aligned left like sidebar */}
+                      <div className="space-y-1 text-sm mb-3">
+                        <div className="flex justify-between text-gray-400">
+                          <span>Issued:</span>
+                          <span>{new Date(invoice.issue_date).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-400">
+                          <span>Due:</span>
+                          <span className={isOverdue ? 'text-[#D32F2F] font-medium' : ''}>
+                            {new Date(invoice.due_date).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="pt-3 border-t border-gray-600 flex gap-2">
+                        <button
+                          className="flex-1 bg-[#336699] text-white text-xs py-2 px-3 rounded-[2px] hover:bg-[#2851A3] transition-colors font-medium"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewInvoiceId(invoice.id);
+                          }}
+                        >
+                          View
+                        </button>
+                        {isDraft && (
+                          <button
+                            className="flex-1 bg-[#F9D71C] text-[#121212] text-xs py-2 px-3 rounded-[2px] hover:bg-opacity-90 transition-colors font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle finalize action
+                            }}
+                          >
+                            Finalize
+                          </button>
+                        )}
+                        {!isPaid && !isDraft && (
+                          <button
+                            className="flex-1 bg-[#388E3C] text-white text-xs py-2 px-3 rounded-[2px] hover:bg-opacity-90 transition-colors font-medium"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Handle mark as paid action
+                            }}
+                          >
+                            Mark Paid
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {/* Fixed bottom bulk actions bar */}

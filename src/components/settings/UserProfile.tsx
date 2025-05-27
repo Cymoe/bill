@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
+import { Search, Plus, Settings } from "lucide-react";
 
 export function UserProfile() {
   const { user } = useAuth();
@@ -74,9 +75,36 @@ export function UserProfile() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-6">Profile Settings</h1>
-      <div className="bg-white rounded-lg shadow p-6">
+    <>
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Profile Settings</h1>
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
+              <Settings className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Account: </span>
+            <span className="text-white font-medium">{user?.email}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Company: </span>
+            <span className="text-[#336699] font-medium">{formData.company || 'Not set'}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Title: </span>
+            <span className="text-white font-medium">{formData.title || 'Not set'}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-[#333333] rounded-[4px] shadow p-6">
         <div className="flex items-center mb-6">
           {user?.user_metadata?.avatar_url && (
             <img
@@ -86,15 +114,15 @@ export function UserProfile() {
             />
           )}
           <div>
-            <h2 className="text-xl font-semibold">{user?.user_metadata?.full_name || user?.email}</h2>
-            <p className="text-gray-600">{user?.email}</p>
+            <h2 className="text-xl font-semibold text-white">{user?.user_metadata?.full_name || user?.email}</h2>
+            <p className="text-gray-400">{user?.email}</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="company" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="company" className="block text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
                 Company
               </label>
               <input
@@ -103,12 +131,12 @@ export function UserProfile() {
                 name="company"
                 value={formData.company}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
+                className="mt-1 block w-full bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-white focus:border-[#336699] focus:ring-1 focus:ring-[#336699] focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="title" className="block text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
                 Job Title
               </label>
               <input
@@ -117,12 +145,12 @@ export function UserProfile() {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
+                className="mt-1 block w-full bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-white focus:border-[#336699] focus:ring-1 focus:ring-[#336699] focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
                 Phone
               </label>
               <input
@@ -131,12 +159,12 @@ export function UserProfile() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
+                className="mt-1 block w-full bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-white focus:border-[#336699] focus:ring-1 focus:ring-[#336699] focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="address" className="block text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
                 Address
               </label>
               <input
@@ -145,12 +173,12 @@ export function UserProfile() {
                 name="address"
                 value={formData.address}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
+                className="mt-1 block w-full bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-white focus:border-[#336699] focus:ring-1 focus:ring-[#336699] focus:outline-none"
               />
             </div>
 
             <div>
-              <label htmlFor="bio" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="bio" className="block text-sm font-medium text-gray-400 uppercase tracking-wide mb-2">
                 Bio
               </label>
               <textarea
@@ -159,7 +187,7 @@ export function UserProfile() {
                 rows={4}
                 value={formData.bio}
                 onChange={handleInputChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-steel-blue focus:ring-steel-blue"
+                className="mt-1 block w-full bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-white focus:border-[#336699] focus:ring-1 focus:ring-[#336699] focus:outline-none"
               />
             </div>
           </div>
@@ -168,15 +196,16 @@ export function UserProfile() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
+              className={`w-full flex justify-center py-3 px-6 rounded-[4px] text-sm font-medium uppercase tracking-wider text-white bg-[#336699] hover:bg-[#2A5580] focus:outline-none focus:ring-2 focus:ring-[#336699] focus:ring-opacity-50 transition-colors ${
                 isSubmitting ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+              {isSubmitting ? "SAVING..." : "SAVE CHANGES"}
             </button>
           </div>
         </form>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

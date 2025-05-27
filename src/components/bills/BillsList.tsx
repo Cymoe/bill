@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
 import type { Tables } from "../../lib/database";
+import { Search, Plus } from "lucide-react";
+import { formatCurrency } from "../../utils/format";
 
 export function BillsList() {
   const { user } = useAuth();
@@ -71,15 +73,60 @@ export function BillsList() {
     return <div>Please sign in to view and create bills.</div>;
   }
 
+  const totalBills = bills.reduce((sum, bill) => sum + bill.amount, 0);
+  const paidBills = bills.filter(bill => bill.status === 'paid');
+  const pendingBills = bills.filter(bill => bill.status === 'pending');
+  const overdueBills = bills.filter(bill => bill.status === 'overdue');
+  const paidAmount = paidBills.reduce((sum, bill) => sum + bill.amount, 0);
+  const pendingAmount = pendingBills.reduce((sum, bill) => sum + bill.amount, 0);
+
   return (
-    <div className="p-4">
-      {loading ? (
-        <div className="flex justify-center items-center h-32">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+    <>
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Bills</h1>
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
+              <Search className="h-5 w-5 text-gray-400" />
+            </button>
+            <button
+              onClick={() => {/* Add bill modal logic */}}
+              className="bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] p-2 rounded-full transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-      ) : (
-      <div>
-        <h1 className="text-2xl font-bold mb-4">Bills</h1>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Bills: </span>
+            <span className="text-white font-medium">{bills.length}</span>
+            <span className="text-gray-500 ml-1">({formatCurrency(totalBills)})</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Pending: </span>
+            <span className="text-[#F9D71C] font-medium">{formatCurrency(pendingAmount)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Paid: </span>
+            <span className="text-[#388E3C] font-medium">{formatCurrency(paidAmount)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Overdue: </span>
+            <span className="text-[#D32F2F] font-medium">{overdueBills.length}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4">
+        {loading ? (
+          <div className="flex justify-center items-center h-32">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+          </div>
+        ) : (
+        <div>
         
         {/* Create Bill Form */}
         <form onSubmit={handleSubmit} className="mb-8 space-y-4">
@@ -147,8 +194,9 @@ export function BillsList() {
             </div>
           ))}
         </div>
+              </div>
+        )}
       </div>
-      )}
-    </div>
+    </>
   );
 }

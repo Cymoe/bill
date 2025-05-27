@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronRight, MoreVertical, Filter, ChevronDown } from 'lucide-react';
+import { ChevronRight, MoreVertical, Filter, ChevronDown, Search, Plus } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ClientInput } from '../../lib/database.types';
@@ -509,14 +508,43 @@ export const ClientList: React.FC = () => {
 
   return (
     <>
-      <PageHeaderBar 
-        title="Clients"
-        searchPlaceholder="Search clients..."
-        searchValue={searchInput}
-        onSearch={setSearchInput}
-        onAddClick={() => setShowNewModal(true)}
-        addButtonLabel="Client"
-      />
+      {/* Compact Header - Price Book Style */}
+      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">Clients</h1>
+          <div className="flex items-center gap-3">
+            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
+              <Search className="h-5 w-5 text-gray-400" />
+            </button>
+            <button
+              onClick={() => setShowNewModal(true)}
+              className="bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] p-2 rounded-full transition-colors"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-8 text-sm">
+          <div>
+            <span className="text-gray-400">Clients: </span>
+            <span className="text-white font-medium">{clients.length}</span>
+            <span className="text-gray-500 ml-1">({formatCurrency(totalClientRevenue)})</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Avg Value: </span>
+            <span className="text-[#336699] font-medium">{formatCurrency(averageClientValue)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Top Client: </span>
+            <span className="text-[#10b981] font-medium">{formatCurrency(topClientValue)}</span>
+          </div>
+          <div>
+            <span className="text-gray-400">Recent: </span>
+            <span className="text-white font-medium">{recentClients.length} this month</span>
+          </div>
+        </div>
+      </div>
       
       {/* Client Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">

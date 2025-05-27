@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   MessageSquare,
   DollarSign,
@@ -10,18 +11,66 @@ import {
 import { ChatData, Category, QuickAction } from './types';
 import ChatHistoryView from './components/ChatHistoryView';
 import ChatConversationView from './components/ChatConversationView';
-import { DashboardLayout } from '../../components/layouts/DashboardLayout';
+import ChatOnboarding from './components/ChatOnboarding';
 
 const ChatManagementSystem: React.FC = () => {
+  const navigate = useNavigate();
   const [currentView, setCurrentView] = useState<'history' | 'chat'>('history');
   const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    const onboardingComplete = localStorage.getItem('chatOnboardingComplete');
+    if (!onboardingComplete && chatHistory.length === 0) {
+      setShowOnboarding(true);
+    }
+  }, []);
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = (data: any) => {
+    // Save onboarding data
+    localStorage.setItem('chatOnboardingComplete', 'true');
+    localStorage.setItem('chatOnboardingData', JSON.stringify(data));
+    setShowOnboarding(false);
+    
+    // Create a welcome message and redirect to advisor
+    const welcomeChat: ChatData = {
+      id: Date.now(),
+      title: "Getting Started with Your AI Advisor",
+      preview: "Your personal business assistant is ready",
+      category: "analytics",
+      timestamp: "Just now",
+      isPinned: true,
+      messageCount: 1,
+      lastValue: "Setup Complete",
+      icon: <MessageSquare className="h-4 w-4" />,
+      color: "text-[#336699]",
+      bgColor: "bg-[#336699]/20",
+      messages: [
+        {
+          id: 1,
+          type: 'ai',
+          content: `Perfect! I've learned about your business. Now I'm going to set up your AI Advisor to help you manage your construction business more effectively. Your advisor will guide you through using all the features of this platform.`,
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ]
+    };
+    
+    setChatHistory([welcomeChat]);
+    
+    // Open the welcome chat automatically
+    setSelectedChatId(welcomeChat.id);
+    setCurrentView('chat');
+  };
 
   // Sample chat history with full message threads
-  const [chatHistory, setChatHistory] = useState<ChatData[]>([
+  const [chatHistory, setChatHistory] = useState<ChatData[]>([]); // Start empty to show welcome interface
+  const [sampleChatHistory] = useState<ChatData[]>([
     {
       id: 1,
       title: "Overdue Invoices Analysis",
@@ -169,20 +218,33 @@ const ChatManagementSystem: React.FC = () => {
   };
 
   // Handle creating new chat
-  const createNewChat = () => {
+  const createNewChat = (initialMessage?: string) => {
     const newChat: ChatData = {
       id: Date.now(),
-      title: "New Business Analysis",
-      preview: "Ask me anything about your business...",
+      title: initialMessage ? initialMessage.substring(0, 30) + "..." : "New Business Analysis",
+      preview: initialMessage || "Ask me anything about your business...",
       category: "analytics",
       timestamp: "Just now",
       isPinned: false,
-      messageCount: 1,
+      messageCount: initialMessage ? 2 : 1,
       lastValue: "New chat",
       icon: <MessageSquare className="h-4 w-4" />,
       color: "text-[#336699]",
       bgColor: "bg-[#336699]/20",
-      messages: [
+      messages: initialMessage ? [
+        {
+          id: 1,
+          type: 'user',
+          content: initialMessage,
+          timestamp: new Date().toLocaleTimeString()
+        },
+        {
+          id: 2,
+          type: 'ai',
+          content: "I understand you're asking about " + initialMessage.toLowerCase() + ". Let me analyze your business data and provide insights.",
+          timestamp: new Date().toLocaleTimeString()
+        }
+      ] : [
         {
           id: 1,
           type: 'ai',
@@ -256,7 +318,7 @@ const ChatManagementSystem: React.FC = () => {
   const currentChat = chatHistory.find(chat => chat.id === selectedChatId);
 
   return (
-    <DashboardLayout>
+    <div className="h-screen flex flex-col bg-[#1A1A1A] overflow-hidden">
       {currentView === 'history' ? (
         <ChatHistoryView 
           chatHistory={chatHistory}
@@ -279,7 +341,12 @@ const ChatManagementSystem: React.FC = () => {
           quickActions={quickActions}
         />
       ) : null}
-    </DashboardLayout>
+      
+      {/* Onboarding Modal */}
+      {showOnboarding && (
+        <ChatOnboarding onComplete={handleOnboardingComplete} />
+      )}
+    </div>
   );
 };
 
