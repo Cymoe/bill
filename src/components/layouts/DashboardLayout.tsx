@@ -114,6 +114,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [isQuickStartDismissed, setIsQuickStartDismissed] = useState(false);
   const [isLiveRevenuePopoverOpen, setIsLiveRevenuePopoverOpen] = useState(false);
   const liveRevenuePopoverRef = useRef<HTMLDivElement>(null);
+  const liveRevenueButtonRef = useRef<HTMLDivElement>(null);
   const [isProjectsSidebarOpen, setIsProjectsSidebarOpen] = useState(false);
   const [projectsSearch, setProjectsSearch] = useState('');
   const projectsSidebarRef = useRef<HTMLDivElement>(null);
@@ -341,9 +342,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   useEffect(() => {
     if (!isLiveRevenuePopoverOpen) return;
     function handleClickOutside(event: MouseEvent) {
-      if (liveRevenuePopoverRef.current && !liveRevenuePopoverRef.current.contains(event.target as Node)) {
-        setIsLiveRevenuePopoverOpen(false);
+      const target = event.target as Node;
+      
+      // Don't close if clicking on the money button or inside the popover
+      if (
+        (liveRevenuePopoverRef.current && liveRevenuePopoverRef.current.contains(target)) ||
+        (liveRevenueButtonRef.current && liveRevenueButtonRef.current.contains(target))
+      ) {
+        return;
       }
+      
+      setIsLiveRevenuePopoverOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -1068,21 +1077,21 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </div>
                 
                   {/* Time Period Selector */}
-                  <div className="flex items-center justify-start space-x-1 mb-1.5">
+                  <div className="flex items-center justify-start space-x-1 mb-3">
                     {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
-                <button 
+                      <button
                         key={period}
                         onClick={() => setSelectedTimePeriod(period)}
-                        className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[9px] font-bold transition-colors ${
+                        className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-colors ${
                           selectedTimePeriod === period
                             ? 'bg-[#336699] text-white border border-[#336699]'
                             : 'bg-white/10 text-white/70 hover:bg-white/15'
                         }`}
                       >
                         {period}
-                </button>
+                      </button>
                     ))}
-              </div>
+                  </div>
             </div>
                 
                 {/* Stats Row */}
@@ -1112,6 +1121,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               /* Collapsed state - just dollar sign with popover */
               <div className="relative">
                 <div 
+                  ref={liveRevenueButtonRef}
                   onClick={() => setIsLiveRevenuePopoverOpen(!isLiveRevenuePopoverOpen)}
                   className="w-7 h-7 bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md rounded-[2px] border border-[#336699]/50 cursor-pointer hover:from-[#336699]/30 hover:to-[#336699]/10 transition-all duration-200 flex items-center justify-center mx-auto shadow-[0_0_10px_rgba(51,102,153,0.15)]"
                   title={`${timePeriodLabels[selectedTimePeriod]} Revenue: $${currentData.revenue.toLocaleString()}`}
@@ -1828,7 +1838,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
               
               {/* Time Period Selector */}
-              <div className="flex items-center justify-center space-x-1 mb-3">
+              <div className="flex items-center justify-start space-x-1 mb-3">
                 {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
                   <button
                     key={period}
