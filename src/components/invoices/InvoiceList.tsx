@@ -538,280 +538,191 @@ export const InvoiceList: React.FC = () => {
   };
 
   return (
-    <>
-      {/* Compact Header - Price Book Style */}
-      <div className="px-6 py-4 border-b border-[#333333] bg-[#121212]">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">Invoices</h1>
+    <div className="min-h-screen bg-[#121212] text-white">
+      {/* Header */}
+      <div className="border-b border-[#333333]">
+        <div className="px-6 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Invoices</h1>
           <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-[#1E1E1E] rounded-[4px] transition-colors">
-              <Search className="h-5 w-5 text-gray-400" />
-            </button>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search invoices..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
+            </div>
             <button
               onClick={() => setShowNewModal(true)}
-              className="bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] p-2 rounded-full transition-colors"
+              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
             >
-              <Plus className="h-5 w-5" />
+              <Plus className="w-5 h-5" />
             </button>
           </div>
         </div>
         
-        <div className="flex items-center gap-8 text-sm">
-          <div>
-            <span className="text-gray-400">Invoices: </span>
-            <span className="text-white font-medium">{invoices.length}</span>
-            <span className="text-gray-500 ml-1">({formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))})</span>
+        {/* Stats Bar */}
+        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Invoices:</span>
+            <span className="font-mono font-medium">{invoices.length}</span>
+            <span className="text-gray-500 text-xs">({formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))})</span>
           </div>
-          <div>
-            <span className="text-gray-400">Outstanding: </span>
-            <span className="text-[#D32F2F] font-medium">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Outstanding:</span>
+            <span className="font-mono font-medium text-[#D32F2F]">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
           </div>
-          <div>
-            <span className="text-gray-400">Paid: </span>
-            <span className="text-[#388E3C] font-medium">{formatCurrency(paidAmountForPeriod)}</span>
-          </div>
-          <div>
-            <span className="text-gray-400">Overdue: </span>
-            <span className="text-[#F9D71C] font-medium">{invoices.filter(inv => inv.status === 'overdue').length}</span>
-          </div>
-        </div>
-      </div>
-      
-      {/* Invoice summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 border-b border-[#333333]">
-        {/* Total Outstanding */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#D32F2F]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Total Outstanding</div>
-          <div className="text-3xl font-bold text-[#D32F2F] mb-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
-          <div className="text-sm text-gray-400">{invoices.filter(inv => inv.status !== 'paid').length} invoices</div>
-        </div>
-        
-        {/* Draft Invoices */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#9E9E9E]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Draft Invoices</div>
-          <div className="text-3xl font-bold text-[#9E9E9E] mb-1">{invoices.filter(inv => inv.status === 'draft').length}</div>
-          <div className="text-sm text-gray-400">
-            <button className="bg-[#336699] text-white text-xs font-medium rounded-full px-4 py-1 hover:bg-[#2851A3] transition-colors">
-              Finalize
-            </button>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Paid:</span>
+            <span className="font-mono font-medium text-[#388E3C]">{formatCurrency(paidAmountForPeriod)}</span>
           </div>
         </div>
-        
-        {/* Overdue */}
-        <div className="relative bg-[#1a1a1a] border-r border-[#333333] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#F9D71C]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Overdue</div>
-          <div className="text-3xl font-bold text-[#F9D71C] mb-1">{formatCurrency(invoices.filter(inv => inv.status === 'overdue').reduce((sum, inv) => sum + inv.amount, 0))}</div>
-          <div className="text-sm text-gray-400">{invoices.filter(inv => inv.status === 'overdue').length} invoices</div>
-        </div>
-        
-        {/* Paid */}
-        <div className="relative bg-[#1a1a1a] p-6 hover:bg-[#222222] transition-colors">
-          <div className="absolute top-0 left-0 w-full h-1 bg-[#388E3C]"></div>
-          <div className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Paid</div>
-          <div className="text-3xl font-bold text-[#388E3C] mb-1">{formatCurrency(paidAmountForPeriod)}</div>
-          <div className="text-sm text-gray-400">{paidInvoicesForPeriod.length} invoices</div>
-        </div>
-      </div>
-      
-      {/* Filter Controls */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-700">
-        {/* Left side - View Mode and Primary Filter */}
-        <div className="flex items-center gap-4">
-          {/* View Mode Toggles - More Prominent */}
-          <div className="flex bg-[#333333] border border-gray-700 rounded overflow-hidden">
-            <button
-              className={`px-4 py-2 ${viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-              onClick={() => setViewMode('list')}
-            >
-              List
-            </button>
-            <button
-              className={`px-4 py-2 ${viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-gray-700'}`}
-              onClick={() => setViewMode('cards')}
-            >
-              Cards
-            </button>
-          </div>
 
-          {/* Primary Client Filter - More Prominent */}
-          <div className="relative">
-            <select
-              className="bg-[#232323] border border-gray-700 rounded px-4 py-2 text-white focus:outline-none focus:ring-1 focus:ring-[#336699] appearance-none cursor-pointer pr-10 min-w-[200px]"
-              value={selectedClientId}
-              onChange={(e) => setSelectedClientId(e.target.value)}
-            >
-              <option value="all">All Clients ({clients.length})</option>
-              {clients.map(client => (
-                <option key={client.id} value={client.id}>{client.name}</option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
-              <ChevronDown size={16} />
+        {/* Controls Bar */}
+        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <select
+                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
+              >
+                <option value="all">All Invoices ({invoices.length})</option>
+                <option value="draft">Drafts ({invoices.filter(inv => inv.status === 'draft').length})</option>
+                <option value="sent">Sent ({invoices.filter(inv => inv.status === 'sent').length})</option>
+                <option value="paid">Paid ({invoices.filter(inv => inv.status === 'paid').length})</option>
+                <option value="overdue">Overdue ({invoices.filter(inv => inv.status === 'overdue').length})</option>
+              </select>
+              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
-          </div>
-
-          {/* More Filters Button */}
-          <div className="relative" ref={filterMenuRef}>
-            <button 
-              onClick={() => setShowFilterMenu(!showFilterMenu)}
-              className="flex items-center gap-2 px-4 py-2 bg-[#232323] border border-gray-700 rounded text-white hover:bg-[#2A2A2A] transition-colors"
-            >
-              <Filter size={16} />
-              More Filters
-            </button>
-            {showFilterMenu && (
-              <div className="absolute left-0 top-full mt-2 w-80 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                <div className="p-4 space-y-4">
-                  {/* Quick Date Range Filter */}
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Quick Date Range</label>
-                    <select
-                      value={selectedDateRange}
-                      onChange={(e) => setSelectedDateRange(e.target.value)}
-                      className="w-full bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                    >
-                      <option value="all">All Time</option>
-                      <option value="7d">Last 7 Days</option>
-                      <option value="30d">Last 30 Days</option>
-                      <option value="90d">Last 90 Days</option>
-                    </select>
-                  </div>
-
-                  {/* Custom Date Range Filter */}
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Custom Date Range</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        placeholder="From"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
-                      <input
-                        type="date"
-                        placeholder="To"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
+            <div className="relative" ref={filterMenuRef}>
+              <button 
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
+                  showFilterMenu ? 'bg-[#252525]' : ''
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span>More Filters</span>
+              </button>
+              
+              {/* More Filters Dropdown */}
+              {showFilterMenu && (
+                <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
+                  <div className="space-y-4">
+                    {/* Client Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Client
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedClientId}
+                        onChange={(e) => setSelectedClientId(e.target.value)}
+                      >
+                        <option value="all">All Clients</option>
+                        {clients.map(client => (
+                          <option key={client.id} value={client.id}>{client.name}</option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
 
-                  {/* Due Date Range Filter */}
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Due Date Range</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="date"
-                        placeholder="From"
-                        value={dueDateFrom}
-                        onChange={(e) => setDueDateFrom(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
-                      <input
-                        type="date"
-                        placeholder="To"
-                        value={dueDateTo}
-                        onChange={(e) => setDueDateTo(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
+                    {/* Amount Range Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Amount Range
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          placeholder="Min Amount"
+                          value={minAmount}
+                          onChange={(e) => setMinAmount(e.target.value)}
+                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Max Amount"
+                          value={maxAmount}
+                          onChange={(e) => setMaxAmount(e.target.value)}
+                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Amount Range Filter */}
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Amount Range</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        placeholder="Min"
-                        value={minAmount}
-                        onChange={(e) => setMinAmount(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Max"
-                        value={maxAmount}
-                        onChange={(e) => setMaxAmount(e.target.value)}
-                        className="w-1/2 bg-[#181818] border border-gray-700 rounded px-3 py-2 text-sm text-white"
-                      />
+                    {/* Clear Filters */}
+                    <div className="pt-2 border-t border-[#333333]">
+                      <button
+                        onClick={() => {
+                          resetFilters();
+                          setShowFilterMenu(false);
+                        }}
+                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                      >
+                        Clear All Filters
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Filter Actions */}
-                  <div className="flex justify-between pt-2">
-                    <button 
-                      className="px-4 py-2 bg-[#232323] text-gray-400 rounded text-sm hover:bg-[#2A2A2A]"
-                      onClick={resetFilters}
-                    >
-                      Reset All
-                    </button>
-                    <button 
-                      className="px-4 py-2 bg-[#336699] text-white rounded text-sm hover:bg-[#2851A3]"
-                      onClick={() => setShowFilterMenu(false)}
-                    >
-                      Apply Filters
-                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Right side - Options Menu */}
-        <div className="flex items-center">
-          <div className="relative" ref={optionsMenuRef}>
-            <button
-              className="flex items-center justify-center w-8 h-8 rounded hover:bg-[#232323] transition-colors"
-              onClick={() => setShowOptionsMenu(v => !v)}
-              aria-label="More options"
-            >
-              <MoreVertical size={20} className="text-gray-400" />
-            </button>
-            {showOptionsMenu && (
-              <div className="absolute right-0 mt-2 w-44 bg-[#232323] border border-gray-700 rounded shadow-lg z-50">
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                  onClick={() => { setShowOptionsMenu(false); handleImportInvoices(); }}
-                >
-                  Import Invoices
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                  onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
-                >
-                  Export to CSV
-                </button>
-                <button
-                  className="w-full text-left px-4 py-2 text-sm text-white hover:bg-[#336699] transition-colors"
-                  onClick={() => { setShowOptionsMenu(false); handlePrintInvoices(); }}
-                >
-                  Print Invoices
-                </button>
-              </div>
-            )}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
+              <button
+                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                  viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
+                }`}
+                onClick={() => setViewMode('list')}
+              >
+                List
+              </button>
+              <button
+                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
+                  viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
+                }`}
+                onClick={() => setViewMode('cards')}
+              >
+                Cards
+              </button>
+            </div>
+            <div className="relative" ref={optionsMenuRef}>
+              <button
+                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {showOptionsMenu && (
+                <div className="absolute right-0 top-full mt-1 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); handleImportInvoices(); }}
+                  >
+                    Import Invoices
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
+                  >
+                    Export to CSV
+                  </button>
+                  <button
+                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                    onClick={() => { setShowOptionsMenu(false); handlePrintInvoices(); }}
+                  >
+                    Print Invoices
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
-      
-      {/* Global subnav tabs (now below summary cards, above table) */}
-      <TabMenu
-        items={statusFilters.map(filter => ({
-          id: filter.value,
-          label: filter.label,
-          count: filter.value === 'all' 
-            ? invoices.length 
-            : invoices.filter(inv => inv.status === filter.value).length
-        }))}
-        activeItemId={selectedStatus}
-        onItemClick={(id) => setSelectedStatus(id as InvoiceStatus)}
-      />
+
       <div>
         {/* Show contextual onboarding if no invoices and not loading */}
         {!isLoading && (invoices.length === 0 || showTutorial) ? (
@@ -1107,6 +1018,16 @@ export const InvoiceList: React.FC = () => {
         />
       )}
 
+      {showNewModal && (
+        <NewInvoiceModal
+          onClose={() => setShowNewModal(false)}
+          onSave={() => {
+            setShowNewModal(false);
+            fetchData();
+          }}
+        />
+      )}
+
       {/* Invoice Details Drawer */}
       {viewInvoiceId && (
         <InvoiceDetailsDrawer
@@ -1115,6 +1036,6 @@ export const InvoiceList: React.FC = () => {
           onClose={() => setViewInvoiceId(null)}
         />
       )}
-    </>
+    </div>
   );
 };

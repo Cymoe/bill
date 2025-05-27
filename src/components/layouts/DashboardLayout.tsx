@@ -47,6 +47,19 @@ export const MobileMenuContext = createContext<{ isMobileMenuOpen: boolean; setI
 // Context for mobile create menu state
 export const MobileCreateMenuContext = createContext<{ isCreateMenuOpen: boolean; setIsCreateMenuOpen: (v: boolean) => void }>({ isCreateMenuOpen: false, setIsCreateMenuOpen: () => {} });
 
+// Context for layout constraints
+export const LayoutContext = createContext<{ 
+  isConstrained: boolean; 
+  isChatOpen: boolean; 
+  isProjectsOpen: boolean;
+  availableWidth: 'full' | 'constrained' | 'minimal';
+}>({ 
+  isConstrained: false, 
+  isChatOpen: false, 
+  isProjectsOpen: false,
+  availableWidth: 'full'
+});
+
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
   const isAuthenticated = !!session;
@@ -288,10 +301,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   // Auto-collapse main sidebar when both chat and projects are open
   useEffect(() => {
-    if (isChatPanelOpen && isProjectsSidebarLocked && !isSidebarCollapsed) {
+    if (isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen) && !isSidebarCollapsed) {
       setSidebarCollapsedWithLogging(true);
     }
-  }, [isChatPanelOpen, isProjectsSidebarLocked]);
+  }, [isChatPanelOpen, isProjectsSidebarLocked, isProjectsSidebarOpen]);
 
   if (isLoading) {
     return (
@@ -329,7 +342,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     
     // Add left margin when chat is open
     if (isChatPanelOpen) {
-      classes += ' md:ml-[25rem]'; // 12 (chat toggle) + 384px (chat panel) = 400px
+      classes += ' md:ml-[27rem]'; // 48px (chat toggle) + 384px (chat panel) = 432px
     } else {
       classes += ' md:ml-12'; // Just the chat toggle button width
     }
@@ -341,13 +354,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       classes += isProjectsSidebarLocked ? ' md:mr-[32rem]' : ' md:mr-48';
     }
     
+    // Add data attribute for constrained space detection
+    const isConstrained = isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen);
+    if (isConstrained) {
+      classes += ' data-constrained-layout';
+    }
+    
     return classes;
   };
 
+  // Calculate layout constraints
+  const isConstrained = isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen);
+  const availableWidth = isConstrained ? 'constrained' : isChatPanelOpen || isProjectsSidebarOpen ? 'constrained' : 'full';
+  
   return (
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
     <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
+    <LayoutContext.Provider value={{ 
+      isConstrained, 
+      isChatOpen: isChatPanelOpen, 
+      isProjectsOpen: isProjectsSidebarLocked || isProjectsSidebarOpen,
+      availableWidth 
+    }}>
       <div className="min-h-screen bg-[#121212] flex">
         {/* Mobile Header */}
         <MobileHeader
@@ -1001,6 +1030,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         )}
       </div>
+    </LayoutContext.Provider>
     </IndustryContext.Provider>
     </MobileMenuContext.Provider>
     </MobileCreateMenuContext.Provider>
