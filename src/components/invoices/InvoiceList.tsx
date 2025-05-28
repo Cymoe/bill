@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle, Search, Plus } from 'lucide-react';
+import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle, Search, Plus, Upload, Settings, BarChart3, Columns, List, LayoutGrid } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import TabMenu from '../common/TabMenu';
 import { NewInvoiceModal } from './NewInvoiceModal';
@@ -11,6 +11,9 @@ import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeader } from '../common/PageHeader';
+import { PageHeaderBar } from '../common/PageHeaderBar';
+import { StatsBar } from '../common/StatsBar';
+import { ControlsBar } from '../common/ControlsBar';
 import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
 import { NewButton } from '../common/NewButton';
 
@@ -52,14 +55,11 @@ export const InvoiceList: React.FC = () => {
   const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   
-  // Advanced filter states
-  const [selectedClientId, setSelectedClientId] = useState('all');
-  const [minAmount, setMinAmount] = useState('');
-  const [maxAmount, setMaxAmount] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [dueDateFrom, setDueDateFrom] = useState('');
-  const [dueDateTo, setDueDateTo] = useState('');
+  // Revenue-driven cash flow filters
+  const [selectedCashFlowStatus, setSelectedCashFlowStatus] = useState('all');
+  const [selectedValueTier, setSelectedValueTier] = useState('all');
+  const [selectedUrgency, setSelectedUrgency] = useState('all');
+  const [selectedClientType, setSelectedClientType] = useState('all');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
@@ -154,31 +154,49 @@ export const InvoiceList: React.FC = () => {
       filtered = filtered.filter(invoice => invoice.status === selectedStatus);
     }
 
-    // Client filter
-    if (selectedClientId !== 'all') {
-      filtered = filtered.filter(invoice => invoice.client_id === selectedClientId);
+    // Cash flow status filter (most important for revenue)
+    if (selectedCashFlowStatus !== 'all') {
+      filtered = filtered.filter(invoice => {
+        const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+        
+        switch (selectedCashFlowStatus) {
+          case 'critical': return invoice.status === 'overdue' && daysPastDue > 30;
+          case 'overdue': return invoice.status === 'overdue';
+          case 'due-soon': return invoice.status === 'sent' && daysPastDue >= -7 && daysPastDue <= 0;
+          case 'paid': return invoice.status === 'paid';
+          case 'draft': return invoice.status === 'draft';
+          default: return true;
+        }
+      });
     }
 
-    // Amount range filter
-    if (minAmount !== '') {
-      filtered = filtered.filter(invoice => invoice.amount >= parseFloat(minAmount));
-    }
-    if (maxAmount !== '') {
-      filtered = filtered.filter(invoice => invoice.amount <= parseFloat(maxAmount));
+    // Value tier filter (revenue impact)
+    if (selectedValueTier !== 'all') {
+      filtered = filtered.filter(invoice => {
+        const amount = invoice.amount;
+        switch (selectedValueTier) {
+          case 'large': return amount >= 10000;
+          case 'medium': return amount >= 5000 && amount < 10000;
+          case 'small': return amount >= 1000 && amount < 5000;
+          case 'minimal': return amount < 1000;
+          default: return true;
+        }
+      });
     }
 
-    // Date range filters
-    if (dateFrom) {
-      filtered = filtered.filter(invoice => new Date(invoice.issue_date) >= new Date(dateFrom));
-    }
-    if (dateTo) {
-      filtered = filtered.filter(invoice => new Date(invoice.issue_date) <= new Date(dateTo));
-    }
-    if (dueDateFrom) {
-      filtered = filtered.filter(invoice => new Date(invoice.due_date) >= new Date(dueDateFrom));
-    }
-    if (dueDateTo) {
-      filtered = filtered.filter(invoice => new Date(invoice.due_date) <= new Date(dueDateTo));
+    // Urgency filter (cash flow priority)
+    if (selectedUrgency !== 'all') {
+      filtered = filtered.filter(invoice => {
+        const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+        const isHighValue = invoice.amount >= 5000;
+        
+        switch (selectedUrgency) {
+          case 'urgent': return (daysPastDue > 0 && isHighValue) || daysPastDue > 30;
+          case 'important': return daysPastDue > 0 || (daysPastDue >= -7 && isHighValue);
+          case 'routine': return daysPastDue <= 0 && !isHighValue;
+          default: return true;
+        }
+      });
     }
 
     // Quick date range filter
@@ -199,7 +217,7 @@ export const InvoiceList: React.FC = () => {
         return b.amount - a.amount;
       }
     });
-  }, [invoices, searchTerm, selectedStatus, selectedClientId, minAmount, maxAmount, dateFrom, dateTo, dueDateFrom, dueDateTo, selectedDateRange, amountSort, clients]);
+  }, [invoices, searchTerm, selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedClientType, selectedDateRange, amountSort, clients]);
 
   const toggleAmountSort = () => {
     setAmountSort(amountSort === 'asc' ? 'desc' : 'asc');
@@ -207,13 +225,10 @@ export const InvoiceList: React.FC = () => {
 
   // Reset filters function
   const resetFilters = () => {
-    setSelectedClientId('all');
-    setMinAmount('');
-    setMaxAmount('');
-    setDateFrom('');
-    setDateTo('');
-    setDueDateFrom('');
-    setDueDateTo('');
+    setSelectedCashFlowStatus('all');
+    setSelectedValueTier('all');
+    setSelectedUrgency('all');
+    setSelectedClientType('all');
     setSelectedDateRange('all');
     setSearchInput('');
     setSelectedStatus('all');
@@ -540,44 +555,38 @@ export const InvoiceList: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
-      <div className="border-b border-[#333333]">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search invoices..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
-              />
-            </div>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+      <PageHeaderBar
+        title="Invoices"
+        searchPlaceholder="Search invoices..."
+        onSearch={(query) => setSearchInput(query)}
+        searchValue={searchInput}
+        addButtonLabel="Add Invoice"
+        onAddClick={() => setShowNewModal(true)}
+      />
         
         {/* Stats Bar */}
         <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-gray-400">Invoices:</span>
-            <span className="font-mono font-medium">{invoices.length}</span>
-            <span className="text-gray-500 text-xs">({formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))})</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
             <span className="text-gray-400">Outstanding:</span>
             <span className="font-mono font-medium text-[#D32F2F]">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
+            <span className="text-gray-500 text-xs">({invoices.filter(inv => inv.status !== 'paid').length} invoices)</span>
           </div>
           <div className="w-px h-4 bg-[#333333]" />
           <div className="flex items-center gap-2">
-            <span className="text-gray-400">Paid:</span>
+            <span className="text-gray-400">Overdue:</span>
+            <span className="font-mono font-medium text-[#F9D71C]">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</span>
+            <span className="text-gray-500 text-xs">({invoices.filter(inv => inv.status === 'overdue').length})</span>
+          </div>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Collected:</span>
             <span className="font-mono font-medium text-[#388E3C]">{formatCurrency(paidAmountForPeriod)}</span>
+            <span className="text-gray-500 text-xs">(this year)</span>
+          </div>
+          <div className="w-px h-4 bg-[#333333]" />
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400">Avg Invoice:</span>
+            <span className="font-mono font-medium text-[#336699]">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</span>
           </div>
         </div>
 
@@ -587,14 +596,15 @@ export const InvoiceList: React.FC = () => {
             <div className="relative">
               <select
                 className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
+                value={selectedCashFlowStatus}
+                onChange={(e) => setSelectedCashFlowStatus(e.target.value)}
               >
                 <option value="all">All Invoices ({invoices.length})</option>
-                <option value="draft">Drafts ({invoices.filter(inv => inv.status === 'draft').length})</option>
-                <option value="sent">Sent ({invoices.filter(inv => inv.status === 'sent').length})</option>
-                <option value="paid">Paid ({invoices.filter(inv => inv.status === 'paid').length})</option>
-                <option value="overdue">Overdue ({invoices.filter(inv => inv.status === 'overdue').length})</option>
+                <option value="critical">Critical (30+ Days Overdue)</option>
+                <option value="overdue">Overdue (Past Due)</option>
+                <option value="due-soon">Due Soon (Next 7 Days)</option>
+                <option value="paid">Paid & Collected</option>
+                <option value="draft">Drafts (Not Sent)</option>
               </select>
               <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
@@ -613,44 +623,56 @@ export const InvoiceList: React.FC = () => {
               {showFilterMenu && (
                 <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
                   <div className="space-y-4">
-                    {/* Client Filter */}
+                    {/* Value Tier Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Client
+                        Invoice Value
                       </label>
                       <select
                         className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedClientId}
-                        onChange={(e) => setSelectedClientId(e.target.value)}
+                        value={selectedValueTier}
+                        onChange={(e) => setSelectedValueTier(e.target.value)}
                       >
-                        <option value="all">All Clients</option>
-                        {clients.map(client => (
-                          <option key={client.id} value={client.id}>{client.name}</option>
-                        ))}
+                        <option value="all">All Amounts</option>
+                        <option value="large">Large Jobs ($10k+)</option>
+                        <option value="medium">Medium Jobs ($5k-10k)</option>
+                        <option value="small">Small Jobs ($1k-5k)</option>
+                        <option value="minimal">Quick Jobs (Under $1k)</option>
                       </select>
                     </div>
 
-                    {/* Amount Range Filter */}
+                    {/* Urgency Filter */}
                     <div>
                       <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Amount Range
+                        Collection Priority
                       </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min Amount"
-                          value={minAmount}
-                          onChange={(e) => setMinAmount(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max Amount"
-                          value={maxAmount}
-                          onChange={(e) => setMaxAmount(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
-                      </div>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedUrgency}
+                        onChange={(e) => setSelectedUrgency(e.target.value)}
+                      >
+                        <option value="all">All Priorities</option>
+                        <option value="urgent">Urgent (High Value + Overdue)</option>
+                        <option value="important">Important (Any Overdue)</option>
+                        <option value="routine">Routine (Current)</option>
+                      </select>
+                    </div>
+
+                    {/* Date Range Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Invoice Age
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedDateRange}
+                        onChange={(e) => setSelectedDateRange(e.target.value)}
+                      >
+                        <option value="all">All Time</option>
+                        <option value="7d">Last 7 Days</option>
+                        <option value="30d">Last 30 Days</option>
+                        <option value="90d">Last 90 Days</option>
+                      </select>
                     </div>
 
                     {/* Clear Filters */}
@@ -721,7 +743,6 @@ export const InvoiceList: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
 
       <div>
         {/* Show contextual onboarding if no invoices and not loading */}

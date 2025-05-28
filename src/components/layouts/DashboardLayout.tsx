@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext } from 'react';
+import React, { useState, useEffect, useRef, createContext, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import {
   Plus,
@@ -72,8 +72,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   });
   const [isChatPanelOpen, setIsChatPanelOpen] = useState(() => {
     const saved = localStorage.getItem('chatPanelOpen');
-    return saved !== null ? JSON.parse(saved) : true; // Default to open
+    return saved ? JSON.parse(saved) : true; // Default to open
   });
+  const [chatPanelWidth, setChatPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('chatPanelWidth');
+    return saved ? parseInt(saved) : 520; // Default to 520px, can be dragged to 780px max
+  });
+  const [isResizing, setIsResizing] = useState(false);
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showNewInvoiceDrawer, setShowNewInvoiceDrawer] = useState(false);
   const [showLineItemDrawer, setShowLineItemDrawer] = useState(false);
@@ -97,11 +102,69 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const liveRevenuePopoverRef = useRef<HTMLDivElement>(null);
   const projectsSidebarRef = useRef<HTMLDivElement>(null);
   const [projectsSearch, setProjectsSearch] = useState('');
+  const [isProjectsSearchExpanded, setIsProjectsSearchExpanded] = useState(false);
   const [projectsSortOrder, setProjectsSortOrder] = useState<'latest' | 'earliest'>('latest');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [availableContentWidth, setAvailableContentWidth] = useState<'full' | 'constrained'>('full');
 
-  // Get page title based on current route
+  const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
+    mouseDownEvent.preventDefault();
+    mouseDownEvent.stopPropagation();
+    
+    const startX = mouseDownEvent.pageX;
+    const startWidth = chatPanelWidth;
+    let animationId: number;
+    
+    setIsResizing(true);
+
+    function onMouseMove(mouseMoveEvent: MouseEvent) {
+      mouseMoveEvent.preventDefault();
+      mouseMoveEvent.stopPropagation();
+      
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      
+      animationId = requestAnimationFrame(() => {
+        const currentX = mouseMoveEvent.pageX;
+        const diff = currentX - startX;
+        // Calculate max width based on viewport to ensure sidebar stays visible
+        const viewportWidth = window.innerWidth;
+        const reservedSpace = 48 + 350 + (isProjectsSidebarLocked || isProjectsSidebarOpen ? 320 : 0) + (isSidebarCollapsed ? 48 : 192); // chat button + min content + projects + sidebar
+        const maxAllowedWidth = Math.max(280, viewportWidth - reservedSpace);
+        const newWidth = Math.min(Math.max(280, startWidth + diff), Math.min(780, maxAllowedWidth));
+        
+        setChatPanelWidth(newWidth);
+      });
+    }
+
+    function onMouseUp() {
+      if (animationId) {
+        cancelAnimationFrame(animationId);
+      }
+      setIsResizing(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      localStorage.setItem('chatPanelWidth', chatPanelWidth.toString());
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, [chatPanelWidth]);
+
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/dashboard') return 'Dashboard';
@@ -113,7 +176,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return 'Dashboard';
   };
 
-  // Mock organizations
   const mockOrgs = [
     { id: 'org1', name: 'Acme Construction', industry: 'New Construction' },
     { id: 'org2', name: 'Remodel Pros', industry: 'Remodelers' },
@@ -122,7 +184,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   ];
   const [selectedOrg, setSelectedOrg] = useState(mockOrgs[0]);
   
-  // Mock data for different time periods
   const moneyPulseData = {
     D: { revenue: 24500, profit: 7623, goal: 33500, percentage: 73 },
     W: { revenue: 127800, profit: 38340, goal: 150000, percentage: 85 },
@@ -156,7 +217,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     Y: "yearly"
   };
 
-  // Mock projects data
   const allProjects = [
     { id: 1, name: 'Kitchen Renovation', client: 'Miller Residence', progress: 75, status: 'active' },
     { id: 2, name: 'HVAC Install', client: 'Johnson Home', progress: 45, status: 'active' },
@@ -170,22 +230,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { id: 10, name: 'Garage Addition', client: 'Martinez Home', progress: 40, status: 'in-progress' },
   ];
 
-  // Filter projects based on search
   const filteredProjects = allProjects.filter(project => 
     project.name.toLowerCase().includes(projectsSearch.toLowerCase()) ||
     project.client.toLowerCase().includes(projectsSearch.toLowerCase())
   );
 
-  // Sort projects based on sort order
   const sortedProjects = [...filteredProjects].sort((a, b) => {
     if (projectsSortOrder === 'latest') {
-      return b.id - a.id; // Higher ID = more recent
+      return b.id - a.id;
     } else {
-      return a.id - b.id; // Lower ID = older
+      return a.id - b.id;
     }
   });
 
-  // Function to cycle to next time period
   const cycleTimePeriod = () => {
     const periods: Array<'D' | 'W' | 'M' | 'Q' | 'Y'> = ['D', 'W', 'M', 'Q', 'Y'];
     const currentIndex = periods.indexOf(selectedTimePeriod);
@@ -199,7 +256,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  // Handle click outside of create menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -217,13 +273,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     };
   }, [isCreateMenuOpen]);
 
-  // Close Live Revenue popover on outside click
   useEffect(() => {
     if (!isLiveRevenuePopoverOpen) return;
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       
-      // Don't close if clicking on the money button or inside the popover
       if (
         (liveRevenuePopoverRef.current && liveRevenuePopoverRef.current.contains(target)) ||
         (liveRevenueButtonRef.current && liveRevenueButtonRef.current.contains(target))
@@ -237,18 +291,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isLiveRevenuePopoverOpen]);
 
-  // Close Projects sidebar on outside click
   useEffect(() => {
     if (!isProjectsSidebarOpen || isProjectsSidebarLocked) return;
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       
-      // Don't close if clicking inside the projects sidebar
       if (projectsSidebarRef.current && projectsSidebarRef.current.contains(target)) {
         return;
       }
       
-      // Don't close if clicking on the "more" button in the main sidebar
       const moreButton = target as Element;
       if (moreButton.closest && moreButton.closest('[data-projects-more-button]')) {
         return;
@@ -260,20 +311,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isProjectsSidebarOpen, isProjectsSidebarLocked]);
 
-  // Auto-open projects sidebar if it was previously locked
   useEffect(() => {
     if (isProjectsSidebarLocked) {
       setIsProjectsSidebarOpen(true);
     }
   }, [isProjectsSidebarLocked]);
 
-  // Close dropdown menus on outside click
   useEffect(() => {
     if (!openDropdownId) return;
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node;
       
-      // Check if click is outside all dropdown menus
       const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
         !ref || !ref.contains(target)
       );
@@ -286,7 +334,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdownId]);
 
-  // Keyboard shortcut for toggling chat panel (Cmd/Ctrl + K)
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
@@ -299,13 +346,56 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isChatPanelOpen]);
 
-  // Auto-collapse main sidebar when both chat and projects are open
   useEffect(() => {
     if (isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen) && !isSidebarCollapsed) {
       setSidebarCollapsedWithLogging(true);
     }
   }, [isChatPanelOpen, isProjectsSidebarLocked, isProjectsSidebarOpen]);
 
+  useEffect(() => {
+    const mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+
+    const sidebarWidth = isProjectsSidebarOpen ? (isSidebarCollapsed ? 48 : 256) : 48;
+    const chatWidth = isChatPanelOpen ? chatPanelWidth : 0;
+    const totalWidth = sidebarWidth + chatWidth;
+
+    mainContent.style.marginLeft = `${totalWidth}px`;
+  }, [isProjectsSidebarOpen, isSidebarCollapsed, isChatPanelOpen, chatPanelWidth]);
+
+  // Calculate actual available width for content
+  const calculateAvailableWidth = useCallback(() => {
+    if (typeof window === 'undefined') return 'full';
+    
+    const viewportWidth = window.innerWidth;
+    const leftSpace = isChatPanelOpen ? chatPanelWidth + 48 : 48; // chat panel + button
+    const rightSpace = (() => {
+      if (isProjectsSidebarLocked || isProjectsSidebarOpen) {
+        return isSidebarCollapsed ? 368 : 512; // projects + main sidebar
+      }
+      return isSidebarCollapsed ? 48 : 192; // just main sidebar
+    })();
+    
+    const availableSpace = viewportWidth - leftSpace - rightSpace;
+    
+    // Consider it constrained if available space is less than 800px
+    return availableSpace < 800 ? 'constrained' : 'full';
+  }, [isChatPanelOpen, chatPanelWidth, isProjectsSidebarLocked, isProjectsSidebarOpen, isSidebarCollapsed]);
+
+  // Update available width when dependencies change
+  useEffect(() => {
+    const updateWidth = () => {
+      setAvailableContentWidth(calculateAvailableWidth());
+    };
+    
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [calculateAvailableWidth]);
+
+  const isConstrained = availableContentWidth === 'constrained';
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -314,7 +404,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     );
   }
 
-  // Debug function to track sidebar state changes
   const setSidebarCollapsedWithLogging = (value: boolean | ((prev: boolean) => boolean)) => {
     const newValue = typeof value === 'function' ? value(isSidebarCollapsed) : value;
     console.log('Sidebar state changing:', { from: isSidebarCollapsed, to: newValue, stack: new Error().stack });
@@ -322,39 +411,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     localStorage.setItem('sidebarCollapsed', JSON.stringify(newValue));
   };
 
-  // Function to update projects sidebar locked state and persist to localStorage
   const setProjectsSidebarLockedWithPersistence = (value: boolean) => {
     setIsProjectsSidebarLocked(value);
     localStorage.setItem('projectsSidebarLocked', JSON.stringify(value));
   };
 
-  // Function to toggle chat panel with persistence
   const toggleChatPanel = () => {
     const newState = !isChatPanelOpen;
     setIsChatPanelOpen(newState);
     localStorage.setItem('chatPanelOpen', JSON.stringify(newState));
   };
 
-  // Calculate available content width
   const calculateContentClass = () => {
-    // Base classes
-    let classes = 'flex-1 transition-all duration-300 pt-14 md:pt-0 pb-16 md:pb-0';
+    let classes = `flex-1 pt-14 md:pt-0 pb-16 md:pb-0 ${!isResizing ? 'transition-all duration-300 ease-out' : ''}`;
     
-    // Add left margin when chat is open
-    if (isChatPanelOpen) {
-      classes += ' md:ml-[27rem]'; // 48px (chat toggle) + 384px (chat panel) = 432px
-    } else {
-      classes += ' md:ml-12'; // Just the chat toggle button width
-    }
+    // Dynamic left margin based on actual chat panel width
+    const chatMargin = isChatPanelOpen ? chatPanelWidth + 48 : 48; // 48px for the chat button area
     
-    // Add right margin based on sidebar state
     if (isSidebarCollapsed) {
       classes += isProjectsSidebarLocked ? ' md:mr-[22rem]' : ' md:mr-14';
     } else {
       classes += isProjectsSidebarLocked ? ' md:mr-[32rem]' : ' md:mr-48';
     }
     
-    // Add data attribute for constrained space detection
     const isConstrained = isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen);
     if (isConstrained) {
       classes += ' data-constrained-layout';
@@ -363,22 +442,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return classes;
   };
 
-  // Calculate layout constraints
-  const isConstrained = isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen);
-  const availableWidth = isConstrained ? 'constrained' : isChatPanelOpen || isProjectsSidebarOpen ? 'constrained' : 'full';
-  
   return (
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
     <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
     <LayoutContext.Provider value={{ 
-      isConstrained, 
+      isConstrained: isConstrained, 
       isChatOpen: isChatPanelOpen, 
       isProjectsOpen: isProjectsSidebarLocked || isProjectsSidebarOpen,
-      availableWidth 
+      availableWidth: availableContentWidth
     }}>
-      <div className="min-h-screen bg-[#121212] flex">
-        {/* Mobile Header */}
+      <div className="min-h-screen bg-[#121212] flex overflow-x-hidden">
         <MobileHeader
           onMenuClick={() => setIsMobileMenuOpen(true)}
           onChatClick={toggleChatPanel}
@@ -387,71 +461,254 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           title={getPageTitle()}
         />
 
-        {/* Chat Toggle Button - Always visible on desktop */}
-        <div className="hidden md:flex fixed left-0 top-0 z-[9997] flex-col items-center justify-center w-12 h-screen bg-[#1A1A1A] border-r border-gray-700">
-                  <button
-            onClick={toggleChatPanel}
-            className={`relative w-10 h-10 ${isChatPanelOpen ? 'bg-[#336699]' : 'bg-[#2A2A2A]'} hover:bg-[#336699] rounded-[4px] flex items-center justify-center transition-all duration-200 group`}
-            title={isChatPanelOpen ? "Close AI Assistant" : "Open AI Assistant"}
-          >
-            <MessageSquare className={`h-5 w-5 ${isChatPanelOpen ? 'text-white' : 'text-gray-400 group-hover:text-white'} transition-colors`} />
-            {/* Notification dot when closed */}
-            {!isChatPanelOpen && (
-              <div className="absolute top-1 right-1 w-2 h-2 bg-[#F9D71C] rounded-full animate-pulse"></div>
-            )}
-              </button>
-              
-          {/* Vertical text label */}
-          <div className="mt-4 writing-mode-vertical text-[10px] text-gray-500 uppercase tracking-wider select-none">
-            AI Chat
-            </div>
-            </div>
+        {/* Desktop Layout Container */}
+        <div className="hidden md:grid w-full h-screen overflow-hidden" 
+          style={{
+            gridTemplateColumns: `48px ${isChatPanelOpen ? `${chatPanelWidth}px` : '0px'} minmax(400px, 1fr) ${isProjectsSidebarLocked || isProjectsSidebarOpen ? '320px' : '0px'} ${isSidebarCollapsed ? '48px' : '192px'}`,
+            transition: isResizing ? 'none' : 'grid-template-columns 300ms ease-out'
+          }}
+        >
+          {/* Chat Toggle Button */}
+          <div className="flex flex-col items-center justify-center h-screen bg-[#1A1A1A] border-r border-gray-700">
+            <button
+              onClick={toggleChatPanel}
+              className={`relative w-10 h-10 ${isChatPanelOpen ? 'bg-[#336699]' : 'bg-[#2A2A2A]'} hover:bg-[#336699] rounded-[4px] flex items-center justify-center transition-all duration-200 group`}
+              title={isChatPanelOpen ? "Close AI Assistant" : "Open AI Assistant"}
+            >
+              <MessageSquare className={`h-5 w-5 ${isChatPanelOpen ? 'text-white' : 'text-gray-400 group-hover:text-white'} transition-colors`} />
+              {!isChatPanelOpen && (
+                <div className="absolute top-1 right-1 w-2 h-2 bg-[#F9D71C] rounded-full animate-pulse"></div>
+              )}
+            </button>
             
-        {/* AI Chat Panel - Collapsible on desktop */}
-        <div className={`hidden md:flex fixed left-12 top-0 z-[9996] h-screen ${isChatPanelOpen ? 'w-96' : 'w-0'} transition-all duration-300 border-r border-gray-700 bg-[#1A1A1A]`}>
-          <div className="w-full h-full overflow-hidden">
-            {isChatPanelOpen && <ChatManagementSystem />}
+            <div className="mt-4 writing-mode-vertical text-[10px] text-gray-500 uppercase tracking-wider select-none">
+              AI Chat
+            </div>
+          </div>
+          
+          {/* Chat Panel */}
+          <div className={`h-screen border-r border-gray-700 bg-[#1A1A1A] relative ${isChatPanelOpen ? '' : 'overflow-hidden'}`}>
+            {isChatPanelOpen && (
+              <>
+                <div className="h-full overflow-hidden">
+                  <ChatManagementSystem />
+                </div>
+                <div
+                  className="absolute -right-[3px] top-0 w-[6px] h-full cursor-ew-resize group z-10"
+                  onMouseDown={startResizing}
+                >
+                  <div className="absolute inset-y-0 left-[2px] w-[2px] bg-gray-700 group-hover:bg-[#336699] transition-colors" />
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* Main Content Area */}
+          <div className="min-h-full overflow-y-auto">
+            <div className={`min-h-full max-w-3xl mx-auto px-4`}>
+              {children}
+            </div>
+          </div>
+
+          {/* Projects Sidebar */}
+          {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
+            <div ref={projectsSidebarRef} className="h-screen bg-[#1A1A1A] border-l border-gray-700 overflow-hidden">
+              <div className="h-full flex flex-col">
+                <div className="p-3 border-b border-gray-700 flex-shrink-0">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-white text-base font-medium">All Projects</h2>
+                    <div className="flex items-center gap-1.5">
+                      <button 
+                        onClick={() => {
+                          navigate('/projects/new');
+                          if (!isProjectsSidebarLocked) {
+                            setIsProjectsSidebarOpen(false);
+                          }
+                        }}
+                        className="w-7 h-7 bg-[#336699] hover:bg-[#2A5580] text-white rounded-[2px] flex items-center justify-center transition-colors"
+                        title="New Project"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                      <button 
+                        onClick={() => setProjectsSortOrder(projectsSortOrder === 'latest' ? 'earliest' : 'latest')}
+                        className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                        title={projectsSortOrder === 'latest' ? "Sort by earliest first" : "Sort by latest first"}
+                      >
+                        {projectsSortOrder === 'latest' ? (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 15l4 4 4-4m0-6l-4-4-4 4" />
+                          </svg>
+                        )}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          if (isProjectsSidebarLocked) {
+                            setProjectsSidebarLockedWithPersistence(false);
+                            setIsProjectsSidebarOpen(false);
+                          } else {
+                            setProjectsSidebarLockedWithPersistence(true);
+                          }
+                        }}
+                        className={`w-7 h-7 ${isProjectsSidebarLocked ? 'bg-[#F9D71C] text-[#121212]' : 'bg-[#333333] text-gray-400'} hover:bg-[#F9D71C] hover:text-[#121212] rounded-[2px] flex items-center justify-center transition-colors`}
+                        title={isProjectsSidebarLocked ? "Unlock and close projects pane" : "Lock projects pane open"}
+                      >
+                        {isProjectsSidebarLocked ? (
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                          </svg>
+                        )}
+                      </button>
                     </div>
                   </div>
                   
-        {/* Main Content Area */}
-        <div className={calculateContentClass()}>
-            {children}
+                  <div className="relative">
+                    {!isProjectsSearchExpanded ? (
+                      <button
+                        onClick={() => setIsProjectsSearchExpanded(true)}
+                        className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                        title="Search projects"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <div className="relative flex-1">
+                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            placeholder="Search for a project..."
+                            value={projectsSearch}
+                            onChange={(e) => setProjectsSearch(e.target.value)}
+                            onBlur={() => {
+                              if (!projectsSearch) {
+                                setIsProjectsSearchExpanded(false);
+                              }
+                            }}
+                            autoFocus
+                            className="w-full pl-8 pr-3 py-1.5 bg-[#2A2A2A] border border-[#404040] rounded-[2px] text-white text-xs placeholder-gray-400 focus:outline-none focus:border-[#336699] transition-colors"
+                          />
+                        </div>
+                        {projectsSearch && (
+                          <button
+                            onClick={() => {
+                              setProjectsSearch('');
+                              setIsProjectsSearchExpanded(false);
+                            }}
+                            className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                            title="Clear search"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto min-h-0">
+                  <div className="space-y-0">
+                    {sortedProjects.map((project, index) => (
+                      <div key={project.id} className="relative">
+                        <button
+                          onClick={() => {
+                            navigate(`/projects/${project.id}`);
+                            if (!isProjectsSidebarLocked) {
+                              setIsProjectsSidebarOpen(false);
+                            }
+                          }}
+                          className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center mb-0.5">
+                                <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
+                                  project.status === 'completed' ? 'bg-green-500' :
+                                  project.status === 'active' ? 'bg-green-500' :
+                                  'bg-yellow-500'
+                                }`}></div>
+                                <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
+                              </div>
+                              <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    ))}
+                    
+                    {sortedProjects.length === 0 && (
+                      <div className="text-center py-6">
+                        <div className="text-gray-400 text-xs">No projects found</div>
+                        <div className="text-gray-500 text-[10px] mt-1">Try adjusting your search</div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Sidebar */}
+          <Sidebar
+            isSidebarCollapsed={isSidebarCollapsed}
+            setSidebarCollapsedWithLogging={setSidebarCollapsedWithLogging}
+            isCreateMenuOpen={isCreateMenuOpen}
+            setIsCreateMenuOpen={setIsCreateMenuOpen}
+            createButtonRef={createButtonRef}
+            createDropdownRef={createDropdownRef}
+            orgDropdownOpen={orgDropdownOpen}
+            setOrgDropdownOpen={setOrgDropdownOpen}
+            selectedOrg={selectedOrg}
+            setSelectedOrg={setSelectedOrg}
+            mockOrgs={mockOrgs}
+            setShowLineItemDrawer={setShowLineItemDrawer}
+            setShowNewClientModal={setShowNewClientModal}
+            setShowNewInvoiceDrawer={setShowNewInvoiceDrawer}
+            isProjectsSidebarOpen={isProjectsSidebarOpen}
+            setIsProjectsSidebarOpen={setIsProjectsSidebarOpen}
+            isProjectsSidebarLocked={isProjectsSidebarLocked}
+            setProjectsSidebarLockedWithPersistence={setProjectsSidebarLockedWithPersistence}
+            selectedTimePeriod={selectedTimePeriod}
+            setSelectedTimePeriod={setSelectedTimePeriod}
+            currentData={currentData}
+            timePeriodHeaders={timePeriodHeaders}
+            isLiveRevenuePopoverOpen={isLiveRevenuePopoverOpen}
+            setIsLiveRevenuePopoverOpen={setIsLiveRevenuePopoverOpen}
+            liveRevenueButtonRef={liveRevenueButtonRef}
+            isProfileMenuOpen={isProfileMenuOpen}
+            setIsProfileMenuOpen={setIsProfileMenuOpen}
+            setShowHelpModal={setShowHelpModal}
+          />
         </div>
 
-        {/* Sidebar Component - moved to right */}
-        <Sidebar
-          isSidebarCollapsed={isSidebarCollapsed}
-          setSidebarCollapsedWithLogging={setSidebarCollapsedWithLogging}
-          isCreateMenuOpen={isCreateMenuOpen}
-          setIsCreateMenuOpen={setIsCreateMenuOpen}
-          createButtonRef={createButtonRef}
-          createDropdownRef={createDropdownRef}
-          orgDropdownOpen={orgDropdownOpen}
-          setOrgDropdownOpen={setOrgDropdownOpen}
-          selectedOrg={selectedOrg}
-          setSelectedOrg={setSelectedOrg}
-          mockOrgs={mockOrgs}
-          setShowLineItemDrawer={setShowLineItemDrawer}
-          setShowNewClientModal={setShowNewClientModal}
-          setShowNewInvoiceDrawer={setShowNewInvoiceDrawer}
-          isProjectsSidebarOpen={isProjectsSidebarOpen}
-          setIsProjectsSidebarOpen={setIsProjectsSidebarOpen}
-          isProjectsSidebarLocked={isProjectsSidebarLocked}
-          setProjectsSidebarLockedWithPersistence={setProjectsSidebarLockedWithPersistence}
-          selectedTimePeriod={selectedTimePeriod}
-          setSelectedTimePeriod={setSelectedTimePeriod}
-          currentData={currentData}
-          timePeriodHeaders={timePeriodHeaders}
-          isLiveRevenuePopoverOpen={isLiveRevenuePopoverOpen}
-          setIsLiveRevenuePopoverOpen={setIsLiveRevenuePopoverOpen}
-          liveRevenueButtonRef={liveRevenueButtonRef}
-          isProfileMenuOpen={isProfileMenuOpen}
-          setIsProfileMenuOpen={setIsProfileMenuOpen}
-          setShowHelpModal={setShowHelpModal}
-        />
+        {/* Mobile Layout - unchanged */}
+        <div className="md:hidden flex-1 pt-14 pb-16">
+          <div className="px-4">
+            {children}
+          </div>
+        </div>
 
-        {/* Live Revenue Popover - positioned outside sidebar to avoid clipping */}
         {isLiveRevenuePopoverOpen && (
           <div 
             ref={liveRevenuePopoverRef}
@@ -464,16 +721,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               boxShadow: '0 10px 25px rgba(0, 0, 0, 0.5)',
             }}
           >
-            {/* Header */}
             <div className="mb-3">
               <h3 className="text-white/90 text-sm font-medium mb-3">{timePeriodHeaders[selectedTimePeriod]}</h3>
               
-              {/* Main Revenue Amount */}
               <div className="text-white text-2xl font-bold mb-2">
                 ${currentData.revenue.toLocaleString()}
               </div>
               
-              {/* Time Period Selector */}
               <div className="flex items-center justify-start space-x-1 mb-3">
                 {(['D', 'W', 'M', 'Q', 'Y'] as const).map((period) => (
                   <button
@@ -491,7 +745,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
 
-            {/* Stats Row */}
             <div className="flex items-center justify-between text-sm mb-3">
               <div className="flex items-center text-green-300">
                 <span className="mr-1">↗</span>
@@ -499,7 +752,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
 
-            {/* Progress Bar */}
             <div className="mb-3">
               <div className="w-full bg-white/20 rounded-full h-2">
                 <div 
@@ -509,152 +761,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
             </div>
 
-            {/* Goal Progress */}
             <div className="text-center">
               <span className="text-white/90 text-sm">{currentData.percentage}% of {goalPeriodLabels[selectedTimePeriod]} goal (${(currentData.revenue / (currentData.percentage / 100)).toLocaleString()})</span>
             </div>
           </div>
         )}
 
-        {/* Secondary Projects Sidebar */}
-        {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
-          <div className={`fixed inset-0 z-[9998] ${isProjectsSidebarLocked ? 'pointer-events-none' : ''}`}>
-            {/* Backdrop - only show when not locked */}
-            {!isProjectsSidebarLocked && (
-              <div 
-                className="absolute inset-0 bg-black bg-opacity-50"
-                onClick={() => setIsProjectsSidebarOpen(false)}
-              />
-            )}
-            
-            {/* Projects Sidebar */}
-            <div 
-              ref={projectsSidebarRef}
-              className={`fixed top-0 ${isSidebarCollapsed ? 'right-14' : 'right-48'} w-80 h-full bg-[#1A1A1A] border-l border-gray-700 shadow-2xl transition-all duration-300 flex flex-col pointer-events-auto z-[9999]`}
-            >
-              {/* Header */}
-              <div className="p-3 border-b border-gray-700 flex-shrink-0">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-white text-base font-medium">All Projects</h2>
-                  <div className="flex items-center gap-1.5">
-                    <button 
-                      onClick={() => {
-                        navigate('/projects/new');
-                        if (!isProjectsSidebarLocked) {
-                          setIsProjectsSidebarOpen(false);
-                        }
-                      }}
-                      className="w-7 h-7 bg-[#336699] hover:bg-[#2A5580] text-white rounded-[2px] flex items-center justify-center transition-colors"
-                      title="New Project"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                      </svg>
-                    </button>
-                    <button 
-                      onClick={() => setProjectsSortOrder(projectsSortOrder === 'latest' ? 'earliest' : 'latest')}
-                      className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
-                      title={projectsSortOrder === 'latest' ? "Sort by earliest first" : "Sort by latest first"}
-                    >
-                      {projectsSortOrder === 'latest' ? (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 15l4 4 4-4m0-6l-4-4-4 4" />
-                        </svg>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (isProjectsSidebarLocked) {
-                          setProjectsSidebarLockedWithPersistence(false);
-                          setIsProjectsSidebarOpen(false);
-                        } else {
-                          setProjectsSidebarLockedWithPersistence(true);
-                        }
-                      }}
-                      className={`w-7 h-7 ${isProjectsSidebarLocked ? 'bg-[#F9D71C] text-[#121212]' : 'bg-[#333333] text-gray-400'} hover:bg-[#F9D71C] hover:text-[#121212] rounded-[2px] flex items-center justify-center transition-colors`}
-                      title={isProjectsSidebarLocked ? "Unlock and close projects pane" : "Lock projects pane open"}
-                    >
-                      {isProjectsSidebarLocked ? (
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Search */}
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search for a project..."
-                    value={projectsSearch}
-                    onChange={(e) => setProjectsSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 bg-[#2A2A2A] border border-[#404040] rounded-[2px] text-white text-xs placeholder-gray-400 focus:outline-none focus:border-[#336699] transition-colors"
-                  />
-                </div>
-              </div>
-
-              {/* Projects List - Scrollable */}
-              <div className="flex-1 overflow-y-auto min-h-0">
-                <div className="space-y-0">
-                  {sortedProjects.map((project, index) => (
-                    <div key={project.id} className="relative">
-                      <button
-                        onClick={() => {
-                          navigate(`/projects/${project.id}`);
-                          if (!isProjectsSidebarLocked) {
-                            setIsProjectsSidebarOpen(false);
-                          }
-                        }}
-                        className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center mb-0.5">
-                              <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
-                                project.status === 'completed' ? 'bg-green-500' :
-                                project.status === 'active' ? 'bg-green-500' :
-                                'bg-yellow-500'
-                              }`}></div>
-                              <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
-                            </div>
-                            <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
-                          </div>
-                        </div>
-                      </button>
-                    </div>
-                  ))}
-                  
-                  {sortedProjects.length === 0 && (
-                    <div className="text-center py-6">
-                      <div className="text-gray-400 text-xs">No projects found</div>
-                      <div className="text-gray-500 text-[10px] mt-1">Try adjusting your search</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Modals */}
         {showNewClientModal && (
           <NewClientModal
             onClose={() => setShowNewClientModal(false)}
@@ -687,12 +799,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           />
         )}
 
-        {/* Help & Tutorials Modal */}
         {showHelpModal && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center">
             <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowHelpModal(false)} />
             <div className="relative bg-[#1E1E1E] rounded-[4px] shadow-xl border border-[#333333] w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
-              {/* Modal Header */}
               <div className="flex items-center justify-between p-6 border-b border-[#333333]">
                 <div>
                   <h2 className="text-2xl font-bold text-white mb-2">Help & Tutorials</h2>
@@ -706,15 +816,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 </button>
               </div>
 
-              {/* Modal Content */}
               <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-                {/* Quick Access Section */}
                 <div className="mb-8">
                   <h3 className="text-white font-bold mb-4">
                     Quick Start Tutorials
                   </h3>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Clients Tutorial */}
                     <div className="bg-[#333333] rounded-[4px] p-4 border border-[#404040] hover:border-[#336699] transition-colors cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -738,7 +845,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                     </div>
 
-                    {/* Projects Tutorial */}
                     <div className="bg-[#333333] rounded-[4px] p-4 border border-[#404040] hover:border-[#336699] transition-colors cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -762,7 +868,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                     </div>
 
-                    {/* Invoices Tutorial */}
                     <div className="bg-[#333333] rounded-[4px] p-4 border border-[#404040] hover:border-[#336699] transition-colors cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -786,7 +891,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                     </div>
 
-                    {/* Products Tutorial */}
                     <div className="bg-[#333333] rounded-[4px] p-4 border border-[#404040] hover:border-[#336699] transition-colors cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -810,7 +914,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                     </div>
 
-                    {/* Price Book Tutorial */}
                     <div className="bg-[#333333] rounded-[4px] p-4 border border-[#404040] hover:border-[#336699] transition-colors cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -834,7 +937,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                     </div>
 
-                    {/* Complete Walkthrough */}
                     <div className="bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 rounded-[4px] p-4 border border-[#336699]/50 cursor-pointer"
                          onClick={() => {
                            setShowHelpModal(false);
@@ -860,7 +962,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                 </div>
 
-                {/* Additional Resources */}
                 <div className="mb-8">
                   <h3 className="text-white font-bold mb-4 flex items-center">
                     <span className="text-[#336699] mr-2">📚</span>
@@ -909,7 +1010,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </div>
                 </div>
 
-                {/* Reset Options */}
                 <div className="bg-[#1E1E1E] rounded-[4px] p-4 border border-[#333333]">
                   <h3 className="text-white font-bold mb-3 flex items-center">
                     <span className="text-[#9E9E9E] mr-2">🔄</span>
@@ -920,14 +1020,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   </p>
                   <button 
                     onClick={() => {
-                      // Reset tutorial flags in localStorage
                       localStorage.removeItem('clientsOnboardingCompleted');
                       localStorage.removeItem('projectsOnboardingCompleted');
                       localStorage.removeItem('invoicesOnboardingCompleted');
                       localStorage.removeItem('productsOnboardingCompleted');
                       localStorage.removeItem('priceBookOnboardingCompleted');
                       setShowHelpModal(false);
-                      // Show success message or reload page
                       window.location.reload();
                     }}
                     className="bg-[#336699] text-white px-4 py-2 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
@@ -940,7 +1038,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </div>
         )}
 
-        {/* Mobile Menu Drawer */}
         <MobileMenu
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
@@ -950,7 +1047,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onShowHelp={() => setShowHelpModal(true)}
         />
 
-        {/* Mobile Create Menu */}
         <MobileCreateMenu
           isOpen={isCreateMenuOpen}
           onClose={() => setIsCreateMenuOpen(false)}
@@ -959,7 +1055,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onCreateLineItem={() => setShowLineItemDrawer(true)}
         />
 
-        {/* Mobile Navigation Bar */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-between items-center bg-[#121212] text-white px-4 py-2 border-t border-[#333333] z-[9999]">
           <NavLink
             to="/dashboard"
@@ -1012,7 +1107,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           </NavLink>
         </nav>
 
-        {/* Mobile Chat Panel */}
         {isChatPanelOpen && (
           <div className="md:hidden fixed inset-0 z-[10000] bg-[#1A1A1A] flex flex-col">
             <div className="flex items-center justify-between p-4 border-b border-[#333333]">

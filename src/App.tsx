@@ -7,6 +7,7 @@ import { TestAuth } from './components/auth/TestAuth';
 import { ClientList } from './components/clients/ClientList';
 import { PriceBook } from './components/price-book/PriceBook';
 import { ProductsPage, Product } from './components/products/ProductsPage';
+import { ProductVariantComparisonPage } from './components/products/ProductVariantComparisonPage';
 import ChatManagementSystem from './pages/chat/ChatManagementSystem';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
@@ -78,7 +79,9 @@ function AppRoutes() {
   };
 
   return (
-    <ProductDrawerContext.Provider value={{ openProductDrawer: () => setEditingProduct('new') }}>
+    <ProductDrawerContext.Provider value={{ 
+      openProductDrawer: (product) => setEditingProduct(product || 'new') 
+    }}>
       <Routes>
       {/* Public routes */}
       <Route path="/" element={renderLanding()} />
@@ -113,6 +116,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/products/:productId/compare"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ProductVariantComparisonPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

@@ -6,6 +6,7 @@ import TabMenu from '../common/TabMenu';
 import { LineItemModal } from '../modals/LineItemModal';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search } from 'lucide-react';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -400,29 +401,15 @@ export const PriceBook: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
-      <div className="border-b border-[#333333]">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Price Book</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-                      <input
-                type="text"
-                placeholder="Search items..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
-              />
-        </div>
-            <button
-              onClick={() => setShowNewLineItemModal(true)}
-              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-          </div>
-        </div>
-        
+      <PageHeaderBar 
+        title="Price Book"
+        searchPlaceholder="Search items..."
+        onSearch={(query) => setSearchInput(query)}
+        searchValue={searchInput}
+        addButtonLabel="Add Item"
+        onAddClick={() => setShowNewLineItemModal(true)}
+      />
+      
       {/* Stats Bar */}
       <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
         <div className="flex items-center gap-2">
@@ -470,7 +457,7 @@ export const PriceBook: React.FC = () => {
               </button>
                   </div>
                 </div>
-
+        
       {/* Category Tabs */}
             <TabMenu
               items={[
@@ -509,7 +496,7 @@ export const PriceBook: React.FC = () => {
             </p>
             <button
               onClick={() => setShowNewLineItemModal(true)}
-              className="bg-[#F9D71C] text-[#121212] px-6 py-3 rounded-[4px] font-medium hover:bg-[#e9c91c] transition-colors"
+              className="bg-white hover:bg-gray-100 text-[#121212] px-6 py-3 rounded-[4px] font-medium transition-colors"
             >
               Add Your First Item
             </button>
@@ -587,7 +574,7 @@ export const PriceBook: React.FC = () => {
                       }
                     }}
                     className="w-8 h-8 flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors"
-                  >
+                    >
                     <MoreVertical className="w-4 h-4 text-gray-400" />
                     </button>
 
@@ -615,7 +602,7 @@ export const PriceBook: React.FC = () => {
                           handleDuplicateProduct(product);
                         }}
                         className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                      >
+                    >
                         <Copy className="w-4 h-4 mr-3 text-gray-400" />
                         Duplicate
                     </button>
@@ -626,7 +613,7 @@ export const PriceBook: React.FC = () => {
                           handleToggleFavorite(product);
                         }}
                         className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                      >
+                    >
                         <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
                         {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
                     </button>
@@ -637,7 +624,7 @@ export const PriceBook: React.FC = () => {
                           handleAddToEstimate(product);
                         }}
                         className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                      >
+                    >
                         <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
                         Add to Current Estimate
                     </button>
@@ -650,7 +637,7 @@ export const PriceBook: React.FC = () => {
                           handleDeleteProduct(product);
                         }}
                         className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
-                      >
+                    >
                         <Trash2 className="w-4 h-4 mr-3 text-red-400" />
                         Delete
                     </button>

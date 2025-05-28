@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import {
   Plus,
@@ -85,13 +85,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const { openProductDrawer } = useProductDrawer();
   const { user, signOut } = useAuth();
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle click outside for profile dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    if (isProfileMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProfileMenuOpen, setIsProfileMenuOpen]);
 
   return (
     <>
-      {/* Sidebar - fixed, right-aligned */}
-      <div className={`hidden md:flex fixed right-0 top-0 ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-full bg-[#121212] border-l border-gray-700 flex-col z-[9999] transition-all duration-300`}>
+      {/* Sidebar - part of grid layout, not fixed */}
+      <div className={`hidden md:flex ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-screen bg-[#121212] border-l border-gray-700 flex-col transition-all duration-300 overflow-hidden`}>
         {/* Organization header and sidebar toggle */}
-        <div className="p-2 border-b border-[#333333] relative flex items-center justify-between">
+        <div className="p-2 border-b border-[#333333] relative flex items-center justify-between flex-shrink-0">
           <button
             onClick={() => setSidebarCollapsedWithLogging(!isSidebarCollapsed)}
             className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-md bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
@@ -137,7 +155,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Create button - always visible, more prominent after removing search */}
-        <div className={`${isSidebarCollapsed ? 'px-1 py-2' : 'px-2 py-2'} border-b border-[#333333] relative`}>
+        <div className={`${isSidebarCollapsed ? 'px-1 py-2' : 'px-2 py-2'} border-b border-[#333333] relative flex-shrink-0`}>
           <div className={`w-full ${isSidebarCollapsed ? 'space-y-2' : 'space-y-1'}`}>
             <button
               ref={createButtonRef}
@@ -160,17 +178,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         
         {/* Create Menu - Drawer-style interaction */}
         {isCreateMenuOpen && (
-          <div className="fixed inset-0 z-[9999]">
+          <div className="absolute inset-0 z-[9999]">
             {/* Drawer backdrop - only visible when open */}
             <div 
-              className="absolute inset-0 bg-black bg-opacity-50"
+              className="fixed inset-0 bg-black bg-opacity-50"
               onClick={() => setIsCreateMenuOpen(false)}
             />
             
             {/* Drawer panel - full screen on mobile, sidebar on desktop */}
             <div 
               ref={createDropdownRef}
-              className="absolute inset-y-0 right-0 w-full md:max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transform transition-transform duration-300 ease-in-out"
+              className="fixed inset-y-0 right-0 w-full md:max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transform transition-transform duration-300 ease-in-out"
               role="menu"
               aria-orientation="vertical"
               aria-labelledby="create-button"
@@ -502,7 +520,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {/* Kitchen Renovation Row */}
                   <button 
                     onClick={() => navigate('/projects/1')}
-                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] ${location.pathname === '/projects/1' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
+                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] first:rounded-t-[4px] last:rounded-b-[4px] ${location.pathname === '/projects/1' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
                   >
                     <div className="flex items-center flex-1 min-w-0">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2 flex-shrink-0"></div>
@@ -516,7 +534,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {/* HVAC Install Row */}
                   <button 
                     onClick={() => navigate('/projects/2')}
-                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] ${location.pathname === '/projects/2' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
+                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] first:rounded-t-[4px] last:rounded-b-[4px] ${location.pathname === '/projects/2' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
                   >
                     <div className="flex items-center flex-1 min-w-0">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full mr-2 flex-shrink-0"></div>
@@ -530,7 +548,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {/* Office Buildout Row */}
                   <button 
                     onClick={() => navigate('/projects/3')}
-                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] ${location.pathname === '/projects/3' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
+                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] first:rounded-t-[4px] last:rounded-b-[4px] ${location.pathname === '/projects/3' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
                   >
                     <div className="flex items-center flex-1 min-w-0">
                       <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2 flex-shrink-0"></div>
@@ -560,15 +578,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         }
                       }
                     }}
-                    className={`${isProjectsSidebarLocked ? 'text-[#F9D71C]' : 'text-[#336699]'} text-[10px] font-medium hover:text-white transition-colors flex items-center uppercase tracking-wide ${isProjectsSidebarLocked ? 'cursor-default' : 'cursor-pointer'}`}
+                    className={`${isProjectsSidebarLocked ? 'text-[#F9D71C]' : 'text-[#336699]'} text-[10px] font-medium hover:text-white transition-colors flex items-center justify-end uppercase tracking-wide ${isProjectsSidebarLocked ? 'cursor-default' : 'cursor-pointer'} w-full`}
                   >
+                    <ChevronLeft className={`w-2.5 h-2.5 mr-1 transition-transform ${isProjectsSidebarOpen && !isProjectsSidebarLocked ? 'rotate-90' : ''}`} />
+                    <span className="mr-1">{isProjectsSidebarLocked ? 'locked' : (isProjectsSidebarOpen ? 'close' : 'more')}</span>
                     {isProjectsSidebarOpen && !isProjectsSidebarLocked ? (
                       <span className="flex items-center">×</span>
                     ) : (
                       <span className="flex items-center">⋮⋮</span>
                     )}
-                    <span className="ml-1">{isProjectsSidebarLocked ? 'locked' : (isProjectsSidebarOpen ? 'close' : 'more')}</span>
-                    <ChevronRight className={`w-2.5 h-2.5 ml-1 transition-transform ${isProjectsSidebarOpen && !isProjectsSidebarLocked ? 'rotate-90' : ''}`} />
                     {isProjectsSidebarLocked && (
                       <svg className="w-2.5 h-2.5 ml-1" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
@@ -581,7 +599,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
         
-        <div className="mt-auto">
+        <div className="mt-auto flex-shrink-0">
           {/* Live Revenue - visible in both expanded and collapsed states */}
           <div className="p-2">
             {!isSidebarCollapsed ? (
@@ -664,7 +682,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="relative border-t border-gray-700">
             {/* Profile Dropdown Menu - positioned absolutely above user info */}
             {isProfileMenuOpen && (
-              <div className={`absolute bottom-full ${isSidebarCollapsed ? 'left-0 w-64' : 'left-0 right-0'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-50`}>
+              <div 
+                ref={profileDropdownRef}
+                className={`absolute bottom-full ${isSidebarCollapsed ? 'right-0 w-48' : 'left-0 right-0'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-50`}
+              >
                 <button
                   onClick={() => {
                     navigate('/profile');

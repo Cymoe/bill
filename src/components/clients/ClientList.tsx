@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ChevronRight, MoreVertical, Filter, ChevronDown, Search, Plus } from 'lucide-react';
+import { ChevronRight, MoreVertical, Filter, ChevronDown, Search, Plus, Download, Upload, Settings, BarChart3, FileText, Columns, CheckCircle, List, LayoutGrid } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,6 +12,10 @@ import { NewClientModal } from './NewClientModal';
 import { EditClientModal } from './EditClientModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { LayoutContext } from '../layouts/DashboardLayout';
+import { PageHeaderBar } from '../common/PageHeaderBar';
+import { StatsBar } from '../common/StatsBar';
+import { ControlsBar } from '../common/ControlsBar';
+import TabMenu from '../common/TabMenu';
 
 type Client = {
   id: string;
@@ -47,15 +51,16 @@ export const ClientList: React.FC = () => {
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   
-  // Filter states
-  const [selectedState, setSelectedState] = useState('all');
-  const [minValue, setMinValue] = useState('');
-  const [maxValue, setMaxValue] = useState('');
-  const [minProjects, setMinProjects] = useState('');
-  const [maxProjects, setMaxProjects] = useState('');
+  // Filter states - Revenue-driven construction filters
+  const [selectedClientType, setSelectedClientType] = useState('all');
+  const [selectedValueTier, setSelectedValueTier] = useState('all');
+  const [selectedProjectStatus, setSelectedProjectStatus] = useState('all');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('all');
+  const [selectedLocation, setSelectedLocation] = useState('all');
+  const [selectedServiceType, setSelectedServiceType] = useState('all');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
-  const [sortBy, setSortBy] = useState<'name' | 'value' | 'projects' | 'recent'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<'name' | 'value' | 'projects' | 'recent'>('value');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
   
   // Refs for click outside
@@ -152,25 +157,51 @@ export const ClientList: React.FC = () => {
       );
     }
 
-    // State filter
-    if (selectedState !== 'all') {
-      filtered = filtered.filter(client => client.state === selectedState);
+    // Value tier filter (revenue-driven)
+    if (selectedValueTier !== 'all') {
+      filtered = filtered.filter(client => {
+        const value = client.totalValue || 0;
+        switch (selectedValueTier) {
+          case 'premium': return value >= 50000;
+          case 'high': return value >= 25000 && value < 50000;
+          case 'medium': return value >= 10000 && value < 25000;
+          case 'small': return value >= 1000 && value < 10000;
+          case 'minimal': return value < 1000;
+          default: return true;
+        }
+      });
     }
 
-    // Value range filter
-    if (minValue !== '') {
-      filtered = filtered.filter(client => (client.totalValue || 0) >= parseFloat(minValue));
-    }
-    if (maxValue !== '') {
-      filtered = filtered.filter(client => (client.totalValue || 0) <= parseFloat(maxValue));
+    // Project status filter (business activity)
+    if (selectedProjectStatus !== 'all') {
+      filtered = filtered.filter(client => {
+        const projectCount = client.projectCount || 0;
+        const hasRecentProject = client.lastProjectDate && 
+          new Date(client.lastProjectDate) > new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90 days
+        
+        switch (selectedProjectStatus) {
+          case 'active': return hasRecentProject;
+          case 'completed': return projectCount > 0 && !hasRecentProject;
+          case 'repeat': return projectCount > 1;
+          case 'new': return projectCount === 0;
+          default: return true;
+        }
+      });
     }
 
-    // Project count filter
-    if (minProjects !== '') {
-      filtered = filtered.filter(client => (client.projectCount || 0) >= parseInt(minProjects));
-    }
-    if (maxProjects !== '') {
-      filtered = filtered.filter(client => (client.projectCount || 0) <= parseInt(maxProjects));
+    // Payment status filter (cash flow management)
+    if (selectedPaymentStatus !== 'all') {
+      // This would need invoice data to be fully implemented
+      // For now, we'll use value as a proxy for payment reliability
+      filtered = filtered.filter(client => {
+        const value = client.totalValue || 0;
+        switch (selectedPaymentStatus) {
+          case 'reliable': return value > 5000; // Assume higher value = more reliable
+          case 'slow': return value > 0 && value <= 5000;
+          case 'issues': return value === 0; // No completed paid work
+          default: return true;
+        }
+      });
     }
 
     // Date range filter (last project date)
@@ -215,25 +246,33 @@ export const ClientList: React.FC = () => {
         return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
       }
     });
-  }, [clients, searchTerm, selectedDateRange, sortBy, sortOrder, selectedState, minValue, maxValue, minProjects, maxProjects]);
+  }, [clients, searchTerm, selectedDateRange, sortBy, sortOrder, selectedClientType, selectedValueTier, selectedProjectStatus, selectedPaymentStatus, selectedLocation, selectedServiceType]);
 
   // Reset filters function
   const resetFilters = () => {
     setSelectedDateRange('all');
-    setSortBy('name');
-    setSortOrder('asc');
+    setSortBy('value');
+    setSortOrder('desc');
     setSearchInput('');
-    setSelectedState('all');
-    setMinValue('');
-    setMaxValue('');
-    setMinProjects('');
-    setMaxProjects('');
+    setSelectedClientType('all');
+    setSelectedValueTier('all');
+    setSelectedProjectStatus('all');
+    setSelectedPaymentStatus('all');
+    setSelectedLocation('all');
+    setSelectedServiceType('all');
   };
 
-  // Get unique states for filter dropdown
-  const uniqueStates = useMemo(() => {
-    const states = clients.map(c => c.state).filter(Boolean);
-    return [...new Set(states)].sort();
+  // Calculate client metrics for revenue-driven insights
+  const clientMetrics = useMemo(() => {
+    const premiumClients = clients.filter(c => (c.totalValue || 0) >= 50000).length;
+    const activeClients = clients.filter(c => {
+      const hasRecentProject = c.lastProjectDate && 
+        new Date(c.lastProjectDate) > new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      return hasRecentProject;
+    }).length;
+    const repeatClients = clients.filter(c => (c.projectCount || 0) > 1).length;
+    
+    return { premiumClients, activeClients, repeatClients };
   }, [clients]);
 
   // Helper functions for options menu
@@ -512,205 +551,169 @@ export const ClientList: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
-      <div className="border-b border-[#333333]">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Clients</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search clients..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
-              />
-            </div>
-            <button
-              onClick={() => setShowNewModal(true)}
-              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+      <PageHeaderBar
+        title="Clients"
+        searchPlaceholder="Search clients..."
+        onSearch={(query) => setSearchInput(query)}
+        searchValue={searchInput}
+        addButtonLabel="Add Client"
+        onAddClick={() => setShowNewModal(true)}
+      />
         
-        {/* Stats Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Clients:</span>
-            <span className="font-mono font-medium">{clients.length}</span>
-            <span className="text-gray-500 text-xs">({formatCurrency(totalClientRevenue)})</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Avg Value:</span>
-            <span className="font-mono font-medium text-[#336699]">{formatCurrency(averageClientValue)}</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Top Client:</span>
-            <span className="font-mono font-medium text-[#F9D71C]">{formatCurrency(topClientValue)}</span>
-          </div>
-        </div>
+      {/* Stats Bar */}
+      <StatsBar 
+        stats={[
+          { label: 'Total Revenue', value: formatCurrency(totalClientRevenue), color: 'green', isMonospace: true },
+          { label: 'Premium Clients', value: clientMetrics.premiumClients, subValue: '($50k+)', color: 'yellow', isMonospace: true },
+          { label: 'Active', value: clientMetrics.activeClients, subValue: '(90 days)', color: 'default', isMonospace: true },
+          { label: 'Repeat', value: clientMetrics.repeatClients, subValue: '(2+ jobs)', color: 'default', isMonospace: true }
+        ]}
+      />
 
-        {/* Controls Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
-          {isConstrained && (
-            <div className="absolute top-2 right-2 bg-[#F9D71C] text-[#121212] px-2 py-1 rounded text-xs font-medium">
-              Compact View
-            </div>
-          )}
-          <div className="flex items-center gap-3">
-            <div className="relative">
+      {/* Controls Bar */}
+      <ControlsBar
+        primaryFilter={{
+          value: selectedValueTier,
+          onChange: setSelectedValueTier,
+          options: [
+            { id: 'all', label: 'All Clients', count: clients.length },
+            { id: 'premium', label: 'Premium ($50k+)' },
+            { id: 'high', label: 'High Value ($25k-50k)' },
+            { id: 'medium', label: 'Medium ($10k-25k)' },
+            { id: 'small', label: 'Small Jobs ($1k-10k)' },
+            { id: 'minimal', label: 'Leads (Under $1k)' }
+          ]
+        }}
+        showMoreFilters={showFilterMenu}
+        onToggleMoreFilters={() => setShowFilterMenu(!showFilterMenu)}
+        moreFiltersRef={filterMenuRef}
+        moreFiltersContent={
+          <div className="space-y-4">
+            {/* Project Status Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                Project Status
+              </label>
               <select
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
-                value={`${sortBy}-${sortOrder}`}
-                onChange={(e) => {
-                  const [field, order] = e.target.value.split('-');
-                  setSortBy(field as 'name' | 'value' | 'projects' | 'recent');
-                  setSortOrder(order as 'asc' | 'desc');
-                }}
+                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                value={selectedProjectStatus}
+                onChange={(e) => setSelectedProjectStatus(e.target.value)}
               >
-                <option value="name-asc">Name A-Z ({clients.length})</option>
-                <option value="name-desc">Name Z-A ({clients.length})</option>
-                <option value="value-desc">Value (Highest)</option>
-                <option value="projects-desc">Projects (Most)</option>
+                <option value="all">All Clients</option>
+                <option value="active">Active Projects (Last 90 Days)</option>
+                <option value="completed">Completed Work Only</option>
+                <option value="repeat">Repeat Clients (2+ Projects)</option>
+                <option value="new">New Leads (No Projects)</option>
               </select>
-              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
             </div>
-            <div className="relative" ref={filterMenuRef}>
-              <button 
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
-                  showFilterMenu ? 'bg-[#252525]' : ''
-                }`}
+
+            {/* Payment Status Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                Payment Reliability
+              </label>
+              <select
+                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                value={selectedPaymentStatus}
+                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
               >
-                <Filter className="w-4 h-4" />
-                <span>More Filters</span>
+                <option value="all">All Payment Types</option>
+                <option value="reliable">Reliable Payers ($5k+ History)</option>
+                <option value="slow">Small Job Clients</option>
+                <option value="issues">No Payment History</option>
+              </select>
+            </div>
+
+            {/* Date Range Filter */}
+            <div>
+              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                Last Activity
+              </label>
+              <select
+                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                value={selectedDateRange}
+                onChange={(e) => setSelectedDateRange(e.target.value)}
+              >
+                <option value="all">All Time</option>
+                <option value="7d">Last 7 Days</option>
+                <option value="30d">Last 30 Days</option>
+                <option value="90d">Last 90 Days</option>
+              </select>
+            </div>
+
+            {/* Clear Filters */}
+            <div className="pt-2 border-t border-[#333333]">
+              <button
+                onClick={() => {
+                  resetFilters();
+                  setShowFilterMenu(false);
+                }}
+                className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+              >
+                Clear All Filters
               </button>
-              
-              {/* More Filters Dropdown */}
-              {showFilterMenu && (
-                <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
-                  <div className="space-y-4">
-                    {/* State Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        State
-                      </label>
-                      <select
-                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedState}
-                        onChange={(e) => setSelectedState(e.target.value)}
-                      >
-                        <option value="all">All States</option>
-                        {uniqueStates.map(state => (
-                          <option key={state} value={state}>{state}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Value Range Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Client Value Range
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min Value"
-                          value={minValue}
-                          onChange={(e) => setMinValue(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max Value"
-                          value={maxValue}
-                          onChange={(e) => setMaxValue(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Clear Filters */}
-                    <div className="pt-2 border-t border-[#333333]">
-                      <button
-                        onClick={() => {
-                          resetFilters();
-                          setShowFilterMenu(false);
-                        }}
-                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
-                      >
-                        Clear All Filters
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('cards')}
-              >
-                Cards
-              </button>
-            </div>
-            <div className="relative" ref={optionsMenuRef}>
-              <button
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-              >
-                <MoreVertical className="w-4 h-4" />
-              </button>
-              {showOptionsMenu && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleImportClients(); }}
-                  >
-                    Import Clients
-                  </button>
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
-                  >
-                    Export to CSV
-                  </button>
-                  <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handlePrintClients(); }}
-                  >
-                    Print Client List
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
+        }
+        viewToggles={{
+          value: viewMode,
+          onChange: (value: string) => setViewMode(value as 'list' | 'cards'),
+          options: [
+            { id: 'list', label: 'List', icon: <List className="w-4 h-4" /> },
+            { id: 'cards', label: 'Cards', icon: <LayoutGrid className="w-4 h-4" /> }
+          ]
+        }}
+        showOptionsMenu={showOptionsMenu}
+        onToggleOptionsMenu={() => setShowOptionsMenu(!showOptionsMenu)}
+        optionsMenuRef={optionsMenuRef}
+        optionsMenuSections={[
+          {
+            title: 'Data Management',
+            actions: [
+              {
+                id: 'import',
+                label: 'Import Clients',
+                icon: <Upload className="w-3 h-3" />,
+                onClick: () => {
+                  handleImportClients();
+                  setShowOptionsMenu(false);
+                }
+              },
+              {
+                id: 'export',
+                label: 'Export to CSV',
+                icon: <Download className="w-3 h-3" />,
+                onClick: () => {
+                  handleExportToCSV();
+                  setShowOptionsMenu(false);
+                }
+              }
+            ]
+          },
+          {
+            title: 'View Options',
+            actions: [
+              {
+                id: 'print',
+                label: 'Print Client List',
+                icon: <FileText className="w-3 h-3" />,
+                onClick: () => {
+                  handlePrintClients();
+                  setShowOptionsMenu(false);
+                }
+              }
+            ]
+          }
+        ]}
+      />
 
       <div className="space-y-0 bg-[#121212]">
-        {/* Show contextual onboarding if no clients and not loading */}
-        {!isLoading && (clients.length === 0 || showTutorial) ? (
-          <ContextualOnboarding />
-        ) : (
-          <>
-            {/* Desktop view */}
+      {/* Show contextual onboarding if no clients and not loading */}
+      {!isLoading && (clients.length === 0 || showTutorial) ? (
+        <ContextualOnboarding />
+      ) : (
+        <>
+          {/* Desktop view */}
         <div className="hidden md:block">
           {isLoading ? (
                 viewMode === 'list' ? (

@@ -1,6 +1,10 @@
 import { createContext, useContext } from 'react';
 
-export const ProductDrawerContext = createContext<{ openProductDrawer: () => void }>({
+interface ProductDrawerContextType {
+  openProductDrawer: (product?: any) => void;
+}
+
+export const ProductDrawerContext = createContext<ProductDrawerContextType>({
   openProductDrawer: () => {},
 });
 

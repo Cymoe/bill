@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import ProductComparisonModal from './ProductComparisonModal';
 import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package, Search, Plus } from 'lucide-react';
 import { ProductVariantComparison } from './ProductVariantComparison';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
@@ -10,10 +10,12 @@ import { useAuth } from '../../contexts/AuthContext';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { ProductOptionsDemo } from './ProductOptionsDemo';
 import { PageHeader } from '../common/PageHeader';
+import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewButton } from '../common/NewButton';
 import TabMenu from '../common/TabMenu';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
+import { LayoutContext } from '../layouts/DashboardLayout';
 
 // Product type
 export type Product = {
@@ -67,27 +69,32 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchInput, setSearchInput] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isConstrained, availableWidth } = React.useContext(LayoutContext);
+  
+  // Initialize state from URL parameters
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClosingDrawer, setIsClosingDrawer] = useState(false);
-  const [selectedVariantProduct, setSelectedVariantProduct] = useState<Product | null>(null);
-  const [showVariantComparison, setShowVariantComparison] = useState(false);
+
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedVariantFilter, setSelectedVariantFilter] = useState('all');
+  // Revenue-driven product filters - initialize from URL
+  const [selectedProfitTier, setSelectedProfitTier] = useState<string>(searchParams.get('profitTier') || 'all');
+  const [selectedUsageFrequency, setSelectedUsageFrequency] = useState(searchParams.get('usage') || 'all');
+  const [selectedPriceStrategy, setSelectedPriceStrategy] = useState(searchParams.get('strategy') || 'all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || 'all');
   const [collapseVariants, setCollapseVariants] = useState(false);
   const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
-  const [priceMin, setPriceMin] = useState<string>('');
-  const [priceMax, setPriceMax] = useState<string>('');
-  const [sortBy, setSortBy] = useState<string>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [selectedDateRange, setSelectedDateRange] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
+  const [selectedTrade, setSelectedTrade] = useState<string>(searchParams.get('trade') || 'all');
+  const [sortBy, setSortBy] = useState<string>(searchParams.get('sortBy') || 'price');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>((searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc');
+  const [selectedDateRange, setSelectedDateRange] = useState(searchParams.get('dateRange') || 'all');
+
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<any>(null);
   const [comparisonProducts, setComparisonProducts] = useState<Product[]>([]);
@@ -97,12 +104,27 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const optionsMenuRef = useRef<HTMLDivElement>(null);
 
   // Check if tutorial mode is enabled via URL parameter
-  const searchParams = new URLSearchParams(location.search);
   const showTutorial = searchParams.get('tutorial') === 'true';
 
-  // Debounce search input
+  // Function to update URL parameters
+  const updateUrlParams = (updates: Record<string, string>) => {
+    const newParams = new URLSearchParams(searchParams);
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === 'all' || value === '' || value === 'list') {
+        newParams.delete(key);
+      } else {
+        newParams.set(key, value);
+      }
+    });
+    setSearchParams(newParams, { replace: true });
+  };
+
+  // Debounce search input and update URL
   useEffect(() => {
-    const handler = setTimeout(() => setSearchTerm(searchInput), 300);
+    const handler = setTimeout(() => {
+      setSearchTerm(searchInput);
+      updateUrlParams({ search: searchInput });
+    }, 300);
     return () => clearTimeout(handler);
   }, [searchInput]);
 
@@ -132,15 +154,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     }, 300);
   };
 
-  // Handle closing the variant comparison drawer with animation
-  const handleCloseVariantComparison = () => {
-    setIsClosingDrawer(true);
-    setTimeout(() => {
-      setSelectedVariantProduct(null);
-      setShowVariantComparison(false);
-      setIsClosingDrawer(false);
-    }, 300);
-  };
+
 
   useEffect(() => {
     if (user) {
@@ -224,36 +238,59 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
       );
     }
 
-    // Category filter (trade)
+    // Trade filter (from tabs)
+    if (selectedTrade !== 'all') {
+      filtered = filtered.filter(product => product.trade_id === selectedTrade);
+    }
+    
+    // Category filter (from dropdown - now secondary)
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(product => product.trade_id === selectedCategory);
     }
 
-    // Variant filter
-    if (selectedVariantFilter !== 'all') {
-      if (selectedVariantFilter === 'with-variants') {
-        filtered = filtered.filter(product => product.variants && product.variants.length > 0);
-      } else if (selectedVariantFilter === 'without-variants') {
-        filtered = filtered.filter(product => !product.variants || product.variants.length === 0);
-      }
+    // Profit tier filter (revenue-driven)
+    if (selectedProfitTier !== 'all') {
+      filtered = filtered.filter(product => {
+        const price = product.price || 0;
+        switch (selectedProfitTier) {
+          case 'premium': return price >= 500;
+          case 'high': return price >= 200 && price < 500;
+          case 'medium': return price >= 50 && price < 200;
+          case 'low': return price >= 10 && price < 50;
+          case 'minimal': return price < 10;
+          default: return true;
+        }
+      });
     }
 
-    // Date range filter
-    if (selectedDateRange !== 'all') {
-      const now = new Date();
-      let cutoff = new Date();
-      if (selectedDateRange === '7d') cutoff.setDate(now.getDate() - 7);
-      if (selectedDateRange === '30d') cutoff.setDate(now.getDate() - 30);
-      if (selectedDateRange === '90d') cutoff.setDate(now.getDate() - 90);
-      filtered = filtered.filter(product => new Date(product.created_at || '') >= cutoff);
+    // Usage frequency filter (business impact)
+    if (selectedUsageFrequency !== 'all') {
+      // This would need usage tracking data to be fully implemented
+      // For now, we'll use variants as a proxy for popularity
+      filtered = filtered.filter(product => {
+        const hasVariants = product.variants && product.variants.length > 0;
+        const variantCount = product.variants?.length || 0;
+        
+        switch (selectedUsageFrequency) {
+          case 'frequent': return hasVariants && variantCount >= 3;
+          case 'regular': return hasVariants && variantCount >= 1;
+          case 'occasional': return !hasVariants || variantCount === 0;
+          default: return true;
+        }
+      });
     }
 
-    // Price range filter
-    if (priceMin) {
-      filtered = filtered.filter(product => product.price && product.price >= parseFloat(priceMin));
-    }
-    if (priceMax) {
-      filtered = filtered.filter(product => product.price && product.price <= parseFloat(priceMax));
+    // Price strategy filter (competitive positioning)
+    if (selectedPriceStrategy !== 'all') {
+      filtered = filtered.filter(product => {
+        const price = product.price || 0;
+        switch (selectedPriceStrategy) {
+          case 'premium': return price >= 300; // Premium pricing strategy
+          case 'competitive': return price >= 50 && price < 300; // Market competitive
+          case 'value': return price < 50; // Value pricing
+          default: return true;
+        }
+      });
     }
 
     // Sort
@@ -272,18 +309,21 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
         return sortOrder === 'asc' ? aValue.getTime() - bValue.getTime() : bValue.getTime() - aValue.getTime();
       }
     });
-  }, [products, searchTerm, selectedCategory, selectedVariantFilter, selectedDateRange, priceMin, priceMax, sortBy, sortOrder]);
+  }, [products, searchTerm, selectedCategory, selectedProfitTier, selectedUsageFrequency, selectedPriceStrategy, selectedDateRange, sortBy, sortOrder]);
 
   // Reset filters function
   const resetFilters = () => {
     setSelectedCategory('all');
-    setSelectedVariantFilter('all');
+    setSelectedTrade('all');
+    setSelectedProfitTier('all');
+    setSelectedUsageFrequency('all');
+    setSelectedPriceStrategy('all');
     setSelectedDateRange('all');
-    setPriceMin('');
-    setPriceMax('');
-    setSortBy('created_at');
+    setSortBy('price');
     setSortOrder('desc');
     setSearchInput('');
+    // Clear URL parameters
+    setSearchParams({}, { replace: true });
   };
 
   // Functions for the options menu
@@ -306,8 +346,13 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     return new Date(product.created_at || '') >= thirtyDaysAgo;
   });
 
-  const averagePrice = products.length > 0 
-    ? products.filter(p => p.price).reduce((sum, p) => sum + (p.price || 0), 0) / products.filter(p => p.price).length 
+  // Filter products by selected trade for stats
+  const tradeFilteredProducts = selectedTrade === 'all' 
+    ? products 
+    : products.filter(p => p.trade_id === selectedTrade);
+    
+  const averagePrice = tradeFilteredProducts.length > 0 
+    ? tradeFilteredProducts.filter(p => p.price).reduce((sum, p) => sum + (p.price || 0), 0) / tradeFilteredProducts.filter(p => p.price).length 
     : 0;
 
   const mostUsedType = useMemo(() => {
@@ -537,6 +582,20 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     return 'bg-[#336699] opacity-50';
   };
 
+  const getVariantTextColor = (variantName: string) => {
+    const name = variantName.toLowerCase();
+    if (name.includes('premium') || name.includes('high') || name.includes('deluxe')) {
+      return 'text-[#FF8C00]'; // Orange for premium variants
+    }
+    if (name.includes('medium') || name.includes('regular')) {
+      return 'text-[#4A90E2]'; // Bright blue for medium variants
+    }
+    if (name.includes('standard') || name.includes('basic') || name.includes('economy') || name.includes('budget')) {
+      return 'text-[#8E8E93]'; // Muted gray for standard/basic variants
+    }
+    return 'text-white'; // Default white for other variants
+  };
+
   const getCategoryEmoji = (category?: string) => {
     switch (category?.toLowerCase()) {
       case 'interior': return '🏠';
@@ -569,153 +628,181 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
   return (
     <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <div className="border-b border-[#333333]">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Products</h1>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-64 bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm placeholder-gray-500 focus:outline-none focus:border-[#336699]"
-              />
-            </div>
-            <button
-              onClick={() => setEditingProduct('new')}
-              className="w-10 h-10 bg-[#F9D71C] hover:bg-[#e9c91c] text-[#121212] rounded-full flex items-center justify-center transition-colors"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+      <div className="pt-6">
+        {/* Header */}
+        <PageHeaderBar
+          title="Products"
+          searchPlaceholder="Search products..."
+          onSearch={(query) => setSearchInput(query)}
+          searchValue={searchInput}
+          addButtonLabel="Add Product"
+          onAddClick={() => setEditingProduct('new')}
+        />
         
         {/* Stats Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Products:</span>
-            <span className="font-mono font-medium">{products.length}</span>
-            <span className="text-gray-500 text-xs">({recentProducts.length} recent)</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Most Used:</span>
-            <span className="font-mono font-medium text-[#F9D71C]">{mostUsedType.type}</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Avg Price:</span>
-            <span className="font-mono font-medium text-[#336699]">{formatCurrency(averagePrice)}</span>
+        <div className="bg-[#1A1A1A] border-b border-[#333333]">
+          <div className={`px-8 flex items-center ${isConstrained ? 'gap-3' : 'gap-6'} text-sm overflow-x-auto py-4`}>
+            {isConstrained ? (
+              // Ultra-compact stats for constrained view
+              <>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-gray-400 text-xs">Items:</span>
+                  <span className="font-mono font-medium text-[#388E3C] text-xs">{tradeFilteredProducts.length}</span>
+                </div>
+                <div className="w-px h-3 bg-[#333333]" />
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <span className="text-gray-400 text-xs">Premium:</span>
+                  <span className="font-mono font-medium text-[#F9D71C] text-xs">{tradeFilteredProducts.filter(p => (p.price || 0) >= 500).length}</span>
+                </div>
+              </>
+            ) : (
+              // Full stats for normal view
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Catalog Value:</span>
+                  <span className="font-mono font-medium text-[#388E3C]">{formatCurrency(tradeFilteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</span>
+                  <span className="text-gray-500 text-xs">({tradeFilteredProducts.length} items)</span>
+                </div>
+                <div className="w-px h-4 bg-[#333333]" />
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Premium Items:</span>
+                  <span className="font-mono font-medium text-[#F9D71C]">{tradeFilteredProducts.filter(p => (p.price || 0) >= 500).length}</span>
+                  <span className="text-gray-500 text-xs">($500+)</span>
+                </div>
+                <div className="w-px h-4 bg-[#333333]" />
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">Avg Price:</span>
+                  <span className="font-mono font-medium text-[#336699]">{formatCurrency(averagePrice)}</span>
+                </div>
+                <div className="w-px h-4 bg-[#333333]" />
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-400">With Variants:</span>
+                  <span className="font-mono font-medium text-[#9E9E9E]">{tradeFilteredProducts.filter(p => p.variants && p.variants.length > 0).length}</span>
+                  <span className="text-gray-500 text-xs">(popular)</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
         {/* Controls Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-              >
-                <option value="all">All Trades ({trades.length})</option>
-                {trades.map(trade => (
-                  <option key={trade.id} value={trade.id}>{trade.name}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-            <div className="relative" ref={filterMenuRef}>
-              <button 
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
-                  showFilterMenu ? 'bg-[#252525]' : ''
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span>More Filters</span>
-              </button>
-              
-              {/* More Filters Dropdown */}
-              {showFilterMenu && (
-                <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
-                  <div className="space-y-4">
-                    {/* Variant Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Product Type
-                      </label>
-                      <select
-                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedVariantFilter}
-                        onChange={(e) => setSelectedVariantFilter(e.target.value)}
-                      >
-                        <option value="all">All Products</option>
-                        <option value="with-variants">With Variants</option>
-                        <option value="without-variants">Without Variants</option>
-                      </select>
-                    </div>
+        <div className="bg-[#1A1A1A] border-b border-[#333333]">
+          <div className="px-8 flex items-center justify-between py-4">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <select
+                  className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] ${isConstrained ? 'px-2 py-1 text-xs min-w-[120px]' : 'px-3 py-2 text-sm min-w-[200px]'} font-medium text-white hover:bg-[#252525] transition-colors appearance-none cursor-pointer`}
+                  value={selectedTrade}
+                  onChange={(e) => {
+                    setSelectedTrade(e.target.value);
+                    updateUrlParams({ trade: e.target.value });
+                  }}
+                >
+                  <option value="all">All Trades ({products.length})</option>
+                  {trades.map(trade => {
+                    const tradeProductCount = products.filter(p => p.trade_id === trade.id).length;
+                    return (
+                      <option key={trade.id} value={trade.id}>
+                        {trade.name} ({tradeProductCount})
+                      </option>
+                    );
+                  })}
+                </select>
+                <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+              <div className="relative" ref={filterMenuRef}>
+                <button 
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'} font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
+                    showFilterMenu ? 'bg-[#252525]' : ''
+                  }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  {!isConstrained && <span>More Filters</span>}
+                </button>
+                
+                {/* More Filters Dropdown */}
+                {showFilterMenu && (
+                  <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
+                    <div className="space-y-4">
+                      {/* Profit Tier Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Profit Tier
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedProfitTier}
+                          onChange={(e) => {
+                            setSelectedProfitTier(e.target.value);
+                            updateUrlParams({ profitTier: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Price Ranges</option>
+                          <option value="premium">Premium ($500+)</option>
+                          <option value="high">High Margin ($200-500)</option>
+                          <option value="medium">Standard ($50-200)</option>
+                          <option value="low">Budget ($10-50)</option>
+                          <option value="minimal">Basic (Under $10)</option>
+                        </select>
+                      </div>
 
-                    {/* Price Range Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Price Range
-                      </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="number"
-                          placeholder="Min Price"
-                          value={priceMin}
-                          onChange={(e) => setPriceMin(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Max Price"
-                          value={priceMax}
-                          onChange={(e) => setPriceMax(e.target.value)}
-                          className="w-1/2 bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        />
+                      {/* Usage Frequency Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Usage Frequency
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedUsageFrequency}
+                          onChange={(e) => {
+                            setSelectedUsageFrequency(e.target.value);
+                            updateUrlParams({ usage: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Products</option>
+                          <option value="frequent">Frequently Used (3+ Variants)</option>
+                          <option value="regular">Regularly Used (Has Variants)</option>
+                          <option value="occasional">Occasionally Used</option>
+                        </select>
+                      </div>
+
+                      {/* Price Strategy Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Pricing Strategy
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedPriceStrategy}
+                          onChange={(e) => {
+                            setSelectedPriceStrategy(e.target.value);
+                            updateUrlParams({ strategy: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Strategies</option>
+                          <option value="premium">Premium Pricing ($300+)</option>
+                          <option value="competitive">Market Competitive ($50-300)</option>
+                          <option value="value">Value Pricing (Under $50)</option>
+                        </select>
+                      </div>
+
+                      {/* Clear Filters */}
+                      <div className="pt-2 border-t border-[#333333]">
+                        <button
+                          onClick={() => {
+                            resetFilters();
+                            setShowFilterMenu(false);
+                          }}
+                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                        >
+                          Clear All Filters
+                        </button>
                       </div>
                     </div>
-
-                    {/* Clear Filters */}
-                    <div className="pt-2 border-t border-[#333333]">
-                      <button
-                        onClick={() => {
-                          resetFilters();
-                          setShowFilterMenu(false);
-                        }}
-                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
-                      >
-                        Clear All Filters
-                      </button>
-                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('cards')}
-              >
-                Cards
-              </button>
+                )}
+              </div>
             </div>
             <div className="relative" ref={optionsMenuRef}>
               <button
@@ -749,56 +836,70 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
             </div>
           </div>
         </div>
-      </div>
 
-
-
-      {/* Content Area */}
-      <div className="flex-1 overflow-hidden">
-        {/* List View */}
-        {viewMode === 'list' && (
-          <div className="px-0 py-2 w-full">
-            {isLoading ? (
-              <LoadingIndicator />
-            ) : filteredProducts.length === 0 ? (
-              products.length === 0 || showTutorial ? (
-                <ContextualOnboarding />
-              ) : (
-                <div className="text-center py-20">
-                  <div className="text-gray-400 text-lg mb-4">No products match your search</div>
-                  <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
-                </div>
-              )
+        {/* Content Area */}
+        <div>
+          {isLoading ? (
+            <LoadingIndicator />
+          ) : filteredProducts.length === 0 ? (
+            products.length === 0 || showTutorial ? (
+              <ContextualOnboarding />
             ) : (
-              <div className="space-y-4">
-                {filteredProducts.map(product => (
-                  <div key={product.id} className="bg-[#121212] rounded overflow-hidden">
-                    {/* Base Product Header - Entire row clickable */}
-                    <div
-                      className="bg-[#333333] p-4 flex justify-between items-center cursor-pointer hover:bg-[#1E1E1E] transition-colors"
-                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
-                        <div>
-                          <h2 className="text-xl font-bold text-white">{product.name}</h2>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-gray-400 text-sm">
-                              {product.trade?.name || 'General'} •
-                              {product.variants && product.variants.length > 0 ?
-                                <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded ml-1">{product.variants.length} variants</span> :
-                                <span className="bg-gray-600 text-white text-xs px-2 py-0.5 rounded ml-1">No variants</span>
-                              }
+              <div className="text-center py-20">
+                <div className="text-gray-400 text-lg mb-4">No products match your search</div>
+                <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
+              </div>
+            )
+          ) : (
+            <div className="bg-[#1A1A1A] rounded-[4px] overflow-hidden">
+              {filteredProducts.map((product, index) => (
+                <div key={product.id} className="border-b border-[#333333] last:border-b-0">
+                  {/* Base Product Header - Entire row clickable */}
+                  <div
+                    className={`${isConstrained ? 'pl-4 pr-6 py-2' : 'pl-6 pr-8 py-3'} flex justify-between items-center cursor-pointer hover:bg-[#252525] transition-colors`}
+                    onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <h2 className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white truncate`}>{product.name}</h2>
+                          <span className={`text-gray-400 ${isConstrained ? 'text-xs' : 'text-sm'}`}>
+                            {product.trade?.name || 'General'}
+                          </span>
+                          {product.variants && product.variants.length > 0 && (
+                            <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded">
+                              {product.variants.length} variants
                             </span>
-                          </div>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-3 py-1.5 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition-colors flex items-center gap-2 font-medium`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/products/${product.id}/compare`);
+                        }}
+                        title="Compare Variants"
+                      >
+                        <BarChart3 size={14} />
+                        {!isConstrained && <span>Compare</span>}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Variants List - Only shown when expanded and not collapsed */}
+                  {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
+                    <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} space-y-2 bg-[#1E1E1E] border-t border-[#333333] relative`}>
+                      {/* Add Variant Button at top */}
+                      <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
+                        <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Variants ({product.variants.length})</h3>
                         <button
-                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                          className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            // Create a new variant product with parent info pre-filled
                             setEditingProduct({
                               id: '',
                               name: '',
@@ -809,37 +910,21 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                               parent_product_id: product.id,
                               parent_name: product.name,
                               category: product.category,
-                              variant: true // Flag to indicate this is a variant
+                              variant: true
                             });
                           }}
                         >
                           + Add Variant
                         </button>
-                        <button
-                          className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors flex items-center gap-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Use our new variant comparison drawer instead of the modal
-                            setSelectedVariantProduct(product);
-                            setShowVariantComparison(true);
-                          }}
-                        >
-                          <BarChart3 size={16} />
-                          Compare
-                        </button>
                       </div>
-                    </div>
 
-                    {/* Variants List - Only shown when expanded and not collapsed */}
-                    {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
-                      <div className="p-4 space-y-2 relative">
-                        {/* Vertical connecting line */}
-                        <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#336699] opacity-70"></div>
+                      {/* Vertical connecting line */}
+                      <div className="absolute left-8 top-20 bottom-6 w-0.5 bg-[#336699] opacity-70"></div>
 
                         {product.variants.map((variant: any, idx: number) => (
                           <div
                             key={variant.id}
-                            className="flex items-center justify-between p-4 border border-gray-700 rounded border-l-4 border-[#336699] cursor-pointer hover:bg-[#333333] transition-colors relative ml-4"
+                            className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors relative ${isConstrained ? 'ml-3' : 'ml-6'}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               // Open the drawer to edit this variant
@@ -849,186 +934,137 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                             {/* Horizontal connecting line */}
                             <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
 
-                            <div className="flex items-center gap-3">
-                              <div className="w-4 h-4 rounded ${getVariantColor(variant.variant_name)} border-2 border-[#336699] flex items-center justify-center">
-                                <span className="text-[8px] text-white font-bold">{idx + 1}</span>
-                              </div>
-                              <span className="font-medium text-white font-['Roboto']">{variant.variant_name || variant.name}</span>
-                              <span className="text-gray-400 text-sm font-['Roboto']">({variant.items?.length || 0} items)</span>
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <div className={`${isConstrained ? 'w-4 h-4' : 'w-5 h-5'} rounded-full bg-[#333333] border border-[#555555] flex items-center justify-center`}>
+                              <span className="text-xs text-white font-bold">{idx + 1}</span>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <span className="text-sm font-medium font-['Roboto_Condensed'] text-white font-['Roboto_Condensed']">{formatCurrency(variant.price || 0)}</span>
-                              <button
-                                className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Clone this variant logic
-                                  setEditingProduct({
-                                    id: '',
-                                    name: `${variant.name} (Copy)`,
-                                    description: variant.description,
-                                    user_id: user?.id || '',
-                                    status: 'draft',
-                                    is_base_product: false,
-                                    parent_product_id: product.id,
-                                    parent_name: product.name,
-                                    price: variant.price,
-                                    unit: variant.unit,
-                                    trade_id: variant.trade_id,
-                                    category: product.category,
-                                    variant: true // Flag to indicate this is a variant
-                                  });
-                                }}
-                              >
-                                Clone Variant
-                              </button>
-                            </div>
+                            <span className={`font-medium ${isConstrained ? 'text-xs truncate' : 'text-sm'} ${getVariantTextColor(variant.variant_name || variant.name)}`}>
+                              {variant.variant_name || variant.name}
+                            </span>
+                            {!isConstrained && (
+                              <span className="text-gray-500 text-xs">({variant.items?.length || 0} items)</span>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* If this is a standalone product with no variants */}
-                    {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
-                      <div className="p-4">
-                        <div
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-[#333333] transition-colors rounded border-l-4 border-[#336699]"
-                          onClick={() => navigate(`/products/edit/${product.id}`)}
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-gray-400 text-sm">({product.items?.length || 0} items)</span>
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <span className="text-lg font-bold font-['Roboto_Condensed'] text-white">{formatCurrency(product.price || 0)}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(variant.price || 0)}</span>
                             <button
-                              className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 rounded transition-colors"
+                              className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                // Create a variant of this product
+                                // Edit this variant
+                                setEditingProduct(variant);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className={`bg-[#1E1E1E] hover:bg-[#333333] text-white border border-[#404040] hover:border-[#555555] ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Clone this variant logic
                                 setEditingProduct({
                                   id: '',
-                                  name: '',
-                                  description: '',
+                                  name: `${variant.name} (Copy)`,
+                                  description: variant.description,
                                   user_id: user?.id || '',
                                   status: 'draft',
                                   is_base_product: false,
                                   parent_product_id: product.id,
                                   parent_name: product.name,
+                                  price: variant.price,
+                                  unit: variant.unit,
+                                  trade_id: variant.trade_id,
                                   category: product.category,
                                   variant: true // Flag to indicate this is a variant
                                 });
                               }}
                             >
-                              + Add Variant
+                              Clone
                             </button>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                      ))}
+                    </div>
+                  )}
 
-        {/* Card View */}
-        {viewMode === 'cards' && (
-          <div className="px-0 py-2 w-full">
-            {isLoading ? (
-              <LoadingIndicator />
-            ) : filteredProducts.length === 0 ? (
-              products.length === 0 || showTutorial ? (
-                <ContextualOnboarding />
-              ) : (
-                <div className="text-center py-20">
-                  <div className="text-gray-400 text-lg mb-4">No products match your search</div>
-                  <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
-                          </div>
-              )
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4">
-                {filteredProducts.map(product => (
-                  <div key={product.id} className="bg-[#333333] rounded-[4px] p-6 border border-[#404040] hover:border-[#336699] transition-colors">
-                    <h3 className="text-white font-bold mb-2">{product.name}</h3>
-                    <p className="text-gray-400 text-sm mb-4">{product.description}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-[#336699] font-bold">{formatCurrency(product.price || 0)}</span>
+                  {/* If this is a standalone product with no variants */}
+                  {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
+                    <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} bg-[#1E1E1E] border-t border-[#333333]`}>
+                      <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
+                        <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Product Details</h3>
                         <button
-                        onClick={() => setEditingProduct(product)}
-                        className="bg-[#336699] text-white px-3 py-1 rounded text-sm hover:bg-[#2A5580] transition-colors"
-                      >
-                        Edit
+                          className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProduct({
+                              id: '',
+                              name: '',
+                              description: '',
+                              user_id: user?.id || '',
+                              status: 'draft',
+                              is_base_product: false,
+                              parent_product_id: product.id,
+                              parent_name: product.name,
+                              category: product.category,
+                              variant: true
+                            });
+                          }}
+                        >
+                          + Add Variant
                         </button>
                       </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                      <div
+                        className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors`}
+                        onClick={() => setEditingProduct(product)}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className={`text-gray-400 ${isConstrained ? 'text-xs' : 'text-xs'}`}>({product.items?.length || 0} items)</span>
+                          {!isConstrained && (
+                            <>
+                              <span className="text-gray-400 text-xs">•</span>
+                              <span className="text-gray-400 text-xs">Click to edit</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(product.price || 0)}</span>
+                          <button
+                            className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProduct(product);
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-        {/* Modals */}
-        {deletingProduct && (
-          <DeleteConfirmationModal
-            title="Delete Product"
-            message="Are you sure you want to delete this product? This action cannot be undone."
+      {/* Modals */}
+      {deletingProduct && (
+        <DeleteConfirmationModal
+          title="Delete Product"
+          message="Are you sure you want to delete this product? This action cannot be undone."
           onConfirm={() => confirmDelete((deletingProduct as Product).id)}
-            onCancel={() => setDeletingProduct(null)}
-          />
-        )}
+          onCancel={() => setDeletingProduct(null)}
+        />
+      )}
 
-        {/* Product drawer moved to GlobalProductDrawer component */}
-        {/* Demo: Product Options Configurator */}
-        <div className="mt-12 flex justify-center">
-          <ProductOptionsDemo />
-        </div>
-
-        {/* Product Comparison Modal */}
-        {comparingProduct && (
-          <ProductComparisonModal
-            baseProduct={comparingProduct}
-            onClose={() => setComparingProduct(null)}
-          />
-        )}
-
-        {/* Product Variant Comparison Drawer */}
-        {showVariantComparison && selectedVariantProduct && (
-          <div className={`fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end transition-opacity ${isClosingDrawer ? 'opacity-0' : 'opacity-100'}`}>
-            <div
-              className={`bg-[#121212] w-full max-w-4xl overflow-y-auto transition-transform duration-300 ease-in-out ${isClosingDrawer ? 'transform translate-x-full' : 'transform translate-x-0'}`}
-            >
-              <div className="sticky top-0 bg-[#121212] z-10 px-6 py-4 border-b border-gray-700 flex justify-between items-center">
-                <h2 className="text-xl font-bold text-white">Compare {selectedVariantProduct.name} Variants</h2>
-                <button
-                  onClick={handleCloseVariantComparison}
-                  className="text-gray-400 hover:text-white"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="p-6">
-                <ProductVariantComparison
-                  baseProductId={selectedVariantProduct.id}
-                  onSelectVariant={(variantId) => {
-                    // Find the variant
-                    const variant = selectedVariantProduct.variants?.find(v => v.id === variantId);
-                    if (variant) {
-                      handleCloseVariantComparison();
-                      // Open the variant in the product form
-                      setTimeout(() => {
-                        setEditingProduct(variant as Product);
-                      }, 300);
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      {/* Product Comparison Modal */}
+      {comparingProduct && (
+        <ProductComparisonModal
+          baseProduct={comparingProduct}
+          onClose={() => setComparingProduct(null)}
+        />
+      )}
     </div>
   );
 };

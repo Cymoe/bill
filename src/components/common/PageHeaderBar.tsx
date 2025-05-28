@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, Plus } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useProductDrawer } from '../../contexts/ProductDrawerContext';
+import { LayoutContext } from '../layouts/DashboardLayout';
 
 interface PageHeaderBarProps {
   title: string;
@@ -17,134 +18,67 @@ interface PageHeaderBarProps {
 
 export const PageHeaderBar: React.FC<PageHeaderBarProps> = ({
   title,
-  searchPlaceholder = "Search...",
+  searchPlaceholder,
   onSearch,
-  searchValue = "",
+  searchValue,
+  addButtonLabel,
+  onAddClick,
   showSearch = true,
   showAddButton = true,
-  addButtonLabel,
-  onAddClick
 }) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { openProductDrawer } = useProductDrawer();
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  
-  // Determine the add button label based on current path if not provided
-  const getAddButtonLabel = () => {
-    if (addButtonLabel) return addButtonLabel;
-    
-    const path = location.pathname;
-    if (path.startsWith('/products')) return 'Product';
-    if (path.startsWith('/invoices')) return 'Invoice';
-    if (path.startsWith('/projects')) return 'Project';
-    if (path.startsWith('/clients')) return 'Client';
-    if (path.startsWith('/price-book')) return 'Price Book';
-    return 'Item';
-  };
+  const searchRef = useRef<HTMLDivElement>(null);
+  const { isConstrained } = useContext(LayoutContext);
 
-  // Default add button click handler based on current path
-  const handleAddClick = () => {
-    if (onAddClick) {
-      onAddClick();
-      return;
-    }
-
-    const path = location.pathname;
-    if (path.startsWith('/clients')) {
-      // This will be handled by parent component
-    } else if (path.startsWith('/products')) {
-      openProductDrawer();
-    } else if (path.startsWith('/invoices')) {
-      // This will be handled by parent component
-    } else if (path.startsWith('/projects')) {
-      navigate('/projects/new');
-    }
-  };
-
-  // Handle search expansion
-  const handleSearchClick = () => {
-    setIsSearchExpanded(true);
-    // Wait for animation to mostly complete before focusing
-    setTimeout(() => {
-      searchInputRef.current?.focus();
-    }, 200);
-  };
-
-  // Handle search blur - collapse if empty with delay to prevent flicker
-  const handleSearchBlur = (e: React.FocusEvent) => {
-    // Use setTimeout to allow for potential refocus (like clicking the search icon)
-    setTimeout(() => {
-      if (!searchValue && document.activeElement !== searchInputRef.current) {
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setIsSearchExpanded(false);
       }
-    }, 150);
-  };
+    };
 
-  // Auto-expand if there's a search value
-  useEffect(() => {
-    if (searchValue) {
-      setIsSearchExpanded(true);
-    }
-  }, [searchValue]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <div className="px-8 py-6 border-b border-[#333333] flex justify-between items-center">
-      <h1 className="text-2xl font-semibold text-white">{title}</h1>
-      <div className="flex items-center gap-4">
-        {showSearch && (
-          <div className="relative flex-shrink-0">
-            <div 
-              className={`bg-[#1a1a1a] border border-[#333333] rounded-lg flex items-center transition-all duration-300 ease-out overflow-hidden ${
-                isSearchExpanded ? 'w-80' : 'w-10'
-              } h-10`}
-            >
-              {/* Search icon - always present */}
-              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-                {!isSearchExpanded ? (
-                  <button
-                    onClick={handleSearchClick}
-                    className="w-full h-full flex items-center justify-center hover:bg-[#2a2a2a] transition-colors duration-200 rounded-lg"
-                    tabIndex={0}
-                  >
-                    <Search className="w-4 h-4 text-gray-500" />
-                  </button>
+    <div className="pt-3 md:pt-4">
+      <div>
+        <div className={`flex items-center justify-between gap-2 md:gap-4 py-3 md:py-4 ${isConstrained ? 'flex-wrap' : ''}`}>
+          <h1 className={`${isConstrained ? 'text-xl' : 'text-xl md:text-2xl'} font-bold text-white`}>{title}</h1>
+          <div className="flex items-center gap-2 md:gap-3">
+            {showSearch && (
+              <div ref={searchRef} className={`relative ${isSearchExpanded ? (isConstrained ? 'w-40' : 'w-48 md:w-64') : 'w-auto'}`}>
+                {isSearchExpanded ? (
+                  <input
+                    type="text"
+                    placeholder={searchPlaceholder}
+                    value={searchValue}
+                    onChange={(e) => onSearch?.(e.target.value)}
+                    className="w-full bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+                    autoFocus
+                  />
                 ) : (
-                  <Search className="w-4 h-4 text-gray-500 pointer-events-none" />
+                  <button
+                    onClick={() => setIsSearchExpanded(true)}
+                    className="p-1.5 md:p-2 text-gray-400 hover:text-white transition-colors"
+                  >
+                    <Search className="w-4 h-4 md:w-5 md:h-5" />
+                  </button>
                 )}
               </div>
-              
-              {/* Input field - only rendered when expanded */}
-              {isSearchExpanded && (
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchValue}
-                  onChange={(e) => onSearch?.(e.target.value)}
-                  onBlur={handleSearchBlur}
-                  placeholder={searchPlaceholder}
-                  className="flex-1 h-full px-3 pr-4 bg-transparent text-white placeholder-gray-500 focus:outline-none border-none"
-                  style={{ minWidth: 0 }} // Prevents input from forcing container width
-                />
-              )}
-            </div>
-            
-            {/* Focus ring overlay - only when expanded and focused */}
-            {isSearchExpanded && (
-              <div className="absolute inset-0 rounded-lg ring-2 ring-[#336699] ring-opacity-0 focus-within:ring-opacity-100 transition-opacity duration-200 pointer-events-none" />
+            )}
+            {showAddButton && (
+              <button
+                onClick={onAddClick}
+                className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-3 py-1.5' : 'px-3 md:px-4 py-1.5 md:py-2'} rounded-[4px] text-xs md:text-sm font-medium transition-colors flex items-center gap-1 md:gap-2`}
+              >
+                <Plus className="w-3 h-3 md:w-4 md:h-4" />
+                <span className={isConstrained ? 'hidden sm:inline' : ''}>{addButtonLabel}</span>
+              </button>
             )}
           </div>
-        )}
-        {showAddButton && (
-          <button
-            onClick={handleAddClick}
-            className="h-10 px-4 bg-[#fbbf24] hover:bg-[#f59e0b] text-black font-medium rounded-lg transition-all duration-200 hover:transform hover:-translate-y-0.5 flex items-center gap-2 flex-shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            {getAddButtonLabel()}
-          </button>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -61,10 +61,10 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="h-full flex flex-col bg-[#121212] overflow-hidden">
+    <form onSubmit={handleSubmit} className="h-full flex flex-col bg-[#121212] overflow-hidden font-sans">
       {/* Header - Fixed at top */}
       <div className="flex items-center justify-between p-4 border-b border-[#333333] bg-[#121212] flex-shrink-0">
-        <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">{title}</h2>
+        <h2 className="text-xl font-semibold text-white uppercase tracking-wide">{title}</h2>
         <button
           type="button"
           onClick={onClose}
@@ -79,13 +79,13 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#121212]">
         {error && (
           <div className="p-4 bg-[#333333] border-l-4 border-[#D32F2F] rounded-[4px]">
-            <p className="text-sm text-white font-['Roboto']">{error}</p>
+            <p className="text-sm text-white">{error}</p>
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase">
+            <label htmlFor="name" className="block text-sm font-medium text-gray-300 uppercase tracking-wide">
               Product Name
             </label>
             <input
@@ -99,20 +99,20 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-300 uppercase tracking-wide">
               Description
             </label>
             <textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white font-['Roboto'] p-3"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white p-3"
               rows={3}
             />
           </div>
 
           <div>
-            <label htmlFor="price" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase">
+            <label htmlFor="price" className="block text-sm font-medium text-gray-300 uppercase tracking-wide">
               Price
             </label>
             <input
@@ -120,7 +120,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               id="price"
               value={formData.price}
               onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white font-['Roboto_Mono'] h-10 px-3"
+              className="mt-1 block w-full rounded-[4px] border border-[#555555] shadow-sm focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40 bg-[#333333] text-white tabular-nums h-10 px-3"
               required
               min="0"
               step="0.01"
@@ -128,7 +128,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
 
           <div>
-            <label htmlFor="unit" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase">
+            <label htmlFor="unit" className="block text-sm font-medium text-gray-300 uppercase tracking-wide">
               Unit
             </label>
             <select
@@ -146,7 +146,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           </div>
 
           <div>
-            <label htmlFor="type" className="block text-sm font-medium text-white font-['Roboto_Condensed'] uppercase">
+            <label htmlFor="type" className="block text-sm font-medium text-gray-300 uppercase tracking-wide">
               Type
             </label>
             <select
@@ -171,14 +171,14 @@ export const ProductForm: React.FC<ProductFormProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-['Roboto'] font-medium uppercase tracking-wider h-10"
+            className="w-full px-4 py-2 border border-[#336699] border-opacity-40 rounded-[4px] bg-transparent hover:bg-[#1E1E1E] text-white font-medium uppercase tracking-wide h-10"
             disabled={loading}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 disabled:opacity-50 font-['Roboto'] font-medium uppercase tracking-wider h-10"
+            className="w-full px-4 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 disabled:opacity-50 font-medium uppercase tracking-wide h-10"
             disabled={loading}
           >
             {loading ? 'Saving...' : submitLabel}
