@@ -205,10 +205,10 @@ const ChatManagementSystem: React.FC = () => {
   ];
 
   const quickActions: QuickAction[] = [
-    { icon: <DollarSign className="h-4 w-4" />, text: "Cash flow issues", color: "text-red-400", query: "Show me overdue invoices and cash flow problems" },
-    { icon: <TrendingUp className="h-4 w-4" />, text: "Profit analysis", color: "text-green-400", query: "Analyze my profit margins by project type" },
-    { icon: <Users className="h-4 w-4" />, text: "Client insights", color: "text-blue-400", query: "Who are my most valuable clients?" },
-    { icon: <Clock className="h-4 w-4" />, text: "Time efficiency", color: "text-yellow-400", query: "Which projects take too long and hurt my hourly rate?" }
+    { icon: <TrendingUp className="h-4 w-4" />, text: "Lumber prices jumped 23%", color: "text-yellow-400", query: "Hey! I noticed lumber prices just jumped 23%. Want me to find you a better supplier? I found one that hasn't updated prices yet. 🎯" },
+    { icon: <DollarSign className="h-4 w-4" />, text: "Copper price drop Thursday", color: "text-green-400", query: "Good news! Based on historical patterns, copper prices will drop next Thursday. I can set a reminder to buy then. 📉" },
+    { icon: <AlertTriangle className="h-4 w-4" />, text: "Update concrete quotes", color: "text-red-400", query: "Heads up - you have 3 quotes using old concrete prices. Should I update them for you? It'll save your margins. 💰" },
+    { icon: <Clock className="h-4 w-4" />, text: "Drywall bulk discount", color: "text-blue-400", query: "I analyzed your buying patterns. You order drywall every 2 weeks. BuilderMax has a bulk discount that would save you $420/month. Want details? 📦" }
   ];
 
   // Handle opening existing chat
@@ -251,10 +251,10 @@ const ChatManagementSystem: React.FC = () => {
           content: "Hey! I'm ready to analyze your business data. What would you like to know about your projects, clients, profits, or cash flow?",
           timestamp: new Date().toLocaleTimeString(),
           suggestions: [
-            "Show me my biggest money makers",
-            "Which invoices are overdue?", 
-            "What projects have the best margins?",
-            "Who are my slowest paying clients?"
+            "Why are lumber prices rising?",
+            "Best time to buy concrete?", 
+            "Compare my prices to competitors",
+            "Optimize my supplier list"
           ]
         }
       ]

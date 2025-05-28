@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import TabMenu from '../common/TabMenu';
 import { LineItemModal } from '../modals/LineItemModal';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
-import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search } from 'lucide-react';
+import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns } from 'lucide-react';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { LayoutContext } from '../layouts/DashboardLayout';
+import React from 'react';
 
 interface Product {
   id: string;
@@ -40,6 +41,7 @@ export const PriceBook: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isConstrained, isMinimal, isCompact } = React.useContext(LayoutContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
   const [showEditLineItemModal, setShowEditLineItemModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -77,6 +79,7 @@ export const PriceBook: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTrade, setSelectedTrade] = useState('all');
   const [viewMode, setViewMode] = useState<'expanded' | 'condensed'>('expanded');
+  const [error, setError] = useState<string | null>(null);
   
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -262,16 +265,29 @@ export const PriceBook: React.FC = () => {
 
   const fetchProducts = async () => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
+      console.log('Fetching products for user:', user?.id);
+      
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      console.log('Products fetched:', data);
       setProducts(data || []);
     } catch (error) {
       console.error('Error fetching products:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load products');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -410,82 +426,373 @@ export const PriceBook: React.FC = () => {
         onAddClick={() => setShowNewLineItemModal(true)}
       />
       
-      {/* Stats Bar */}
-      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Items:</span>
-          <span className="font-mono font-medium">1,000</span>
-          <span className="text-gray-500 text-xs">($384,777.55)</span>
-          </div>
-        <div className="w-px h-4 bg-[#333333]" />
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Most Used:</span>
-          <span className="font-medium">Material</span>
-          <span className="text-gray-500 text-xs">(552)</span>
+      {/* Unified Stats + Table Container */}
+      <div className="bg-[#242424] border border-[#333333] rounded-[4px]">
+        {/* Stats Section */}
+        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+          {isMinimal || isConstrained ? (
+            // Compact 4-column row for constrained/minimal
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">ITEMS</div>
+                <div className="text-base font-semibold mt-1">{products.length}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED</div>
+                <div className="text-base font-semibold mt-1">127</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">UPDATED</div>
+                <div className="text-base font-semibold mt-1">45</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">REVIEW</div>
+                <div className="text-base font-semibold text-[#F9D71C] mt-1">12</div>
+              </div>
+            </div>
+          ) : (
+            // Full 4-column layout for desktop
+            <div className="grid grid-cols-4 gap-6">
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL ITEMS</div>
+                <div className="text-lg font-semibold mt-1">{products.length}</div>
+                <div className="text-xs text-gray-500">({formatCurrency(products.reduce((sum, p) => sum + p.price, 0))})</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED LAST 30 DAYS</div>
+                <div className="text-lg font-semibold mt-1">127</div>
+                <div className="text-xs text-gray-500">(items quoted)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">RECENTLY UPDATED</div>
+                <div className="text-lg font-semibold mt-1">45</div>
+                <div className="text-xs text-gray-500">(last 7 days)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">NEEDS REVIEW</div>
+                <div className="text-lg font-semibold text-[#F9D71C] mt-1">12</div>
+                <div className="text-xs text-gray-500">(outdated pricing)</div>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="w-px h-4 bg-[#333333]" />
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400">Avg Price:</span>
-          <span className="font-mono font-medium text-[#336699]">$384.78</span>
+
+        {/* Table Controls Header */}
+        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
+          <div className={`flex items-center justify-between ${isMinimal ? 'gap-2' : 'gap-4'}`}>
+            {/* Left side - Filters */}
+            <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
+              <select
+                className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699] ${
+                  isMinimal ? 'px-2 py-1.5 text-xs min-w-[120px]' : isConstrained ? 'px-2 py-1.5 text-xs min-w-[140px]' : 'px-3 py-2 text-sm'
+                }`}
+                value={selectedTradeId}
+                onChange={(e) => setSelectedTradeId(e.target.value)}
+              >
+                <option value="all">All Trades ({products.length})</option>
+                {trades.map(trade => (
+                  <option key={trade.id} value={trade.id}>
+                    {trade.name} ({products.filter(p => p.trade_id === trade.id).length})
+                  </option>
+                ))}
+              </select>
+
+              <div className="relative" ref={filterMenuRef}>
+                <button
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white hover:bg-[#333333] transition-colors flex items-center gap-2 ${
+                    isMinimal ? 'px-2 py-1.5 text-xs' : isConstrained ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+                  }`}
+                >
+                  <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                  {!isMinimal && !isConstrained && 'More Filters'}
+                </button>
+
+                {showFilterMenu && (
+                  <div className={`absolute top-full ${isConstrained ? 'right-0' : 'left-0'} mt-2 ${isConstrained ? 'w-56' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4`}>
+                    <div className="space-y-4">
+                      {/* Status Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Status
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedStatus}
+                          onChange={(e) => setSelectedStatus(e.target.value)}
+                        >
+                          <option value="all">All Status</option>
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="draft">Draft</option>
+                        </select>
+                      </div>
+
+                      {/* Price Range Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Price Range
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="number"
+                            placeholder="Min"
+                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            value={minPrice}
+                            onChange={(e) => setMinPrice(e.target.value)}
+                          />
+                          <input
+                            type="number"
+                            placeholder="Max"
+                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            value={maxPrice}
+                            onChange={(e) => setMaxPrice(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Vendor Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Vendor
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedVendorId}
+                          onChange={(e) => setSelectedVendorId(e.target.value)}
+                        >
+                          <option value="all">All Vendors</option>
+                          {vendors.map(vendor => (
+                            <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Favorites Toggle */}
+                      <div>
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={showFavoritesOnly}
+                            onChange={(e) => setShowFavoritesOnly(e.target.checked)}
+                            className="form-checkbox h-4 w-4 text-[#336699] bg-[#333333] border-[#555555] rounded focus:ring-[#336699]"
+                          />
+                          <span className="text-sm text-white">Show favorites only</span>
+                        </label>
+                      </div>
+
+                      {/* Clear Filters */}
+                      <div className="pt-2 border-t border-[#333333]">
+                        <button
+                          onClick={() => {
+                            setActiveCategory('all');
+                            setSelectedStatus('all');
+                            setSelectedTradeId('all');
+                            setSelectedVendorId('all');
+                            setMinPrice('');
+                            setMaxPrice('');
+                            setShowFavoritesOnly(false);
+                            setSelectedDateRange('all');
+                            setShowFilterMenu(false);
+                          }}
+                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                        >
+                          Clear All Filters
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
                       </div>
                     </div>
 
-      {/* Controls Bar */}
-      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 min-w-[180px] hover:bg-[#252525] transition-colors">
-              <span>All Trades</span>
-              <span className="text-gray-500">(56)</span>
-              <ChevronDown className="w-4 h-4 ml-auto text-gray-400" />
+            {/* Right side - Options menu only */}
+            <div className="relative" ref={optionsMenuRef}>
+              <button
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
+              >
+                <MoreVertical className="w-4 h-4 text-gray-400" />
                     </button>
-                    </div>
-          <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors">
-            <Filter className="w-4 h-4" />
-            <span>More Filters</span>
-                    </button>
-                  </div>
-        <div className="flex items-center gap-2">
-            <button
-            onClick={() => setViewMode(viewMode === 'expanded' ? 'condensed' : 'expanded')}
-            className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors"
-            >
-            <span>{viewMode === 'expanded' ? 'Condense' : 'Expand'}</span>
-            </button>
-          <button className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors">
-            <MoreVertical className="w-4 h-4" />
-              </button>
-                  </div>
-                </div>
-        
-      {/* Category Tabs */}
-            <TabMenu
-              items={[
-                { id: 'all', label: 'All', count: products.length },
-                { id: 'material', label: 'Material', count: products.filter(p => p.type === 'material').length },
-                { id: 'labor', label: 'Labor', count: products.filter(p => p.type === 'labor').length },
-                { id: 'equipment', label: 'Equipment', count: products.filter(p => p.type === 'equipment').length },
-                { id: 'service', label: 'Service', count: products.filter(p => p.type === 'service').length },
-          { id: 'subcontractor', label: 'Subcontractor', count: products.filter(p => p.type === 'subcontractor').length }
-              ]}
-              activeItemId={activeCategory}
-              onItemClick={setActiveCategory}
-            />
 
-      {/* Table Header */}
-      <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] grid grid-cols-[100px_1fr_120px_100px_120px_120px_80px] gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-        <div>Type</div>
-        <div>Name</div>
-        <div className="text-right">Price</div>
-        <div>Unit</div>
-        <div>Trade</div>
-        <div>Last Updated</div>
-        <div className="text-center">Actions</div>
+              {showOptionsMenu && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
+                    Data Management
+                    </div>
+                  <button
+                    onClick={() => {
+                      handleImportItems();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <Upload className="w-3 h-3 mr-3 text-gray-400" />
+                    Import Items
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleExportToCSV();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <Download className="w-3 h-3 mr-3 text-gray-400" />
+                    Export to CSV
+                    </button>
+                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
+                    View Options
+                  </div>
+                  <button
+                    onClick={() => {
+                      handlePrintPriceBook();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <FileText className="w-3 h-3 mr-3 text-gray-400" />
+                    Print Price Book
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Category Pills */}
+          <div className={`flex items-center ${isMinimal ? 'mt-2 pt-2' : 'mt-3 pt-3'} border-t border-[#333333]/50`}>
+            <span className={`text-xs text-gray-400 uppercase tracking-wider mr-2 flex-shrink-0 ${isMinimal ? 'hidden' : ''}`}>Categories:</span>
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0 flex-1">
+              <button
+                onClick={() => setActiveCategory('all')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'all'
+                    ? 'bg-[#336699] text-white'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                All ({products.length})
+              </button>
+              <button
+                onClick={() => setActiveCategory('material')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'material'
+                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `${isMinimal ? 'Mat' : 'Material'} (${products.filter(p => p.type === 'material').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Material</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'material').length})</span>
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveCategory('labor')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'labor'
+                    ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `${isMinimal ? 'Lab' : 'Labor'} (${products.filter(p => p.type === 'labor').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Labor</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'labor').length})</span>
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveCategory('equipment')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'equipment'
+                    ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `${isMinimal ? 'Eq' : 'Equipment'} (${products.filter(p => p.type === 'equipment').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Equipment</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'equipment').length})</span>
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveCategory('service')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'service'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `${isMinimal ? 'Svc' : 'Service'} (${products.filter(p => p.type === 'service').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Service</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'service').length})</span>
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveCategory('subcontractor')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'subcontractor'
+                    ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `Sub (${products.filter(p => p.type === 'subcontractor').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Subcontractor</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'subcontractor').length})</span>
+                  </div>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {/* Table Column Headers */}
+        <div className={`${isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
+          <div className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
+            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>ITEM</div>
+            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>PRICE</div>
+            {!isMinimal && !isConstrained && <div className="col-span-2">TRADE</div>}
+            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right`}></div>
+          </div>
         </div>
         
       {/* Table Content */}
-      <div className="flex-1 overflow-y-auto">
-        {filteredProducts.length === 0 ? (
+        <div className="overflow-hidden rounded-b-[4px]">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-400">Loading your price book...</p>
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+                <span className="text-red-400 text-2xl">⚠</span>
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">Error Loading Price Book</h3>
+              <p className="text-gray-400 mb-6 max-w-md">{error}</p>
+              <button
+                onClick={() => fetchProducts()}
+                className="bg-[#336699] hover:bg-[#2A5580] text-white px-6 py-3 rounded-[4px] font-medium transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
+          ) : filteredProducts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-16 h-16 bg-[#333333] rounded-full flex items-center justify-center mb-4">
               <Plus className="w-8 h-8 text-gray-400" />
@@ -496,13 +803,13 @@ export const PriceBook: React.FC = () => {
             </p>
             <button
               onClick={() => setShowNewLineItemModal(true)}
-              className="bg-white hover:bg-gray-100 text-[#121212] px-6 py-3 rounded-[4px] font-medium transition-colors"
+                className="bg-white hover:bg-gray-100 text-[#121212] px-6 py-3 rounded-[4px] font-medium transition-colors"
             >
               Add Your First Item
             </button>
           </div>
         ) : (
-          <div className="divide-y divide-[#333333]">
+            <div>
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
@@ -514,141 +821,136 @@ export const PriceBook: React.FC = () => {
                   }
                   handleEditProduct(product);
                 }}
-                className="px-6 py-4 grid grid-cols-[100px_1fr_120px_100px_120px_120px_80px] gap-4 items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer"
-              >
-                {/* Type */}
-                <div>
-                  <span className={`inline-flex items-center px-2 py-1 rounded-[2px] text-xs font-medium ${
+                  className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 ${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
+                >
+                  {/* Item Column */}
+                  <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
+                    <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
+                      <span className={`text-xs px-2 py-1 rounded-[2px] font-medium min-w-[60px] text-center ${
                     product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
                     product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
                     product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
                     product.type === 'service' ? 'bg-purple-500/20 text-purple-300' :
                     'bg-gray-500/20 text-gray-300'
                   }`}>
-                    {product.type}
+                        {product.type === 'subcontractor' ? 'sub' : product.type}
                   </span>
-                </div>
-
-                {/* Name */}
-                <div className="min-w-0">
-                  <div className="font-medium text-white truncate">{product.name}</div>
-                  {product.description && (
-                    <div className="text-sm text-gray-400 truncate">{product.description}</div>
-                  )}
-                  {product.sku && (
-                    <div className="text-xs text-gray-500">SKU: {product.sku}</div>
-                  )}
+                      <div className="min-w-0 flex-1">
+                        <div className={`font-medium text-gray-100 truncate ${isMinimal ? 'text-sm' : ''}`}>{product.name}</div>
+                        {product.description && !isMinimal && !isConstrained && (
+                          <div className="text-xs text-gray-400 truncate mt-0.5">{product.description}</div>
+                        )}
+                      </div>
                     </div>
-                    
-                {/* Price */}
-                <div className="font-mono font-medium text-white text-right">
-                  {formatCurrency(product.price)}
-                    </div>
-                    
-                {/* Unit */}
-                <div className="text-gray-300 capitalize truncate">{product.unit}</div>
-
-                {/* Trade */}
-                <div className="text-gray-300 truncate">{getTrade(product)}</div>
-
-                {/* Last Updated */}
-                <div className="text-gray-400 text-sm">
-                  {new Date(product.updated_at || product.created_at).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-center relative">
-                    <button
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent row click
-                      e.preventDefault(); // Prevent any default behavior
-                      
-                      // Toggle dropdown - if it's open for this product, close it, otherwise open it
-                      if (activeDropdown === product.id) {
-                        setActiveDropdown(null);
-                      } else {
-                        setActiveDropdown(product.id);
-                      }
-                    }}
-                    className="w-8 h-8 flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors"
-                    >
-                    <MoreVertical className="w-4 h-4 text-gray-400" />
-                    </button>
-
-                  {/* Dropdown Menu */}
-                  {activeDropdown === product.id && (
-                    <div
-                      ref={dropdownRef}
-                      className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
-                    >
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleEditProduct(product);
-                          setActiveDropdown(null);
-                        }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                      >
-                        <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
-                        Edit Item
-                    </button>
-                      
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDuplicateProduct(product);
-                        }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                        <Copy className="w-4 h-4 mr-3 text-gray-400" />
-                        Duplicate
-                    </button>
-                      
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleToggleFavorite(product);
-                        }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                        <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
-                        {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                    </button>
-                      
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleAddToEstimate(product);
-                        }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                        <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
-                        Add to Current Estimate
-                    </button>
-                      
-                      <div className="border-t border-[#333333] my-1" />
-                      
-                    <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteProduct(product);
-                        }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
-                    >
-                        <Trash2 className="w-4 h-4 mr-3 text-red-400" />
-                        Delete
-                    </button>
                   </div>
+                  
+                  {/* Price Column */}
+                  <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
+                    <div className={`font-mono font-semibold text-gray-100 ${isMinimal ? 'text-sm' : ''}`}>
+                      {formatCurrency(product.price)}
+                    </div>
+                    {!isMinimal && !isConstrained && (
+                      <div className="text-xs text-gray-400 capitalize">{product.unit}</div>
+                    )}
+                  </div>
+                  
+                  {/* Trade Column - Hidden in minimal mode */}
+                  {!isMinimal && !isConstrained && (
+                    <div className="col-span-2 text-sm text-gray-300">
+                      {getTrade(product)}
+                    </div>
                   )}
+
+                  {/* Actions Column */}
+                  <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                      
+                        if (activeDropdown === product.id) {
+                          setActiveDropdown(null);
+                        } else {
+                          setActiveDropdown(product.id);
+                        }
+                      }}
+                      className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                    >
+                      <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    {activeDropdown === product.id && (
+                      <div
+                        ref={dropdownRef}
+                        className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
+                      >
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditProduct(product);
+                            setActiveDropdown(null);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        >
+                          <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                          Edit Item
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDuplicateProduct(product);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        >
+                          <Copy className="w-4 h-4 mr-3 text-gray-400" />
+                          Duplicate
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(product);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        >
+                          <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
+                          {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                        </button>
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleAddToEstimate(product);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        >
+                          <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
+                          Add to Current Estimate
+                        </button>
+                        
+                        <div className="border-t border-[#333333] my-1" />
+                        
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProduct(product);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4 mr-3 text-red-400" />
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
             </div>
           )}
         </div>
+      </div>
 
       {/* New Line Item Modal */}
       {showNewLineItemModal && (
@@ -657,9 +959,9 @@ export const PriceBook: React.FC = () => {
           onSave={() => {
             setShowNewLineItemModal(false);
             fetchProducts(); // Refresh the list
-            }}
-          />
-        )}
+          }}
+        />
+      )}
 
       {/* Edit Line Item Modal */}
       {showEditLineItemModal && editingProduct && (
@@ -670,9 +972,9 @@ export const PriceBook: React.FC = () => {
             setEditingProduct(null);
           }}
           onSave={handleSaveEdit}
-          />
-        )}
-      </div>
+        />
+      )}
+    </div>
   );
 };
 

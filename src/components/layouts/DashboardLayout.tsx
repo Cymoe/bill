@@ -50,11 +50,15 @@ export const MobileCreateMenuContext = createContext<{ isCreateMenuOpen: boolean
 // Context for layout constraints
 export const LayoutContext = createContext<{ 
   isConstrained: boolean; 
+  isMinimal: boolean;
+  isCompact: boolean;
   isChatOpen: boolean; 
   isProjectsOpen: boolean;
-  availableWidth: 'full' | 'constrained' | 'minimal';
+  availableWidth: 'full' | 'constrained' | 'minimal' | 'compact';
 }>({ 
   isConstrained: false, 
+  isMinimal: false,
+  isCompact: false,
   isChatOpen: false, 
   isProjectsOpen: false,
   availableWidth: 'full'
@@ -106,7 +110,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [projectsSortOrder, setProjectsSortOrder] = useState<'latest' | 'earliest'>('latest');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const [availableContentWidth, setAvailableContentWidth] = useState<'full' | 'constrained'>('full');
+  const [availableContentWidth, setAvailableContentWidth] = useState<'full' | 'constrained' | 'minimal' | 'compact'>('full');
 
   const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -378,8 +382,50 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     
     const availableSpace = viewportWidth - leftSpace - rightSpace;
     
-    // Consider it constrained if available space is less than 800px
-    return availableSpace < 800 ? 'constrained' : 'full';
+    // Debug logging
+    console.log('Layout calculation:', {
+      viewportWidth,
+      leftSpace,
+      rightSpace,
+      availableSpace,
+      isChatPanelOpen,
+      chatPanelWidth,
+      isProjectsSidebarLocked,
+      isProjectsSidebarOpen,
+      isSidebarCollapsed
+    });
+    
+    // Adjusted breakpoints - more aggressive when projects sidebar is open
+    const isProjectsOpen = isProjectsSidebarLocked || isProjectsSidebarOpen;
+    
+    // When projects sidebar is open, be much more conservative with space
+    if (isProjectsOpen) {
+      if (availableSpace < 700) return 'minimal';      // Switch to minimal sooner when projects open
+      if (availableSpace < 900) return 'constrained';  // Cramped when projects open  
+      if (availableSpace < 1100) return 'compact';     // Slightly tight when projects open
+    } else {
+      // Normal breakpoints when projects sidebar is closed
+      if (availableSpace < 400) return 'minimal';      // Very cramped
+      if (availableSpace < 600) return 'constrained';  // Cramped
+      if (availableSpace < 800) return 'compact';      // Slightly tight
+    }
+    
+    // Special case: if both chat and projects are open, be even more conservative
+    if (isChatPanelOpen && isProjectsOpen) {
+      // When chat is wide (>600px), be extremely conservative
+      if (chatPanelWidth > 600) {
+        if (availableSpace < 1000) return 'minimal';    // Much more aggressive for wide chat
+        if (availableSpace < 1200) return 'constrained';
+        if (availableSpace < 1400) return 'compact';
+      } else {
+        // Normal chat width
+        if (availableSpace < 800) return 'minimal';      
+        if (availableSpace < 1000) return 'constrained';
+        if (availableSpace < 1200) return 'compact';
+      }
+    }
+    
+    return 'full';                                   // Full width - show everything
   }, [isChatPanelOpen, chatPanelWidth, isProjectsSidebarLocked, isProjectsSidebarOpen, isSidebarCollapsed]);
 
   // Update available width when dependencies change
@@ -394,7 +440,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return () => window.removeEventListener('resize', updateWidth);
   }, [calculateAvailableWidth]);
 
-  const isConstrained = availableContentWidth === 'constrained';
+  const isConstrained = availableContentWidth === 'constrained' || availableContentWidth === 'minimal';
+  const isMinimal = availableContentWidth === 'minimal';
+  const isCompact = availableContentWidth === 'compact';
   
   if (isLoading) {
     return (
@@ -448,6 +496,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
     <LayoutContext.Provider value={{ 
       isConstrained: isConstrained, 
+      isMinimal: isMinimal,
+      isCompact: isCompact,
       isChatOpen: isChatPanelOpen, 
       isProjectsOpen: isProjectsSidebarLocked || isProjectsSidebarOpen,
       availableWidth: availableContentWidth

@@ -1,21 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, ChevronRight, Share2, Copy, Filter, MoreVertical, ChevronDown, Calendar, DollarSign, FileText, Clock, CheckCircle, AlertCircle, Search, Plus, Upload, Settings, BarChart3, Columns, List, LayoutGrid } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import TabMenu from '../common/TabMenu';
 import { NewInvoiceModal } from './NewInvoiceModal';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
-import { CardSkeleton } from '../skeletons/CardSkeleton';
-import { Dropdown } from '../common/Dropdown';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeader } from '../common/PageHeader';
 import { PageHeaderBar } from '../common/PageHeaderBar';
-import { StatsBar } from '../common/StatsBar';
-import { ControlsBar } from '../common/ControlsBar';
 import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
-import { NewButton } from '../common/NewButton';
+import { LayoutContext } from '../layouts/DashboardLayout';
 
 type Invoice = {
   id: string;
@@ -40,6 +34,7 @@ export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
@@ -50,7 +45,6 @@ export const InvoiceList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -62,7 +56,6 @@ export const InvoiceList: React.FC = () => {
   const [selectedClientType, setSelectedClientType] = useState('all');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
-  const [viewMode, setViewMode] = useState<'list' | 'cards'>('list');
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -219,10 +212,6 @@ export const InvoiceList: React.FC = () => {
     });
   }, [invoices, searchTerm, selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedClientType, selectedDateRange, amountSort, clients]);
 
-  const toggleAmountSort = () => {
-    setAmountSort(amountSort === 'asc' ? 'desc' : 'asc');
-  };
-
   // Reset filters function
   const resetFilters = () => {
     setSelectedCashFlowStatus('all');
@@ -247,91 +236,12 @@ export const InvoiceList: React.FC = () => {
     console.log('Print invoices clicked');
   };
 
-  const getStatusStyle = (status: string) => {
-    const baseStyle = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full ";
-    switch (status) {
-      case 'paid':
-        return baseStyle + "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case 'overdue':
-        return baseStyle + "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case 'sent':
-        return baseStyle + "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      default:
-        return baseStyle + "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
   const statusFilters: { value: InvoiceStatus; label: string }[] = [
     { value: 'all', label: 'All Invoices' },
     { value: 'draft', label: 'Drafts' },
     { value: 'sent', label: 'Sent' },
     { value: 'paid', label: 'Paid' },
     { value: 'overdue', label: 'Overdue' }
-  ];
-
-  // Bulk select logic
-  const allSelected = filteredInvoices.length > 0 && selectedRows.length === filteredInvoices.length;
-  const toggleSelectAll = () => {
-    if (allSelected) setSelectedRows([]);
-    else setSelectedRows(filteredInvoices.map(inv => inv.id));
-  };
-  const toggleSelectRow = (id: string) => {
-    setSelectedRows((prev) => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const rowDropdownItems = (invoice: any) => [
-    {
-      label: 'View Details',
-      onClick: () => setViewInvoiceId(invoice.id),
-      className: 'font-bold text-white',
-    },
-    {
-      label: '',
-      onClick: () => {},
-      className: 'pointer-events-none border-t border-[#35384A] my-1',
-    },
-    {
-      label: (
-        <span className="flex items-center gap-2 font-bold text-white">
-          <Copy className="w-4 h-4" />
-          Duplicate
-        </span>
-      ),
-      onClick: () => {/* duplicate logic placeholder */},
-      className: '',
-    },
-    {
-      label: (
-        <span className="flex items-center gap-2 font-bold text-white">
-          <Download className="w-4 h-4" />
-          Download
-        </span>
-      ),
-      onClick: () => {/* download logic placeholder */},
-      className: '',
-    },
-    {
-      label: (
-        <span className="flex items-center gap-2 font-bold text-white">
-          <Share2 className="w-4 h-4" />
-          Share
-        </span>
-      ),
-      onClick: () => {
-        navigator.clipboard.writeText(`${window.location.origin}/invoices/${invoice.id}`);
-      },
-      className: '',
-    },
-    {
-      label: '',
-      onClick: () => {},
-      className: 'pointer-events-none border-t border-[#35384A] my-1',
-    },
-    {
-      label: 'Delete',
-      onClick: () => {/* delete logic placeholder */},
-      className: 'font-bold text-[#FF4B4B]',
-    },
   ];
 
   // Helper to get start date for each period
@@ -564,178 +474,207 @@ export const InvoiceList: React.FC = () => {
         onAddClick={() => setShowNewModal(true)}
       />
         
-        {/* Stats Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Outstanding:</span>
-            <span className="font-mono font-medium text-[#D32F2F]">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</span>
-            <span className="text-gray-500 text-xs">({invoices.filter(inv => inv.status !== 'paid').length} invoices)</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Overdue:</span>
-            <span className="font-mono font-medium text-[#F9D71C]">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</span>
-            <span className="text-gray-500 text-xs">({invoices.filter(inv => inv.status === 'overdue').length})</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Collected:</span>
-            <span className="font-mono font-medium text-[#388E3C]">{formatCurrency(paidAmountForPeriod)}</span>
-            <span className="text-gray-500 text-xs">(this year)</span>
-          </div>
-          <div className="w-px h-4 bg-[#333333]" />
-          <div className="flex items-center gap-2">
-            <span className="text-gray-400">Avg Invoice:</span>
-            <span className="font-mono font-medium text-[#336699]">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</span>
-          </div>
+      {/* Unified Stats + Content Container */}
+      <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
+        {/* Stats Section */}
+        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+          {isMinimal || isConstrained ? (
+            // Compact 4-column row for constrained/minimal
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">OUTSTANDING</div>
+                <div className="text-base font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">OVERDUE</div>
+                <div className="text-base font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">COLLECTED</div>
+                <div className="text-base font-semibold mt-1">{formatCurrency(paidAmountForPeriod)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">AVG</div>
+                <div className="text-base font-semibold mt-1">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</div>
+              </div>
+            </div>
+          ) : (
+            // Full 4-column layout for desktop
+            <div className="grid grid-cols-4 gap-6">
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">OUTSTANDING</div>
+                <div className="text-lg font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
+                <div className="text-xs text-gray-500">({invoices.filter(inv => inv.status !== 'paid').length} invoices)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">OVERDUE</div>
+                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</div>
+                <div className="text-xs text-gray-500">({invoices.filter(inv => inv.status === 'overdue').length})</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">COLLECTED</div>
+                <div className="text-lg font-semibold mt-1">{formatCurrency(paidAmountForPeriod)}</div>
+                <div className="text-xs text-gray-500">(this year)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">AVG INVOICE</div>
+                <div className="text-lg font-semibold mt-1">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</div>
+                <div className="text-xs text-gray-500">(average)</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Controls Bar */}
-        <div className="px-6 py-3 border-b border-[#333333] bg-[#1A1A1A] flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative">
+        {/* Controls Section */}
+        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
+          <div className={`flex items-center justify-between ${isMinimal ? 'gap-2' : 'gap-4'}`}>
+            {/* Left side - Filters */}
+            <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
               <select
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium text-white min-w-[180px] hover:bg-[#252525] transition-colors appearance-none cursor-pointer"
-                value={selectedCashFlowStatus}
-                onChange={(e) => setSelectedCashFlowStatus(e.target.value)}
+                className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699] ${
+                  isMinimal ? 'px-2 py-1.5 text-xs min-w-[120px]' : isConstrained ? 'px-2 py-1.5 text-xs min-w-[140px]' : 'px-3 py-2 text-sm'
+                }`}
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value as InvoiceStatus)}
               >
                 <option value="all">All Invoices ({invoices.length})</option>
-                <option value="critical">Critical (30+ Days Overdue)</option>
-                <option value="overdue">Overdue (Past Due)</option>
-                <option value="due-soon">Due Soon (Next 7 Days)</option>
-                <option value="paid">Paid & Collected</option>
-                <option value="draft">Drafts (Not Sent)</option>
+                <option value="draft">Drafts ({invoices.filter(inv => inv.status === 'draft').length})</option>
+                <option value="sent">Sent ({invoices.filter(inv => inv.status === 'sent').length})</option>
+                <option value="paid">Paid ({invoices.filter(inv => inv.status === 'paid').length})</option>
+                <option value="overdue">Overdue ({invoices.filter(inv => inv.status === 'overdue').length})</option>
               </select>
-              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
-            </div>
-            <div className="relative" ref={filterMenuRef}>
-              <button 
-                onClick={() => setShowFilterMenu(!showFilterMenu)}
-                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm font-medium flex items-center gap-2 hover:bg-[#252525] transition-colors ${
-                  showFilterMenu ? 'bg-[#252525]' : ''
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span>More Filters</span>
-              </button>
-              
-              {/* More Filters Dropdown */}
-              {showFilterMenu && (
-                <div className="absolute top-full left-0 mt-1 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
-                  <div className="space-y-4">
-                    {/* Value Tier Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Invoice Value
-                      </label>
-                      <select
-                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedValueTier}
-                        onChange={(e) => setSelectedValueTier(e.target.value)}
-                      >
-                        <option value="all">All Amounts</option>
-                        <option value="large">Large Jobs ($10k+)</option>
-                        <option value="medium">Medium Jobs ($5k-10k)</option>
-                        <option value="small">Small Jobs ($1k-5k)</option>
-                        <option value="minimal">Quick Jobs (Under $1k)</option>
-                      </select>
-                    </div>
 
-                    {/* Urgency Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Collection Priority
-                      </label>
-                      <select
-                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedUrgency}
-                        onChange={(e) => setSelectedUrgency(e.target.value)}
-                      >
-                        <option value="all">All Priorities</option>
-                        <option value="urgent">Urgent (High Value + Overdue)</option>
-                        <option value="important">Important (Any Overdue)</option>
-                        <option value="routine">Routine (Current)</option>
-                      </select>
-                    </div>
+              <div className="relative" ref={filterMenuRef}>
+                <button
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
+                  className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white hover:bg-[#333333] transition-colors flex items-center gap-2 ${
+                    isMinimal ? 'px-2 py-1.5 text-xs' : isConstrained ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
+                  }`}
+                >
+                  <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                  {!isMinimal && !isConstrained && 'More Filters'}
+                </button>
 
-                    {/* Date Range Filter */}
-                    <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                        Invoice Age
-                      </label>
-                      <select
-                        className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                        value={selectedDateRange}
-                        onChange={(e) => setSelectedDateRange(e.target.value)}
-                      >
-                        <option value="all">All Time</option>
-                        <option value="7d">Last 7 Days</option>
-                        <option value="30d">Last 30 Days</option>
-                        <option value="90d">Last 90 Days</option>
-                      </select>
-                    </div>
+                {showFilterMenu && (
+                  <div className={`absolute top-full ${isConstrained ? 'right-0' : 'left-0'} mt-2 ${isConstrained ? 'w-56' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4`}>
+                    <div className="space-y-4">
+                      {/* Cash Flow Status Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Cash Flow Priority
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedCashFlowStatus}
+                          onChange={(e) => setSelectedCashFlowStatus(e.target.value)}
+                        >
+                          <option value="all">All Status</option>
+                          <option value="critical">Critical (30+ days overdue)</option>
+                          <option value="overdue">Overdue</option>
+                          <option value="due-soon">Due Soon (7 days)</option>
+                          <option value="paid">Paid</option>
+                          <option value="draft">Draft</option>
+                        </select>
+                      </div>
 
-                    {/* Clear Filters */}
-                    <div className="pt-2 border-t border-[#333333]">
-                      <button
-                        onClick={() => {
-                          resetFilters();
-                          setShowFilterMenu(false);
-                        }}
-                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
-                      >
-                        Clear All Filters
-                      </button>
+                      {/* Value Tier Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Value Tier
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedValueTier}
+                          onChange={(e) => setSelectedValueTier(e.target.value)}
+                        >
+                          <option value="all">All Values</option>
+                          <option value="large">Large ($10,000+)</option>
+                          <option value="medium">Medium ($5,000-$10,000)</option>
+                          <option value="small">Small ($1,000-$5,000)</option>
+                          <option value="minimal">Minimal (&lt;$1,000)</option>
+                        </select>
+                      </div>
+
+                      {/* Date Range Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Date Range
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedDateRange}
+                          onChange={(e) => setSelectedDateRange(e.target.value)}
+                        >
+                          <option value="all">All Time</option>
+                          <option value="7d">Last 7 Days</option>
+                          <option value="30d">Last 30 Days</option>
+                          <option value="90d">Last 90 Days</option>
+                        </select>
+                      </div>
+
+                      {/* Clear Filters */}
+                      <div className="pt-2 border-t border-[#333333]">
+                        <button
+                          onClick={() => {
+                            resetFilters();
+                            setShowFilterMenu(false);
+                          }}
+                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                        >
+                          Clear All Filters
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'list' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('list')}
-              >
-                List
-              </button>
-              <button
-                className={`px-3 py-2 text-sm font-medium flex items-center gap-2 transition-colors ${
-                  viewMode === 'cards' ? 'bg-[#336699] text-white' : 'text-gray-400 hover:bg-[#252525]'
-                }`}
-                onClick={() => setViewMode('cards')}
-              >
-                Cards
-              </button>
-            </div>
+
+            {/* Right side - Options menu */}
             <div className="relative" ref={optionsMenuRef}>
               <button
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
                 onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
               >
-                <MoreVertical className="w-4 h-4" />
+                <MoreVertical className="w-4 h-4 text-gray-400" />
               </button>
+
               {showOptionsMenu && (
-                <div className="absolute right-0 top-full mt-1 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
+                    Data Management
+                  </div>
                   <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleImportInvoices(); }}
+                    onClick={() => {
+                      handleImportInvoices();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                   >
+                    <Upload className="w-3 h-3 mr-3 text-gray-400" />
                     Import Invoices
                   </button>
                   <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handleExportToCSV(); }}
+                    onClick={() => {
+                      handleExportToCSV();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                   >
+                    <Download className="w-3 h-3 mr-3 text-gray-400" />
                     Export to CSV
                   </button>
+                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
+                    View Options
+                  </div>
                   <button
-                    className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    onClick={() => { setShowOptionsMenu(false); handlePrintInvoices(); }}
+                    onClick={() => {
+                      handlePrintInvoices();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                   >
+                    <FileText className="w-3 h-3 mr-3 text-gray-400" />
                     Print Invoices
                   </button>
                 </div>
@@ -744,289 +683,109 @@ export const InvoiceList: React.FC = () => {
           </div>
         </div>
 
-      <div>
-        {/* Show contextual onboarding if no invoices and not loading */}
-        {!isLoading && (invoices.length === 0 || showTutorial) ? (
-          <ContextualOnboarding />
-        ) : (
-          <>
-        {/* Desktop table */}
-        <div className="hidden md:flex flex-col min-h-[calc(100vh-64px)]">
-          <div className="flex-1 flex flex-col">
-            {isLoading ? (
-              <TableSkeleton rows={5} columns={7} />
-            ) : viewMode === 'list' ? (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-[#232323] text-left text-xs uppercase tracking-wider text-white border-b border-gray-700 font-['Roboto_Condensed']">
-                      <th className="py-3 px-3 w-12">
-                        <div className="flex items-center h-full">
-                          <input
-                            type="checkbox"
-                            className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
-                            checked={allSelected}
-                            onChange={toggleSelectAll}
-                          />
-                        </div>
-                      </th>
-                      <th className="py-3 px-3 w-[15%]">INVOICE #</th>
-                      <th className="py-3 px-3 w-[20%]">CLIENT</th>
-                      <th className="py-3 px-3 w-[12%]">DATE</th>
-                      <th className="py-3 px-3 w-[12%]">DUE</th>
-                      <th className="py-3 px-3 w-[15%]">STATUS</th>
-                      <th 
-                        className="py-3 px-3 text-right w-[15%] cursor-pointer hover:text-[#336699] transition-colors"
-                        onClick={toggleAmountSort}
-                      >
-                        AMOUNT {amountSort === 'desc' ? '▼' : '▲'}
-                      </th>
-                      <th className="py-3 px-3 w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredInvoices.map((invoice, index) => (
-                      <tr
-                        key={invoice.id}
-                        className={`border-b border-gray-700 ${index % 2 === 0 ? 'bg-[#181818]' : 'bg-[#1E1E1E]'} hover:bg-[#232323] cursor-pointer transition-colors ${selectedRows.includes(invoice.id) ? 'bg-[#232323]' : ''}`}
-                        onClick={() => toggleSelectRow(invoice.id)}
-                      >
-                        <td className="py-3 px-3">
-                          <div className="flex items-center h-full" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
-                              checked={selectedRows.includes(invoice.id)}
-                              onChange={() => toggleSelectRow(invoice.id)}
-                            />
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 font-medium text-white">{`INV-${invoice.id.slice(0, 8)}`}</td>
-                        <td className="py-3 px-3 text-gray-300">{clients.find(c => c.id === invoice.client_id)?.name || ''}</td>
-                        <td className="py-3 px-3 text-gray-300">{new Date(invoice.issue_date).toLocaleDateString()}</td>
-                        <td className="py-3 px-3 text-gray-300">{new Date(invoice.due_date).toLocaleDateString()}</td>
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-1 bg-[#336699] text-xs text-white rounded">
-                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-right font-medium text-white">{formatCurrency(invoice.amount)}</td>
-                        <td className="py-3 px-3">
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <Dropdown
-                              trigger={
-                                <button className="hover:text-[#F9D71C]">
-                                  <span className="sr-only">Actions</span>
-                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                                </button>
-                              }
-                              items={rowDropdownItems(invoice)}
-                            />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              // Cards View
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-4">
-                {filteredInvoices.map((invoice) => {
-                  const client = clients.find(c => c.id === invoice.client_id);
-                  const isSelected = selectedRows.includes(invoice.id);
-                  const isOverdue = invoice.status === 'overdue';
-                  const isPaid = invoice.status === 'paid';
-                  const isDraft = invoice.status === 'draft';
-                  
-                  return (
-                    <div
-                      key={invoice.id}
-                      className={`bg-[#333333] rounded-[4px] border-l-4 ${
-                        isPaid ? 'border-[#388E3C]' :
-                        isOverdue ? 'border-[#D32F2F]' :
-                        isDraft ? 'border-[#9E9E9E]' :
-                        'border-[#336699]'
-                      } p-4 cursor-pointer transition-all hover:bg-[#3A3A3A] ${isSelected ? 'bg-[#3A3A3A]' : ''}`}
-                      onClick={() => toggleSelectRow(invoice.id)}
-                    >
-                      {/* Card Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            className="form-checkbox h-4 w-4 text-[#336699] bg-transparent border-[#555555] rounded-sm focus:ring-[#0D47A1] focus:ring-opacity-40"
-                            checked={isSelected}
-                            onChange={() => toggleSelectRow(invoice.id)}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <span className="text-xs text-gray-400 font-mono">{`INV-${invoice.id.slice(0, 8)}`}</span>
-                        </div>
-                        <div onClick={(e) => e.stopPropagation()}>
-                          <Dropdown
-                            trigger={
-                              <button className="hover:text-[#F9D71C] p-1">
-                                <MoreVertical className="w-4 h-4 text-gray-400" />
-                              </button>
-                            }
-                            items={rowDropdownItems(invoice)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Client Name - Prominent */}
-                      <div className="mb-3">
-                        <h3 className="text-white font-medium text-base leading-tight">
-                          {client?.name || 'Unknown Client'}
-                        </h3>
-                        {client?.company && client.company !== client.name && (
-                          <p className="text-gray-400 text-sm">{client.company}</p>
-                        )}
-                      </div>
-
-                      {/* Amount - Large and prominent */}
-                      <div className="mb-3">
-                        <div className="text-xl font-bold text-white font-mono">
-                          {formatCurrency(invoice.amount)}
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="mb-3">
-                        <span className={`px-2 py-1 rounded text-xs font-medium ${
-                          isPaid ? 'bg-[#388E3C] text-white' :
-                          isOverdue ? 'bg-[#D32F2F] text-white' :
-                          isDraft ? 'bg-[#9E9E9E] text-white' :
-                          'bg-[#336699] text-white'
-                        }`}>
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                        </span>
-                      </div>
-
-                      {/* Dates - Aligned left like sidebar */}
-                      <div className="space-y-1 text-sm mb-3">
-                        <div className="flex justify-between text-gray-400">
-                          <span>Issued:</span>
-                          <span>{new Date(invoice.issue_date).toLocaleDateString()}</span>
-                        </div>
-                        <div className="flex justify-between text-gray-400">
-                          <span>Due:</span>
-                          <span className={isOverdue ? 'text-[#D32F2F] font-medium' : ''}>
-                            {new Date(invoice.due_date).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Quick Actions */}
-                      <div className="pt-3 border-t border-gray-600 flex gap-2">
-                        <button
-                          className="flex-1 bg-[#336699] text-white text-xs py-2 px-3 rounded-[2px] hover:bg-[#2851A3] transition-colors font-medium"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setViewInvoiceId(invoice.id);
-                          }}
-                        >
-                          View
-                        </button>
-                        {isDraft && (
-                          <button
-                            className="flex-1 bg-[#F9D71C] text-[#121212] text-xs py-2 px-3 rounded-[2px] hover:bg-opacity-90 transition-colors font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle finalize action
-                            }}
-                          >
-                            Finalize
-                          </button>
-                        )}
-                        {!isPaid && !isDraft && (
-                          <button
-                            className="flex-1 bg-[#388E3C] text-white text-xs py-2 px-3 rounded-[2px] hover:bg-opacity-90 transition-colors font-medium"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              // Handle mark as paid action
-                            }}
-                          >
-                            Mark Paid
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {/* Fixed bottom bulk actions bar */}
-            {selectedRows.length > 0 && (
-              <div
-                className="fixed bottom-0 z-50 bg-[#121212] border-t border-[#333333] flex items-center px-8 py-4 gap-4 shadow-lg"
-                style={{ left: 256, width: 'calc(100vw - 256px)' }}
-              >
-                <span className="text-white font-medium font-['Roboto']">{selectedRows.length} invoice{selectedRows.length > 1 ? 's' : ''} selected</span>
-                <button className="bg-[#336699] text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-opacity-80">Finalize</button>
-                <button className="bg-[#1E1E1E] border border-[#336699] border-opacity-40 text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-[#1E1E1E]">Download</button>
-                <button className="bg-[#D32F2F] text-white font-medium rounded-[4px] px-6 py-2 h-10 font-['Roboto'] uppercase tracking-wider hover:bg-opacity-80">Delete</button>
-                <button className="ml-auto text-[#F9D71C] font-medium font-['Roboto'] hover:text-opacity-80" onClick={() => setSelectedRows([])}>Clear</button>
-              </div>
-            )}
-          </div>
-          <div className="flex-grow" />
-          <div className="flex flex-col items-center mt-auto pb-8">
-            <div className="text-lg font-medium text-white font-['Roboto_Condensed'] uppercase mb-2">Ready to create more invoices?</div>
-            <div className="text-sm text-[#9E9E9E] mb-6 font-['Roboto']">Use the "+ New Invoice" button to get started.</div>
-            <button
-              className="bg-[#F9D71C] text-[#121212] px-8 py-3 rounded-[4px] font-medium font-['Roboto'] uppercase tracking-wider hover:bg-opacity-90 h-12"
-              onClick={() => navigate('/packages')}
-            >
-              View Invoice Templates
-            </button>
+        {/* Table Column Headers */}
+        <div className={`${isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
+          <div className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
+            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>INVOICE</div>
+            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>AMOUNT</div>
+            {!isMinimal && !isConstrained && <div className="col-span-2">CLIENT</div>}
+            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right`}></div>
           </div>
         </div>
-
-        {/* Mobile list */}
-        <div className="md:hidden space-y-4">
-          {isLoading ? (
-            <>
-              <CardSkeleton />
-              <CardSkeleton />
-              <CardSkeleton />
-            </>
+        
+        {/* Table Content */}
+        <div className="overflow-hidden rounded-b-[4px]">
+          {!isLoading && (invoices.length === 0 || showTutorial) ? (
+            <ContextualOnboarding />
           ) : (
-            <div className="space-y-4 pb-20">
-              {filteredInvoices.map((invoice) => (
-                <div
-                  key={invoice.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4"
-                  onClick={() => navigate(`/invoices/${invoice.id}`)}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-gray-900 dark:text-white">
-                        {`INV-${invoice.id.slice(0, 8)}`}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={getStatusStyle(invoice.status)}>
-                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center mt-2">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Due: {new Date(invoice.due_date).toLocaleDateString()}
-                        </span>
-                        <span className="text-sm font-medium text-indigo-600 dark:text-indigo-400">
-                          {formatCurrency(invoice.amount)}
-                        </span>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 mt-2" />
+            <>
+              {/* Table Rows */}
+              <div>
+                {isLoading ? (
+                  <div className="p-6">
+                    <TableSkeleton rows={5} columns={7} />
                   </div>
-                </div>
-              ))}
-            </div>
+                ) : (
+                  <>
+                    {filteredInvoices.map((invoice) => {
+                      const client = clients.find(c => c.id === invoice.client_id);
+                      const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+                      
+                      return (
+                        <div
+                          key={invoice.id}
+                          className={`grid ${
+                            isMinimal 
+                              ? 'grid-cols-8 gap-4 px-4 py-3' 
+                              : isConstrained 
+                                ? 'grid-cols-8 gap-4 px-4 py-3' 
+                                : 'grid-cols-12 gap-4 px-6 py-4'
+                          } items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
+                          onClick={() => setViewInvoiceId(invoice.id)}
+                        >
+                          {/* Invoice Column with Status Badge */}
+                          <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
+                            <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
+                              <span className={`text-xs px-2 py-1 rounded-[2px] font-medium min-w-[60px] text-center ${
+                                invoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
+                                invoice.status === 'overdue' ? 'bg-red-500/20 text-red-300' :
+                                invoice.status === 'sent' ? 'bg-blue-500/20 text-blue-300' :
+                                'bg-gray-500/20 text-gray-300'
+                              }`}>
+                                {invoice.status === 'overdue' ? 'overdue' : invoice.status}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className={`font-medium text-white truncate ${isMinimal ? 'text-sm' : ''}`}>
+                                  {`INV-${invoice.id.slice(0, 8)}`}
+                                </div>
+                                <div className="text-xs text-gray-400 truncate mt-0.5">
+                                  {client?.name || 'Unknown Client'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Amount Column */}
+                          <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
+                            <div className={`font-mono font-semibold text-white ${isMinimal ? 'text-sm' : ''}`}>
+                              {formatCurrency(invoice.amount)}
+                            </div>
+                            <div className="text-xs text-gray-400 capitalize">Invoice</div>
+                          </div>
+                          
+                          {/* Client Column - Only shown in full mode */}
+                          {!isMinimal && !isConstrained && (
+                            <div className="col-span-2 text-sm text-gray-300">
+                              <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
+                              {daysPastDue > 0 && (
+                                <div className="text-xs text-red-400">
+                                  {daysPastDue} days overdue
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Actions Column */}
+                          <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setViewInvoiceId(invoice.id);
+                              }}
+                              className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                            >
+                              <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            </>
           )}
         </div>
-          </>
-        )}
       </div>
 
       {showNewModal && (

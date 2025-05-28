@@ -72,7 +72,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
   optionsMenuRef,
   className = ''
 }) => {
-  const { isConstrained } = useContext(LayoutContext);
+  const { isConstrained, isMinimal, isCompact } = useContext(LayoutContext);
 
   const getActionColorClass = (color?: string) => {
     switch (color) {
@@ -89,13 +89,23 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
 
   return (
     <div className={`bg-[#121212] ${className}`}>
-      <div className="py-3 md:py-4 flex items-center justify-between">
+      <div className={`${
+        isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3 md:py-4'
+      } flex items-center justify-between`}>
         {/* Left side - Filters */}
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center ${isMinimal ? 'gap-2' : isConstrained ? 'gap-2' : 'gap-3'}`}>
           {primaryFilter && (
             <div className="relative">
               <select
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699] appearance-none pr-10 min-w-[200px]"
+                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] text-white focus:outline-none focus:border-[#336699] appearance-none pr-8 ${
+                  isMinimal 
+                    ? 'px-2 py-1.5 text-xs min-w-[140px]' 
+                    : isConstrained 
+                      ? 'px-2 py-1.5 text-xs min-w-[160px]' 
+                      : isCompact
+                        ? 'px-3 py-2 text-sm min-w-[180px]'
+                        : 'px-3 py-2 text-sm min-w-[200px]'
+                }`}
                 value={primaryFilter.value}
                 onChange={(e) => primaryFilter.onChange(e.target.value)}
               >
@@ -105,7 +115,9 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
                   </option>
                 ))}
               </select>
-              <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+              <ChevronDown className={`absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none ${
+                isMinimal ? 'w-3 h-3' : 'w-4 h-4'
+              }`} />
             </div>
           )}
           
@@ -113,15 +125,29 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
             <div className="relative" ref={moreFiltersRef}>
               <button
                 onClick={onToggleMoreFilters}
-                className={`px-3 py-2 bg-[#1E1E1E] hover:bg-[#252525] text-white border border-[#333333] rounded-[4px] text-sm font-medium transition-colors flex items-center gap-2 ${showMoreFilters ? 'bg-[#252525]' : ''}`}
+                className={`bg-[#1E1E1E] hover:bg-[#252525] text-white border border-[#333333] rounded-[4px] font-medium transition-colors flex items-center ${
+                  isMinimal 
+                    ? 'px-2 py-1.5 text-xs gap-1' 
+                    : isConstrained 
+                      ? 'px-2 py-1.5 text-xs gap-1.5' 
+                      : 'px-3 py-2 text-sm gap-2'
+                } ${showMoreFilters ? 'bg-[#252525]' : ''}`}
               >
-                <Filter className="w-4 h-4" />
-                <span>More Filters</span>
+                <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
+                <span>{isMinimal ? 'More' : 'More Filters'}</span>
               </button>
               
               {/* More Filters Dropdown */}
               {showMoreFilters && moreFiltersContent && (
-                <div className={`absolute top-full left-0 mt-1 ${isConstrained ? 'right-0 left-auto w-[280px]' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-3 md:p-4`}>
+                <div className={`absolute top-full left-0 mt-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 ${
+                  isMinimal 
+                    ? 'right-0 left-auto w-[240px] p-2' 
+                    : isConstrained 
+                      ? 'right-0 left-auto w-[260px] p-3' 
+                      : isCompact
+                        ? 'w-[300px] p-3'
+                        : 'w-80 p-3 md:p-4'
+                }`}>
                   {moreFiltersContent}
                 </div>
               )}
@@ -130,19 +156,25 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         </div>
         
         {/* Right side - View toggle and options */}
-        <div className="flex items-center gap-2">
+        <div className={`flex items-center ${isMinimal ? 'gap-1' : 'gap-2'}`}>
           {viewToggles && (
             <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
               {viewToggles.options.map((option) => (
                 <button
                   key={option.id}
-                  className={`px-3 py-2 text-sm font-medium transition-colors flex items-center gap-2 ${
+                  className={`font-medium transition-colors flex items-center justify-center ${
+                    isMinimal 
+                      ? 'px-2 py-1.5 text-xs' 
+                      : isConstrained 
+                        ? 'px-2 py-1.5 text-xs' 
+                        : 'px-3 py-2 text-sm'
+                  } ${
                     viewToggles.value === option.id ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
                   }`}
                   onClick={() => viewToggles.onChange(option.id)}
+                  title={option.label}
                 >
-                  {option.icon}
-                  {option.label}
+                  {option.icon && <span className={isMinimal ? 'w-3 h-3' : 'w-4 h-4'}>{option.icon}</span>}
                 </button>
               ))}
             </div>
@@ -152,27 +184,35 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
             <div className="relative" ref={optionsMenuRef}>
               <button 
                 onClick={onToggleOptionsMenu}
-                className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
+                className={`bg-[#1E1E1E] border border-[#333333] rounded-[4px] flex items-center justify-center hover:bg-[#252525] transition-colors ${
+                  isMinimal ? 'w-6 h-6' : isConstrained ? 'w-7 h-7' : 'w-8 h-8'
+                }`}
               >
-                <MoreVertical className="w-4 h-4 text-gray-400" />
+                <MoreVertical className={`text-gray-400 ${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
               </button>
 
               {/* Options Dropdown */}
               {showOptionsMenu && optionsMenuSections && (
-                <div className={`absolute top-full right-0 mt-1 ${isConstrained ? 'w-[240px]' : 'w-64'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1`}>
+                <div className={`absolute top-full right-0 mt-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1 ${
+                  isMinimal ? 'w-[200px]' : isConstrained ? 'w-[220px]' : 'w-64'
+                }`}>
                   {optionsMenuSections.map((section, sectionIndex) => (
                     <div key={sectionIndex}>
                       <div className="px-3 py-2 border-b border-[#333333]">
-                        <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        <div className={`font-medium text-gray-400 uppercase tracking-wide mb-2 ${
+                          isMinimal ? 'text-xs' : 'text-xs'
+                        }`}>
                           {section.title}
                         </div>
                         {section.actions.map((action) => (
                           <button
                             key={action.id}
                             onClick={action.onClick}
-                            className={`w-full text-left px-2 py-2 text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px] ${getActionColorClass(action.color)}`}
+                            className={`w-full text-left px-2 py-2 hover:bg-[#336699] transition-colors flex items-center rounded-[2px] ${
+                              isMinimal ? 'text-xs' : 'text-xs'
+                            } ${getActionColorClass(action.color)}`}
                           >
-                            {action.icon && <span className="w-3 h-3 mr-2">{action.icon}</span>}
+                            {action.icon && <span className={`mr-2 ${isMinimal ? 'w-3 h-3' : 'w-3 h-3'}`}>{action.icon}</span>}
                             {action.label}
                           </button>
                         ))}

@@ -42,7 +42,7 @@ export const PageHeaderBar: React.FC<PageHeaderBarProps> = ({
   }, []);
 
   return (
-    <div className="pt-3 md:pt-4">
+    <div className="px-4 md:px-6 pt-3 md:pt-4">
       <div>
         <div className={`flex items-center justify-between gap-2 md:gap-4 py-3 md:py-4 ${isConstrained ? 'flex-wrap' : ''}`}>
           <h1 className={`${isConstrained ? 'text-xl' : 'text-xl md:text-2xl'} font-bold text-white`}>{title}</h1>

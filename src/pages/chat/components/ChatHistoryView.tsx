@@ -58,22 +58,28 @@ const ChatHistoryView: React.FC<ChatHistoryViewProps> = ({
           {/* Suggestion Buttons */}
           <div className="w-full space-y-2 mb-8">
             <button
-              onClick={() => createNewChat("Show me my overdue invoices")}
+              onClick={() => createNewChat("Why are lumber prices rising?")}
               className="w-full bg-[#333333] hover:bg-[#404040] text-white px-4 py-3 rounded-[4px] text-left transition-colors text-sm"
             >
-              Show me my overdue invoices
+              Why are lumber prices rising?
             </button>
             <button
-              onClick={() => createNewChat("Analyze my most profitable projects")}
+              onClick={() => createNewChat("Best time to buy concrete?")}
               className="w-full bg-[#333333] hover:bg-[#404040] text-white px-4 py-3 rounded-[4px] text-left transition-colors text-sm"
             >
-              Analyze my most profitable projects
+              Best time to buy concrete?
             </button>
             <button
-              onClick={() => createNewChat("Find leads that are going cold")}
+              onClick={() => createNewChat("Compare my prices to competitors")}
               className="w-full bg-[#333333] hover:bg-[#404040] text-white px-4 py-3 rounded-[4px] text-left transition-colors text-sm"
             >
-              Find leads that are going cold
+              Compare my prices to competitors
+            </button>
+            <button
+              onClick={() => createNewChat("Optimize my supplier list")}
+              className="w-full bg-[#333333] hover:bg-[#404040] text-white px-4 py-3 rounded-[4px] text-left transition-colors text-sm"
+            >
+              Optimize my supplier list
             </button>
           </div>
         </div>
