@@ -4,9 +4,9 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Dashboard from './pages/dashboard/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
-import { ClientList } from './components/clients/ClientList';
+import { People } from './pages/People';
 import { PriceBook } from './components/price-book/PriceBook';
-import { ProductsPage, Product } from './components/products/ProductsPage';
+import { ProductsPage } from './components/products/ProductsPage';
 import { ProductVariantComparisonPage } from './components/products/ProductVariantComparisonPage';
 import ChatManagementSystem from './pages/chat/ChatManagementSystem';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
@@ -28,6 +28,8 @@ import { GlobalProductDrawer } from './components/products/GlobalProductDrawer';
 import { supabase } from './lib/supabase';
 import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
+import { CategoryAnalytics } from './components/analytics/CategoryAnalytics';
+import Templates from './pages/Templates';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -50,7 +52,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, session, isLoading } = useAuth();
-  const [editingProduct, setEditingProduct] = useState<Product | 'new' | null>(null);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
   const [lineItems, setLineItems] = useState<any[]>([]);
 
   // Fetch line items for the product drawer
@@ -101,11 +103,11 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/clients"
+        path="/people"
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <ClientList />
+              <People />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -176,6 +178,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <Navigate to="/products" replace />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <CategoryAnalytics />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/templates"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Templates />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -308,6 +330,11 @@ function AppRoutes() {
         editingProduct={editingProduct} 
         setEditingProduct={setEditingProduct} 
         lineItems={lineItems}
+        onProductSaved={() => {
+          // Refresh products by triggering a re-render
+          // The ProductsPage component will handle fetching updated data
+          window.location.reload();
+        }}
       />
     </ProductDrawerContext.Provider>
   );

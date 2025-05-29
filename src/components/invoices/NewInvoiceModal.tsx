@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus, Trash2, Minus, Edit2 } from 'lucide-react';
+import { X, Plus, Trash2, Minus, Edit2, ChevronLeft, Package, FileText, Search } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { db } from '../../lib/database';
 import { EditProductModal } from '../products/EditProductModal';
+import { getCollectionLabel } from '../../constants/collections';
 
 interface InvoiceItem {
   product_id: string;
@@ -50,10 +51,302 @@ interface InvoiceFormData {
 interface NewInvoiceModalProps {
   onClose: () => void;
   onSave: (data: InvoiceFormData) => void;
+  creationType?: 'scratch' | 'template';
 }
 
-export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.Element => {
-  const [step, setStep] = useState<'create' | 'select-packages'>('select-packages');
+interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  unit: string;
+  type: string;
+  category?: string;
+  is_base_product: boolean;
+  items?: any[];
+}
+
+// AddItemsSection Component
+interface AddItemsSectionProps {
+  products: any[];
+  onAddProduct: (product: Product) => void;
+  onAddLineItem: (lineItem: any) => void;
+}
+
+interface Trade {
+  id: string;
+  name: string;
+}
+
+const AddItemsSection: React.FC<AddItemsSectionProps> = ({ products, onAddProduct, onAddLineItem }) => {
+  const [activeTab, setActiveTab] = useState<'products' | 'lineItems'>('products');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [lineItems, setLineItems] = useState<any[]>([]);
+  const [trades, setTrades] = useState<Trade[]>([]);
+  const [isLoadingLineItems, setIsLoadingLineItems] = useState(false);
+  const [activeType, setActiveType] = useState<string>('all');
+  const { user } = useAuth();
+
+  const types = ['all', 'material', 'labor', 'equipment', 'service', 'subcontractor'];
+
+  // Fetch line items when tab switches
+  useEffect(() => {
+    if (activeTab === 'lineItems' && lineItems.length === 0) {
+      fetchLineItems();
+      fetchTrades();
+    }
+  }, [activeTab]);
+
+  const fetchLineItems = async () => {
+    try {
+      setIsLoadingLineItems(true);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('name');
+
+      if (error) throw error;
+      setLineItems(data || []);
+    } catch (error) {
+      console.error('Error fetching line items:', error);
+    } finally {
+      setIsLoadingLineItems(false);
+    }
+  };
+
+  const fetchTrades = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('trades')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      setTrades(data || []);
+    } catch (error) {
+      console.error('Error fetching trades:', error);
+    }
+  };
+
+  // Filter products (bundles)
+  const filteredProducts = products.filter(product => 
+    (product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+     product.description?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  // Group filtered products by category
+  const groupedProducts = filteredProducts.reduce((groups, product) => {
+    const categoryLabel = product.category ? getCollectionLabel(product.category) : 'Uncategorized';
+    
+    if (!groups[categoryLabel]) {
+      groups[categoryLabel] = [];
+    }
+    groups[categoryLabel].push(product);
+    
+    return groups;
+  }, {} as Record<string, any[]>);
+
+  // Sort category names alphabetically
+  const sortedCategoryNames = Object.keys(groupedProducts).sort();
+
+  // Filter line items with type filter
+  const filteredLineItems = lineItems.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = activeType === 'all' || item.type === activeType;
+    return matchesSearch && matchesType;
+  });
+
+  // Group filtered items by trade
+  const groupedLineItems = filteredLineItems.reduce((groups, item) => {
+    const trade = trades.find(t => t.id === item.trade_id);
+    const tradeName = trade?.name || 'Unassigned';
+    
+    if (!groups[tradeName]) {
+      groups[tradeName] = [];
+    }
+    groups[tradeName].push(item);
+    
+    return groups;
+  }, {} as Record<string, any[]>);
+
+  // Sort trade names alphabetically
+  const sortedTradeNames = Object.keys(groupedLineItems).sort();
+
+  return (
+    <div>
+      {/* Tabs */}
+      <div className="flex gap-1 mb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab('products')}
+          className={`px-4 py-2 text-sm font-medium rounded-[4px] transition-colors ${
+            activeTab === 'products'
+              ? 'bg-[#336699] text-white'
+              : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4" />
+            Products
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('lineItems')}
+          className={`px-4 py-2 text-sm font-medium rounded-[4px] transition-colors ${
+            activeTab === 'lineItems'
+              ? 'bg-[#336699] text-white'
+              : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Line Items
+          </div>
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-3">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          type="text"
+          placeholder={`Search ${activeTab === 'products' ? 'products' : 'line items'}...`}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-9 pr-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
+        />
+      </div>
+
+      {/* Type Filter Pills - Only show for line items */}
+      {activeTab === 'lineItems' && (
+        <div className="flex gap-1 overflow-x-auto mb-3">
+          {types.map(type => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setActiveType(type)}
+              className={`px-3 py-1 text-xs rounded-[4px] font-medium transition-colors whitespace-nowrap ${
+                activeType === type
+                  ? 'bg-[#336699] text-white'
+                  : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+              }`}
+            >
+              {type === 'all' ? 'All' : type.charAt(0).toUpperCase() + type.slice(1)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Items List */}
+      <div className="max-h-60 overflow-y-auto">
+        {activeTab === 'products' ? (
+          // Products List
+          filteredProducts.length === 0 ? (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              {searchTerm ? 'No products found' : 'No products available'}
+            </div>
+          ) : (
+            <div>
+              {sortedCategoryNames.map(categoryName => (
+                <div key={categoryName}>
+                  {/* Category Header */}
+                  <div className="sticky top-0 bg-[#336699]/20 backdrop-blur-sm border-b border-[#336699]/30 px-3 py-2 z-10">
+                    <h4 className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                      {categoryName} ({groupedProducts[categoryName].length})
+                    </h4>
+                  </div>
+                  
+                  {/* Category Products */}
+                  <div className="divide-y divide-[#2A2A2A]">
+                    {groupedProducts[categoryName].map((product: any) => (
+                      <div
+                        key={product.id}
+                        className="px-3 py-2 bg-[#333333] hover:bg-[#404040] cursor-pointer transition-colors group"
+                        onClick={() => onAddProduct(product)}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-white font-medium truncate">{product.name}</div>
+                            {product.description && (
+                              <div className="text-xs text-gray-400 truncate">{product.description}</div>
+                            )}
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              Contains {product.items?.length || 0} items
+                            </div>
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-mono text-sm text-white font-semibold">{formatCurrency(product.price)}</div>
+                            <div className="text-xs text-[#336699] opacity-0 group-hover:opacity-100 transition-opacity">
+                              + Add All
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          // Line Items List
+          isLoadingLineItems ? (
+            <div className="text-center py-4 text-gray-400 text-sm">Loading...</div>
+          ) : Object.entries(groupedLineItems).length === 0 ? (
+            <div className="text-center py-4 text-gray-400 text-sm">
+              {searchTerm ? 'No line items found' : activeType !== 'all' ? `No ${activeType} items` : 'No line items available'}
+            </div>
+          ) : (
+            <div>
+              {sortedTradeNames.map(tradeName => (
+                <div key={tradeName}>
+                  {/* Trade Header */}
+                  <div className="sticky top-0 bg-[#336699]/20 backdrop-blur-sm border-b border-[#336699]/30 px-3 py-2 z-10">
+                    <h4 className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
+                      {tradeName} ({groupedLineItems[tradeName].length})
+                    </h4>
+                  </div>
+                  
+                  {/* Trade Items */}
+                  <div className="divide-y divide-[#2A2A2A]">
+                    {groupedLineItems[tradeName].map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="px-3 py-2 bg-[#333333] hover:bg-[#404040] cursor-pointer transition-colors group"
+                        onClick={() => onAddLineItem(item)}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-white font-medium truncate">{item.name}</div>
+                            {item.description && (
+                              <div className="text-xs text-gray-400 truncate">{item.description}</div>
+                            )}
+                          </div>
+                          <div className="text-right flex-shrink-0">
+                            <div className="font-mono text-sm text-white font-semibold">{formatCurrency(item.price)}</div>
+                            <div className="text-xs text-gray-400">/{item.unit}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+    </div>
+  );
+};
+
+export const NewInvoiceModal = ({ onClose, onSave, creationType }: NewInvoiceModalProps): JSX.Element => {
+  const [step, setStep] = useState<'create' | 'select-packages'>(
+    creationType === 'scratch' ? 'create' : 'select-packages'
+  );
   const [isClosing, setIsClosing] = useState(false);
   const [formData, setFormData] = useState<InvoiceFormData>({
     client_id: '',
@@ -89,6 +382,33 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
   // Add state for category filter
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
 
+  // Add state for preview and categories
+  const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
+  const [selectedTemplateCategory, setSelectedTemplateCategory] = useState('All');
+
+  // Template categories for construction business
+  const templateCategories = [
+    'All',
+    'Residential', 
+    'Commercial', 
+    'Maintenance', 
+    'Emergency'
+  ];
+
+  // Mock usage stats - in real app this would come from database
+  const getUsageStats = (templateId: string) => {
+    const mockStats = {
+      [templateId]: Math.floor(Math.random() * 25) + 1
+    };
+    return mockStats[templateId] || Math.floor(Math.random() * 15) + 1;
+  };
+
+  // Mock template categories - in real app this would be stored in database
+  const getTemplateCategory = (templateId: string) => {
+    const categories = ['Residential', 'Commercial', 'Maintenance', 'Emergency'];
+    return categories[Math.floor(Math.random() * categories.length)];
+  };
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -115,18 +435,24 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
       console.log('Loading data for user:', user.id);
       const [clientsRes, productsRes, templates] = await Promise.all([
         supabase.from('clients').select('*').eq('user_id', user.id),
-        supabase.from('products').select('*').eq('user_id', user.id),
+        supabase.from('products').select(`
+          *,
+          items:product_line_items!product_line_items_product_id_fkey(*)
+        `).eq('user_id', user.id),
         db.invoice_templates.list(user.id).catch(err => { console.error('TEMPLATE FETCH ERROR:', err); return []; })
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
       if (productsRes.error) throw productsRes.error;
 
+      console.log('Raw products from DB:', productsRes.data);
+
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
       setTemplates(templates || []);
       setLoading(false);
       console.log('Loaded templates:', templates);
+      console.log('Final products set:', productsRes.data);
     } catch (err) {
       console.error('Error loading data:', err);
     }
@@ -314,18 +640,19 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end">
+    <div className="fixed inset-0 z-[10000] flex justify-end">
+      {/* Backdrop with blur effect */}
       <div 
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
-          isClosing ? 'opacity-0' : 'opacity-50'
+        className={`absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300 ${
+          isClosing ? 'opacity-0' : 'opacity-100'
         }`}
         onClick={handleClose}
       />
       
       <div
         className={`
-          fixed w-full md:w-1/2 lg:w-2/5
-          transition-transform duration-300 ease-out
+          fixed w-full ${previewTemplate ? 'md:w-[520px] lg:w-[620px]' : 'md:w-[600px] lg:w-[700px]'}
+          transition-all duration-300 ease-out
           bg-[#121212]
           shadow-xl
           overflow-hidden
@@ -335,66 +662,99 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
             ? 'translate-x-full'
             : 'translate-x-0'
           }
+          ${previewTemplate ? 'mr-80' : 'mr-0'}
+          relative
         `}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center pt-6 pb-4 px-6 border-b border-[#333333]">
-            <h2 className="text-xl font-bold text-white font-['Roboto_Condensed'] uppercase">New Invoice</h2>
-            <button onClick={handleClose} className="p-2 text-gray-400 hover:text-[#F9D71C]">
-              <X className="w-6 h-6" />
+          {/* Header */}
+          <div className="bg-[#1E1E1E] border-b border-[#333333] px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {step === 'create' && creationType === 'template' && (
+                  <button
+                    onClick={() => setStep('select-packages')}
+                    className="text-gray-400 hover:text-white transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
             </button>
+                )}
+                <h1 className="text-xl font-semibold text-white">
+                  {step === 'select-packages' ? 'Select Template' : 'Create Invoice'}
+                </h1>
+              </div>
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto bg-[#121212]">
             {step === 'select-packages' && (
-              <div className="relative h-full flex flex-col">
-                <div className="px-6 mb-6">
-                  <div className="flex items-center justify-between bg-[#1E1E1E] rounded-[4px] px-6 py-8">
-                    <span className="text-2xl font-bold text-white font-['Roboto_Condensed'] uppercase">Start from Scratch</span>
+              <div className="p-6">
+                {/* Start from Scratch Option */}
+                <div className="mb-6">
                     <button
                       onClick={() => {
                         setFormData(prev => ({ ...prev, items: [] }));
                         setStep('create');
                       }}
-                      className="bg-[#F9D71C] text-[#121212] font-bold rounded-[4px] px-8 py-4 text-lg shadow hover:bg-opacity-90 transition font-['Roboto'] uppercase tracking-wider"
-                    >
-                      Create Empty
-                    </button>
+                    className="w-full p-6 bg-[#1E1E1E] border border-[#333333] rounded-[4px] hover:border-[#555555] transition-all text-left group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-1">Start Fresh</h3>
+                        <p className="text-sm text-gray-400">Create a blank invoice without a template</p>
                   </div>
+                      <div className="bg-[#336699] text-white px-4 py-2 rounded-[4px] group-hover:bg-[#2A5580] transition-colors">
+                        CREATE BLANK
                 </div>
-                {/* Divider with OR */}
-                <div className="flex items-center my-10 px-6">
+                    </div>
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center my-6">
                   <div className="flex-1 border-t border-[#333333]" />
-                  <span className="mx-4 text-gray-400 font-medium font-['Roboto_Condensed'] uppercase">OR</span>
+                  <span className="mx-4 text-sm text-gray-400 uppercase">or choose a template</span>
                   <div className="flex-1 border-t border-[#333333]" />
                 </div>
-                {/* Header and controls with matching padding */}
-                <div className="px-6">
-                  <h3 className="text-lg font-bold text-white font-['Roboto_Condensed'] uppercase mb-2">Select Packages</h3>
-                  <div className="flex gap-3 mb-3">
+
+                {/* Search and Category Filters */}
+                <div className="space-y-4 mb-6">
                     <input
                       type="text"
-                      placeholder="Search packages..."
+                    placeholder="Search templates..."
                       value={packageSearch}
                       onChange={e => setPackageSearch(e.target.value)}
-                      className="flex-1 px-3 py-2 h-10 rounded-[4px] bg-[#333333] text-white border border-[#555555] focus:outline-none focus:ring-2 focus:ring-[#0D47A1] focus:ring-opacity-40 font-['Roboto']"
-                    />
-                    <select
-                      value={selectedCategory}
-                      onChange={e => setSelectedCategory(e.target.value)}
-                      className="px-3 py-2 h-10 rounded-[4px] bg-[#333333] text-white border border-[#555555] focus:outline-none focus:ring-2 focus:ring-[#0D47A1] focus:ring-opacity-40 min-w-[180px] font-['Roboto']"
-                    >
-                      <option>All Categories</option>
-                      {Array.from(new Set(templates.map(t => (t as any).category).filter(Boolean))).map(cat => (
-                        <option key={cat}>{cat}</option>
-                      ))}
-                    </select>
+                    className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
+                  />
+                  
+                  {/* Template Category Filter */}
+                  <div className="flex gap-2 overflow-x-auto">
+                    {templateCategories.map(category => (
+                      <button
+                        key={category}
+                        onClick={() => setSelectedTemplateCategory(category)}
+                        className={`px-4 py-2 text-sm font-medium rounded-[4px] transition-colors whitespace-nowrap ${
+                          selectedTemplateCategory === category
+                            ? 'bg-[#336699] text-white'
+                            : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
+                        }`}
+                      >
+                        {category}
+                      </button>
+                    ))}
                   </div>
                 </div>
-                <div className="pb-20">
-                  <ul className="space-y-2">
+
+                {/* Templates List */}
+                <div className="space-y-2">
                     {templates.filter(pkg =>
-                      (selectedCategory === 'All Categories' || (pkg as any).category === selectedCategory) &&
+                    (selectedTemplateCategory === 'All' || getTemplateCategory(pkg.id) === selectedTemplateCategory) &&
                       (pkg.name.toLowerCase().includes(packageSearch.toLowerCase()) ||
                         (pkg.description || '').toLowerCase().includes(packageSearch.toLowerCase())
                       )
@@ -402,22 +762,25 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                       const isSelected = selectedPackages.some(p => p.id === pkg.id);
                       const items = editedPackages[pkg.id] || pkg.items || [];
                       const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+                    const usageCount = getUsageStats(pkg.id);
+                    const category = getTemplateCategory(pkg.id);
+                    
                       return (
-                        <li
+                      <div
                           key={pkg.id}
-                          className="flex items-center gap-2 bg-[#333333] rounded-[4px] px-3 py-2 cursor-pointer select-none hover:bg-[#1E1E1E] transition-colors"
-                          onClick={() => {
-                            setSelectedPackages(prev =>
-                              isSelected
-                                ? prev.filter(p => p.id !== pkg.id)
-                                : [...prev, pkg]
-                            );
-                          }}
-                        >
+                        className={`
+                          p-4 bg-[#1E1E1E] border rounded-[4px] transition-all relative
+                          ${isSelected 
+                            ? 'border-[#336699] bg-[#1E1E1E]/80' 
+                            : 'border-[#333333] hover:border-[#555555]'
+                          }
+                        `}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-start gap-3 flex-1">
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onClick={e => e.stopPropagation()}
                             onChange={() => {
                               setSelectedPackages(prev =>
                                 isSelected
@@ -425,36 +788,72 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                                   : [...prev, pkg]
                               );
                             }}
-                          />
-                          <span className="flex-1 flex items-center gap-2">
-                            <span className="font-medium text-white">{pkg.name}</span>
+                              className="w-4 h-4 rounded border-gray-600 text-[#336699] focus:ring-[#336699] mt-1"
+                            />
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h4 className="font-medium text-white">{pkg.name}</h4>
+                                <span className={`px-2 py-0.5 text-xs rounded-[2px] font-medium ${
+                                  category === 'Residential' ? 'bg-green-500/20 text-green-300' :
+                                  category === 'Commercial' ? 'bg-blue-500/20 text-blue-300' :
+                                  category === 'Maintenance' ? 'bg-yellow-500/20 text-yellow-300' :
+                                  'bg-red-500/20 text-red-300'
+                                }`}>
+                                  {category}
                           </span>
-                          <span className="text-xs text-gray-400">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-                          <span className="text-blue-400 font-semibold ml-2">{formatCurrency(total)}</span>
-                        </li>
+                              </div>
+                              <p className="text-sm text-gray-400 mb-2">
+                                {items.length} item{items.length !== 1 ? 's' : ''}
+                              </p>
+                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <span>Used {usageCount} times last month</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPreviewTemplate(pkg);
+                                  }}
+                                  className="text-[#336699] hover:text-white transition-colors"
+                                >
+                                  👁️ Preview
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-mono font-semibold text-white">
+                              {formatCurrency(total)}
+                            </div>
+                            <div className="text-xs text-gray-400">Total</div>
+                          </div>
+                        </div>
+                      </div>
                       );
                     })}
-                  </ul>
                 </div>
-                {step === 'select-packages' && (
-                  <div className="fixed left-0 right-0 bottom-0 z-30 bg-[#121212] border-t border-[#333333] px-6 py-4 flex items-center justify-between" style={{ pointerEvents: 'auto' }}>
-                    <div className="flex items-center gap-3">
-                      <span className="text-base font-medium text-white">Selected: {selectedPackages.length}</span>
-                      <span className="text-base font-medium text-white">{formatCurrency(selectedPackages.reduce((sum, pkg) => {
+
+                {/* Fixed Footer */}
+                {selectedPackages.length > 0 && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-[#1E1E1E] border-t border-[#333333] p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm text-gray-400">
+                        Selected: {selectedPackages.length} template{selectedPackages.length !== 1 ? 's' : ''}
+                      </div>
+                      <div className="font-mono font-semibold text-white">
+                        {formatCurrency(selectedPackages.reduce((sum, pkg) => {
                         const items = editedPackages[pkg.id] || pkg.items || [];
                         return sum + items.reduce((s, i) => s + (i.price * i.quantity), 0);
-                      }, 0))}</span>
+                        }, 0))}
+                      </div>
                     </div>
                     <div className="flex gap-3">
                       <button
-                        className="px-6 py-2 h-10 border border-[#336699] border-opacity-40 text-white bg-transparent hover:bg-[#1E1E1E] rounded-[4px] font-medium text-base font-['Roboto'] uppercase tracking-wider"
+                        className="flex-1 px-4 py-2 bg-transparent border border-[#555555] text-white rounded-[4px] hover:bg-[#333333] transition-colors"
                         onClick={handleClose}
                       >
                         Cancel
                       </button>
                       <button
-                        className="px-6 py-2 h-10 rounded-[4px] text-[#121212] font-medium text-base bg-[#F9D71C] hover:bg-opacity-90 transition-colors font-['Roboto'] uppercase tracking-wider"
-                        disabled={selectedPackages.length === 0}
+                        className="flex-1 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors"
                         onClick={() => {
                           setFormData(prev => ({
                             ...prev,
@@ -476,22 +875,23 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                           setStep('create');
                         }}
                       >
-                        Add to Invoice
+                        Use Template{selectedPackages.length > 1 ? 's' : ''}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             )}
-          </div>
 
           {step === 'create' && (
-            <form id="invoice-form" onSubmit={handleSubmit} className="flex flex-col px-6 py-4 gap-6">
+              <form onSubmit={handleSubmit} className="p-6 space-y-6">
               {/* Client Selector */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Client</label>
+                  <label className="block text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+                    Client *
+                  </label>
                 <select
-                  className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
+                    className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699]"
                   value={formData.client_id}
                   onChange={e => setFormData(prev => ({ ...prev, client_id: e.target.value }))}
                   required
@@ -502,111 +902,187 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
                   ))}
                 </select>
               </div>
-              {/* Items List */}
+
+                {/* Line Items Section with Tabs */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Line Items</label>
-                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="text-sm font-medium text-gray-400 uppercase tracking-wider">
+                      Invoice Items
+                    </label>
+                  </div>
+
+                  {/* Add Items Section */}
+                  <div className="bg-[#1E1E1E] rounded-[4px] border border-[#333333] p-4 mb-4">
+                    <AddItemsSection
+                      products={products}
+                      onAddProduct={(product) => {
+                        // Add all items from the product bundle
+                        const newItems = product.items?.map((item: any) => ({
+                          product_id: item.line_item_id || item.product_id,
+                          quantity: item.quantity,
+                          price: item.price,
+                          description: item.description || ''
+                        })) || [];
+                        
+                        setFormData(prev => ({
+                          ...prev,
+                          items: [...prev.items, ...newItems]
+                        }));
+                      }}
+                      onAddLineItem={(lineItem) => {
+                        setFormData(prev => ({
+                          ...prev,
+                          items: [...prev.items, {
+                            product_id: lineItem.id,
+                            quantity: 1,
+                            price: lineItem.price,
+                            description: lineItem.description || ''
+                          }]
+                        }));
+                      }}
+                    />
+                  </div>
+
+                  {/* Selected Items List */}
+                  {formData.items.length === 0 ? (
+                    <div className="text-center py-8 bg-[#1E1E1E] rounded-[4px] border border-[#333333]">
+                      <Package className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                      <p className="text-gray-400">No items added yet</p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Add products or line items above
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
                   {formData.items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 bg-[#333333] rounded-[4px] px-3 py-2">
-                      <select
-                        className="flex-1 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
-                        value={item.product_id}
-                        onChange={e => updateItem(idx, 'product_id', e.target.value)}
-                        required
-                      >
-                        <option value="">Select product...</option>
-                        {products.map(product => (
-                          <option key={product.id} value={product.id}>{product.name}</option>
-                        ))}
-                      </select>
+                        <div key={idx} className="flex items-center gap-3 p-3 bg-[#1E1E1E] rounded-[4px] border border-[#333333]">
+                          <div className="flex-1">
+                            <div className="text-white">
+                              {products.find(p => p.id === item.product_id)?.name || 'Unknown Item'}
+                            </div>
+                            {item.description && (
+                              <div className="text-xs text-gray-400 mt-0.5">{item.description}</div>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => adjustQuantity(idx, -1)}
+                              className="w-8 h-8 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
                       <input
                         type="number"
                         min={1}
-                        className="w-16 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white text-right font-['Roboto_Mono'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
+                              className="w-16 text-center px-2 py-1 bg-[#333333] border border-[#555555] rounded-[2px] text-white font-mono"
                         value={item.quantity}
                         onChange={e => updateItem(idx, 'quantity', parseInt(e.target.value) || 1)}
                       />
+                            <button
+                              type="button"
+                              onClick={() => adjustQuantity(idx, 1)}
+                              className="w-8 h-8 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+
                       <input
                         type="number"
                         min={0}
                         step={0.01}
-                        className="w-24 bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-2 py-1 text-white text-right font-['Roboto_Mono'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
+                            className="w-24 px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white text-right font-mono focus:outline-none focus:border-[#336699]"
                         value={item.price}
                         onChange={e => updateItem(idx, 'price', parseFloat(e.target.value) || 0)}
+                            placeholder="0.00"
                       />
+
                       <button
                         type="button"
-                        className="text-red-400 hover:text-red-600"
                         onClick={() => removeItem(idx)}
-                        aria-label="Remove item"
+                            className="w-8 h-8 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
-                  <button
-                    type="button"
-                    className="mt-2 px-3 py-1 bg-[#336699] hover:bg-opacity-80 text-white rounded-[4px] text-sm font-medium w-fit font-['Roboto'] uppercase tracking-wider"
-                    onClick={addItem}
-                  >
-                    + Add Item
-                  </button>
                 </div>
+                  )}
               </div>
-              {/* Dates and Description */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Issue Date</label>
+                    <label className="block text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+                      Issue Date
+                    </label>
                   <input
                     type="date"
-                    className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
+                      className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699]"
                     value={formData.issue_date}
                     onChange={e => setFormData(prev => ({ ...prev, issue_date: e.target.value }))}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Due Date</label>
+                    <label className="block text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+                      Due Date
+                    </label>
                   <input
                     type="date"
-                    className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 h-10 text-white focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
+                      className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699]"
                     value={formData.due_date}
                     onChange={e => setFormData(prev => ({ ...prev, due_date: e.target.value }))}
                   />
                 </div>
               </div>
+
+                {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-white mb-2 font-['Roboto_Condensed'] uppercase">Description</label>
+                  <label className="block text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">
+                    Description
+                  </label>
                 <textarea
-                  className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-white font-['Roboto'] focus:border-[#0D47A1] focus:ring focus:ring-[#0D47A1] focus:ring-opacity-40"
-                  rows={2}
+                    className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699] resize-none"
+                    rows={3}
                   value={formData.description}
                   onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Add any notes or description..."
                 />
               </div>
-              {/* Total */}
-              <div className="flex items-center justify-end text-lg font-medium text-white">
-                <span className="font-['Roboto_Condensed'] uppercase mr-2">Total:</span> <span className="font-['Roboto_Mono']">{formatCurrency(calculateTotal())}</span>
+
+                {/* Total Summary */}
+                <div className="bg-[#1E1E1E] rounded-[4px] p-4 border border-[#333333]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-400 uppercase tracking-wider">Total Amount</span>
+                    <span className="text-2xl font-mono font-semibold text-white">
+                      {formatCurrency(calculateTotal())}
+                    </span>
               </div>
+                </div>
+
               {/* Action Buttons */}
-              <div className="grid grid-cols-2 gap-4 border-t border-[#333333] pt-4">
+                <div className="flex gap-3 pt-4 border-t border-[#333333]">
                 <button
                   type="button"
-                  onClick={() => setStep('select-packages')}
-                  className="w-full px-4 py-2 h-10 border border-[#336699] border-opacity-40 rounded-[4px] hover:bg-[#1E1E1E] text-white font-medium font-['Roboto'] uppercase tracking-wider"
+                    onClick={handleClose}
+                    className="flex-1 px-4 py-2 bg-transparent border border-[#555555] text-white rounded-[4px] hover:bg-[#333333] transition-colors"
                   disabled={loading}
                 >
-                  Back
+                    Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-full px-4 py-2 h-10 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-opacity-90 font-medium disabled:opacity-50 font-['Roboto'] uppercase tracking-wider"
-                  disabled={loading}
+                    className="flex-1 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors disabled:opacity-50"
+                    disabled={loading || !formData.client_id || formData.items.length === 0}
                 >
                   {loading ? 'Creating...' : 'Create Invoice'}
                 </button>
               </div>
             </form>
           )}
+          </div>
         </div>
       </div>
 
@@ -620,25 +1096,120 @@ export const NewInvoiceModal = ({ onClose, onSave }: NewInvoiceModalProps): JSX.
           }}
         />
       )}
+
+      {/* Template Preview Panel */}
+      {previewTemplate && (
+        <div className="absolute top-0 right-0 w-80 bg-[#1A1A1A] border-l border-[#333333] flex flex-col h-full z-10">
+          <div className="flex items-center justify-between p-4 border-b border-[#333333]">
+            <h3 className="text-white font-medium">Template Preview</h3>
+            <button
+              onClick={() => setPreviewTemplate(null)}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 pb-20">
+            <div className="bg-white rounded-[4px] p-4 text-black text-xs">
+              {/* Mini Invoice Preview */}
+              <div className="text-center mb-4">
+                <h1 className="text-lg font-bold text-gray-800">INVOICE</h1>
+                <div className="text-gray-600 mt-1">Your Construction Company</div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4 mb-4 text-xs">
+                <div>
+                  <div className="font-semibold text-gray-700">Bill To:</div>
+                  <div className="text-gray-600">Client Name</div>
+                  <div className="text-gray-600">Client Address</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-gray-700">Invoice #001</div>
+                  <div className="text-gray-600">Date: {new Date().toLocaleDateString()}</div>
+                  <div className="text-gray-600">Due: {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString()}</div>
+                </div>
+              </div>
+              
+              <div className="border-t border-gray-300 pt-2">
+                <div className="grid grid-cols-4 gap-1 text-xs font-semibold text-gray-700 mb-2">
+                  <div>Description</div>
+                  <div className="text-center">Qty</div>
+                  <div className="text-right">Rate</div>
+                  <div className="text-right">Amount</div>
+                </div>
+                
+                {(previewTemplate.items || []).slice(0, 3).map((item, idx) => (
+                  <div key={idx} className="grid grid-cols-4 gap-1 text-xs text-gray-600 py-1">
+                    <div className="truncate">Item {idx + 1}</div>
+                    <div className="text-center">{item.quantity}</div>
+                    <div className="text-right">${item.price.toFixed(2)}</div>
+                    <div className="text-right">${(item.price * item.quantity).toFixed(2)}</div>
+                  </div>
+                ))}
+                
+                {(previewTemplate.items || []).length > 3 && (
+                  <div className="text-xs text-gray-400 py-1">
+                    + {(previewTemplate.items || []).length - 3} more items...
+                  </div>
+                )}
+                
+                <div className="border-t border-gray-300 mt-2 pt-2">
+                  <div className="flex justify-between text-sm font-semibold text-gray-800">
+                    <span>Total:</span>
+                    <span>${((previewTemplate.items || []).reduce((sum, item) => sum + (item.price * item.quantity), 0)).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 text-xs text-gray-500 text-center">
+                This is a preview of your invoice layout
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4 border-t border-[#333333]">
+            <button
+              onClick={() => {
+                setSelectedPackages(prev => {
+                  const isAlreadySelected = prev.some(p => p.id === previewTemplate.id);
+                  if (isAlreadySelected) {
+                    return prev;
+                  }
+                  return [...prev, previewTemplate];
+                });
+                setPreviewTemplate(null);
+              }}
+              className="w-full px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors text-sm"
+            >
+              Use This Template
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 function EditPackageModal({ pkg, items, onSave, onCancel, products }: { pkg: Template, items: any[], onSave: (items: any[]) => void, onCancel: () => void, products: any[] }) {
   const [localItems, setLocalItems] = useState(() => items.map(i => ({ ...i })));
+  
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-gray-900 rounded-lg p-6 w-full max-w-lg border border-gray-700">
+    <div className="fixed inset-0 z-[10001] flex items-center justify-center bg-black/60 backdrop-blur-md">
+      <div className="bg-[#1E1E1E] rounded-[4px] p-6 w-full max-w-lg border border-[#333333]">
         <div className="flex justify-between items-center mb-4">
-          <div className="font-semibold text-white text-lg">Edit {pkg.name}</div>
-          <button onClick={onCancel} className="text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+          <h3 className="font-semibold text-white text-lg">Edit {pkg.name}</h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
-        <ul className="space-y-2 mb-4">
+        
+        <div className="space-y-2 mb-4">
           {localItems.map((item, idx) => {
             const product = products.find(p => p.id === item.product_id);
             return (
-              <li key={idx} className="flex items-center gap-2">
-                <span className="flex-1">{product?.name || item.description || 'Item'}</span>
+              <div key={idx} className="flex items-center gap-2 p-2 bg-[#333333] rounded-[4px]">
+                <span className="flex-1 text-white">{product?.name || item.description || 'Item'}</span>
                 <input
                   type="number"
                   min={1}
@@ -647,7 +1218,7 @@ function EditPackageModal({ pkg, items, onSave, onCancel, products }: { pkg: Tem
                     const val = parseInt(e.target.value) || 1;
                     setLocalItems(items => items.map((it, i) => i === idx ? { ...it, quantity: val } : it));
                   }}
-                  className="w-16 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-white text-xs"
+                  className="w-16 px-2 py-1 rounded-[2px] bg-[#1E1E1E] border border-[#555555] text-white text-center"
                 />
                 <input
                   type="number"
@@ -658,28 +1229,30 @@ function EditPackageModal({ pkg, items, onSave, onCancel, products }: { pkg: Tem
                     const val = parseFloat(e.target.value) || 0;
                     setLocalItems(items => items.map((it, i) => i === idx ? { ...it, price: val } : it));
                   }}
-                  className="w-20 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-white text-xs"
+                  className="w-20 px-2 py-1 rounded-[2px] bg-[#1E1E1E] border border-[#555555] text-white text-right"
                 />
-                <span className="w-20 text-right">{formatCurrency(item.price * item.quantity)}</span>
-              </li>
+                <span className="w-20 text-right text-white font-mono">{formatCurrency(item.price * item.quantity)}</span>
+              </div>
             );
           })}
-        </ul>
-        <div className="font-semibold text-blue-400 mb-4">
+        </div>
+        
+        <div className="font-semibold text-[#336699] mb-4 text-right">
           Total: {formatCurrency(localItems.reduce((sum, item) => sum + (item.price * item.quantity), 0))}
         </div>
-        <div className="flex gap-2">
+        
+        <div className="flex gap-3">
           <button
-            className="flex-1 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded"
+            className="flex-1 bg-transparent border border-[#555555] hover:bg-[#333333] text-white px-4 py-2 rounded-[4px] transition-colors"
             onClick={onCancel}
           >
             Cancel
           </button>
           <button
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+            className="flex-1 bg-[#336699] hover:bg-[#2A5580] text-white px-4 py-2 rounded-[4px] transition-colors"
             onClick={() => onSave(localItems)}
           >
-            Save
+            Save Changes
           </button>
         </div>
       </div>

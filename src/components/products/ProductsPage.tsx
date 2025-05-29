@@ -8,7 +8,8 @@ import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
-import { ProductOptionsDemo } from './ProductOptionsDemo';
+import { CreateProductDrawer } from './CreateProductDrawer';
+import { EditProductDrawer } from './EditProductDrawer';
 import { PageHeader } from '../common/PageHeader';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { NewButton } from '../common/NewButton';
@@ -16,32 +17,33 @@ import TabMenu from '../common/TabMenu';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { LayoutContext } from '../layouts/DashboardLayout';
+import { getCollectionLabel, PRODUCT_COLLECTIONS } from '../../constants/collections';
 
 // Product type
-export type Product = {
+interface Product {
   id: string;
   name: string;
-  description: string;
-  price?: number;
-  unit?: string;
-  user_id: string;
-  created_at?: string;
-  type?: string;
-  items?: { lineItemId: string; quantity: number }[];
+  description?: string;
+  price: number;
+  unit: string;
+  type: string;
   category?: string;
-  premium?: boolean;
-  lineItems?: any[];
-  packages?: any[];
-  is_base_product?: boolean;
-  parent_product_id?: string;
-  variant_name?: string;
-  trade?: { id: string; name: string };
+  status: string;
+  is_base_product: boolean;
+  created_at: string;
+  updated_at: string;
   trade_id?: string;
-  status?: string;
-  variant?: boolean;
+  user_id?: string;
+  parent_product_id?: string;
   parent_name?: string;
-  variants?: Product[];
+  variant?: boolean;
+  trade?: {
+    id: string;
+    name: string;
 };
+  variants: any[];
+  items?: any[];
+}
 
 interface LineItem {
   lineItemId: string;
@@ -57,14 +59,14 @@ interface SaveData {
   items: LineItem[];
 }
 
+interface ProductsPageProps {
+  editingProduct: Product | 'new' | null;
+  setEditingProduct: (product: Product | 'new' | null) => void;
+}
+
 // Category colors moved to utility functions for better maintainability
 
 // Accept editingProduct and setEditingProduct as props
-export interface ProductsPageProps {
-  editingProduct: Product | 'new' | null;
-  setEditingProduct: (p: Product | 'new' | null) => void;
-}
-
 export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPageProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -79,6 +81,8 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClosingDrawer, setIsClosingDrawer] = useState(false);
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [editingProductData, setEditingProductData] = useState<Product | null>(null);
 
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -154,12 +158,29 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     }, 300);
   };
 
+  // Remove the navigation effect and replace with drawer opening
+  useEffect(() => {
+    if (editingProduct === 'new') {
+      setShowCreateDrawer(true);
+      setEditingProduct(null); // Reset the editing product state
+    }
+  }, [editingProduct]);
 
+  // Handle editing product
+  useEffect(() => {
+    if (editingProduct && editingProduct !== 'new' && typeof editingProduct === 'object') {
+      setEditingProductData(editingProduct);
+      setEditingProduct(null); // Clear the prop
+    }
+  }, [editingProduct]);
 
   useEffect(() => {
+    console.log('Auth state:', { userId: user?.id, isAuthenticated: !!user });
     if (user) {
+      console.log('User authenticated, fetching products...');
       fetchProducts();
-      fetchTrades();
+    } else {
+      console.log('No user found, skipping product fetch');
     }
   }, [user]);
 
@@ -177,48 +198,55 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
   const fetchProducts = async () => {
     try {
-      // Fetch all products with trade information
+      setIsLoading(true);
+      console.log('Starting to fetch products...');
+      
+      // Single optimized query with relationships
       const { data: productsData, error: productsError } = await supabase
         .from('products')
-        .select('*, trade:trades(id, name)')
+        .select(`
+          id,
+          name,
+          description,
+          price,
+          unit,
+          type,
+          category,
+          status,
+          is_base_product,
+          created_at,
+          updated_at,
+          variants:products!parent_product_id(
+            id,
+            name,
+            description,
+            price,
+            unit,
+            type,
+            category,
+            status,
+            is_base_product,
+            created_at,
+            updated_at
+          ),
+          items:product_line_items!product_line_items_product_id_fkey(
+            id,
+            quantity,
+            price,
+            unit
+          )
+        `)
+        .eq('is_base_product', true)
         .order('created_at', { ascending: false });
-      if (productsError) throw productsError;
 
-      // Fetch all product_line_items
-      const { data: pliData, error: pliError } = await supabase
-        .from('product_line_items')
-        .select('*');
-      if (pliError) throw pliError;
+      if (productsError) {
+        console.error('Error from Supabase:', productsError);
+        throw productsError;
+      }
 
-      // Attach line items to each product
-      const productsWithItems = (productsData || []).map((product) => ({
-        ...product,
-        items: pliData.filter((pli) => pli.product_id === product.id)
-      }));
-
-      // Separate base products and variants
-      const baseProducts = productsWithItems.filter(p => p.is_base_product === true);
-      const variants = productsWithItems.filter(p => p.is_base_product === false && p.parent_product_id);
-
-      // Group variants by their parent product
-      const baseProductsWithVariants = baseProducts.map(baseProduct => {
-        const productVariants = variants.filter(v => v.parent_product_id === baseProduct.id);
-        return {
-          ...baseProduct,
-          variants: productVariants
-        };
-      });
-
-      // Add standalone products (those without variants) to the list
-      const standaloneProducts = productsWithItems.filter(
-        p => p.is_base_product !== true && !p.parent_product_id
-      );
-
-      // Combine base products with variants and standalone products
-      const allProducts = [...baseProductsWithVariants, ...standaloneProducts];
-
-      setProducts(allProducts);
-      console.log('Fetched products:', allProducts.length);
+      console.log('Raw products data:', productsData);
+      setProducts(productsData || []);
+      console.log('Products set in state:', productsData?.length);
     } catch (err) {
       console.error('Error fetching products:', err);
     } finally {
@@ -228,6 +256,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
   // Filter products based on search term, category, and other filters
   const filteredProducts = useMemo(() => {
+    console.log('Filtering products:', products.length);
     let filtered = [...products];
 
     // Search filter
@@ -238,14 +267,9 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
       );
     }
 
-    // Trade filter (from tabs)
-    if (selectedTrade !== 'all') {
-      filtered = filtered.filter(product => product.trade_id === selectedTrade);
-    }
-    
-    // Category filter (from dropdown - now secondary)
+    // Category filter
     if (selectedCategory !== 'all') {
-      filtered = filtered.filter(product => product.trade_id === selectedCategory);
+      filtered = filtered.filter(product => product.category === selectedCategory);
     }
 
     // Profit tier filter (revenue-driven)
@@ -346,13 +370,13 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
     return new Date(product.created_at || '') >= thirtyDaysAgo;
   });
 
-  // Filter products by selected trade for stats
-  const tradeFilteredProducts = selectedTrade === 'all' 
+  // Filter products by selected category for stats
+  const categoryFilteredProducts = selectedCategory === 'all' 
     ? products 
-    : products.filter(p => p.trade_id === selectedTrade);
+    : products.filter(p => p.category === selectedCategory);
     
-  const averagePrice = tradeFilteredProducts.length > 0 
-    ? tradeFilteredProducts.filter(p => p.price).reduce((sum, p) => sum + (p.price || 0), 0) / tradeFilteredProducts.filter(p => p.price).length 
+  const averagePrice = categoryFilteredProducts.length > 0 
+    ? categoryFilteredProducts.filter(p => p.price).reduce((sum, p) => sum + (p.price || 0), 0) / categoryFilteredProducts.filter(p => p.price).length 
     : 0;
 
   const mostUsedType = useMemo(() => {
@@ -645,154 +669,154 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
             <div className="grid grid-cols-4 gap-6">
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">CATALOG VALUE</div>
-                <div className="text-lg font-semibold text-green-400 mt-1">{formatCurrency(tradeFilteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</div>
-                <div className="text-xs text-gray-500">({tradeFilteredProducts.length} items)</div>
-              </div>
+                <div className="text-lg font-semibold text-green-400 mt-1">{formatCurrency(categoryFilteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</div>
+                <div className="text-xs text-gray-500">({categoryFilteredProducts.length} items)</div>
+                </div>
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">PREMIUM ITEMS</div>
-                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{tradeFilteredProducts.filter(p => (p.price || 0) >= 500).length}</div>
+                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{categoryFilteredProducts.filter(p => (p.price || 0) >= 500).length}</div>
                 <div className="text-xs text-gray-500">($500+)</div>
-              </div>
+                </div>
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">AVG PRICE</div>
                 <div className="text-lg font-semibold mt-1">{formatCurrency(averagePrice)}</div>
-              </div>
+                </div>
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">WITH VARIANTS</div>
-                <div className="text-lg font-semibold mt-1">{tradeFilteredProducts.filter(p => p.variants && p.variants.length > 0).length}</div>
+                <div className="text-lg font-semibold mt-1">{categoryFilteredProducts.filter(p => p.variants && p.variants.length > 0).length}</div>
                 <div className="text-xs text-gray-500">(popular)</div>
-              </div>
-            </div>
+                </div>
           </div>
+        </div>
 
           {/* Controls Section */}
           <div className="px-6 py-4 border-b border-[#333333]/50">
             <div className="flex items-center justify-between gap-4">
               {/* Left side - Filters */}
-              <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3">
                 <select
                   className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                  value={selectedTrade}
+                  value={selectedCategory}
                   onChange={(e) => {
-                    setSelectedTrade(e.target.value);
-                    updateUrlParams({ trade: e.target.value });
+                    setSelectedCategory(e.target.value);
+                    updateUrlParams({ category: e.target.value });
                   }}
                 >
-                  <option value="all">All Trades ({products.length})</option>
-                  {trades.map(trade => (
-                    <option key={trade.id} value={trade.id}>
-                      {trade.name} ({products.filter(p => p.trade_id === trade.id).length})
-                    </option>
+                  <option value="all">All Collections ({products.length})</option>
+                  {PRODUCT_COLLECTIONS.filter(col => col.value !== '').map(collection => (
+                    <option key={collection.value} value={collection.value}>
+                      {collection.label} ({products.filter(p => p.category === collection.value).length})
+                      </option>
                   ))}
                 </select>
 
-                <div className="relative" ref={filterMenuRef}>
-                  <button
-                    onClick={() => setShowFilterMenu(!showFilterMenu)}
+              <div className="relative" ref={filterMenuRef}>
+                <button 
+                  onClick={() => setShowFilterMenu(!showFilterMenu)}
                     className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
-                  >
-                    <Filter className="w-4 h-4" />
+                >
+                  <Filter className="w-4 h-4" />
                     More Filters
-                  </button>
-
-                  {showFilterMenu && (
+                </button>
+                
+                {showFilterMenu && (
                     <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4">
-                      <div className="space-y-4">
-                        {/* Profit Tier Filter */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                            Profit Tier
-                          </label>
-                          <select
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                            value={selectedProfitTier}
-                            onChange={(e) => {
-                              setSelectedProfitTier(e.target.value);
-                              updateUrlParams({ profitTier: e.target.value });
-                            }}
-                          >
-                            <option value="all">All Price Ranges</option>
-                            <option value="premium">Premium ($500+)</option>
-                            <option value="high">High Margin ($200-500)</option>
-                            <option value="medium">Standard ($50-200)</option>
-                            <option value="low">Budget ($10-50)</option>
-                            <option value="minimal">Basic (Under $10)</option>
-                          </select>
-                        </div>
+                    <div className="space-y-4">
+                      {/* Profit Tier Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Profit Tier
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedProfitTier}
+                          onChange={(e) => {
+                            setSelectedProfitTier(e.target.value);
+                            updateUrlParams({ profitTier: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Price Ranges</option>
+                          <option value="premium">Premium ($500+)</option>
+                          <option value="high">High Margin ($200-500)</option>
+                          <option value="medium">Standard ($50-200)</option>
+                          <option value="low">Budget ($10-50)</option>
+                          <option value="minimal">Basic (Under $10)</option>
+                        </select>
+                      </div>
 
-                        {/* Usage Frequency Filter */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                            Usage Frequency
-                          </label>
-                          <select
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                            value={selectedUsageFrequency}
-                            onChange={(e) => {
-                              setSelectedUsageFrequency(e.target.value);
-                              updateUrlParams({ usage: e.target.value });
-                            }}
-                          >
-                            <option value="all">All Products</option>
-                            <option value="frequent">Frequently Used (3+ Variants)</option>
-                            <option value="regular">Regularly Used (Has Variants)</option>
-                            <option value="occasional">Occasionally Used</option>
-                          </select>
-                        </div>
+                      {/* Usage Frequency Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Usage Frequency
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedUsageFrequency}
+                          onChange={(e) => {
+                            setSelectedUsageFrequency(e.target.value);
+                            updateUrlParams({ usage: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Products</option>
+                          <option value="frequent">Frequently Used (3+ Variants)</option>
+                          <option value="regular">Regularly Used (Has Variants)</option>
+                          <option value="occasional">Occasionally Used</option>
+                        </select>
+                      </div>
 
-                        {/* Price Strategy Filter */}
-                        <div>
-                          <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                            Pricing Strategy
-                          </label>
-                          <select
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                            value={selectedPriceStrategy}
-                            onChange={(e) => {
-                              setSelectedPriceStrategy(e.target.value);
-                              updateUrlParams({ strategy: e.target.value });
-                            }}
-                          >
-                            <option value="all">All Strategies</option>
-                            <option value="premium">Premium Pricing ($300+)</option>
-                            <option value="competitive">Market Competitive ($50-300)</option>
-                            <option value="value">Value Pricing (Under $50)</option>
-                          </select>
-                        </div>
+                      {/* Price Strategy Filter */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                          Pricing Strategy
+                        </label>
+                        <select
+                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          value={selectedPriceStrategy}
+                          onChange={(e) => {
+                            setSelectedPriceStrategy(e.target.value);
+                            updateUrlParams({ strategy: e.target.value });
+                          }}
+                        >
+                          <option value="all">All Strategies</option>
+                          <option value="premium">Premium Pricing ($300+)</option>
+                          <option value="competitive">Market Competitive ($50-300)</option>
+                          <option value="value">Value Pricing (Under $50)</option>
+                        </select>
+                      </div>
 
-                        {/* Clear Filters */}
-                        <div className="pt-2 border-t border-[#333333]">
-                          <button
-                            onClick={() => {
-                              resetFilters();
-                              setShowFilterMenu(false);
-                            }}
+                      {/* Clear Filters */}
+                      <div className="pt-2 border-t border-[#333333]">
+                        <button
+                          onClick={() => {
+                            resetFilters();
+                            setShowFilterMenu(false);
+                          }}
                             className="w-full bg-[#336699] hover:bg-[#2A5580] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
-                          >
-                            Clear All Filters
-                          </button>
-                        </div>
+                        >
+                          Clear All Filters
+                        </button>
                       </div>
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
+            </div>
 
               {/* Right side - Options menu */}
-              <div className="relative" ref={optionsMenuRef}>
-                <button
-                  onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+            <div className="relative" ref={optionsMenuRef}>
+              <button
+                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
                   className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
-                >
+              >
                   <MoreVertical className="w-4 h-4 text-gray-400" />
-                </button>
+              </button>
 
-                {showOptionsMenu && (
+              {showOptionsMenu && (
                   <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] py-1">
                     <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
                       Data Management
                     </div>
-                    <button
+                  <button
                       onClick={() => {
                         handleImportItems();
                         setShowOptionsMenu(false);
@@ -800,9 +824,9 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                       className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                     >
                       <Upload className="w-3 h-3 mr-3 text-gray-400" />
-                      Import Products
-                    </button>
-                    <button
+                    Import Products
+                  </button>
+                  <button
                       onClick={() => {
                         handleExportToCSV();
                         setShowOptionsMenu(false);
@@ -810,12 +834,12 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                       className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                     >
                       <Download className="w-3 h-3 mr-3 text-gray-400" />
-                      Export to CSV
-                    </button>
+                    Export to CSV
+                  </button>
                     <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
                       View Options
                     </div>
-                    <button
+                  <button
                       onClick={() => {
                         handlePrintPriceBook();
                         setShowOptionsMenu(false);
@@ -823,224 +847,230 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                       className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                     >
                       <FileText className="w-3 h-3 mr-3 text-gray-400" />
-                      Print Products
-                    </button>
-                  </div>
-                )}
-              </div>
+                    Print Products
+                  </button>
+                </div>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Content Area */}
+        {/* Content Area */}
           <div className="overflow-hidden rounded-b-[4px]">
-            {isLoading ? (
-              <LoadingIndicator />
-            ) : filteredProducts.length === 0 ? (
-              products.length === 0 || showTutorial ? (
-                <ContextualOnboarding />
-              ) : (
-                <div className="text-center py-20">
-                  <div className="text-gray-400 text-lg mb-4">No products match your search</div>
-                  <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
-                </div>
-              )
+          {isLoading ? (
+            <LoadingIndicator />
+          ) : filteredProducts.length === 0 ? (
+            products.length === 0 || showTutorial ? (
+              <ContextualOnboarding />
             ) : (
+              <div className="text-center py-20">
+                <div className="text-gray-400 text-lg mb-4">No products match your search</div>
+                <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
+              </div>
+            )
+          ) : (
               <div className="bg-[#1A1A1A] overflow-hidden">
-                {filteredProducts.map((product, index) => (
-                  <div key={product.id} className="border-b border-[#333333] last:border-b-0">
-                    {/* Base Product Header - Entire row clickable */}
-                    <div
-                      className={`${isConstrained ? 'pl-4 pr-6 py-2' : 'pl-6 pr-8 py-3'} flex justify-between items-center cursor-pointer hover:bg-[#252525] transition-colors`}
-                      onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3">
-                            <h2 className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white truncate`}>{product.name}</h2>
-                            <span className={`text-gray-400 ${isConstrained ? 'text-xs' : 'text-sm'}`}>
-                              {product.trade?.name || 'General'}
-                            </span>
-                            {product.variants && product.variants.length > 0 && (
-                              <span className="bg-[#336699] text-white text-xs px-2 py-0.5 rounded">
-                                {product.variants.length} variants
-                              </span>
+              {filteredProducts.map((product, index) => (
+                <div key={product.id} className="border-b border-[#333333] last:border-b-0">
+                  {/* Base Product Header - Entire row clickable */}
+                  <div
+                    className={`${isConstrained ? 'pl-4 pr-6 py-2' : 'pl-6 pr-8 py-3'} flex justify-between items-center cursor-pointer hover:bg-[#252525] transition-colors`}
+                    onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedProductId === product.id ? 'transform rotate-90' : ''}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3">
+                          <h2 className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white truncate`}>{product.name}</h2>
+                            {product.category && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700">
+                                {getCollectionLabel(product.category)}
+                          </span>
                             )}
-                          </div>
+                          {product.variants && product.variants.length > 0 && (
+                              <span className="text-gray-500 text-xs">
+                                • {product.variants.length} variants
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <button
-                          className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-3 py-1.5 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition-colors flex items-center gap-2 font-medium`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/products/${product.id}/compare`);
-                          }}
-                          title="Compare Variants"
-                        >
-                          <BarChart3 size={14} />
-                          {!isConstrained && <span>Compare</span>}
-                        </button>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-3 py-1.5 text-xs' : 'px-3 py-1.5 text-sm'} rounded transition-colors flex items-center gap-2 font-medium`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/products/${product.id}/compare`);
+                        }}
+                        title="Compare Variants"
+                      >
+                        <BarChart3 size={14} />
+                        {!isConstrained && <span>Compare</span>}
+                      </button>
+                    </div>
+                  </div>
 
-                    {/* Variants List - Only shown when expanded and not collapsed */}
-                    {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
-                      <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} space-y-2 bg-[#1E1E1E] border-t border-[#333333] relative`}>
-                        {/* Add Variant Button at top */}
-                        <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
-                          <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Variants ({product.variants.length})</h3>
-                          <button
+                  {/* Variants List - Only shown when expanded and not collapsed */}
+                  {expandedProductId === product.id && !collapseVariants && product.variants && product.variants.length > 0 && (
+                    <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} space-y-2 bg-[#1E1E1E] border-t border-[#333333] relative`}>
+                      {/* Add Variant Button at top */}
+                      <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
+                        <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Variants ({product.variants.length})</h3>
+                        <button
                             className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProduct({
-                                id: '',
-                                name: '',
-                                description: '',
-                                user_id: user?.id || '',
-                                status: 'draft',
-                                is_base_product: false,
-                                parent_product_id: product.id,
-                                parent_name: product.name,
-                                category: product.category,
-                                variant: true
-                              });
-                            }}
-                          >
-                            + Add Variant
-                          </button>
-                        </div>
-
-                        {/* Vertical connecting line */}
-                        <div className="absolute left-8 top-20 bottom-6 w-0.5 bg-[#336699] opacity-70"></div>
-
-                          {product.variants.map((variant: any, idx: number) => (
-                            <div
-                              key={variant.id}
-                              className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors relative ${isConstrained ? 'ml-3' : 'ml-6'}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                // Open the drawer to edit this variant
-                                setEditingProduct(variant);
-                              }}
-                            >
-                              {/* Horizontal connecting line */}
-                              <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
-
-                            <div className="flex items-center gap-3 flex-1 min-w-0">
-                              <div className={`${isConstrained ? 'w-4 h-4' : 'w-5 h-5'} rounded-full bg-[#333333] border border-[#555555] flex items-center justify-center`}>
-                                <span className="text-xs text-white font-bold">{idx + 1}</span>
-                              </div>
-                              <span className={`font-medium ${isConstrained ? 'text-xs truncate' : 'text-sm'} ${getVariantTextColor(variant.variant_name || variant.name)}`}>
-                                {variant.variant_name || variant.name}
-                              </span>
-                              {!isConstrained && (
-                                <span className="text-gray-500 text-xs">({variant.items?.length || 0} items)</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                              <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(variant.price || 0)}</span>
-                              <button
-                                className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Edit this variant
-                                  setEditingProduct(variant);
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className={`bg-[#1E1E1E] hover:bg-[#333333] text-white border border-[#404040] hover:border-[#555555] ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  // Clone this variant logic
-                                  setEditingProduct({
-                                    id: '',
-                                    name: `${variant.name} (Copy)`,
-                                    description: variant.description,
-                                    user_id: user?.id || '',
-                                    status: 'draft',
-                                    is_base_product: false,
-                                    parent_product_id: product.id,
-                                    parent_name: product.name,
-                                    price: variant.price,
-                                    unit: variant.unit,
-                                    trade_id: variant.trade_id,
-                                    category: product.category,
-                                    variant: true // Flag to indicate this is a variant
-                                  });
-                                }}
-                              >
-                                Clone
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* If this is a standalone product with no variants */}
-                    {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
-                      <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} bg-[#1E1E1E] border-t border-[#333333]`}>
-                        <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
-                          <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Product Details</h3>
-                          <button
-                            className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProduct({
-                                id: '',
-                                name: '',
-                                description: '',
-                                user_id: user?.id || '',
-                                status: 'draft',
-                                is_base_product: false,
-                                parent_product_id: product.id,
-                                parent_name: product.name,
-                                category: product.category,
-                                variant: true
-                              });
-                            }}
-                          >
-                            + Add Variant
-                          </button>
-                        </div>
-                        <div
-                          className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors`}
-                          onClick={() => setEditingProduct(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                              setEditingProductData({
+                              id: '',
+                              name: '',
+                              description: '',
+                              user_id: user?.id || '',
+                              status: 'draft',
+                              is_base_product: false,
+                              parent_product_id: product.id,
+                              parent_name: product.name,
+                              category: product.category,
+                                variant: true,
+                                price: 0,
+                                unit: 'each',
+                                type: 'service',
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString(),
+                                variants: [],
+                                items: []
+                              } as Product);
+                          }}
                         >
+                          + Add Variant
+                        </button>
+                      </div>
+
+                      {/* Vertical connecting line */}
+                      <div className="absolute left-8 top-20 bottom-6 w-0.5 bg-[#336699] opacity-70"></div>
+
+                        {product.variants.map((variant: any, idx: number) => (
+                          <div
+                            key={variant.id}
+                            className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors relative ${isConstrained ? 'ml-3' : 'ml-6'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Open the drawer to edit this variant
+                                setEditingProductData(variant);
+                            }}
+                          >
+                            {/* Horizontal connecting line */}
+                            <div className="absolute left-[-12px] top-1/2 w-3 h-0.5 bg-[#336699] opacity-70"></div>
+
                           <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <span className={`text-gray-400 ${isConstrained ? 'text-xs' : 'text-xs'}`}>({product.items?.length || 0} items)</span>
+                            <div className={`${isConstrained ? 'w-4 h-4' : 'w-5 h-5'} rounded-full bg-[#333333] border border-[#555555] flex items-center justify-center`}>
+                              <span className="text-xs text-white font-bold">{idx + 1}</span>
+                            </div>
+                            <span className={`font-medium ${isConstrained ? 'text-xs truncate' : 'text-sm'} ${getVariantTextColor(variant.variant_name || variant.name)}`}>
+                              {variant.variant_name || variant.name}
+                            </span>
                             {!isConstrained && (
-                              <>
-                                <span className="text-gray-400 text-xs">•</span>
-                                <span className="text-gray-400 text-xs">Click to edit</span>
-                              </>
+                              <span className="text-gray-500 text-xs">({variant.items?.length || 0} items)</span>
                             )}
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(product.price || 0)}</span>
+                            <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(variant.price || 0)}</span>
                             <button
                               className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setEditingProduct(product);
+                                // Edit this variant
+                                  setEditingProductData(variant);
                               }}
                             >
                               Edit
                             </button>
+                            <button
+                              className={`bg-[#1E1E1E] hover:bg-[#333333] text-white border border-[#404040] hover:border-[#555555] ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Clone this variant logic
+                                  setEditingProductData({
+                                  id: '',
+                                  name: `${variant.name} (Copy)`,
+                                  description: variant.description,
+                                  user_id: user?.id || '',
+                                  status: 'draft',
+                                  is_base_product: false,
+                                  parent_product_id: product.id,
+                                  parent_name: product.name,
+                                  price: variant.price,
+                                  unit: variant.unit,
+                                  trade_id: variant.trade_id,
+                                  category: product.category,
+                                    variant: true,
+                                    type: variant.type || 'service',
+                                    created_at: new Date().toISOString(),
+                                    updated_at: new Date().toISOString(),
+                                    variants: [],
+                                    items: variant.items || []
+                                  } as Product);
+                              }}
+                            >
+                              Clone
+                            </button>
                           </div>
                         </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* If this is a standalone product with no variants */}
+                  {expandedProductId === product.id && (!product.variants || product.variants.length === 0) && (
+                    <div className={`${isConstrained ? 'pl-6 pr-6 pb-2' : 'pl-8 pr-8 pb-3'} bg-[#1E1E1E] border-t border-[#333333]`}>
+                      <div className={`flex justify-between items-center ${isConstrained ? 'py-2' : 'py-3'}`}>
+                        <h3 className={`text-white font-medium ${isConstrained ? 'text-xs' : 'text-sm'}`}>Product Details</h3>
+                        <button
+                            className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                              setEditingProductData(product);
+                          }}
+                        >
+                          + Add Variant
+                        </button>
                       </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                      <div
+                        className={`flex items-center justify-between ${isConstrained ? 'px-3 py-1.5' : 'px-4 py-2'} bg-[#252525] hover:bg-[#2A2A2A] rounded-[4px] cursor-pointer transition-colors`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingProductData(product);
+                          }}
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <span className={`text-gray-400 ${isConstrained ? 'text-xs' : 'text-xs'}`}>({product.items?.length || 0} items)</span>
+                          {!isConstrained && (
+                            <>
+                              <span className="text-gray-400 text-xs">•</span>
+                              <span className="text-gray-400 text-xs">Click to edit</span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className={`${isConstrained ? 'text-sm' : 'text-base'} font-semibold text-white tabular-nums`}>{formatCurrency(product.price || 0)}</span>
+                          <button
+                            className={`bg-[#336699] hover:bg-opacity-80 text-white ${isConstrained ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-xs'} rounded transition-colors font-medium`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                                setEditingProductData(product);
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
 
       {/* Modals */}
       {deletingProduct && (
@@ -1059,6 +1089,30 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
           onClose={() => setComparingProduct(null)}
         />
       )}
+
+      {/* Create Product Drawer */}
+      <CreateProductDrawer
+        isOpen={showCreateDrawer}
+        onClose={() => setShowCreateDrawer(false)}
+        onSuccess={() => {
+          setShowCreateDrawer(false);
+          fetchProducts(); // Refresh the products list
+        }}
+      />
+
+      {/* Edit Product Drawer */}
+      <EditProductDrawer
+        product={editingProductData}
+        onClose={() => setEditingProductData(null)}
+        onSuccess={() => {
+          setEditingProductData(null);
+          fetchProducts(); // Refresh the products list
+        }}
+        onDelete={(productId) => {
+          setEditingProductData(null);
+          fetchProducts(); // Refresh the products list
+        }}
+      />
     </div>
   );
 };

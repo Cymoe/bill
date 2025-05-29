@@ -27,13 +27,15 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { NewClientModal } from '../clients/NewClientModal';
 import ProductForm from '../products/ProductForm';
-import { NewInvoiceModal } from '../invoices/NewInvoiceModal';
+import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
 import { useProductDrawer } from '../../contexts/ProductDrawerContext';
 import { Sidebar } from './Sidebar';
 import ChatManagementSystem from '../../pages/chat/ChatManagementSystem';
 import { MobileHeader } from './MobileHeader';
 import { MobileMenu } from './MobileMenu';
 import { MobileCreateMenu } from './MobileCreateMenu';
+import { PageHeaderBar } from '../common/PageHeaderBar';
+import { supabase } from '../../lib/supabase';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -90,7 +92,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [globalSearch, setGlobalSearch] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const createDropdownRef = useRef<HTMLDivElement>(null);
   const createButtonRef = useRef<HTMLButtonElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [selectedIndustry, setSelectedIndustry] = useState('All Trades');
@@ -264,8 +265,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     const handleClickOutside = (event: MouseEvent) => {
       if (
         isCreateMenuOpen &&
-        createDropdownRef.current &&
-        !createDropdownRef.current.contains(event.target as Node)
+        createButtonRef.current &&
+        !createButtonRef.current.contains(event.target as Node)
       ) {
         setIsCreateMenuOpen(false);
       }
@@ -443,7 +444,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const isConstrained = availableContentWidth === 'constrained' || availableContentWidth === 'minimal';
   const isMinimal = availableContentWidth === 'minimal';
   const isCompact = availableContentWidth === 'compact';
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -489,7 +490,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     
     return classes;
   };
-
+  
   return (
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
     <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
@@ -520,201 +521,201 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         >
           {/* Chat Toggle Button */}
           <div className="flex flex-col items-center justify-center h-screen bg-[#1A1A1A] border-r border-gray-700">
-            <button
-              onClick={toggleChatPanel}
-              className={`relative w-10 h-10 ${isChatPanelOpen ? 'bg-[#336699]' : 'bg-[#2A2A2A]'} hover:bg-[#336699] rounded-[4px] flex items-center justify-center transition-all duration-200 group`}
-              title={isChatPanelOpen ? "Close AI Assistant" : "Open AI Assistant"}
-            >
-              <MessageSquare className={`h-5 w-5 ${isChatPanelOpen ? 'text-white' : 'text-gray-400 group-hover:text-white'} transition-colors`} />
-              {!isChatPanelOpen && (
-                <div className="absolute top-1 right-1 w-2 h-2 bg-[#F9D71C] rounded-full animate-pulse"></div>
-              )}
-            </button>
-            
-            <div className="mt-4 writing-mode-vertical text-[10px] text-gray-500 uppercase tracking-wider select-none">
-              AI Chat
-            </div>
-          </div>
+          <button
+            onClick={toggleChatPanel}
+            className={`relative w-10 h-10 ${isChatPanelOpen ? 'bg-[#336699]' : 'bg-[#2A2A2A]'} hover:bg-[#336699] rounded-[4px] flex items-center justify-center transition-all duration-200 group`}
+            title={isChatPanelOpen ? "Close AI Assistant" : "Open AI Assistant"}
+          >
+            <MessageSquare className={`h-5 w-5 ${isChatPanelOpen ? 'text-white' : 'text-gray-400 group-hover:text-white'} transition-colors`} />
+            {!isChatPanelOpen && (
+              <div className="absolute top-1 right-1 w-2 h-2 bg-[#F9D71C] rounded-full animate-pulse"></div>
+            )}
+          </button>
           
+          <div className="mt-4 writing-mode-vertical text-[10px] text-gray-500 uppercase tracking-wider select-none">
+            AI Chat
+        </div>
+        </div>
+        
           {/* Chat Panel */}
           <div className={`h-screen border-r border-gray-700 bg-[#1A1A1A] relative ${isChatPanelOpen ? '' : 'overflow-hidden'}`}>
-            {isChatPanelOpen && (
-              <>
+          {isChatPanelOpen && (
+            <>
                 <div className="h-full overflow-hidden">
-                  <ChatManagementSystem />
-                </div>
-                <div
+                <ChatManagementSystem />
+              </div>
+              <div
                   className="absolute -right-[3px] top-0 w-[6px] h-full cursor-ew-resize group z-10"
-                  onMouseDown={startResizing}
-                >
+                onMouseDown={startResizing}
+              >
                   <div className="absolute inset-y-0 left-[2px] w-[2px] bg-gray-700 group-hover:bg-[#336699] transition-colors" />
-                </div>
-              </>
-            )}
-          </div>
-          
+              </div>
+            </>
+          )}
+        </div>
+                  
           {/* Main Content Area */}
           <div className="min-h-full overflow-y-auto">
             <div className={`min-h-full max-w-3xl mx-auto px-4`}>
-              {children}
-            </div>
-          </div>
-
+            {children}
+                  </div>
+              </div>
+              
           {/* Projects Sidebar */}
-          {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
+        {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
             <div ref={projectsSidebarRef} className="h-screen bg-[#1A1A1A] border-l border-gray-700 overflow-hidden">
               <div className="h-full flex flex-col">
-                <div className="p-3 border-b border-gray-700 flex-shrink-0">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-white text-base font-medium">All Projects</h2>
+              <div className="p-3 border-b border-gray-700 flex-shrink-0">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-white text-base font-medium">All Projects</h2>
+                  <div className="flex items-center gap-1.5">
+                    <button 
+                      onClick={() => {
+                        navigate('/projects/new');
+                        if (!isProjectsSidebarLocked) {
+                          setIsProjectsSidebarOpen(false);
+                        }
+                      }}
+                      className="w-7 h-7 bg-[#336699] hover:bg-[#2A5580] text-white rounded-[2px] flex items-center justify-center transition-colors"
+                      title="New Project"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={() => setProjectsSortOrder(projectsSortOrder === 'latest' ? 'earliest' : 'latest')}
+                      className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                      title={projectsSortOrder === 'latest' ? "Sort by earliest first" : "Sort by latest first"}
+                    >
+                      {projectsSortOrder === 'latest' ? (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 15l4 4 4-4m0-6l-4-4-4 4" />
+                        </svg>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        if (isProjectsSidebarLocked) {
+                          setProjectsSidebarLockedWithPersistence(false);
+                          setIsProjectsSidebarOpen(false);
+                        } else {
+                          setProjectsSidebarLockedWithPersistence(true);
+                        }
+                      }}
+                      className={`w-7 h-7 ${isProjectsSidebarLocked ? 'bg-[#F9D71C] text-[#121212]' : 'bg-[#333333] text-gray-400'} hover:bg-[#F9D71C] hover:text-[#121212] rounded-[2px] flex items-center justify-center transition-colors`}
+                      title={isProjectsSidebarLocked ? "Unlock and close projects pane" : "Lock projects pane open"}
+                    >
+                      {isProjectsSidebarLocked ? (
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="relative">
+                  {!isProjectsSearchExpanded ? (
+                    <button
+                      onClick={() => setIsProjectsSearchExpanded(true)}
+                      className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                      title="Search projects"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                      </svg>
+                    </button>
+                  ) : (
                     <div className="flex items-center gap-1.5">
-                      <button 
+                      <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
+                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Search for a project..."
+                    value={projectsSearch}
+                    onChange={(e) => setProjectsSearch(e.target.value)}
+                          onBlur={() => {
+                            if (!projectsSearch) {
+                              setIsProjectsSearchExpanded(false);
+                            }
+                          }}
+                          autoFocus
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#2A2A2A] border border-[#404040] rounded-[2px] text-white text-xs placeholder-gray-400 focus:outline-none focus:border-[#336699] transition-colors"
+                  />
+                      </div>
+                      {projectsSearch && (
+                        <button
+                          onClick={() => {
+                            setProjectsSearch('');
+                            setIsProjectsSearchExpanded(false);
+                          }}
+                          className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
+                          title="Clear search"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto min-h-0">
+                <div className="space-y-0">
+                  {sortedProjects.map((project, index) => (
+                    <div key={project.id} className="relative">
+                      <button
                         onClick={() => {
-                          navigate('/projects/new');
+                          navigate(`/projects/${project.id}`);
                           if (!isProjectsSidebarLocked) {
                             setIsProjectsSidebarOpen(false);
                           }
                         }}
-                        className="w-7 h-7 bg-[#336699] hover:bg-[#2A5580] text-white rounded-[2px] flex items-center justify-center transition-colors"
-                        title="New Project"
+                        className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                      </button>
-                      <button 
-                        onClick={() => setProjectsSortOrder(projectsSortOrder === 'latest' ? 'earliest' : 'latest')}
-                        className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
-                        title={projectsSortOrder === 'latest' ? "Sort by earliest first" : "Sort by latest first"}
-                      >
-                        {projectsSortOrder === 'latest' ? (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
-                          </svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 15l4 4 4-4m0-6l-4-4-4 4" />
-                          </svg>
-                        )}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          if (isProjectsSidebarLocked) {
-                            setProjectsSidebarLockedWithPersistence(false);
-                            setIsProjectsSidebarOpen(false);
-                          } else {
-                            setProjectsSidebarLockedWithPersistence(true);
-                          }
-                        }}
-                        className={`w-7 h-7 ${isProjectsSidebarLocked ? 'bg-[#F9D71C] text-[#121212]' : 'bg-[#333333] text-gray-400'} hover:bg-[#F9D71C] hover:text-[#121212] rounded-[2px] flex items-center justify-center transition-colors`}
-                        title={isProjectsSidebarLocked ? "Unlock and close projects pane" : "Lock projects pane open"}
-                      >
-                        {isProjectsSidebarLocked ? (
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                          </svg>
-                        ) : (
-                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z" />
-                          </svg>
-                        )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center mb-0.5">
+                              <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
+                                project.status === 'completed' ? 'bg-green-500' :
+                                project.status === 'active' ? 'bg-green-500' :
+                                'bg-yellow-500'
+                              }`}></div>
+                              <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
+                            </div>
+                            <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
+                          </div>
+                        </div>
                       </button>
                     </div>
-                  </div>
+                  ))}
                   
-                  <div className="relative">
-                    {!isProjectsSearchExpanded ? (
-                      <button
-                        onClick={() => setIsProjectsSearchExpanded(true)}
-                        className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
-                        title="Search projects"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <div className="relative flex-1">
-                          <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                            </svg>
-                          </div>
-                          <input
-                            type="text"
-                            placeholder="Search for a project..."
-                            value={projectsSearch}
-                            onChange={(e) => setProjectsSearch(e.target.value)}
-                            onBlur={() => {
-                              if (!projectsSearch) {
-                                setIsProjectsSearchExpanded(false);
-                              }
-                            }}
-                            autoFocus
-                            className="w-full pl-8 pr-3 py-1.5 bg-[#2A2A2A] border border-[#404040] rounded-[2px] text-white text-xs placeholder-gray-400 focus:outline-none focus:border-[#336699] transition-colors"
-                          />
-                        </div>
-                        {projectsSearch && (
-                          <button
-                            onClick={() => {
-                              setProjectsSearch('');
-                              setIsProjectsSearchExpanded(false);
-                            }}
-                            className="w-7 h-7 bg-[#333333] hover:bg-[#404040] text-gray-400 hover:text-white rounded-[2px] flex items-center justify-center transition-colors"
-                            title="Clear search"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  {sortedProjects.length === 0 && (
+                    <div className="text-center py-6">
+                      <div className="text-gray-400 text-xs">No projects found</div>
+                      <div className="text-gray-500 text-[10px] mt-1">Try adjusting your search</div>
+                    </div>
+                  )}
                 </div>
-
-                <div className="flex-1 overflow-y-auto min-h-0">
-                  <div className="space-y-0">
-                    {sortedProjects.map((project, index) => (
-                      <div key={project.id} className="relative">
-                        <button
-                          onClick={() => {
-                            navigate(`/projects/${project.id}`);
-                            if (!isProjectsSidebarLocked) {
-                              setIsProjectsSidebarOpen(false);
-                            }
-                          }}
-                          className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center mb-0.5">
-                                <div className={`w-1.5 h-1.5 rounded-full mr-2 flex-shrink-0 ${
-                                  project.status === 'completed' ? 'bg-green-500' :
-                                  project.status === 'active' ? 'bg-green-500' :
-                                  'bg-yellow-500'
-                                }`}></div>
-                                <span className="text-white text-xs font-medium truncate leading-tight">{project.name}</span>
-                              </div>
-                              <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
-                            </div>
-                          </div>
-                        </button>
-                      </div>
-                    ))}
-                    
-                    {sortedProjects.length === 0 && (
-                      <div className="text-center py-6">
-                        <div className="text-gray-400 text-xs">No projects found</div>
-                        <div className="text-gray-500 text-[10px] mt-1">Try adjusting your search</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              </div>
               </div>
             </div>
           )}
@@ -725,8 +726,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             setSidebarCollapsedWithLogging={setSidebarCollapsedWithLogging}
             isCreateMenuOpen={isCreateMenuOpen}
             setIsCreateMenuOpen={setIsCreateMenuOpen}
-            createButtonRef={createButtonRef}
-            createDropdownRef={createDropdownRef}
             orgDropdownOpen={orgDropdownOpen}
             setOrgDropdownOpen={setOrgDropdownOpen}
             selectedOrg={selectedOrg}
@@ -827,17 +826,56 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           />
         )}
 
-        {showNewInvoiceDrawer && (
-          <NewInvoiceModal
-            onClose={() => setShowNewInvoiceDrawer(false)}
-            onSave={(invoice) => {
+        {/* Invoice Creation Drawer */}
+        <CreateInvoiceDrawer
+          isOpen={showNewInvoiceDrawer}
+          onClose={() => setShowNewInvoiceDrawer(false)}
+          onSave={async (data) => {
+            try {
+              // Create the invoice
+              const { data: invoice, error: invoiceError } = await supabase
+                .from('invoices')
+                .insert({
+                  user_id: user?.id,
+                  client_id: data.client_id,
+                  amount: data.total_amount,
+                  status: data.status,
+                  issue_date: data.issue_date,
+                  due_date: data.due_date,
+                  description: data.description
+                })
+                .select()
+                .single();
+
+              if (invoiceError) throw invoiceError;
+
+              // Create invoice items
+              const itemsToInsert = data.items.map(item => ({
+                invoice_id: invoice.id,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+                description: item.description
+              }));
+
+              const { error: itemsError } = await supabase
+                .from('invoice_items')
+                .insert(itemsToInsert);
+
+              if (itemsError) throw itemsError;
+
               console.log('New invoice created:', invoice);
               setShowNewInvoiceDrawer(false);
-            }}
-          />
-        )}
+            } catch (error) {
+              console.error('Error creating invoice:', error);
+            }
+          }}
+        />
 
         {showLineItemDrawer && (
+          <div className="fixed inset-0 z-[10000] flex justify-end">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowLineItemDrawer(false)} />
+            <div className="relative w-full max-w-md bg-[#121212] shadow-xl">
           <ProductForm
             title="Create Line Item"
             onClose={() => setShowLineItemDrawer(false)}
@@ -847,11 +885,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             }}
             submitLabel="Create Item"
           />
+            </div>
+          </div>
         )}
 
         {showHelpModal && (
           <div className="fixed inset-0 z-[11000] flex items-center justify-center">
-            <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowHelpModal(false)} />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowHelpModal(false)} />
             <div className="relative bg-[#1E1E1E] rounded-[4px] shadow-xl border border-[#333333] w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden">
               <div className="flex items-center justify-between p-6 border-b border-[#333333]">
                 <div>
@@ -1105,6 +1145,23 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onCreateLineItem={() => setShowLineItemDrawer(true)}
         />
 
+        {/* Floating Action Button - Desktop Only */}
+        <div className="hidden md:block">
+          <button
+            ref={createButtonRef}
+            onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+            className={`fixed bottom-6 ${
+              isSidebarCollapsed 
+                ? isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[23rem]' : 'right-16' 
+                : isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[33rem]' : 'right-52'
+            } w-14 h-14 bg-[#F9D71C] hover:bg-[#e9c91c] rounded-full shadow-[0_4px_20px_rgba(249,215,28,0.4)] hover:shadow-[0_6px_25px_rgba(249,215,28,0.6)] flex items-center justify-center transition-all duration-200 z-[9998] active:scale-95 group`}
+            title="Create New Item"
+            aria-label="Create new item"
+          >
+            <Plus className="w-6 h-6 text-[#121212] group-hover:scale-110 transition-transform" />
+          </button>
+        </div>
+
         <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-between items-center bg-[#121212] text-white px-4 py-2 border-t border-[#333333] z-[9999]">
           <NavLink
             to="/dashboard"
@@ -1167,7 +1224,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               >
                 <X className="h-5 w-5 text-white" />
               </button>
-            </div>
+      </div>
             <div className="flex-1 overflow-hidden">
               <ChatManagementSystem />
             </div>

@@ -25,8 +25,6 @@ interface SidebarProps {
   setSidebarCollapsedWithLogging: (value: boolean | ((prev: boolean) => boolean)) => void;
   isCreateMenuOpen: boolean;
   setIsCreateMenuOpen: (value: boolean) => void;
-  createButtonRef: React.RefObject<HTMLButtonElement>;
-  createDropdownRef: React.RefObject<HTMLDivElement>;
   orgDropdownOpen: boolean;
   setOrgDropdownOpen: (value: boolean) => void;
   selectedOrg: { id: string; name: string; industry: string };
@@ -56,8 +54,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setSidebarCollapsedWithLogging,
   isCreateMenuOpen,
   setIsCreateMenuOpen,
-  createButtonRef,
-  createDropdownRef,
   orgDropdownOpen,
   setOrgDropdownOpen,
   selectedOrg,
@@ -112,7 +108,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="p-2 border-b border-[#333333] relative flex items-center justify-between flex-shrink-0">
           <button
             onClick={() => setSidebarCollapsedWithLogging(!isSidebarCollapsed)}
-            className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-md bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
+            className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-[4px] bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isSidebarCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -120,28 +116,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isSidebarCollapsed && (
             <button 
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-              className="flex-1 bg-[#1E1E1E] rounded-md p-2 flex items-center justify-between ml-1"
+              className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-between ml-1 h-8 px-2 hover:bg-[#2A2A2A] transition-all duration-150"
             >
-              <div className="flex items-center">
-                <span className="text-white text-base font-medium leading-tight truncate max-w-[110px]">{selectedOrg.name}</span>
+              <div className="flex items-center min-w-0">
+                <span className="text-white text-sm font-medium leading-tight truncate">{selectedOrg.name}</span>
               </div>
-              <ChevronDown className={`text-[#336699] w-4 h-4 transition-transform duration-200 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
+              <ChevronDown className={`text-[#336699] w-3 h-3 transition-transform duration-200 flex-shrink-0 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
             </button>
           )}
           
           {/* Organization Dropdown */}
           {orgDropdownOpen && !isSidebarCollapsed && (
-            <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1E1E1E] border border-[#333333] rounded-md shadow-lg z-50 py-1 overflow-hidden">
+            <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1A1A1A] border border-[#2A2A2A] shadow-lg z-50 py-1 overflow-hidden">
               {mockOrgs.map((org) => (
                 <button
                   key={org.id}
-                  className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#333333] transition-colors ${selectedOrg.id === org.id ? 'bg-[#232D3F]' : ''}`}
+                  className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#2A2A2A] transition-colors ${selectedOrg.id === org.id ? 'bg-[#2A2A2A]' : ''}`}
                   onClick={() => {
                     setSelectedOrg(org);
                     setOrgDropdownOpen(false);
                   }}
                 >
-                  <div className={`text-white w-7 h-7 rounded-md flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
+                  <div className={`text-white w-7 h-7 flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
                     {org.name.charAt(0)}
                   </div>
                   <div className="flex flex-col overflow-hidden max-w-[120px]">
@@ -152,28 +148,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               ))}
             </div>
           )}
-        </div>
-
-        {/* Create button - always visible, more prominent after removing search */}
-        <div className={`${isSidebarCollapsed ? 'px-1 py-2' : 'px-2 py-2'} border-b border-[#333333] relative flex-shrink-0`}>
-          <div className={`w-full ${isSidebarCollapsed ? 'space-y-2' : 'space-y-1'}`}>
-            <button
-              ref={createButtonRef}
-              onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-              className={`w-full text-[#9E9E9E] font-bold py-1.5 ${isSidebarCollapsed ? 'px-0 justify-center' : 'px-3 justify-between'} flex items-center hover:text-white transition-colors`}
-              aria-expanded={isCreateMenuOpen}
-              aria-haspopup="true"
-              id="create-button"
-              title={isSidebarCollapsed ? "Create New Item" : ""}
-            >
-              <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : ''}`}>
-                <div className="w-6 h-6 bg-[#F9D71C] hover:bg-[#e9c91c] rounded-full flex items-center justify-center transition-colors">
-                  <Plus className="w-3.5 h-3.5 text-[#121212]" />
-                </div>
-                {!isSidebarCollapsed && <span className="font-normal text-base uppercase tracking-wide ml-3">Create</span>}
-              </div>
-            </button>
-          </div>
         </div>
         
         {/* Create Menu - Drawer-style interaction */}
@@ -187,7 +161,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             
             {/* Drawer panel - full screen on mobile, sidebar on desktop */}
             <div 
-              ref={createDropdownRef}
               className="fixed inset-y-0 right-0 w-full md:max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transform transition-transform duration-300 ease-in-out"
               role="menu"
               aria-orientation="vertical"
@@ -385,9 +358,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Clients */}
+            {/* People (formerly Clients) */}
             <NavLink
-              to="/clients"
+              to="/people"
               className={({ isActive }) =>
                 isActive
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
@@ -398,11 +371,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">👤</span>
+                      <span className="text-base">👥</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Clients
+                        People
                       </span>
                     )}
                   </div>
@@ -478,6 +451,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
                         Products
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </NavLink>
+
+            {/* Analytics */}
+            <NavLink
+              to="/analytics"
+              className={({ isActive }) =>
+                isActive
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-base">📊</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Analytics
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </NavLink>
+
+            {/* Templates */}
+            <NavLink
+              to="/templates"
+              className={({ isActive }) =>
+                isActive
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-base">📋</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Templates
                       </span>
                     )}
                   </div>
@@ -619,7 +642,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <button
                         key={period}
                         onClick={() => setSelectedTimePeriod(period)}
-                        className={`w-7 h-7 rounded-md flex items-center justify-center text-xs font-bold transition-colors ${
+                        className={`w-7 h-7 rounded-[4px] flex items-center justify-center text-xs font-bold transition-colors ${
                           selectedTimePeriod === period
                             ? 'bg-[#336699] text-white border border-[#336699]'
                             : 'bg-white/10 text-white/70 hover:bg-white/15'

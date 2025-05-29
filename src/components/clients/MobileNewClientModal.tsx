@@ -46,8 +46,8 @@ export const MobileNewClientModal: React.FC<MobileNewClientModalProps> = ({ onCl
   return (
     <div className="fixed inset-0 z-[10000]">
       <div 
-        className={`absolute inset-0 bg-black transition-opacity duration-300 ${
-          isClosing ? 'opacity-0' : 'opacity-50'
+        className={`absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300 ${
+          isClosing ? 'opacity-0' : 'opacity-100'
         }`}
         onClick={handleClose}
       />

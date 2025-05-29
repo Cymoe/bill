@@ -32,40 +32,40 @@ export const TabMenu: React.FC<TabMenuProps> = (props) => {
   return (
     <div className="bg-[#121212] border-b border-[#333333] relative">
       <div className="flex overflow-x-auto justify-between">
-        <div className="flex">
+      <div className="flex">
           {items.map((item, index) => (
-            <button 
-              key={item.id}
-              onClick={(e) => {
-                e.stopPropagation();
-                onItemClick(item.id);
-              }}
+          <button 
+            key={item.id}
+            onClick={(e) => {
+              e.stopPropagation();
+              onItemClick(item.id);
+            }}
               onMouseEnter={() => setHoveredItemId(item.id)}
               onMouseLeave={() => setHoveredItemId(null)}
-              className={`${
-                activeItemId === item.id
+            className={`${
+              activeItemId === item.id
                   ? 'text-white'
                   : 'text-gray-400 hover:text-white'
               } pb-3 text-sm font-medium flex items-center justify-center whitespace-nowrap ${item.id === 'subcontractor' ? 'w-[160px]' : 'w-[134px]'} py-3 px-4 md:px-8 first:pl-4 md:first:pl-8 last:pr-4 md:last:pr-8`}
-            >
-              {item.label} 
-              {item.count !== undefined && (
+          >
+            {item.label} 
+            {item.count !== undefined && (
                 <span className="ml-2 text-xs bg-[#333333] rounded-full px-2 py-0.5 text-white">
-                  {item.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        {props.onOptionsClick && (
+                {item.count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      {props.onOptionsClick && (
           <div className="px-4 md:px-8">
-            <button
-              onClick={props.onOptionsClick}
+        <button
+          onClick={props.onOptionsClick}
               className="p-2 rounded-full hover:bg-[#252525] transition-colors"
-              aria-label="More options"
-            >
-              <MoreVertical size={20} className="text-gray-400" />
-            </button>
+          aria-label="More options"
+        >
+          <MoreVertical size={20} className="text-gray-400" />
+        </button>
           </div>
         )}
       </div>

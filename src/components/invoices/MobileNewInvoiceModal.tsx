@@ -40,7 +40,7 @@ export const MobileNewInvoiceModal: React.FC<MobileNewInvoiceModalProps> = ({ on
   };
 
   return (
-    <div className="fixed inset-0 z-[60]">
+    <div className="fixed inset-0 z-[10000]">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'

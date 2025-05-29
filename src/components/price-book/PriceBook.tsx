@@ -2,6 +2,9 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { Modal } from '../common/Modal';
+import { SlideOutDrawer } from '../common/SlideOutDrawer';
+import { LineItemForm } from './LineItemForm';
 import { LineItemModal } from '../modals/LineItemModal';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns } from 'lucide-react';
@@ -100,15 +103,22 @@ export const PriceBook: React.FC = () => {
     try {
       const { error } = await supabase
         .from('products')
-        .update(data)
+        .update({
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          unit: data.unit,
+          type: data.type,
+          trade_id: data.trade_id || null,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', editingProduct.id);
 
       if (error) throw error;
       
-      // Refresh the products list
-      await fetchProducts();
       setShowEditLineItemModal(false);
       setEditingProduct(null);
+      await fetchProducts();
     } catch (error) {
       console.error('Error updating product:', error);
     }
@@ -268,12 +278,14 @@ export const PriceBook: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      console.log('Fetching products for user:', user?.id);
+      console.log('Fetching line items for user:', user?.id);
       
+      // Only fetch products that are NOT base products (i.e., they are line items)
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('user_id', user?.id)
+        .or('is_base_product.is.null,is_base_product.eq.false')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -281,11 +293,11 @@ export const PriceBook: React.FC = () => {
         throw error;
       }
       
-      console.log('Products fetched:', data);
+      console.log('Line items fetched:', data);
       setProducts(data || []);
     } catch (error) {
-      console.error('Error fetching products:', error);
-      setError(error instanceof Error ? error.message : 'Failed to load products');
+      console.error('Error fetching line items:', error);
+      setError(error instanceof Error ? error.message : 'Failed to load line items');
     } finally {
       setIsLoading(false);
     }
@@ -427,7 +439,7 @@ export const PriceBook: React.FC = () => {
       />
       
       {/* Unified Stats + Table Container */}
-      <div className="bg-[#242424] border border-[#333333] rounded-[4px]">
+      <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
         {/* Stats Section */}
         <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
           {isMinimal || isConstrained ? (
@@ -436,15 +448,15 @@ export const PriceBook: React.FC = () => {
               <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">ITEMS</div>
                 <div className="text-base font-semibold mt-1">{products.length}</div>
-              </div>
+          </div>
               <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED</div>
                 <div className="text-base font-semibold mt-1">127</div>
-              </div>
+        </div>
               <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">UPDATED</div>
                 <div className="text-base font-semibold mt-1">45</div>
-              </div>
+                      </div>
               <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">REVIEW</div>
                 <div className="text-base font-semibold text-[#F9D71C] mt-1">12</div>
@@ -475,7 +487,7 @@ export const PriceBook: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
+                    </div>
 
         {/* Table Controls Header */}
         <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
@@ -506,7 +518,7 @@ export const PriceBook: React.FC = () => {
                 >
                   <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
                   {!isMinimal && !isConstrained && 'More Filters'}
-                </button>
+                    </button>
 
                 {showFilterMenu && (
                   <div className={`absolute top-full ${isConstrained ? 'right-0' : 'left-0'} mt-2 ${isConstrained ? 'w-56' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4`}>
@@ -526,7 +538,7 @@ export const PriceBook: React.FC = () => {
                           <option value="inactive">Inactive</option>
                           <option value="draft">Draft</option>
                         </select>
-                      </div>
+                    </div>
 
                       {/* Price Range Filter */}
                       <div>
@@ -598,8 +610,8 @@ export const PriceBook: React.FC = () => {
                           className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
                         >
                           Clear All Filters
-                        </button>
-                      </div>
+                    </button>
+                  </div>
                     </div>
                   </div>
                 )}
@@ -608,12 +620,12 @@ export const PriceBook: React.FC = () => {
 
             {/* Right side - Options menu only */}
             <div className="relative" ref={optionsMenuRef}>
-              <button
+            <button
                 onClick={() => setShowOptionsMenu(!showOptionsMenu)}
                 className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
-              >
+            >
                 <MoreVertical className="w-4 h-4 text-gray-400" />
-                    </button>
+            </button>
 
               {showOptionsMenu && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
@@ -629,7 +641,7 @@ export const PriceBook: React.FC = () => {
                   >
                     <Upload className="w-3 h-3 mr-3 text-gray-400" />
                     Import Items
-                  </button>
+              </button>
                   <button
                     onClick={() => {
                       handleExportToCSV();
@@ -655,9 +667,9 @@ export const PriceBook: React.FC = () => {
                   </button>
                 </div>
               )}
-            </div>
-          </div>
-          
+                  </div>
+                </div>
+        
           {/* Category Pills */}
           <div className={`flex items-center ${isMinimal ? 'mt-2 pt-2' : 'mt-3 pt-3'} border-t border-[#333333]/50`}>
             <span className={`text-xs text-gray-400 uppercase tracking-wider mr-2 flex-shrink-0 ${isMinimal ? 'hidden' : ''}`}>Categories:</span>
@@ -842,139 +854,175 @@ export const PriceBook: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </div>
-                  
+                    </div>
+                    
                   {/* Price Column */}
                   <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
                     <div className={`font-mono font-semibold text-gray-100 ${isMinimal ? 'text-sm' : ''}`}>
-                      {formatCurrency(product.price)}
+                  {formatCurrency(product.price)}
                     </div>
                     {!isMinimal && !isConstrained && (
                       <div className="text-xs text-gray-400 capitalize">{product.unit}</div>
                     )}
-                  </div>
-                  
+                    </div>
+                    
                   {/* Trade Column - Hidden in minimal mode */}
                   {!isMinimal && !isConstrained && (
                     <div className="col-span-2 text-sm text-gray-300">
                       {getTrade(product)}
-                    </div>
+                </div>
                   )}
 
                   {/* Actions Column */}
                   <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
                     <button
-                      onClick={(e) => {
+                    onClick={(e) => {
                         e.stopPropagation();
                         e.preventDefault();
                       
-                        if (activeDropdown === product.id) {
-                          setActiveDropdown(null);
-                        } else {
-                          setActiveDropdown(product.id);
-                        }
-                      }}
+                      if (activeDropdown === product.id) {
+                        setActiveDropdown(null);
+                      } else {
+                        setActiveDropdown(product.id);
+                      }
+                    }}
                       className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
                     >
                       <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                     </button>
 
-                    {/* Dropdown Menu */}
-                    {activeDropdown === product.id && (
-                      <div
-                        ref={dropdownRef}
-                        className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
+                  {/* Dropdown Menu */}
+                  {activeDropdown === product.id && (
+                    <div
+                      ref={dropdownRef}
+                      className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
+                    >
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEditProduct(product);
+                          setActiveDropdown(null);
+                        }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
                       >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEditProduct(product);
-                            setActiveDropdown(null);
-                          }}
+                        <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
+                        Edit Item
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDuplicateProduct(product);
+                        }}
                           className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                        >
-                          <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
-                          Edit Item
-                        </button>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDuplicateProduct(product);
-                          }}
+                    >
+                        <Copy className="w-4 h-4 mr-3 text-gray-400" />
+                        Duplicate
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleFavorite(product);
+                        }}
                           className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                        >
-                          <Copy className="w-4 h-4 mr-3 text-gray-400" />
-                          Duplicate
-                        </button>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleToggleFavorite(product);
-                          }}
+                    >
+                        <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
+                        {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                    </button>
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddToEstimate(product);
+                        }}
                           className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                        >
-                          <Star className={`w-4 h-4 mr-3 ${product.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
-                          {product.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                        </button>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAddToEstimate(product);
-                          }}
-                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                        >
-                          <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
-                          Add to Current Estimate
-                        </button>
-                        
-                        <div className="border-t border-[#333333] my-1" />
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteProduct(product);
-                          }}
-                          className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4 mr-3 text-red-400" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
+                    >
+                        <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
+                        Add to Current Estimate
+                    </button>
+                      
+                      <div className="border-t border-[#333333] my-1" />
+                      
+                    <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteProduct(product);
+                        }}
+                        className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
+                    >
+                        <Trash2 className="w-4 h-4 mr-3 text-red-400" />
+                        Delete
+                    </button>
                   </div>
+                  )}
                 </div>
-              ))}
+              </div>
+            ))}
             </div>
           )}
         </div>
-      </div>
+        </div>
 
-      {/* New Line Item Modal */}
-      {showNewLineItemModal && (
-        <LineItemModal
+      {/* Create Line Item Modal */}
+      <Modal
+        isOpen={showNewLineItemModal}
           onClose={() => setShowNewLineItemModal(false)}
-          onSave={() => {
-            setShowNewLineItemModal(false);
-            fetchProducts(); // Refresh the list
-          }}
-        />
-      )}
+        title="Add Line Item"
+        size="md"
+      >
+        <LineItemForm
+          onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; trade_id: string }) => {
+            try {
+              const { error } = await supabase
+                .from('products')
+                .insert({
+                  ...data,
+                  user_id: user?.id,
+                  status: 'active',
+                  favorite: false,
+                  vendor_id: null,
+                  trade_id: data.trade_id || null
+                });
 
-      {/* Edit Line Item Modal */}
-      {showEditLineItemModal && editingProduct && (
-        <EditLineItemModal
-          product={editingProduct}
+              if (error) throw error;
+              
+            setShowNewLineItemModal(false);
+              await fetchProducts();
+            } catch (error) {
+              console.error('Error creating product:', error);
+            }
+          }}
+          onCancel={() => setShowNewLineItemModal(false)}
+          submitLabel="Add Item"
+        />
+      </Modal>
+
+      {/* Edit Line Item Drawer */}
+      <SlideOutDrawer
+        isOpen={showEditLineItemModal}
           onClose={() => {
             setShowEditLineItemModal(false);
             setEditingProduct(null);
           }}
-          onSave={handleSaveEdit}
-        />
-      )}
-    </div>
+        title="Edit Line Item"
+        width="md"
+      >
+        {editingProduct && (
+          <LineItemForm
+            onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; trade_id: string }) => {
+              await handleSaveEdit(data);
+            }}
+            onCancel={() => {
+              setShowEditLineItemModal(false);
+              setEditingProduct(null);
+            }}
+            initialData={editingProduct}
+            submitLabel="Save Changes"
+          />
+        )}
+      </SlideOutDrawer>
+      </div>
   );
 };
 

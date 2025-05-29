@@ -8,14 +8,15 @@ import { ClientInput } from '../../lib/database.types';
 import { Dropdown } from '../common/Dropdown';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
-import { NewClientModal } from './NewClientModal';
-import { EditClientModal } from './EditClientModal';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { LayoutContext } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { StatsBar } from '../common/StatsBar';
 import { ControlsBar } from '../common/ControlsBar';
 import TabMenu from '../common/TabMenu';
+import { Modal } from '../common/Modal';
+import { SlideOutDrawer } from '../common/SlideOutDrawer';
+import { ClientFormSimple } from './ClientFormSimple';
 
 type Client = {
   id: string;
@@ -39,7 +40,6 @@ export const ClientList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const { isConstrained, availableWidth } = useContext(LayoutContext);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
@@ -550,462 +550,411 @@ export const ClientList: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <PageHeaderBar
-        title="Clients"
-        searchPlaceholder="Search clients..."
-        onSearch={(query) => setSearchInput(query)}
-        searchValue={searchInput}
-        addButtonLabel="Add Client"
-        onAddClick={() => setShowNewModal(true)}
-      />
-        
-      {/* Stats Bar */}
-      <StatsBar 
-        stats={[
-          { label: 'Total Revenue', value: formatCurrency(totalClientRevenue), color: 'green', isMonospace: true },
-          { label: 'Premium Clients', value: clientMetrics.premiumClients, subValue: '($50k+)', color: 'yellow', isMonospace: true },
-          { label: 'Active', value: clientMetrics.activeClients, subValue: '(90 days)', color: 'default', isMonospace: true },
-          { label: 'Repeat', value: clientMetrics.repeatClients, subValue: '(2+ jobs)', color: 'default', isMonospace: true }
-        ]}
-      />
-
-      {/* Controls Bar */}
-      <ControlsBar
-        primaryFilter={{
-          value: selectedValueTier,
-          onChange: setSelectedValueTier,
-          options: [
-            { id: 'all', label: 'All Clients', count: clients.length },
-            { id: 'premium', label: 'Premium ($50k+)' },
-            { id: 'high', label: 'High Value ($25k-50k)' },
-            { id: 'medium', label: 'Medium ($10k-25k)' },
-            { id: 'small', label: 'Small Jobs ($1k-10k)' },
-            { id: 'minimal', label: 'Leads (Under $1k)' }
-          ]
-        }}
-        showMoreFilters={showFilterMenu}
-        onToggleMoreFilters={() => setShowFilterMenu(!showFilterMenu)}
-        moreFiltersRef={filterMenuRef}
-        moreFiltersContent={
-          <div className="space-y-4">
-            {/* Project Status Filter */}
-            <div>
-              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                Project Status
-              </label>
-              <select
-                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                value={selectedProjectStatus}
-                onChange={(e) => setSelectedProjectStatus(e.target.value)}
-              >
-                <option value="all">All Clients</option>
-                <option value="active">Active Projects (Last 90 Days)</option>
-                <option value="completed">Completed Work Only</option>
-                <option value="repeat">Repeat Clients (2+ Projects)</option>
-                <option value="new">New Leads (No Projects)</option>
-              </select>
-            </div>
-
-            {/* Payment Status Filter */}
-            <div>
-              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                Payment Reliability
-              </label>
-              <select
-                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                value={selectedPaymentStatus}
-                onChange={(e) => setSelectedPaymentStatus(e.target.value)}
-              >
-                <option value="all">All Payment Types</option>
-                <option value="reliable">Reliable Payers ($5k+ History)</option>
-                <option value="slow">Small Job Clients</option>
-                <option value="issues">No Payment History</option>
-              </select>
-            </div>
-
-            {/* Date Range Filter */}
-            <div>
-              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                Last Activity
-              </label>
-              <select
-                className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                value={selectedDateRange}
-                onChange={(e) => setSelectedDateRange(e.target.value)}
-              >
-                <option value="all">All Time</option>
-                <option value="7d">Last 7 Days</option>
-                <option value="30d">Last 30 Days</option>
-                <option value="90d">Last 90 Days</option>
-              </select>
-            </div>
-
-            {/* Clear Filters */}
-            <div className="pt-2 border-t border-[#333333]">
-              <button
-                onClick={() => {
-                  resetFilters();
-                  setShowFilterMenu(false);
-                }}
-                className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
-              >
-                Clear All Filters
-              </button>
-            </div>
-          </div>
-        }
-        viewToggles={{
-          value: viewMode,
-          onChange: (value: string) => setViewMode(value as 'list' | 'cards'),
-          options: [
-            { id: 'list', label: 'List', icon: <List className="w-4 h-4" /> },
-            { id: 'cards', label: 'Cards', icon: <LayoutGrid className="w-4 h-4" /> }
-          ]
-        }}
-        showOptionsMenu={showOptionsMenu}
-        onToggleOptionsMenu={() => setShowOptionsMenu(!showOptionsMenu)}
-        optionsMenuRef={optionsMenuRef}
-        optionsMenuSections={[
-          {
-            title: 'Data Management',
-            actions: [
-              {
-                id: 'import',
-                label: 'Import Clients',
-                icon: <Upload className="w-3 h-3" />,
-                onClick: () => {
-                  handleImportClients();
-                  setShowOptionsMenu(false);
-                }
-              },
-              {
-                id: 'export',
-                label: 'Export to CSV',
-                icon: <Download className="w-3 h-3" />,
-                onClick: () => {
-                  handleExportToCSV();
-                  setShowOptionsMenu(false);
-                }
-              }
-            ]
-          },
-          {
-            title: 'View Options',
-            actions: [
-              {
-                id: 'print',
-                label: 'Print Client List',
-                icon: <FileText className="w-3 h-3" />,
-                onClick: () => {
-                  handlePrintClients();
-                  setShowOptionsMenu(false);
-                }
-              }
-            ]
-          }
-        ]}
-      />
-
       <div className="space-y-0 bg-[#121212]">
       {/* Show contextual onboarding if no clients and not loading */}
       {!isLoading && (clients.length === 0 || showTutorial) ? (
         <ContextualOnboarding />
       ) : (
         <>
-          {/* Desktop view */}
-        <div className="hidden md:block">
-          {isLoading ? (
-                viewMode === 'list' ? (
-            <TableSkeleton rows={5} columns={4} />
-          ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                    <CardSkeleton />
-                    <CardSkeleton />
-                    <CardSkeleton />
-                  </div>
-                )
-              ) : viewMode === 'list' ? (
-            <div className="bg-[#121212] rounded-[4px] shadow overflow-hidden">
-              <div className="max-h-[calc(100vh-100px)] overflow-y-auto">
-                <table className={`min-w-full divide-y divide-[#333333] ${isConstrained ? 'text-sm' : ''}`}>
-                  <thead className="bg-[#1E1E1E] sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                            NAME
-                      </th>
-                      {!isConstrained && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                          EMAIL
-                        </th>
-                      )}
-                      {!isConstrained && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                          PHONE
-                        </th>
-                      )}
-                          <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                            VALUE
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-[#FFFFFF] uppercase tracking-wider font-['Roboto_Condensed'] font-bold">
-                            PROJECTS
-                          </th>
-                      <th className="relative px-6 py-3">
-                        <span className="sr-only">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-[#121212] divide-y divide-[#333333]">
-                    {filteredClients.map((client) => (
-                      <tr key={client.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-[#FFFFFF] font-['Roboto']">
-                                {client.name}
-                              </div>
-                              <div className="text-xs text-[#9E9E9E] font-['Roboto']">
-                                {client.city && client.state ? `${client.city}, ${client.state}` : ''}
-                          </div>
-                        </td>
-                        {!isConstrained && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-[#9E9E9E] font-['Roboto']">{client.email}</div>
-                          </td>
-                        )}
-                        {!isConstrained && (
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-[#9E9E9E] font-['Roboto_Mono'] font-medium">{client.phone}</div>
-                          </td>
-                        )}
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-[#388E3C] font-['Roboto_Mono']">
-                                {formatCurrency(client.totalValue || 0)}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-[#336699] font-['Roboto_Mono'] font-medium">
-                                {client.projectCount || 0}
-                              </div>
-                            </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <Dropdown
-                            trigger={
-                                  <button className="text-[#9E9E9E] hover:text-[#F9D71C] p-1">
-                                <MoreVertical className="w-5 h-5" />
-                              </button>
-                            }
-                            items={[
-                              {
-                                label: 'Edit',
-                                    onClick: () => setEditingClient(client)
-                              },
-                              {
-                                label: 'Delete',
-                                onClick: () => setDeletingClient(client),
-                                    className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
-                                  }
-                            ]}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Stats and Controls */}
+          <div className="p-6">
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-concrete-gray p-4 rounded">
+                <p className="text-white/60 text-sm uppercase">Total Revenue</p>
+                <p className="text-2xl font-bold text-success-green font-mono">
+                  {formatCurrency(totalClientRevenue)}
+                </p>
+              </div>
+              <div className="bg-concrete-gray p-4 rounded">
+                <p className="text-white/60 text-sm uppercase">Premium Clients</p>
+                <p className="text-2xl font-bold text-equipment-yellow">
+                  {clientMetrics.premiumClients}
+                  <span className="text-sm font-normal text-white/60 ml-2">($50k+)</span>
+                </p>
+              </div>
+              <div className="bg-concrete-gray p-4 rounded">
+                <p className="text-white/60 text-sm uppercase">Active</p>
+                <p className="text-2xl font-bold text-white">
+                  {clientMetrics.activeClients}
+                  <span className="text-sm font-normal text-white/60 ml-2">(90 days)</span>
+                </p>
+              </div>
+              <div className="bg-concrete-gray p-4 rounded">
+                <p className="text-white/60 text-sm uppercase">Repeat</p>
+                <p className="text-2xl font-bold text-white">
+                  {clientMetrics.repeatClients}
+                  <span className="text-sm font-normal text-white/60 ml-2">(2+ jobs)</span>
+                </p>
               </div>
             </div>
-              ) : (
-                /* Cards View */
-                <div className="p-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="bg-[#333333] rounded-[4px] shadow-lg border border-[#404040] hover:border-[#336699] transition-colors"
-                      >
-                        {/* Card Header */}
-                        <div className="p-6 border-b border-[#404040]">
-                          <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-bold text-[#FFFFFF] font-['Roboto_Condensed'] uppercase mb-1">
-                                {client.name}
-                              </h3>
-                              <p className="text-sm text-[#9E9E9E] font-['Roboto']">
-                                {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
-                              </p>
-                            </div>
-                            <Dropdown
-                              trigger={
-                                <button className="ml-4 p-2 text-[#9E9E9E] hover:text-[#F9D71C] hover:bg-[#404040] rounded transition-colors">
-                                  <MoreVertical className="w-5 h-5" />
-                                </button>
-                              }
-                              items={[
-                                {
-                                  label: 'Edit',
-                                  onClick: () => setEditingClient(client)
-                                },
-                                {
-                                  label: 'Delete',
-                                  onClick: () => setDeletingClient(client),
-                                  className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
-                                }
-                              ]}
-                            />
-                          </div>
-                        </div>
 
-                        {/* Card Body */}
-                        <div className="p-6">
-                          {/* Contact Info */}
-                          <div className="space-y-3 mb-6">
-                            <div className="flex items-center">
-                              <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Email:</span>
-                              <span className="text-sm text-[#336699] font-['Roboto'] ml-2">{client.email}</span>
-                            </div>
-                            {client.phone && (
-                              <div className="flex items-center">
-                                <span className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide w-16">Phone:</span>
-                                <span className="text-sm text-[#FFFFFF] font-['Roboto_Mono'] ml-2">{client.phone}</span>
-                              </div>
-                            )}
-                          </div>
+            {/* Search and Actions */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-white/60" />
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 bg-concrete-gray text-white rounded focus:outline-none focus:ring-2 focus:ring-blueprint-blue"
+                />
+              </div>
+              
+              <select
+                value={selectedValueTier}
+                onChange={(e) => setSelectedValueTier(e.target.value)}
+                className="px-4 py-2 bg-concrete-gray text-white rounded focus:outline-none focus:ring-2 focus:ring-blueprint-blue"
+              >
+                <option value="all">All Clients ({clients.length})</option>
+                <option value="premium">Premium ($50k+)</option>
+                <option value="high">High Value ($25k-50k)</option>
+                <option value="medium">Medium ($10k-25k)</option>
+                <option value="small">Small Jobs ($1k-10k)</option>
+                <option value="minimal">Leads (Under $1k)</option>
+              </select>
 
-                          {/* Metrics */}
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#388E3C]">
-                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Total Value</div>
-                              <div className="text-lg font-bold text-[#388E3C] font-['Roboto_Mono']">
-                                {formatCurrency(client.totalValue || 0)}
-                              </div>
-                            </div>
-                            <div className="bg-[#2A2A2A] rounded-[4px] p-4 border-l-4 border-[#336699]">
-                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
-                              <div className="text-lg font-bold text-[#336699] font-['Roboto_Mono']">
-                                {client.projectCount || 0}
-                              </div>
-                            </div>
-                          </div>
+              <button
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className="px-4 py-2 bg-concrete-gray text-white rounded flex items-center gap-2 hover:bg-concrete-gray/80"
+              >
+                <Filter className="w-4 h-4" />
+                <span>More Filters</span>
+              </button>
 
-                          {/* Last Activity */}
-                          {client.lastProjectDate && (
-                            <div className="mt-4 pt-4 border-t border-[#404040]">
-                              <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Last Project</div>
-                              <div className="text-sm text-[#FFFFFF] font-['Roboto']">
-                                {new Date(client.lastProjectDate).toLocaleDateString()}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+              <button
+                onClick={() => setViewMode(viewMode === 'list' ? 'cards' : 'list')}
+                className="px-4 py-2 bg-concrete-gray text-white rounded flex items-center gap-2 hover:bg-concrete-gray/80"
+              >
+                {viewMode === 'list' ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
+                <span>{viewMode === 'list' ? 'Cards' : 'List'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowNewModal(true)}
+                className="px-4 py-2 bg-steel-blue text-white rounded flex items-center gap-2 hover:bg-steel-blue/80"
+              >
+                <Plus className="w-4 h-4" />
+                <span>ADD CLIENT</span>
+              </button>
+            </div>
+
+            {/* Filter Menu Dropdown */}
+            {showFilterMenu && (
+              <div ref={filterMenuRef} className="absolute right-6 bg-concrete-gray border border-white/10 rounded shadow-lg p-4 z-20 w-80">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-white/60 uppercase mb-2">
+                      Project Status
+                    </label>
+                    <select
+                      className="w-full bg-carbon-black border border-white/20 rounded px-3 py-2 text-sm text-white"
+                      value={selectedProjectStatus}
+                      onChange={(e) => setSelectedProjectStatus(e.target.value)}
+                    >
+                      <option value="all">All Clients</option>
+                      <option value="active">Active Projects (Last 90 Days)</option>
+                      <option value="completed">Completed Work Only</option>
+                      <option value="repeat">Repeat Clients (2+ Projects)</option>
+                      <option value="new">New Leads (No Projects)</option>
+                    </select>
                   </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-white/60 uppercase mb-2">
+                      Payment Reliability
+                    </label>
+                    <select
+                      className="w-full bg-carbon-black border border-white/20 rounded px-3 py-2 text-sm text-white"
+                      value={selectedPaymentStatus}
+                      onChange={(e) => setSelectedPaymentStatus(e.target.value)}
+                    >
+                      <option value="all">All Payment Types</option>
+                      <option value="reliable">Reliable Payers ($5k+ History)</option>
+                      <option value="slow">Small Job Clients</option>
+                      <option value="issues">No Payment History</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-white/60 uppercase mb-2">
+                      Last Activity
+                    </label>
+                    <select
+                      className="w-full bg-carbon-black border border-white/20 rounded px-3 py-2 text-sm text-white"
+                      value={selectedDateRange}
+                      onChange={(e) => setSelectedDateRange(e.target.value)}
+                    >
+                      <option value="all">All Time</option>
+                      <option value="7d">Last 7 Days</option>
+                      <option value="30d">Last 30 Days</option>
+                      <option value="90d">Last 90 Days</option>
+                    </select>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      resetFilters();
+                      setShowFilterMenu(false);
+                    }}
+                    className="w-full bg-carbon-black hover:bg-white/10 text-white py-2 px-3 rounded text-sm font-medium"
+                  >
+                    Clear All Filters
+                  </button>
                 </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
 
-        {/* Mobile list */}
-        <div className="md:hidden space-y-4">
+          {/* Client List/Cards */}
           {isLoading ? (
-            <>
-              <CardSkeleton />
-              <CardSkeleton />
-              <CardSkeleton />
-            </>
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-steel-blue"></div>
+            </div>
+          ) : viewMode === 'list' ? (
+            /* List View */
+            <div className="bg-carbon-black">
+              <table className="min-w-full divide-y divide-white/10">
+                <thead className="bg-background-medium">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      NAME
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      EMAIL
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      PHONE
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      VALUE
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      PROJECTS
+                    </th>
+                    <th className="relative px-6 py-3">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/10">
+                  {filteredClients.map((client) => (
+                    <tr key={client.id} className="hover:bg-white/5">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-white">
+                          {client.name}
+                        </div>
+                        <div className="text-xs text-white/60">
+                          {client.city && client.state ? `${client.city}, ${client.state}` : ''}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-white/80">{client.email}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-white/80 font-mono">{client.phone}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-success-green font-mono">
+                          {formatCurrency(client.totalValue || 0)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-steel-blue font-mono font-medium">
+                          {client.projectCount || 0}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <Dropdown
+                          trigger={
+                            <button className="text-white/60 hover:text-equipment-yellow p-1">
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: 'Edit',
+                              onClick: () => setEditingClient(client)
+                            },
+                            {
+                              label: 'Delete',
+                              onClick: () => setDeletingClient(client),
+                              className: 'text-warning-red hover:bg-warning-red/10'
+                            }
+                          ]}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredClients.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-white/60">No clients match your filters</p>
+                </div>
+              )}
+            </div>
           ) : (
-                <div className="space-y-4 p-4">
-              {filteredClients.map((client) => (
-                <div
-                  key={client.id}
-                  className="bg-[#333333] rounded-[4px] shadow p-4 border-l-4 border-[#336699]"
-                >
+            /* Cards View */
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredClients.map((client) => (
+                  <div
+                    key={client.id}
+                    className="bg-concrete-gray rounded border-l-4 border-steel-blue hover:bg-concrete-gray/80 transition-colors"
+                  >
+                    <div className="p-6">
                       <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-medium text-[#FFFFFF] font-['Roboto_Condensed'] uppercase">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-bold text-white uppercase">
                             {client.name}
-                      </h3>
-                      <p className="text-xs text-[#9E9E9E] font-['Roboto'] mt-1">
+                          </h3>
+                          <p className="text-sm text-white/60">
                             {client.city && client.state ? `${client.city}, ${client.state}` : 'Location not specified'}
-                      </p>
-                      <span className="text-sm text-[#336699] mt-2 block font-['Roboto']">
-                        {client.email}
-                      </span>
-                      {client.phone && (
-                        <span className="text-xs text-[#9E9E9E] mt-1 block font-['Roboto_Mono'] font-medium">
-                          {client.phone}
-                        </span>
-                      )}
-                    </div>
-                    <Dropdown
-                      trigger={
-                        <button className="ml-4 p-1 text-[#9E9E9E] hover:text-[#F9D71C]">
-                          <MoreVertical className="w-5 h-5" />
-                        </button>
-                      }
-                      items={[
-                        {
-                          label: 'Edit',
-                          onClick: () => setEditingClient(client)
-                        },
-                        {
-                          label: 'Delete',
-                          onClick: () => setDeletingClient(client),
-                          className: 'text-[#D32F2F] hover:bg-[#D32F2F]/10 hover:text-[#D32F2F]'
-                        }
-                      ]}
-                    />
-                  </div>
-                      
-                      {/* Mobile Metrics */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#388E3C]">
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Value</div>
-                          <div className="text-sm font-bold text-[#388E3C] font-['Roboto_Mono']">
+                          </p>
+                        </div>
+                        <Dropdown
+                          trigger={
+                            <button className="p-2 text-white/60 hover:text-equipment-yellow">
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: 'Edit',
+                              onClick: () => setEditingClient(client)
+                            },
+                            {
+                              label: 'Delete',
+                              onClick: () => setDeletingClient(client),
+                              className: 'text-warning-red hover:bg-warning-red/10'
+                            }
+                          ]}
+                        />
+                      </div>
+
+                      <div className="space-y-3 mb-6">
+                        <div className="flex items-center">
+                          <span className="text-xs text-white/60 uppercase tracking-wide w-16">Email:</span>
+                          <span className="text-sm text-steel-blue ml-2">{client.email}</span>
+                        </div>
+                        {client.phone && (
+                          <div className="flex items-center">
+                            <span className="text-xs text-white/60 uppercase tracking-wide w-16">Phone:</span>
+                            <span className="text-sm text-white font-mono ml-2">{client.phone}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-carbon-black rounded p-4 border-l-4 border-success-green">
+                          <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Total Value</div>
+                          <div className="text-lg font-bold text-success-green font-mono">
                             {formatCurrency(client.totalValue || 0)}
                           </div>
                         </div>
-                        <div className="bg-[#2A2A2A] rounded-[4px] p-3 border-l-4 border-[#336699]">
-                          <div className="text-xs text-[#9E9E9E] font-['Roboto'] uppercase tracking-wide mb-1">Projects</div>
-                          <div className="text-sm font-bold text-[#336699] font-['Roboto_Mono']">
+                        <div className="bg-carbon-black rounded p-4 border-l-4 border-steel-blue">
+                          <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Projects</div>
+                          <div className="text-lg font-bold text-steel-blue font-mono">
                             {client.projectCount || 0}
                           </div>
                         </div>
                       </div>
+
+                      {client.lastProjectDate && (
+                        <div className="mt-4 pt-4 border-t border-white/10">
+                          <div className="text-xs text-white/60 uppercase tracking-wide mb-1">Last Project</div>
+                          <div className="text-sm text-white">
+                            {new Date(client.lastProjectDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {filteredClients.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-white/60">No clients match your filters</p>
                 </div>
-              ))}
+              )}
             </div>
           )}
-        </div>
-          </>
-        )}
+        </>
+      )}
       </div>
 
-      {showNewModal && (
-        <NewClientModal
-          onClose={() => setShowNewModal(false)}
-          onSave={handleSave}
+      {/* Modals */}
+      <Modal
+        isOpen={showNewModal}
+        onClose={() => setShowNewModal(false)}
+        title="Add Client"
+        size="lg"
+      >
+        <ClientFormSimple
+          onSubmit={async (data) => {
+            try {
+              const { error } = await supabase
+                .from('clients')
+                .insert({
+                  ...data,
+                  user_id: user?.id
+                });
+
+              if (error) throw error;
+              
+              setShowNewModal(false);
+              await fetchData();
+            } catch (error) {
+              console.error('Error creating client:', error);
+            }
+          }}
+          onCancel={() => setShowNewModal(false)}
+          submitLabel="Add Client"
         />
-      )}
+      </Modal>
 
       {editingClient && (
-        <EditClientModal
-          client={editingClient}
+        <SlideOutDrawer
+          isOpen={true}
           onClose={() => setEditingClient(null)}
-          onSave={() => setEditingClient(null)}
-        />
-      )}
+          title="Edit Client"
+          width="lg"
+        >
+          <ClientFormSimple
+            initialData={{
+              name: editingClient.name,
+              company_name: editingClient.company_name,
+              email: editingClient.email,
+              phone: editingClient.phone,
+              address: editingClient.address,
+              city: editingClient.city,
+              state: editingClient.state,
+              zip: editingClient.zip
+            }}
+            onSubmit={async (data) => {
+              try {
+                const { error } = await supabase
+                  .from('clients')
+                  .update({
+                    ...data,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', editingClient.id);
 
-      {showNewModal && (
-        <NewClientModal
-          onClose={() => setShowNewModal(false)}
-          onSave={handleSave}
-        />
-      )}
-
-      {editingClient && (
-        <EditClientModal
-          client={editingClient}
-          onClose={() => setEditingClient(null)}
-          onSave={() => setEditingClient(null)}
-        />
+                if (error) throw error;
+                
+                setEditingClient(null);
+                await fetchData();
+              } catch (error) {
+                console.error('Error updating client:', error);
+              }
+            }}
+            onCancel={() => setEditingClient(null)}
+            submitLabel="Save Changes"
+          />
+        </SlideOutDrawer>
       )}
 
       {deletingClient && (

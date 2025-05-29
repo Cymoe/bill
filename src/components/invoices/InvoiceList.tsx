@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { NewInvoiceModal } from './NewInvoiceModal';
+import { Modal } from '../common/Modal';
+import { SlideOutDrawer } from '../common/SlideOutDrawer';
+import { InvoiceFormSimple } from './InvoiceFormSimple';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeaderBar } from '../common/PageHeaderBar';
-import InvoiceDetailsDrawer from './InvoiceDetailsDrawer';
 import { LayoutContext } from '../layouts/DashboardLayout';
+import { CreateInvoiceDrawer } from './CreateInvoiceDrawer';
 
 type Invoice = {
   id: string;
@@ -37,7 +39,7 @@ export const InvoiceList: React.FC = () => {
   const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [showNewModal, setShowNewModal] = useState(false);
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<any[]>([]);
@@ -45,9 +47,9 @@ export const InvoiceList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
-  const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
   const [paidPeriod, setPaidPeriod] = useState<'month' | 'quarter' | 'year' | 'all'>('year');
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   
   // Revenue-driven cash flow filters
   const [selectedCashFlowStatus, setSelectedCashFlowStatus] = useState('all');
@@ -57,9 +59,14 @@ export const InvoiceList: React.FC = () => {
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
   
+  // Add state for invoice dropdown menus
+  const [openInvoiceDropdown, setOpenInvoiceDropdown] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const invoiceDropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -80,19 +87,36 @@ export const InvoiceList: React.FC = () => {
       if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
         setShowFilterMenu(false);
       }
+      
+      // Close invoice dropdown if clicking outside
+      if (openInvoiceDropdown) {
+        const dropdownRef = invoiceDropdownRefs.current[openInvoiceDropdown];
+        if (dropdownRef && !dropdownRef.contains(event.target as Node)) {
+          setOpenInvoiceDropdown(null);
+        }
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [openInvoiceDropdown]);
 
   useEffect(() => {
     if (user) {
       fetchData();
     }
   }, [user]);
+
+  // Handle navigation from project page
+  useEffect(() => {
+    if (location.state?.createNew) {
+      setShowCreateDrawer(true);
+      // Clear the state so it doesn't trigger again on page refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const fetchData = async () => {
     try {
@@ -236,6 +260,120 @@ export const InvoiceList: React.FC = () => {
     console.log('Print invoices clicked');
   };
 
+  // Invoice action handlers
+  const handleViewInvoice = (invoiceId: string) => {
+    navigate(`/invoices/${invoiceId}`);
+  };
+
+  const handleEditInvoice = (invoiceId: string) => {
+    // Find the invoice to edit
+    const invoiceToEdit = invoices.find(inv => inv.id === invoiceId);
+    if (invoiceToEdit) {
+      setEditingInvoice(invoiceToEdit);
+      setShowCreateDrawer(true);
+    }
+  };
+
+  const handleDuplicateInvoice = async (invoiceId: string) => {
+    try {
+      // Find the invoice to duplicate
+      const invoiceToDuplicate = invoices.find(inv => inv.id === invoiceId);
+      if (!invoiceToDuplicate) return;
+
+      // Get the invoice items
+      const { data: items, error: itemsError } = await supabase
+        .from('invoice_items')
+        .select('*')
+        .eq('invoice_id', invoiceId);
+
+      if (itemsError) throw itemsError;
+
+      // Create new invoice with same data but new dates
+      const { data: newInvoice, error: invoiceError } = await supabase
+        .from('invoices')
+        .insert({
+          user_id: user?.id,
+          client_id: invoiceToDuplicate.client_id,
+          amount: invoiceToDuplicate.amount,
+          status: 'draft',
+          issue_date: new Date().toISOString(),
+          due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Duplicate the items
+      if (items && items.length > 0) {
+        const newItems = items.map(item => ({
+          invoice_id: newInvoice.id,
+          product_id: item.product_id,
+          quantity: item.quantity,
+          unit_price: item.price,
+          description: item.description
+        }));
+
+        const { error: newItemsError } = await supabase
+          .from('invoice_items')
+          .insert(newItems);
+
+        if (newItemsError) throw newItemsError;
+      }
+
+      // Navigate to the new invoice
+      navigate(`/invoices/${newInvoice.id}`);
+    } catch (error) {
+      console.error('Error duplicating invoice:', error);
+      alert('Failed to duplicate invoice. Please try again.');
+    }
+  };
+
+  const handleDeleteInvoice = async (invoiceId: string) => {
+    if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+      try {
+        // Delete invoice items first
+        const { error: itemsError } = await supabase
+          .from('invoice_items')
+          .delete()
+          .eq('invoice_id', invoiceId);
+
+        if (itemsError) throw itemsError;
+
+        // Then delete the invoice
+        const { error: invoiceError } = await supabase
+          .from('invoices')
+          .delete()
+          .eq('id', invoiceId)
+          .eq('user_id', user?.id);
+
+        if (invoiceError) throw invoiceError;
+
+        // Refresh the data
+        await fetchData();
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+        alert('Failed to delete invoice. Please try again.');
+      }
+    }
+  };
+
+  const handleShareInvoice = async (invoiceId: string) => {
+    try {
+      // Generate the invoice URL
+      const invoiceUrl = `${window.location.origin}/invoices/${invoiceId}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(invoiceUrl);
+      
+      // Show success message (you could use a toast notification here)
+      alert('Invoice link copied to clipboard!');
+    } catch (error) {
+      console.error('Error sharing invoice:', error);
+      alert('Failed to copy invoice link. Please try again.');
+    }
+  };
+
   const statusFilters: { value: InvoiceStatus; label: string }[] = [
     { value: 'all', label: 'All Invoices' },
     { value: 'draft', label: 'Drafts' },
@@ -338,7 +476,7 @@ export const InvoiceList: React.FC = () => {
               Generate a professional invoice for completed work or upcoming projects.
             </p>
             <button
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setShowCreateDrawer(true)}
               className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
             >
               CREATE INVOICE
@@ -433,25 +571,25 @@ export const InvoiceList: React.FC = () => {
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <button
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setShowCreateDrawer(true)}
               className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
             >
               💼 Service Invoice
             </button>
             <button
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setShowCreateDrawer(true)}
               className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
             >
               🏗️ Construction Invoice
             </button>
               <button 
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setShowCreateDrawer(true)}
               className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
               >
               🔧 Repair Invoice
               </button>
               <button 
-              onClick={() => setShowNewModal(true)}
+              onClick={() => setShowCreateDrawer(true)}
               className="px-3 py-1 bg-[#333333] text-gray-300 rounded-[4px] text-sm hover:bg-[#404040] transition-colors"
               >
               📋 Estimate Invoice
@@ -471,7 +609,7 @@ export const InvoiceList: React.FC = () => {
         onSearch={(query) => setSearchInput(query)}
         searchValue={searchInput}
         addButtonLabel="Add Invoice"
-        onAddClick={() => setShowNewModal(true)}
+        onAddClick={() => setShowCreateDrawer(true)}
       />
         
       {/* Unified Stats + Content Container */}
@@ -721,7 +859,7 @@ export const InvoiceList: React.FC = () => {
                                 ? 'grid-cols-8 gap-4 px-4 py-3' 
                                 : 'grid-cols-12 gap-4 px-6 py-4'
                           } items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
-                          onClick={() => setViewInvoiceId(invoice.id)}
+                          onClick={() => handleViewInvoice(invoice.id)}
                         >
                           {/* Invoice Column with Status Badge */}
                           <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
@@ -767,15 +905,35 @@ export const InvoiceList: React.FC = () => {
 
                           {/* Actions Column */}
                           <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setViewInvoiceId(invoice.id);
+                            <div
+                              ref={(el) => {
+                                invoiceDropdownRefs.current[invoice.id] = el;
                               }}
-                              className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                              className="relative"
                             >
-                              <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
-                            </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (openInvoiceDropdown === invoice.id) {
+                                    setOpenInvoiceDropdown(null);
+                                  } else {
+                                    // Calculate position for fixed dropdown
+                                    const buttonRect = e.currentTarget.getBoundingClientRect();
+                                    const viewportWidth = window.innerWidth;
+                                    const dropdownWidth = 192; // w-48 = 192px
+                                    
+                                    setDropdownPosition({
+                                      top: buttonRect.bottom + 4,
+                                      right: viewportWidth - buttonRect.right
+                                    });
+                                    setOpenInvoiceDropdown(invoice.id);
+                                  }
+                                }}
+                                className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                              >
+                                <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -788,33 +946,168 @@ export const InvoiceList: React.FC = () => {
         </div>
       </div>
 
-      {showNewModal && (
-        <NewInvoiceModal
-          onClose={() => setShowNewModal(false)}
-          onSave={() => {
-            setShowNewModal(false);
-            fetchData();
-          }}
-        />
-      )}
+      {/* Create Invoice Drawer */}
+      <CreateInvoiceDrawer
+        isOpen={showCreateDrawer}
+        onClose={() => {
+          setShowCreateDrawer(false);
+          setEditingInvoice(null);
+        }}
+        editingInvoice={editingInvoice}
+        projectContext={location.state?.projectId ? {
+          projectId: location.state.projectId,
+          clientId: location.state.clientId,
+          projectName: location.state.projectName,
+          projectBudget: location.state.projectBudget
+        } : undefined}
+        onSave={async (data) => {
+          try {
+            if (editingInvoice) {
+              // Update existing invoice
+              const { error: invoiceError } = await supabase
+                .from('invoices')
+                .update({
+                  client_id: data.client_id,
+                  amount: data.total_amount,
+                  status: data.status,
+                  issue_date: data.issue_date,
+                  due_date: data.due_date,
+                  description: data.description
+                })
+                .eq('id', editingInvoice.id);
 
-      {showNewModal && (
-        <NewInvoiceModal
-          onClose={() => setShowNewModal(false)}
-          onSave={() => {
-            setShowNewModal(false);
-            fetchData();
-          }}
-        />
-      )}
+              if (invoiceError) throw invoiceError;
 
-      {/* Invoice Details Drawer */}
-      {viewInvoiceId && (
-        <InvoiceDetailsDrawer
-          invoice={invoices.find(inv => inv.id === viewInvoiceId)}
-          client={clients.find(c => c.id === invoices.find(inv => inv.id === viewInvoiceId)?.client_id)}
-          onClose={() => setViewInvoiceId(null)}
-        />
+              // Delete existing items
+              const { error: deleteError } = await supabase
+                .from('invoice_items')
+                .delete()
+                .eq('invoice_id', editingInvoice.id);
+
+              if (deleteError) throw deleteError;
+
+              // Create new invoice items
+              const itemsToInsert = data.items.map(item => ({
+                invoice_id: editingInvoice.id,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                unit_price: item.price,
+                description: item.description
+              }));
+
+              const { error: itemsError } = await supabase
+                .from('invoice_items')
+                .insert(itemsToInsert);
+
+              if (itemsError) throw itemsError;
+            } else {
+              // Create new invoice
+              const { data: invoice, error: invoiceError } = await supabase
+                .from('invoices')
+                .insert({
+                  user_id: user?.id,
+                  client_id: data.client_id,
+                  amount: data.total_amount,
+                  status: data.status,
+                  issue_date: data.issue_date,
+                  due_date: data.due_date,
+                  description: data.description
+                })
+                .select()
+                .single();
+
+              if (invoiceError) throw invoiceError;
+
+              // Create invoice items
+              const itemsToInsert = data.items.map(item => ({
+                invoice_id: invoice.id,
+                product_id: item.product_id,
+                quantity: item.quantity,
+                unit_price: item.price,
+                description: item.description
+              }));
+
+              const { error: itemsError } = await supabase
+                .from('invoice_items')
+                .insert(itemsToInsert);
+
+              if (itemsError) throw itemsError;
+            }
+
+            // Refresh the data
+            await fetchData();
+            setShowCreateDrawer(false);
+            setEditingInvoice(null);
+          } catch (error) {
+            console.error('Error saving invoice:', error);
+            // You might want to show an error toast here
+          }
+        }}
+      />
+
+      {/* Fixed positioned invoice dropdown to prevent clipping */}
+      {openInvoiceDropdown && (
+        <div 
+          className="fixed w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg py-1"
+          style={{
+            top: dropdownPosition.top,
+            right: dropdownPosition.right,
+            zIndex: 10000
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => {
+              handleViewInvoice(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <Eye className="w-4 h-4 mr-3 text-gray-400" />
+            View Details
+          </button>
+          <button
+            onClick={() => {
+              handleEditInvoice(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <Edit className="w-4 h-4 mr-3 text-gray-400" />
+            Edit Invoice
+          </button>
+          <button
+            onClick={() => {
+              handleDuplicateInvoice(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <Copy className="w-4 h-4 mr-3 text-gray-400" />
+            Duplicate
+          </button>
+          <button
+            onClick={() => {
+              handleShareInvoice(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <Share2 className="w-4 h-4 mr-3 text-gray-400" />
+            Share Invoice
+          </button>
+          <div className="border-t border-[#333333] my-1"></div>
+          <button
+            onClick={() => {
+              handleDeleteInvoice(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
+          >
+            <Trash2 className="w-4 h-4 mr-3 text-red-400" />
+            Delete Invoice
+          </button>
+        </div>
       )}
     </div>
   );

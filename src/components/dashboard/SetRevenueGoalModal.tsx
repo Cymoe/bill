@@ -39,7 +39,7 @@ export const SetRevenueGoalModal: React.FC<SetRevenueGoalModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'

@@ -155,7 +155,7 @@ export const EditTemplateModal: React.FC<EditTemplateModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex md:justify-end">
+    <div className="fixed inset-0 z-[10000] flex md:justify-end">
       <div 
         className={`absolute inset-0 bg-black transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-50'

@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Printer, CheckCircle, Pencil, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Download, Eye, Send, MessageSquare, Settings, Activity, CheckCircle } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
-import { Breadcrumbs } from '../common/Breadcrumbs';
-import { Dropdown } from '../common/Dropdown';
-import { EditInvoiceModal } from './EditInvoiceModal';
-import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { generatePDF } from '../../utils/pdfGenerator';
 import { DetailSkeleton } from '../skeletons/DetailSkeleton';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,8 +10,6 @@ export const InvoiceDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<any>(null);
   const [client, setClient] = useState<any>(null);
@@ -72,15 +65,7 @@ export const InvoiceDetail: React.FC = () => {
 
   if (isLoading || !invoice || !client) {
     return (
-      <div className="space-y-4">
-        <div className="hidden md:block">
-          <Breadcrumbs 
-            items={[
-              { label: 'Invoices', href: '/invoices' },
-              { label: 'Loading...' }
-            ]} 
-          />
-        </div>
+      <div className="min-h-screen bg-[#121212] text-white">
         <DetailSkeleton />
       </div>
     );
@@ -90,230 +75,203 @@ export const InvoiceDetail: React.FC = () => {
     try {
       const { error } = await supabase
         .from('invoices')
-        .update({
-          status: 'paid'
-        })
+        .update({ status: 'paid' })
         .eq('id', invoice.id);
 
       if (error) throw error;
-      await fetchData(); // Refresh the data
+      await fetchData();
     } catch (err) {
       console.error('Error marking invoice as paid:', err);
       setError('Failed to mark invoice as paid');
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .delete()
-        .eq('id', invoice.id);
-
-      if (error) throw error;
-      navigate('/invoices');
-    } catch (err) {
-      console.error('Error deleting invoice:', err);
-      setError('Failed to delete invoice');
-    }
-  };
-
-  const getStatusStyle = (status: string) => {
-    const baseStyle = "px-2 inline-flex text-xs leading-5 font-semibold rounded-full ";
-    switch (status) {
-      case 'paid':
-        return baseStyle + "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case 'overdue':
-        return baseStyle + "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      case 'sent':
-        return baseStyle + "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      default:
-        return baseStyle + "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-    }
-  };
-
-  const getDropdownItems = () => [
-    {
-      label: 'Edit',
-      onClick: () => setShowEditModal(true),
-      icon: <Pencil className="w-4 h-4" />
-    },
-    {
-      label: 'Mark as Paid',
-      onClick: handleMarkAsPaid,
-      icon: <CheckCircle className="w-4 h-4" />,
-      disabled: invoice.status === 'paid'
-    },
-    {
-      label: 'Download PDF',
-      onClick: () => {
-        const items = invoice.invoice_items.map((item: any) => ({
-          product_name: products.find(p => p.id === item.product_id)?.name || 'Unknown Product',
-          quantity: item.quantity,
-          price: item.unit_price
-        }));
-        generatePDF({ invoice, client, items, totalAmount: invoice.amount });
-      },
-      icon: <Download className="w-4 h-4" />
-    },
-    {
-      label: 'Print',
-      onClick: () => window.print(),
-      icon: <Printer className="w-4 h-4" />
-    },
-    {
-      label: 'Delete',
-      onClick: () => setShowDeleteModal(true),
-      icon: <Pencil className="w-4 h-4" />,
-      className: 'text-red-600 dark:text-red-400'
-    }
-  ];
+  const subtotal = (invoice.invoice_items || []).reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0);
+  const tax = 0; // 0% tax for now
+  const total = subtotal + tax;
 
   return (
-    <div className="space-y-4 md:space-y-6">
-      {/* Breadcrumbs */}
-      <div className="hidden md:block">
-        <Breadcrumbs 
-          items={[
-            { label: 'Invoices', href: '/invoices' },
-            { label: `INV-${invoice.id.slice(0, 8)}` }
-          ]} 
-        />
+    <div className="min-h-screen bg-[#121212] text-white">
+      {/* Header with breadcrumb */}
+      <div className="border-b border-[#333333] px-6 py-4">
+        <div className="flex items-center gap-2 text-sm">
+          <button
+            onClick={() => navigate('/invoices')}
+            className="text-[#336699] hover:text-white transition-colors"
+          >
+            Invoices
+          </button>
+          <span className="text-gray-400">›</span>
+          <span className="text-white">{`INV-${invoice.id.slice(0, 8)}`}</span>
+        </div>
       </div>
 
-      {/* Mobile header */}
-      <div className="md:hidden flex items-center justify-between">
-        <button
-          onClick={() => navigate('/invoices')}
-          className="flex items-center text-gray-600 dark:text-gray-400"
-        >
-          <ArrowLeft className="w-5 h-5 mr-1" />
-          Back
-        </button>
-        <Dropdown
-          trigger={<MoreVertical className="w-6 h-6" />}
-          items={getDropdownItems()}
-        />
-      </div>
-
-      {/* Invoice details */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-        <div className="flex justify-between items-center p-6 pb-0">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Invoice {`INV-${invoice.id.slice(0, 8)}`}
-          </h1>
+      {/* Action Bar */}
+      <div className="border-b border-[#333333] px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Left side - Back and Title */}
           <div className="flex items-center gap-4">
-            <span className={getStatusStyle(invoice.status)}>
-              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-            </span>
-            <Dropdown
-              trigger={<MoreVertical className="w-6 h-6" />}
-              items={getDropdownItems()}
-            />
+            <button
+              onClick={() => navigate('/invoices')}
+              className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-white">{`INV-${invoice.id.slice(0, 8)}`}</h2>
+                <span className={`text-xs px-2 py-1 rounded-[2px] font-medium ${
+                  invoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
+                  invoice.status === 'overdue' ? 'bg-red-500/20 text-red-300' :
+                  invoice.status === 'sent' ? 'bg-blue-500/20 text-blue-300' :
+                  'bg-gray-500/20 text-gray-300'
+                }`}>
+                  {invoice.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right side - Actions */}
+          <div className="flex items-center gap-2">
+            <button 
+              className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] rounded-[4px] transition-colors"
+              title="Preview Invoice"
+            >
+              <Eye className="w-5 h-5" />
+            </button>
+            <button 
+              className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] rounded-[4px] transition-colors"
+              title="Download PDF"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            
+            {invoice.status === 'draft' && (
+              <>
+                <div className="h-6 w-px bg-[#333333] mx-2"></div>
+                <button 
+                  onClick={handleMarkAsPaid}
+                  className="bg-[#336699] text-white px-5 py-2 rounded-[4px] hover:bg-[#2A5580] transition-colors flex items-center gap-2 text-sm font-medium"
+                >
+                  <Send className="w-4 h-4" />
+                  Send Invoice
+                </button>
+              </>
+            )}
+            {invoice.status === 'sent' && (
+              <>
+                <div className="h-6 w-px bg-[#333333] mx-2"></div>
+                <button 
+                  onClick={handleMarkAsPaid}
+                  className="bg-[#388E3C] text-white px-5 py-2 rounded-[4px] hover:bg-[#2E7D32] transition-colors text-sm font-medium"
+                >
+                  Mark as Paid
+                </button>
+              </>
+            )}
           </div>
         </div>
-        <div className="p-6 space-y-6">
-          {/* Client info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                Bill To
-              </h3>
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p className="font-medium">{client.company}</p>
-                <p>{client.name}</p>
-                <p>{client.email}</p>
-                {client.phone && <p>{client.phone}</p>}
-                {client.address && <p>{client.address}</p>}
-              </div>
-            </div>
-            <div className="md:text-right">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                <p>
-                  <span className="font-medium">Invoice Date: </span>
-                  {new Date(invoice.issue_date).toLocaleDateString()}
-                </p>
-                <p>
-                  <span className="font-medium">Due Date: </span>
-                  {new Date(invoice.due_date).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-          </div>
+      </div>
 
-          {/* Items */}
-          <div className="mt-8">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      {/* Main Content */}
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-white text-black rounded-[4px] shadow-lg p-8 min-h-[800px]">
+            {/* Invoice Header */}
+            <div className="flex justify-between items-start mb-8">
+              <div>
+                <h1 className="text-2xl font-bold text-black mb-2">Your Company</h1>
+                <div className="text-sm text-gray-600">
+                  <p>123 Business Street</p>
+                  <p>City, State 12345</p>
+                  <p>(555) 123-4567</p>
+                  <p>info@yourcompany.com</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <h2 className="text-2xl font-bold text-black mb-2">{`INV-${invoice.id.slice(0, 8)}`}</h2>
+                <div className="text-sm text-gray-600">
+                  <p>Created: {new Date(invoice.issue_date).toLocaleDateString()}</p>
+                  <p>Due: {new Date(invoice.due_date).toLocaleDateString()}</p>
+                </div>
+                <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mt-2 ${
+                  invoice.status === 'paid' ? 'bg-green-100 text-green-800' :
+                  invoice.status === 'overdue' ? 'bg-red-100 text-red-800' :
+                  invoice.status === 'sent' ? 'bg-blue-100 text-blue-800' :
+                  'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {invoice.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            {/* Bill To Section */}
+            <div className="mb-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">BILL TO</h3>
+              <div className="text-sm text-black">
+                <p className="font-semibold">{client.name || client.company_name}</p>
+                <p>{client.address}</p>
+                <p>{client.email}</p>
+                <p>{client.phone}</p>
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div className="mb-8">
+              <table className="w-full">
                 <thead>
-                  <tr className="bg-gray-50 dark:bg-gray-700">
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Item
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Quantity
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                      Total
-                    </th>
+                  <tr className="border-b-2 border-gray-200">
+                    <th className="text-left py-3 text-sm font-semibold text-gray-800">ITEM</th>
+                    <th className="text-right py-3 text-sm font-semibold text-gray-800">QTY</th>
+                    <th className="text-right py-3 text-sm font-semibold text-gray-800">RATE</th>
+                    <th className="text-right py-3 text-sm font-semibold text-gray-800">AMOUNT</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody>
                   {(invoice.invoice_items || []).map((item: any, index: number) => {
                     const product = products.find(p => p.id === item.product_id);
                     return (
-                      <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {product?.name || 'Unknown Product'}
+                      <tr key={index} className="border-b border-gray-100">
+                        <td className="py-4">
+                          <div>
+                            <p className="font-medium text-black">{product?.name || item.description || 'Service'}</p>
+                            <p className="text-sm text-gray-600">{item.description || product?.description}</p>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                          {item.quantity}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                          {formatCurrency(item.unit_price)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white text-right">
-                          {formatCurrency(item.total_price)}
-                        </td>
+                        <td className="text-right py-4 text-black">{item.quantity}</td>
+                        <td className="text-right py-4 text-black">{formatCurrency(item.unit_price)}</td>
+                        <td className="text-right py-4 text-black font-medium">{formatCurrency(item.unit_price * item.quantity)}</td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            <div className="mt-8 flex justify-end">
-              <div className="text-right">
-                <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  Total: {formatCurrency(invoice.amount)}
-                </p>
+
+            {/* Totals */}
+            <div className="flex justify-end">
+              <div className="w-64">
+                <div className="flex justify-between py-2 text-sm">
+                  <span className="text-gray-600">Subtotal</span>
+                  <span className="text-black">{formatCurrency(subtotal)}</span>
+                </div>
+                <div className="flex justify-between py-2 text-sm">
+                  <span className="text-gray-600">Tax (0%)</span>
+                  <span className="text-black">{formatCurrency(tax)}</span>
+                </div>
+                <div className="border-t border-gray-200 pt-2">
+                  <div className="flex justify-between py-2">
+                    <span className="text-lg font-bold text-black">Total</span>
+                    <span className="text-lg font-bold text-black">{formatCurrency(total)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-
-      {showEditModal && (
-        <EditInvoiceModal
-          invoice={invoice}
-          onClose={() => setShowEditModal(false)}
-          onSave={() => {
-            setShowEditModal(false);
-            fetchData();
-          }}
-        />
-      )}
-
-      {showDeleteModal && (
-        <DeleteConfirmationModal
-          title="Delete Invoice"
-          message="Are you sure you want to delete this invoice? This action cannot be undone."
-          onConfirm={handleDelete}
-          onCancel={() => setShowDeleteModal(false)}
-        />
-      )}
 
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
