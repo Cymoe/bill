@@ -974,7 +974,7 @@ export const InvoiceList: React.FC = () => {
                   issue_date: data.issue_date,
                   due_date: data.due_date,
                   description: data.description,
-                  project_id: location.state?.projectId // Add project association
+                  project_id: data.project_id || null // Add project_id
                 })
                 .eq('id', editingInvoice.id);
 
@@ -1014,7 +1014,7 @@ export const InvoiceList: React.FC = () => {
                   issue_date: data.issue_date,
                   due_date: data.due_date,
                   description: data.description,
-                  project_id: location.state?.projectId // Add project association
+                  project_id: data.project_id || null // Add project_id
                 })
                 .select()
                 .single();

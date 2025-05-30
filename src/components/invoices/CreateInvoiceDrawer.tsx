@@ -60,8 +60,16 @@ interface Trade {
   name: string;
 }
 
+interface Project {
+  id: string;
+  name: string;
+  client_id: string;
+  status: string;
+}
+
 interface InvoiceFormData {
   client_id: string;
+  project_id?: string;
   items: InvoiceItem[];
   total_amount: number;
   description: string;
@@ -101,6 +109,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
   
   // Form data
   const [selectedClient, setSelectedClient] = useState<string>('');
+  const [selectedProject, setSelectedProject] = useState<string>('');
   const [invoiceDescription, setInvoiceDescription] = useState('');
   const [issueDate, setIssueDate] = useState(new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
@@ -108,6 +117,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
   
   // Data
   const [clients, setClients] = useState<Client[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [lineItems, setLineItems] = useState<Product[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -125,6 +135,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     if (isOpen && editingInvoice) {
       // Set form data from existing invoice
       setSelectedClient(editingInvoice.client_id || '');
+      setSelectedProject(editingInvoice.project_id || '');
       setInvoiceDescription(editingInvoice.description || '');
       setIssueDate(editingInvoice.issue_date ? editingInvoice.issue_date.split('T')[0] : new Date().toISOString().split('T')[0]);
       setDueDate(editingInvoice.due_date ? editingInvoice.due_date.split('T')[0] : '');
@@ -140,6 +151,9 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       // Pre-fill with project information
       if (projectContext.clientId) {
         setSelectedClient(projectContext.clientId);
+      }
+      if (projectContext.projectId) {
+        setSelectedProject(projectContext.projectId);
       }
       if (projectContext.projectName) {
         setInvoiceDescription(`Invoice for ${projectContext.projectName}`);
@@ -208,6 +222,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       // Build base queries array
       const queries = [
         supabase.from('clients').select('*').eq('user_id', user?.id),
+        supabase.from('projects').select('*').eq('user_id', user?.id).order('name'),
         // Get all products with their line items (where this product is the parent bundle)
         supabase.from('products')
           .select(`
@@ -239,16 +254,18 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       }
       
       // Execute all queries
-      const [clientsRes, productsRes, lineItemsRes, tradesRes] = await Promise.all(queries);
+      const [clientsRes, projectsRes, productsRes, lineItemsRes, tradesRes] = await Promise.all(queries);
       const templatesRes = await templateQuery;
 
       if (clientsRes.error) throw clientsRes.error;
+      if (projectsRes.error) throw projectsRes.error;
       if (productsRes.error) throw productsRes.error;
       if (lineItemsRes.error) throw lineItemsRes.error;
       if (tradesRes.error) console.error('Trades error:', tradesRes.error);
       if (templatesRes.error) console.error('Templates error:', templatesRes.error);
       
       console.log('Clients loaded:', clientsRes.data);
+      console.log('Projects loaded:', projectsRes.data);
       console.log('Products loaded:', productsRes.data);
       console.log('Line items loaded:', lineItemsRes.data);
       console.log('Raw templates loaded:', templatesRes.data);
@@ -292,6 +309,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       console.log('Processed templates:', processedTemplates);
       
       setClients(clientsRes.data || []);
+      setProjects(projectsRes.data || []);
       setProducts(allProducts);
       setLineItems(allLineItems);
       setTemplates(processedTemplates);
@@ -386,6 +404,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
 
     const formData: InvoiceFormData = {
       client_id: selectedClient,
+      project_id: selectedProject || undefined,
       items: selectedItems,
       total_amount: calculateTotal(),
       description: invoiceDescription,
@@ -409,6 +428,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     // Reset form
     setSourceType(null);
     setSelectedClient('');
+    setSelectedProject('');
     setInvoiceDescription('');
     setIssueDate(new Date().toISOString().split('T')[0]);
     setDueDate('');
@@ -886,7 +906,13 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
                   </label>
                   <select
                     value={selectedClient}
-                    onChange={(e) => setSelectedClient(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedClient(e.target.value);
+                      // Reset project when client changes
+                      if (e.target.value !== selectedClient) {
+                        setSelectedProject('');
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
                   >
                     <option value="">Select a client</option>
@@ -896,6 +922,29 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+                
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
+                    Project
+                  </label>
+                  <select
+                    value={selectedProject}
+                    onChange={(e) => setSelectedProject(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
+                  >
+                    <option value="">No project (standalone invoice)</option>
+                    {projects
+                      .filter(project => !selectedClient || project.client_id === selectedClient)
+                      .map(project => (
+                        <option key={project.id} value={project.id}>
+                          {project.name}
+                        </option>
+                      ))}
+                  </select>
+                  {selectedClient && projects.filter(p => p.client_id === selectedClient).length === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">No projects found for this client</p>
+                  )}
                 </div>
                 
                 <div className="col-span-2">
