@@ -38,7 +38,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-steel-blue"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
@@ -53,29 +53,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   const { user, session, isLoading } = useAuth();
   const [editingProduct, setEditingProduct] = useState<any>(null);
-  const [lineItems, setLineItems] = useState<any[]>([]);
-
-  // Fetch line items for the product drawer
-  useEffect(() => {
-    const fetchLineItems = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('line_items')
-          .select('*');
-        if (error) throw error;
-        setLineItems(data || []);
-      } catch (error) {
-        console.error('Error fetching line items:', error);
-      }
-    };
-
-    fetchLineItems();
-  }, []);
 
   // If we have a user and session, redirect to dashboard from root
   const renderLanding = () => {
     if (user && session && !isLoading) {
-      return <Navigate to="/dashboard" replace />;
+      return <Navigate to="/profit-tracker" replace />;
     }
     return <LandingPage />;
   };
@@ -94,6 +76,14 @@ function AppRoutes() {
       {/* Protected routes */}
       <Route
         path="/dashboard"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/profit-tracker" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profit-tracker"
         element={
           <ProtectedRoute>
             <DashboardLayout>
@@ -183,7 +173,7 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/analytics"
+        path="/business-insights"
         element={
           <ProtectedRoute>
             <DashboardLayout>
@@ -244,12 +234,12 @@ function AppRoutes() {
         }
       />
       
-      {/* Chat Management System - redirect to dashboard since chat is in sidebar */}
+      {/* Chat Management System - redirect to profit-tracker since chat is in sidebar */}
       <Route
         path="/chat"
         element={
           <ProtectedRoute>
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/profit-tracker" replace />
           </ProtectedRoute>
         }
       />
@@ -329,10 +319,7 @@ function AppRoutes() {
       <GlobalProductDrawer 
         editingProduct={editingProduct} 
         setEditingProduct={setEditingProduct} 
-        lineItems={lineItems}
         onProductSaved={() => {
-          // Refresh products by triggering a re-render
-          // The ProductsPage component will handle fetching updated data
           window.location.reload();
         }}
       />

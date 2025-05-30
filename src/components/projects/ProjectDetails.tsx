@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, Edit, Trash2, Calendar, DollarSign, MapPin, User, CheckCircle, 
-  Clock, AlertCircle, Plus, ChevronRight, Camera, FileText, ListTodo, 
-  Receipt, MessageSquare, MoreVertical, Download, Share2, 
-  TrendingUp, TrendingDown, Users, Phone, Mail, Building, Briefcase,
-  Package, AlertTriangle, ChevronDown, Filter, Search, X, Upload,
-  CheckSquare, Square, Star, Pin
+  ArrowLeft, Edit, MoreVertical, Share2, FileText, Camera, 
+  MessageSquare, DollarSign, CheckSquare, Plus, Phone, Mail, MapPin, ExternalLink, Users, Calendar, Tag
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -30,7 +26,9 @@ interface ProjectWithDetails {
     name: string;
     email: string;
     phone: string;
+    address?: string;
   };
+  photo_storage_link?: string;
 }
 
 interface Task {
@@ -71,85 +69,109 @@ interface Note {
   is_pinned: boolean;
 }
 
+type TabType = 'overview' | 'tasks' | 'expenses' | 'budget' | 'timeline' | 'photos';
+
 export const ProjectDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'tasks' | 'expenses' | 'timeline' | 'photos' | 'notes'>('overview');
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [project, setProject] = useState<ProjectWithDetails | null>(null);
   const [taskCount, setTaskCount] = useState(0);
+  const [completedTaskCount, setCompletedTaskCount] = useState(0);
   const [expenseCount, setExpenseCount] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [photoCount, setPhotoCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [showTaskForm, setShowTaskForm] = useState(false);
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [showNoteForm, setShowNoteForm] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [photoLink, setPhotoLink] = useState<string>('');
+  const [isEditingPhotoLink, setIsEditingPhotoLink] = useState(false);
+  const [isSavingPhotoLink, setIsSavingPhotoLink] = useState(false);
+  const [projectInvoices, setProjectInvoices] = useState<any[]>([]);
 
-  useEffect(() => {
-    if (id && user) {
-      loadProjectData();
-    }
-  }, [id, user]);
-
-  const loadProjectData = async () => {
+  const loadProjectData = async (showLoading = true) => {
     try {
-      setLoading(true);
-      
-      // Load project with client details
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .select(`
-          *,
-          client:clients(*)
-        `)
-        .eq('id', id)
-        .single();
-        
-      if (projectError) throw projectError;
-      setProject(projectData);
-      
-      // Load real task count
-      const { count: taskCount, error: taskCountError } = await supabase
-        .from('tasks')
-        .select('*', { count: 'exact', head: true })
-        .eq('project_id', id);
-        
-      if (!taskCountError) {
-        setTaskCount(taskCount || 0);
+      if (showLoading) {
+        setLoading(true);
       }
       
-      // Load expense totals
-      const { data: expenseData, error: expenseError } = await supabase
-        .from('expenses')
-        .select('amount')
-        .eq('project_id', id);
+      // Run all queries in parallel for faster loading
+      const [projectResult, tasksResult, expensesResult, photosResult, invoicesResult] = await Promise.all([
+        // Load project with client details
+        supabase
+          .from('projects')
+          .select(`
+            *,
+            client:clients(*)
+          `)
+          .eq('id', id)
+          .single(),
         
-      if (!expenseError && expenseData) {
-        setExpenseCount(expenseData.length);
-        const total = expenseData.reduce((sum, expense) => sum + expense.amount, 0);
+        // Load tasks
+        supabase
+          .from('tasks')
+          .select('status')
+          .eq('project_id', id),
+        
+        // Load expenses
+        supabase
+          .from('expenses')
+          .select('amount')
+          .eq('project_id', id),
+        
+        // Load photo count
+        supabase
+          .from('photos')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', id),
+          
+        // Load invoices
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('project_id', id)
+          .order('created_at', { ascending: false })
+      ]);
+      
+      // Process project data
+      if (projectResult.error) throw projectResult.error;
+      setProject(projectResult.data);
+      setPhotoLink(projectResult.data.photo_storage_link || '');
+      
+      // Process tasks data
+      if (!tasksResult.error && tasksResult.data) {
+        setTaskCount(tasksResult.data.length);
+        setCompletedTaskCount(tasksResult.data.filter(t => t.status === 'completed').length);
+      }
+      
+      // Process expenses data
+      if (!expensesResult.error && expensesResult.data) {
+        setExpenseCount(expensesResult.data.length);
+        const total = expensesResult.data.reduce((sum, expense) => sum + expense.amount, 0);
         setExpenseTotal(total);
       }
       
-      // Load photos
-      const { data: photosData, error: photosError } = await supabase
-        .from('photos')
-        .select('*')
-        .eq('project_id', id);
-        
-      if (photosError) throw photosError;
-      setPhotos(photosData);
-      
-      // Load notes
-      const { data: notesData, error: notesError } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('project_id', id);
-        
-      if (notesError) throw notesError;
-      setNotes(notesData);
+      // Process photos data
+      if (!photosResult.error && photosResult.count !== null) {
+        setPhotoCount(photosResult.count);
+      }
+
+      // Process invoices data
+      if (!invoicesResult.error && invoicesResult.data) {
+        setProjectInvoices(invoicesResult.data);
+      }
+
+      // Mock recent activity for now
+      // TODO: Load real activity data from database
+      setRecentActivity([
+        // Temporarily disabled mock data - causing incorrect health scores
+        // { type: 'task', icon: '✓', text: 'Task "Order kitchen cabinets" marked complete', time: '2 hours ago' },
+        // { type: 'expense', icon: '$', text: 'New expense added: $2,500 for electrical work', time: 'Yesterday at 3:45 PM' },
+        // { type: 'photo', icon: '📷', text: '2 new photos uploaded', time: '3 days ago' },
+        // { type: 'update', icon: '📝', text: 'Project timeline updated', time: '5 days ago' },
+      ]);
       
     } catch (error) {
       console.error('Error loading project data:', error);
@@ -158,59 +180,372 @@ export const ProjectDetails: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // Initial load when component mounts or dependencies change
+  useEffect(() => {
+    if (id && user) {
+      loadProjectData(true); // Show spinner on initial load
+    }
+  }, [id, user]);
+
+  // Refresh invoices when returning to the page
+  useEffect(() => {
+    const handleFocus = () => {
+      // Only refresh invoices data, not the entire page
+      if (id && user && project) {
+        supabase
+          .from('invoices')
+          .select('*')
+          .eq('project_id', id)
+          .order('created_at', { ascending: false })
+          .then(({ data, error }) => {
+            if (!error && data) {
+              setProjectInvoices(data);
+            }
+          });
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [id, user, project]);
+
+  // Removed aggressive refresh on visibility/focus changes - too annoying
+  // If you need to refresh data, use the manual refresh button or navigate away and back
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.client-dropdown') && !target.closest('.client-dropdown-trigger')) {
+        setShowClientDropdown(false);
+      }
+      if (!target.closest('.more-menu') && !target.closest('.more-menu-trigger')) {
+        setShowMoreMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
-      case 'active': return 'text-[#10b981] bg-[#10b981]/20';
-      case 'completed': return 'text-[#3b82f6] bg-[#3b82f6]/20';
-      case 'on-hold': return 'text-[#f59e0b] bg-[#f59e0b]/20';
-      case 'cancelled': return 'text-[#ef4444] bg-[#ef4444]/20';
-      default: return 'text-[#6b7280] bg-[#6b7280]/20';
+      case 'active': return 'bg-green-500 text-black';
+      case 'completed': return 'bg-blue-500 text-white';
+      case 'on-hold': return 'bg-yellow-500 text-black';
+      case 'cancelled': return 'bg-red-500 text-white';
+      default: return 'bg-gray-500 text-white';
     }
   };
 
-  const getProgress = () => {
+  const calculateProgress = () => {
     if (!project) return 0;
+    if (taskCount === 0) return 0;
+    return Math.round((completedTaskCount / taskCount) * 100);
+  };
+
+  const calculateTimelineProgress = () => {
+    if (!project) return { days: 0, status: 'on-schedule' };
+    
     const start = new Date(project.start_date).getTime();
     const end = new Date(project.end_date).getTime();
     const now = new Date().getTime();
-    const progress = ((now - start) / (end - start)) * 100;
-    return Math.min(Math.max(progress, 0), 100);
+    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    const elapsedDays = Math.ceil((now - start) / (1000 * 60 * 60 * 24));
+    
+    return {
+      days: totalDays,
+      status: elapsedDays > totalDays ? 'overdue' : 'on-schedule'
+    };
   };
 
-  const getSpentAmount = () => {
-    return expenseTotal;
+  const calculateHealthScore = () => {
+    if (!project) return 100;
+    
+    let score = 100;
+    
+    // Deduct points for being over budget
+    if (expenseTotal > project.budget) {
+      const overBudgetPercent = ((expenseTotal - project.budget) / project.budget) * 100;
+      score -= Math.min(overBudgetPercent * 2, 40); // Max 40 point deduction
+    }
+    
+    // Deduct points for being behind schedule
+    const start = new Date(project.start_date).getTime();
+    const end = new Date(project.end_date).getTime();
+    const now = new Date().getTime();
+    const totalDuration = end - start;
+    const elapsed = now - start;
+    const timeProgress = (elapsed / totalDuration) * 100;
+    
+    if (timeProgress > progress && taskCount > 0) {
+      const behindBy = timeProgress - progress;
+      score -= Math.min(behindBy, 30); // Max 30 point deduction
+    }
+    
+    // Deduct points for incomplete tasks near deadline
+    if (now > end && completedTaskCount < taskCount) {
+      score -= 20;
+    }
+    
+    return Math.max(0, Math.round(score));
   };
-
-  const getCompletedTasksCount = () => {
-    return taskCount;
-  };
-
-  const tabs = [
-    { id: 'overview', label: 'Overview', icon: Briefcase },
-    { id: 'tasks', label: 'Tasks', icon: ListTodo, count: taskCount },
-    { id: 'expenses', label: 'Expenses', icon: Receipt, count: expenseCount },
-    { id: 'timeline', label: 'Timeline', icon: Clock },
-    { id: 'photos', label: 'Photos', icon: Camera, count: photos.length },
-    { id: 'notes', label: 'Notes', icon: MessageSquare, count: notes.length }
-  ];
 
   const handleGenerateInvoice = () => {
-    // Navigate to invoices page with project context
-    navigate('/invoices', { 
-      state: { 
-        createNew: true,
-        projectId: project?.id,
-        clientId: project?.client_id,
-        projectName: project?.name,
-        projectBudget: project?.budget
-      } 
-    });
+    const navigationState = { 
+      createNew: true,
+      projectId: project?.id,
+      clientId: project?.client_id,
+      projectName: project?.name,
+      projectBudget: project?.budget
+    };
+    console.log('ProjectDetails - Navigating to invoices with state:', navigationState);
+    navigate('/invoices', { state: navigationState });
   };
 
-  if (loading) {
+  const savePhotoLink = async (link: string) => {
+    try {
+      setIsSavingPhotoLink(true);
+      const { error } = await supabase
+        .from('projects')
+        .update({ photo_storage_link: link })
+        .eq('id', id);
+
+      if (error) throw error;
+      setPhotoLink(link);
+      setIsEditingPhotoLink(false);
+    } catch (error) {
+      console.error('Error saving photo link:', error);
+    } finally {
+      setIsSavingPhotoLink(false);
+    }
+  };
+
+  const getQuickActionsForTab = (tab: TabType) => {
+    switch (tab) {
+      case 'overview':
+        return [
+          {
+            icon: <DollarSign className="w-5 h-5" />,
+            label: 'Generate Invoice',
+            action: handleGenerateInvoice,
+            colorClass: 'group-hover:text-green-400',
+            primary: false
+          },
+          {
+            icon: <Plus className="w-5 h-5" />,
+            label: 'Add Expense',
+            action: () => setActiveTab('expenses'),
+            colorClass: 'group-hover:text-blue-400',
+            primary: false
+          },
+          {
+            icon: <CheckSquare className="w-5 h-5" />,
+            label: 'Create Task',
+            action: () => setActiveTab('tasks'),
+            colorClass: 'group-hover:text-yellow-400',
+            primary: false
+          },
+          {
+            icon: <Phone className="w-5 h-5" />,
+            label: 'Contact Client',
+            action: () => {
+              if (project?.client?.phone) {
+                window.location.href = `tel:${project.client.phone}`;
+              }
+            },
+            colorClass: 'group-hover:text-purple-400',
+            disabled: !project?.client?.phone,
+            primary: false
+          }
+        ];
+      
+      case 'tasks':
+        return [
+          {
+            icon: <CheckSquare className="w-5 h-5" />,
+            label: 'Create Task',
+            action: () => {
+              // TODO: Open create task modal
+              console.log('Create task');
+            },
+            colorClass: 'group-hover:text-yellow-400',
+            primary: true
+          },
+          {
+            icon: <Users className="w-5 h-5" />,
+            label: 'Assign Team',
+            action: () => {
+              // TODO: Open assign team modal
+              console.log('Assign team');
+            },
+            colorClass: 'group-hover:text-blue-400',
+            primary: false
+          },
+          {
+            icon: <Calendar className="w-5 h-5" />,
+            label: 'Schedule Work',
+            action: () => {
+              // TODO: Open schedule modal
+              console.log('Schedule work');
+            },
+            colorClass: 'group-hover:text-green-400',
+            primary: false
+          },
+          {
+            icon: <MessageSquare className="w-5 h-5" />,
+            label: 'Team Chat',
+            action: () => {
+              // TODO: Open team chat
+              console.log('Team chat');
+            },
+            colorClass: 'group-hover:text-purple-400',
+            primary: false
+          }
+        ];
+      
+      case 'expenses':
+        return [
+          {
+            icon: <Plus className="w-5 h-5" />,
+            label: 'Add Expense',
+            action: () => {
+              // TODO: Open add expense modal
+              console.log('Add expense');
+            },
+            colorClass: 'group-hover:text-blue-400',
+            primary: true
+          },
+          {
+            icon: <DollarSign className="w-5 h-5" />,
+            label: 'Generate Invoice',
+            action: handleGenerateInvoice,
+            colorClass: 'group-hover:text-green-400',
+            primary: false
+          },
+          {
+            icon: <FileText className="w-5 h-5" />,
+            label: 'Export Report',
+            action: () => {
+              // TODO: Export expense report
+              console.log('Export report');
+            },
+            colorClass: 'group-hover:text-yellow-400',
+            primary: false
+          },
+          {
+            icon: <Tag className="w-5 h-5" />,
+            label: 'Bulk Categorize',
+            action: () => {
+              // TODO: Open bulk categorize modal
+              console.log('Bulk categorize');
+            },
+            colorClass: 'group-hover:text-purple-400',
+            primary: false
+          }
+        ];
+      
+      case 'budget':
+      case 'timeline':
+      case 'photos':
+        // These tabs don't have quick actions
+        return null;
+      
+      default:
+        return [];
+    }
+  };
+
+  const getNoActionsMessage = (tab: TabType) => {
+    switch (tab) {
+      case 'budget':
+        return '📊 This is a read-only view for budget analysis';
+      case 'timeline':
+        return '📅 Use the timeline to drag and adjust schedules';
+      case 'photos':
+        return '📷 Drag photos here or use the upload button below';
+      default:
+        return '';
+    }
+  };
+
+  if (loading && !project) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#336699]"></div>
+      <div className="max-w-[1600px] mx-auto p-8">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-[#1a1a1a] rounded animate-pulse" />
+              <div>
+                <div className="h-8 w-64 bg-[#1a1a1a] rounded mb-2 animate-pulse" />
+                <div className="flex items-center gap-4">
+                  <div className="h-6 w-20 bg-[#1a1a1a] rounded animate-pulse" />
+                  <div className="h-5 w-32 bg-[#1a1a1a] rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-24 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-10 w-20 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-10 w-10 bg-[#1a1a1a] rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="flex justify-between mb-8 border-b border-[#2a2a2a]">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="flex-1 pb-4">
+              <div className="h-5 w-16 bg-[#1a1a1a] rounded mx-auto animate-pulse" />
+            </div>
+          ))}
+        </div>
+
+        {/* Content Skeleton */}
+        <div className="space-y-4">
+          {/* Project Health Skeleton */}
+          <section className="bg-[#181818] rounded-xl p-5">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-24 bg-[#121212] rounded animate-pulse" />
+                <div className="h-6 w-32 bg-[#121212] rounded-full animate-pulse" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-[#121212] rounded-lg p-4">
+                  <div className="h-6 w-16 bg-[#0a0a0a] rounded mx-auto mb-2 animate-pulse" />
+                  <div className="h-3 w-20 bg-[#0a0a0a] rounded mx-auto animate-pulse" />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Client Info Skeleton */}
+          <section className="bg-[#181818] rounded-xl p-5">
+            <div className="h-4 w-32 bg-[#121212] rounded mb-4 animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-5 w-32 bg-[#121212] rounded animate-pulse" />
+              ))}
+            </div>
+          </section>
+
+          {/* Two Column Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {[...Array(2)].map((_, i) => (
+              <section key={i} className="bg-[#181818] rounded-xl p-6">
+                <div className="h-4 w-32 bg-[#121212] rounded mb-6 animate-pulse" />
+                <div className="space-y-3">
+                  {[...Array(3)].map((_, j) => (
+                    <div key={j} className="h-12 bg-[#121212] rounded animate-pulse" />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -219,350 +554,739 @@ export const ProjectDetails: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-[#ef4444] mx-auto mb-4" />
           <p className="text-white text-lg">Project not found</p>
         </div>
       </div>
     );
   }
 
-  const progress = getProgress();
-  const spentAmount = getSpentAmount();
-  const budgetPercentage = (spentAmount / project.budget) * 100;
+  const progress = calculateProgress();
+  const budgetSpentPercentage = project.budget ? Math.round((expenseTotal / project.budget) * 100) : 0;
+  const timeline = calculateTimelineProgress();
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <div className="bg-[#1E1E1E] border-b border-[#333333]">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/projects')}
-                className="p-2 hover:bg-[#333333] rounded-lg transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <div>
-                <h1 className="text-2xl font-bold">{project.name}</h1>
-                <div className="flex items-center gap-4 mt-1">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
-                    {project.status.toUpperCase()}
-                  </span>
-                  <span className="text-sm text-gray-400">
-                    {project.client?.name || 'No client assigned'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <button className="px-4 py-2 bg-[#336699] text-white rounded-lg hover:bg-[#2A5580] transition-colors flex items-center gap-2">
-                <Share2 className="w-4 h-4" />
-                Share
-              </button>
-              <button
-                onClick={() => navigate(`/projects/${project.id}/edit`)}
-                className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#404040] transition-colors flex items-center gap-2"
-              >
-                <Edit className="w-4 h-4" />
-                Edit
-              </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowMoreMenu(!showMoreMenu)}
-                  className="p-2 hover:bg-[#333333] rounded-lg transition-colors"
-                >
-                  <MoreVertical className="w-5 h-5" />
-                </button>
-                
-                {showMoreMenu && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-[#1E1E1E] border border-[#333333] rounded-lg shadow-lg z-50 py-1">
-                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-[#333333] transition-colors flex items-center gap-2">
-                      <Download className="w-4 h-4" />
-                      Export Data
-                    </button>
-                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-[#333333] transition-colors flex items-center gap-2">
-                      <FileText className="w-4 h-4" />
-                      Generate Report
-                    </button>
-                    <div className="border-t border-[#333333] my-1" />
-                    <button className="w-full text-left px-4 py-2 text-sm text-[#ef4444] hover:bg-[#333333] transition-colors flex items-center gap-2">
-                      <Trash2 className="w-4 h-4" />
-                      Delete Project
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Key Metrics Bar */}
-        <div className="px-6 py-3 bg-[#121212] border-t border-[#333333]">
-          <div className="grid grid-cols-5 gap-4">
+    <div className="max-w-[1600px] mx-auto p-8">
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/projects')}
+              className="p-2 hover:bg-[#1a1a1a] rounded transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-500" />
+            </button>
             <div>
-              <p className="text-xs text-gray-400 uppercase">Budget</p>
-              <p className="text-lg font-mono font-semibold">{formatCurrency(project.budget)}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Spent</p>
-              <p className="text-lg font-mono font-semibold flex items-center gap-1">
-                {formatCurrency(spentAmount)}
-                <span className={`text-xs ${budgetPercentage > 90 ? 'text-[#ef4444]' : 'text-gray-400'}`}>
-                  ({Math.round(budgetPercentage)}%)
+              <h1 className="text-2xl font-semibold text-white mb-1">{project.name}</h1>
+              <div className="flex items-center gap-4">
+                <span className={`px-3 py-1 rounded text-xs font-medium uppercase ${getStatusBadgeClass(project.status)}`}>
+                  {project.status}
                 </span>
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Timeline</p>
-              <p className="text-lg font-semibold">
-                {Math.ceil((new Date(project.end_date).getTime() - new Date(project.start_date).getTime()) / (1000 * 60 * 60 * 24))} days
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Progress</p>
-              <div className="flex items-center gap-2">
-                <div className="flex-1 h-2 bg-[#333333] rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#336699] transition-all duration-500"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-                <span className="text-sm font-semibold">{Math.round(progress)}%</span>
-              </div>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 uppercase">Tasks</p>
-              <p className="text-lg font-semibold">
-                {getCompletedTasksCount()}/{taskCount} complete
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="bg-[#1E1E1E] border-b border-[#333333] px-6">
-        <div className="flex items-center gap-1 overflow-x-auto">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-3 text-sm font-medium transition-colors flex items-center gap-2 border-b-2 ${
-                  activeTab === tab.id
-                    ? 'text-white border-[#336699]'
-                    : 'text-gray-400 border-transparent hover:text-white'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {tab.label}
-                {tab.count !== undefined && (
-                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${
-                    activeTab === tab.id ? 'bg-[#336699]' : 'bg-[#333333]'
-                  }`}>
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="p-6">
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Project Details */}
-              <div className="bg-[#1E1E1E] rounded-lg border border-[#333333] p-6">
-                <h3 className="text-lg font-semibold mb-4">Project Details</h3>
-                
-                <div className="space-y-4">
-                  <div>
-                    <p className="text-sm text-gray-400 mb-1">Description</p>
-                    <p className="text-white">{project.description || 'No description provided'}</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">Start Date</p>
-                      <p className="text-white">{new Date(project.start_date).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400 mb-1">End Date</p>
-                      <p className="text-white">{new Date(project.end_date).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recent Activity */}
-              <div className="bg-[#1E1E1E] rounded-lg border border-[#333333] p-6">
-                <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-                
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-[#10b981] rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">Task "Order kitchen cabinets" marked complete</p>
-                      <p className="text-xs text-gray-400">2 hours ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-[#3b82f6] rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">New expense added: $2,500 for electrical work</p>
-                      <p className="text-xs text-gray-400">Yesterday at 3:45 PM</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-2 h-2 bg-[#F9D71C] rounded-full mt-2"></div>
-                    <div className="flex-1">
-                      <p className="text-sm">2 new photos uploaded</p>
-                      <p className="text-xs text-gray-400">3 days ago</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Client Info */}
-              <div className="bg-[#1E1E1E] rounded-lg border border-[#333333] p-6">
-                <h3 className="text-lg font-semibold mb-4">Client Information</h3>
-                
                 {project.client ? (
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-sm text-gray-400">Name</p>
-                      <p className="text-white font-medium">{project.client.name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Email</p>
-                      <a href={`mailto:${project.client.email}`} className="text-[#336699] hover:underline">
-                        {project.client.email}
-                      </a>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-400">Phone</p>
-                      <a href={`tel:${project.client.phone}`} className="text-[#336699] hover:underline">
-                        {project.client.phone}
-                      </a>
-                    </div>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowClientDropdown(!showClientDropdown)}
+                      onMouseEnter={() => setShowClientDropdown(true)}
+                      onMouseLeave={() => setShowClientDropdown(false)}
+                      className="client-dropdown-trigger text-gray-500 hover:text-gray-300 transition-colors cursor-pointer underline-offset-2 hover:underline"
+                    >
+                      {project.client.name}
+                    </button>
+                    
+                    {showClientDropdown && (
+                      <div 
+                        className="client-dropdown absolute top-full left-0 mt-2 w-64 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg z-50 p-4"
+                        onMouseEnter={() => setShowClientDropdown(true)}
+                        onMouseLeave={() => setShowClientDropdown(false)}
+                      >
+                        <div className="space-y-3">
+                          <div>
+                            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Client</div>
+                            <div className="text-sm font-medium text-white">{project.client.name}</div>
+                          </div>
+                          
+                          {project.client.phone && (
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Phone</div>
+                              <a href={`tel:${project.client.phone}`} className="text-sm text-blue-500 hover:text-blue-400 flex items-center gap-2">
+                                <Phone className="w-3 h-3" />
+                                {project.client.phone}
+                              </a>
+                            </div>
+                          )}
+                          
+                          {project.client.email && (
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Email</div>
+                              <a href={`mailto:${project.client.email}`} className="text-sm text-blue-500 hover:text-blue-400 break-all flex items-center gap-2">
+                                <Mail className="w-3 h-3 flex-shrink-0" />
+                                {project.client.email}
+                              </a>
+                            </div>
+                          )}
+                          
+                          {project.client.address && (
+                            <div>
+                              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Address</div>
+                              <div className="text-sm text-gray-300 flex items-start gap-2">
+                                <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                                {project.client.address}
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="border-t border-[#2a2a2a] pt-3 mt-3">
+                            <button
+                              onClick={() => navigate(`/clients/${project.client_id}`)}
+                              className="w-full text-center text-sm text-blue-500 hover:text-blue-400 flex items-center justify-center gap-1"
+                            >
+                              View Full Client Details
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <p className="text-gray-400">No client assigned</p>
+                  <span className="text-gray-500">No client assigned</span>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <button className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors">
+              <Share2 className="w-4 h-4" />
+              <span>Share</span>
+            </button>
+            <button 
+              onClick={() => navigate(`/projects/${project.id}/edit`)}
+              className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors"
+            >
+              <Edit className="w-4 h-4" />
+              <span>Edit</span>
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="more-menu-trigger w-10 h-10 flex items-center justify-center border border-[#2a2a2a] rounded-md hover:bg-[#1a1a1a] transition-colors"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              
+              {showMoreMenu && (
+                <div className="more-menu absolute right-0 top-full mt-2 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg z-50">
+                  <button className="w-full text-left px-4 py-3 text-sm hover:bg-[#2a2a2a] transition-colors">
+                    Export Data
+                  </button>
+                  <button className="w-full text-left px-4 py-3 text-sm hover:bg-[#2a2a2a] transition-colors">
+                    Generate Report
+                  </button>
+                  <div className="border-t border-[#2a2a2a]" />
+                  <button className="w-full text-left px-4 py-3 text-sm text-red-500 hover:bg-[#2a2a2a] transition-colors">
+                    Delete Project
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs Navigation */}
+      <div className="flex justify-between mb-8 border-b border-[#2a2a2a]">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'overview'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('tasks')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'tasks'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Tasks
+          <span className="text-xs text-gray-500">{taskCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('expenses')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'expenses'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Expenses
+          <span className="text-xs text-gray-500">{expenseCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('budget')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'budget'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Budget
+        </button>
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'timeline'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Timeline
+        </button>
+        <button
+          onClick={() => setActiveTab('photos')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'photos'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Photos
+          {photoCount > 0 && <span className="text-xs text-gray-500">{photoCount}</span>}
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-4">
+          {/* Floating Quick Actions Bar */}
+          {(() => {
+            const actions = getQuickActionsForTab(activeTab);
+            if (!actions) {
+              return (
+                <div className="bg-[#181818] rounded-xl p-8 text-center">
+                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
+                <div className="grid grid-cols-4 gap-1">
+                  {actions.map((action, index) => (
+                    <button 
+                      key={index}
+                      onClick={action.action}
+                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
+                        action.primary 
+                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
+                      }`}
+                      disabled={action.disabled}
+                    >
+                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
+                        {action.icon}
+                      </div>
+                      <span className="text-xs font-medium">{action.label}</span>
+                      {action.primary && (
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Project Health Section - Compact Design */}
+          <section className="bg-[#181818] rounded-xl p-5">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Project Health</h2>
+                <div className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${(() => {
+                  const score = calculateHealthScore();
+                  if (score >= 80) return 'bg-[#1a3a1a] text-green-400';
+                  if (score >= 60) return 'bg-[#3a3a1a] text-yellow-400';
+                  return 'bg-[#3a1a1a] text-red-400';
+                })()}`}>
+                  <span className={(() => {
+                    const score = calculateHealthScore();
+                    if (score >= 80) return 'text-green-400';
+                    if (score >= 60) return 'text-yellow-400';
+                    return 'text-red-400';
+                  })()}>●</span>
+                  {(() => {
+                    const score = calculateHealthScore();
+                    if (score >= 80) return `${score}% Healthy`;
+                    if (score >= 60) return `${score}% Fair`;
+                    return `${score}% Needs Attention`;
+                  })()}
+                </div>
+              </div>
+              
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-[#121212] rounded-lg p-4 text-center cursor-pointer hover:bg-[#1a1a1a] transition-all">
+                <div className={`text-lg font-bold mb-1 ${expenseTotal <= project.budget ? 'text-green-400' : 'text-red-400'}`}>
+                  {(() => {
+                    const difference = project.budget - expenseTotal;
+                    if (difference >= 0) {
+                      return `$${(difference / 1000).toFixed(1)}K`;
+                    } else {
+                      return `-$${Math.abs(difference / 1000).toFixed(1)}K`;
+                    }
+                  })()}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">
+                  {expenseTotal <= project.budget ? 'Under Budget' : 'Over Budget'}
+                </div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center cursor-pointer hover:bg-[#1a1a1a] transition-all">
+                <div className={`text-lg font-bold mb-1 ${(() => {
+                  const start = new Date(project.start_date).getTime();
+                  const end = new Date(project.end_date).getTime();
+                  const now = new Date().getTime();
+                  const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                  const daysElapsed = Math.ceil((now - start) / (1000 * 60 * 60 * 24));
+                  const expectedProgress = (daysElapsed / totalDays) * 100;
+                  const progressDiff = progress - expectedProgress;
+                  
+                  if (taskCount === 0) return 'text-green-400';
+                  if (progressDiff >= 0) return 'text-green-400';
+                  if (progressDiff < -10) return 'text-red-400';
+                  return 'text-yellow-400';
+                })()}`}>
+                  {(() => {
+                    const start = new Date(project.start_date).getTime();
+                    const end = new Date(project.end_date).getTime();
+                    const now = new Date().getTime();
+                    const totalDays = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                    const daysElapsed = Math.ceil((now - start) / (1000 * 60 * 60 * 24));
+                    const expectedProgress = (daysElapsed / totalDays) * 100;
+                    
+                    if (taskCount === 0) return '100%';
+                    
+                    const progressDiff = progress - expectedProgress;
+                    return progressDiff >= 0 ? '100%' : `${Math.round(100 + progressDiff)}%`;
+                  })()}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">On Schedule</div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center cursor-pointer hover:bg-[#1a1a1a] transition-all">
+                <div className={`text-lg font-bold mb-1 ${(() => {
+                  const openTasks = taskCount - completedTaskCount;
+                  if (openTasks === 0) return 'text-green-400';
+                  if (openTasks <= 5) return 'text-yellow-400';
+                  if (openTasks <= 10) return 'text-orange-400';
+                  return 'text-red-400';
+                })()}`}>
+                  {taskCount - completedTaskCount}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Open Tasks</div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center cursor-pointer hover:bg-[#1a1a1a] transition-all">
+                <div className={`text-lg font-bold mb-1 ${(() => {
+                  const profit = project.budget - expenseTotal;
+                  const margin = project.budget > 0 ? (profit / project.budget) * 100 : 0;
+                  if (margin >= 30) return 'text-green-500';
+                  if (margin >= 15) return 'text-green-400';
+                  if (margin >= 5) return 'text-yellow-400';
+                  if (margin > 0) return 'text-orange-400';
+                  return 'text-red-400';
+                })()}`}>
+                  {(() => {
+                    const profit = project.budget - expenseTotal;
+                    const margin = project.budget > 0 ? (profit / project.budget) * 100 : 0;
+                    return `${Math.round(margin)}%`;
+                  })()}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Profit Margin</div>
+              </div>
+            </div>
+
+            {/* Quick stats row */}
+            {projectInvoices.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[#2a2a2a] flex items-center justify-between text-xs">
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-500">
+                    {projectInvoices.length} invoice{projectInvoices.length !== 1 ? 's' : ''} generated
+                  </span>
+                  {(() => {
+                    const totalInvoiced = projectInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                    const paidInvoices = projectInvoices.filter(inv => inv.status === 'paid');
+                    const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                    
+                    return (
+                      <>
+                        <span className="text-gray-500">
+                          ${totalInvoiced.toLocaleString()} invoiced
+                        </span>
+                        {paidInvoices.length > 0 && (
+                          <span className="text-green-400">
+                            ${totalPaid.toLocaleString()} paid
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Recent Activity */}
+          <section className="bg-[#181818] rounded-xl p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Recent Activity</h3>
+            {recentActivity.length > 0 ? (
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="w-8 h-8 bg-[#2a2a2a] rounded-full flex items-center justify-center flex-shrink-0 text-sm">
+                      {activity.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-white">{activity.text}</div>
+                      <div className="text-xs text-gray-500">{activity.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 text-gray-500">
+                <div className="text-sm">No recent activity</div>
+              </div>
+            )}
+          </section>
+
+          {/* Invoices */}
+          {projectInvoices.length > 0 ? (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Invoices</h3>
+                <button 
+                  onClick={handleGenerateInvoice}
+                  className="text-xs text-blue-500 hover:text-blue-400"
+                >
+                  + New Invoice
+                </button>
+              </div>
+              <div className="space-y-3">
+                {projectInvoices.map((invoice) => (
+                  <div 
+                    key={invoice.id} 
+                    className="bg-[#121212] rounded-lg p-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+                    onClick={() => navigate(`/invoices/${invoice.id}`)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium">Invoice #{invoice.id ? invoice.id.slice(0, 8).toUpperCase() : 'Unknown'}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            invoice.status === 'paid' 
+                              ? 'bg-green-500/20 text-green-400' 
+                              : invoice.status === 'sent'
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : invoice.status === 'overdue'
+                              ? 'bg-red-500/20 text-red-400'
+                              : 'bg-gray-500/20 text-gray-400'
+                          }`}>
+                            {invoice.status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          Created {new Date(invoice.created_at).toLocaleDateString()}
+                          {invoice.due_date && ` • Due ${new Date(invoice.due_date).toLocaleDateString()}`}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium">${(invoice.amount || invoice.total_amount || 0).toLocaleString()}</div>
+                        {invoice.status === 'paid' && invoice.paid_at && (
+                          <div className="text-xs text-gray-500">
+                            Paid {new Date(invoice.paid_at).toLocaleDateString()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Invoices</h3>
+              <div className="text-center py-8">
+                <FileText className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm mb-4">No invoices generated yet</p>
+                <button 
+                  onClick={handleGenerateInvoice}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors"
+                >
+                  Generate First Invoice
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Project Details */}
+          <section className="bg-[#181818] rounded-xl p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Project Details</h3>
+            
+            <div className="mb-6">
+              <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Description</div>
+              <div className="text-white">{project.description || 'Complete master bathroom renovation'}</div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Start Date</div>
+                <div className="text-white">{new Date(project.start_date).toLocaleDateString()}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">End Date</div>
+                <div className="text-white">{new Date(project.end_date).toLocaleDateString()}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Project Manager</div>
+                <div className="text-white">Mike Thompson</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Contract Type</div>
+                <div className="text-white">Fixed Price</div>
+              </div>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activeTab === 'tasks' && (
+        <div className="space-y-4">
+          {/* Floating Quick Actions Bar */}
+          {(() => {
+            const actions = getQuickActionsForTab(activeTab);
+            if (!actions) {
+              return (
+                <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
+                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
+                <div className="grid grid-cols-4 gap-1">
+                  {actions.map((action, index) => (
+                    <button 
+                      key={index}
+                      onClick={action.action}
+                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
+                        action.primary 
+                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
+                      }`}
+                      disabled={action.disabled}
+                    >
+                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
+                        {action.icon}
+                      </div>
+                      <span className="text-xs font-medium">{action.label}</span>
+                      {action.primary && (
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <TaskList 
+              projectId={project.id} 
+              categoryId={project.category_id}
+              onTaskUpdate={() => loadProjectData(false)} 
+            />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'expenses' && (
+        <div className="space-y-4">
+          {/* Floating Quick Actions Bar */}
+          {(() => {
+            const actions = getQuickActionsForTab(activeTab);
+            if (!actions) {
+              return (
+                <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
+                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
+                <div className="grid grid-cols-4 gap-1">
+                  {actions.map((action, index) => (
+                    <button 
+                      key={index}
+                      onClick={action.action}
+                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
+                        action.primary 
+                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
+                      }`}
+                      disabled={action.disabled}
+                    >
+                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
+                        {action.icon}
+                      </div>
+                      <span className="text-xs font-medium">{action.label}</span>
+                      {action.primary && (
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <ExpensesList projectId={project.id} />
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'budget' && (
+        <div className="space-y-4">
+          {/* Info message for read-only view */}
+          <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
+            <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+          </div>
+          
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <h3 className="text-base font-semibold uppercase tracking-wider mb-6">Budget Overview</h3>
+            <p className="text-gray-500">Budget tracking and analysis coming soon...</p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'timeline' && (
+        <div className="space-y-4">
+          {/* Info message for interactive view */}
+          <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
+            <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+          </div>
+          
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <h3 className="text-base font-semibold uppercase tracking-wider mb-6">Project Timeline</h3>
+            <p className="text-gray-500">Interactive timeline coming soon...</p>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'photos' && (
+        <div className="space-y-4">
+          {/* Info message for drag-and-drop area */}
+          <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
+            <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+          </div>
+          
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <div className="max-w-2xl mx-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-base font-semibold uppercase tracking-wider">Project Photos</h3>
+                {!isEditingPhotoLink && (
+                  <button
+                    onClick={() => setIsEditingPhotoLink(true)}
+                    className="text-sm text-blue-500 hover:text-blue-400"
+                  >
+                    {photoLink ? 'Edit Link' : 'Add Link'}
+                  </button>
                 )}
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-[#1E1E1E] rounded-lg border border-[#333333] p-6">
-                <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-                
-                <div className="space-y-2">
-                  <button 
-                    onClick={handleGenerateInvoice}
-                    className="w-full px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#404040] transition-colors text-left flex items-center gap-3"
+              {isEditingPhotoLink ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-gray-500 mb-2">
+                      Photo Storage Link
+                    </label>
+                    <input
+                      type="url"
+                      value={photoLink}
+                      onChange={(e) => setPhotoLink(e.target.value)}
+                      placeholder="https://drive.google.com/... or https://dropbox.com/..."
+                      className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                    />
+                    <p className="mt-2 text-xs text-gray-500">
+                      Add a link to where your project photos are stored (Google Drive, Dropbox, etc.)
+                    </p>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => savePhotoLink(photoLink)}
+                      disabled={isSavingPhotoLink}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
+                    >
+                      {isSavingPhotoLink ? 'Saving...' : 'Save Link'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setIsEditingPhotoLink(false);
+                        setPhotoLink(project?.photo_storage_link || '');
+                      }}
+                      className="px-4 py-2 text-gray-500 hover:text-gray-400 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : photoLink ? (
+                <div className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg p-6">
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="text-xs uppercase tracking-wider text-gray-500 mb-2">
+                        Photo Storage Location
+                      </div>
+                      <a
+                        href={photoLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-500 hover:text-blue-400 break-all"
+                      >
+                        {photoLink}
+                      </a>
+                    </div>
+                    <button
+                      onClick={() => window.open(photoLink, '_blank')}
+                      className="px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md text-sm hover:bg-[#2a2a2a] transition-colors"
+                    >
+                      View Photos
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">No photo storage location set</p>
+                  <button
+                    onClick={() => setIsEditingPhotoLink(true)}
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors"
                   >
-                    <FileText className="w-4 h-4" />
-                    Generate Invoice
-                  </button>
-                  <button className="w-full px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#404040] transition-colors text-left flex items-center gap-3">
-                    <Camera className="w-4 h-4" />
-                    Upload Photos
-                  </button>
-                  <button className="w-full px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#404040] transition-colors text-left flex items-center gap-3">
-                    <MessageSquare className="w-4 h-4" />
-                    Send Update
+                    Add Photo Storage Link
                   </button>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        )}
-
-        {/* Tasks Tab */}
-        {activeTab === 'tasks' && (
-          <TaskList projectId={project.id} categoryId={project.category_id} />
-        )}
-
-        {/* Expenses Tab */}
-        {activeTab === 'expenses' && (
-          <ExpensesList projectId={project.id} />
-        )}
-
-        {/* Timeline Tab */}
-        {activeTab === 'timeline' && (
-          <div className="text-center py-12">
-            <Clock className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-            <p className="text-gray-400">Timeline view coming soon...</p>
-          </div>
-        )}
-
-        {/* Photos Tab */}
-        {activeTab === 'photos' && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Project Photos</h3>
-              <button className="px-4 py-2 bg-[#336699] text-white rounded-lg hover:bg-[#2A5580] transition-colors flex items-center gap-2">
-                <Upload className="w-4 h-4" />
-                Upload Photos
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {photos.map((photo) => (
-                <div key={photo.id} className="bg-[#1E1E1E] rounded-lg border border-[#333333] overflow-hidden hover:border-[#336699] transition-colors cursor-pointer">
-                  <div className="aspect-square bg-[#333333] flex items-center justify-center">
-                    <Camera className="w-12 h-12 text-gray-600" />
-                  </div>
-                  <div className="p-3">
-                    <p className="text-sm font-medium truncate">{photo.caption}</p>
-                    <p className="text-xs text-gray-400">{photo.phase} • {new Date(photo.taken_at).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Notes Tab */}
-        {activeTab === 'notes' && (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Project Notes</h3>
-              <button 
-                onClick={() => setShowNoteForm(true)}
-                className="px-4 py-2 bg-[#336699] text-white rounded-lg hover:bg-[#2A5580] transition-colors flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Note
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {notes.map((note) => (
-                <div key={note.id} className="bg-[#1E1E1E] rounded-lg border border-[#333333] p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <p className="text-white">{note.content}</p>
-                    {note.is_pinned && <Pin className="w-4 h-4 text-[#F9D71C]" />}
-                  </div>
-                  <p className="text-xs text-gray-400">
-                    {new Date(note.created_at).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };

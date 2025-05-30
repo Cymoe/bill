@@ -111,6 +111,7 @@ export const InvoiceList: React.FC = () => {
 
   // Handle navigation from project page
   useEffect(() => {
+    console.log('InvoiceList - location.state:', location.state);
     if (location.state?.createNew) {
       setShowCreateDrawer(true);
       // Clear the state so it doesn't trigger again on page refresh
@@ -972,7 +973,8 @@ export const InvoiceList: React.FC = () => {
                   status: data.status,
                   issue_date: data.issue_date,
                   due_date: data.due_date,
-                  description: data.description
+                  description: data.description,
+                  project_id: location.state?.projectId // Add project association
                 })
                 .eq('id', editingInvoice.id);
 
@@ -1011,7 +1013,8 @@ export const InvoiceList: React.FC = () => {
                   status: data.status,
                   issue_date: data.issue_date,
                   due_date: data.due_date,
-                  description: data.description
+                  description: data.description,
+                  project_id: location.state?.projectId // Add project association
                 })
                 .select()
                 .single();

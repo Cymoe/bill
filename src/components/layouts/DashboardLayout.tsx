@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, createContext, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { QuickCreateButton } from '../common/QuickCreateButton';
+import { QuickCreateMenu } from '../common/QuickCreateMenu';
 import {
   Plus,
   Menu, 
@@ -92,7 +94,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [globalSearch, setGlobalSearch] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
-  const createButtonRef = useRef<HTMLButtonElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const [selectedIndustry, setSelectedIndustry] = useState('All Trades');
   const [orgDropdownOpen, setOrgDropdownOpen] = useState(false);
@@ -262,96 +263,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        isCreateMenuOpen &&
-        createButtonRef.current &&
-        !createButtonRef.current.contains(event.target as Node)
-      ) {
-        setIsCreateMenuOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isCreateMenuOpen]);
-
-  useEffect(() => {
-    if (!isLiveRevenuePopoverOpen) return;
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      
-      if (
-        (liveRevenuePopoverRef.current && liveRevenuePopoverRef.current.contains(target)) ||
-        (liveRevenueButtonRef.current && liveRevenueButtonRef.current.contains(target))
-      ) {
-        return;
-      }
-      
-      setIsLiveRevenuePopoverOpen(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isLiveRevenuePopoverOpen]);
-
-  useEffect(() => {
-    if (!isProjectsSidebarOpen || isProjectsSidebarLocked) return;
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      
-      if (projectsSidebarRef.current && projectsSidebarRef.current.contains(target)) {
-        return;
-      }
-      
-      const moreButton = target as Element;
-      if (moreButton.closest && moreButton.closest('[data-projects-more-button]')) {
-        return;
-      }
-      
-      setIsProjectsSidebarOpen(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isProjectsSidebarOpen, isProjectsSidebarLocked]);
-
-  useEffect(() => {
-    if (isProjectsSidebarLocked) {
-      setIsProjectsSidebarOpen(true);
-    }
-  }, [isProjectsSidebarLocked]);
-
-  useEffect(() => {
-    if (!openDropdownId) return;
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
-      
-      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
-        !ref || !ref.contains(target)
-      );
-      
-      if (isOutsideDropdown) {
-        setOpenDropdownId(null);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [openDropdownId]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-        event.preventDefault();
-        toggleChatPanel();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isChatPanelOpen]);
-
-  useEffect(() => {
     if (isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen) && !isSidebarCollapsed) {
       setSidebarCollapsedWithLogging(true);
     }
@@ -510,6 +421,19 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onCreateClick={() => setIsCreateMenuOpen(true)}
           isChatOpen={isChatPanelOpen}
           title={getPageTitle()}
+        />
+
+        {/* Quick Create Menu */}
+        <QuickCreateButton 
+          isOpen={isCreateMenuOpen} 
+          onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
+          isSidebarCollapsed={isSidebarCollapsed}
+          isProjectsSidebarLocked={isProjectsSidebarLocked}
+          isProjectsSidebarOpen={isProjectsSidebarOpen}
+        />
+        <QuickCreateMenu 
+          isOpen={isCreateMenuOpen} 
+          onClose={() => setIsCreateMenuOpen(false)} 
         />
 
         {/* Desktop Layout Container */}
@@ -724,16 +648,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           <Sidebar
             isSidebarCollapsed={isSidebarCollapsed}
             setSidebarCollapsedWithLogging={setSidebarCollapsedWithLogging}
-            isCreateMenuOpen={isCreateMenuOpen}
-            setIsCreateMenuOpen={setIsCreateMenuOpen}
             orgDropdownOpen={orgDropdownOpen}
             setOrgDropdownOpen={setOrgDropdownOpen}
             selectedOrg={selectedOrg}
             setSelectedOrg={setSelectedOrg}
             mockOrgs={mockOrgs}
-            setShowLineItemDrawer={setShowLineItemDrawer}
-            setShowNewClientModal={setShowNewClientModal}
-            setShowNewInvoiceDrawer={setShowNewInvoiceDrawer}
             isProjectsSidebarOpen={isProjectsSidebarOpen}
             setIsProjectsSidebarOpen={setIsProjectsSidebarOpen}
             isProjectsSidebarLocked={isProjectsSidebarLocked}
@@ -1144,75 +1063,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onCreateInvoice={() => setShowNewInvoiceDrawer(true)}
           onCreateLineItem={() => setShowLineItemDrawer(true)}
         />
-
-        {/* Floating Action Button - Desktop Only */}
-        <div className="hidden md:block">
-          <button
-            ref={createButtonRef}
-            onClick={() => setIsCreateMenuOpen(!isCreateMenuOpen)}
-            className={`fixed bottom-6 ${
-              isSidebarCollapsed 
-                ? isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[23rem]' : 'right-16' 
-                : isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[33rem]' : 'right-52'
-            } w-14 h-14 bg-[#F9D71C] hover:bg-[#e9c91c] rounded-full shadow-[0_4px_20px_rgba(249,215,28,0.4)] hover:shadow-[0_6px_25px_rgba(249,215,28,0.6)] flex items-center justify-center transition-all duration-200 z-[9998] active:scale-95 group`}
-            title="Create New Item"
-            aria-label="Create new item"
-          >
-            <Plus className="w-6 h-6 text-[#121212] group-hover:scale-110 transition-transform" />
-          </button>
-        </div>
-
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 flex justify-between items-center bg-[#121212] text-white px-4 py-2 border-t border-[#333333] z-[9999]">
-          <NavLink
-            to="/dashboard"
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 p-2 ${isActive ? 'text-[#336699]' : 'text-gray-400'}`
-            }
-          >
-            <span className="text-base">⠿</span>
-            <span className="text-xs">Dashboard</span>
-          </NavLink>
-
-          <NavLink
-            to="/clients"
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 p-2 ${isActive ? 'text-[#336699]' : 'text-gray-400'}`
-            }
-          >
-            <span className="text-base">👤</span>
-            <span className="text-xs">Clients</span>
-          </NavLink>
-
-          <NavLink
-            to="/projects"
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 p-2 ${isActive ? 'text-[#336699]' : 'text-gray-400'}`
-            }
-          >
-            <span className="text-base">📁</span>
-            <span className="text-xs">Projects</span>
-          </NavLink>
-
-          <NavLink
-            to="/invoices"
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 p-2 ${isActive ? 'text-[#336699]' : 'text-gray-400'}`
-            }
-          >
-            <span className="text-base">📄</span>
-            <span className="text-xs">Invoices</span>
-          </NavLink>
-
-          <NavLink
-            to="/price-book"
-            className={({ isActive }) =>
-              `flex flex-col items-center gap-1 p-2 ${isActive ? 'text-[#336699]' : 'text-gray-400'}`
-            }
-          >
-            <span className="text-base">📘</span>
-            <span className="text-xs">Price Book</span>
-          </NavLink>
-        </nav>
 
         {isChatPanelOpen && (
           <div className="md:hidden fixed inset-0 z-[10000] bg-[#1A1A1A] flex flex-col">

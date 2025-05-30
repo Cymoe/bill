@@ -1,38 +1,25 @@
 import React, { useRef, useEffect } from 'react';
 import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import {
-  Plus,
   ChevronDown,
   ChevronRight,
   ChevronLeft,
-  X,
-  Users,
-  FolderKanban,
-  FileText,
-  Book,
-  FileStack,
   User,
   Building,
   CreditCard,
   HelpCircle,
   LogOut
 } from 'lucide-react';
-import { useProductDrawer } from '../../contexts/ProductDrawerContext';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
   isSidebarCollapsed: boolean;
   setSidebarCollapsedWithLogging: (value: boolean | ((prev: boolean) => boolean)) => void;
-  isCreateMenuOpen: boolean;
-  setIsCreateMenuOpen: (value: boolean) => void;
   orgDropdownOpen: boolean;
   setOrgDropdownOpen: (value: boolean) => void;
   selectedOrg: { id: string; name: string; industry: string };
   setSelectedOrg: (org: { id: string; name: string; industry: string }) => void;
   mockOrgs: { id: string; name: string; industry: string }[];
-  setShowLineItemDrawer: (value: boolean) => void;
-  setShowNewClientModal: (value: boolean) => void;
-  setShowNewInvoiceDrawer: (value: boolean) => void;
   isProjectsSidebarOpen: boolean;
   setIsProjectsSidebarOpen: (value: boolean) => void;
   isProjectsSidebarLocked: boolean;
@@ -52,16 +39,11 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   isSidebarCollapsed,
   setSidebarCollapsedWithLogging,
-  isCreateMenuOpen,
-  setIsCreateMenuOpen,
   orgDropdownOpen,
   setOrgDropdownOpen,
   selectedOrg,
   setSelectedOrg,
   mockOrgs,
-  setShowLineItemDrawer,
-  setShowNewClientModal,
-  setShowNewInvoiceDrawer,
   isProjectsSidebarOpen,
   setIsProjectsSidebarOpen,
   isProjectsSidebarLocked,
@@ -79,7 +61,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { openProductDrawer } = useProductDrawer();
   const { user, signOut } = useAuth();
   const profileDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -150,192 +131,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
         
-        {/* Create Menu - Drawer-style interaction */}
-        {isCreateMenuOpen && (
-          <div className="absolute inset-0 z-[9999]">
-            {/* Drawer backdrop - only visible when open */}
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50"
-              onClick={() => setIsCreateMenuOpen(false)}
-            />
-            
-            {/* Drawer panel - full screen on mobile, sidebar on desktop */}
-            <div 
-              className="fixed inset-y-0 right-0 w-full md:max-w-md bg-[#1A2332] shadow-xl overflow-y-auto transform transition-transform duration-300 ease-in-out"
-              role="menu"
-              aria-orientation="vertical"
-              aria-labelledby="create-button"
-              tabIndex={-1}
-            >
-              {/* Modal header with close button */}
-              <div className="p-4 border-b border-[#2D3748] flex justify-between items-center">
-                <div>
-                  <h2 className="text-xl font-medium text-white">Create New Item</h2>
-                  <p className="text-sm text-gray-400">Choose what you'd like to create</p>
-                </div>
-                <button 
-                  onClick={() => setIsCreateMenuOpen(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Close modal"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-              
-              {/* Create New section */}
-              <div className="border-b border-[#2D3748]">
-                <h3 className="text-gray-400 text-sm font-medium p-4 pb-2">Create New</h3>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    setShowLineItemDrawer(true);
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#F9D71C] mr-4 w-8 h-8 flex items-center justify-center">+</span>
-                  <div className="text-left">
-                    <div className="font-medium">Line Item</div>
-                    <div className="text-sm text-gray-400">Add individual service or product</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    setShowNewClientModal(true);
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <Users size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Client</div>
-                    <div className="text-sm text-gray-400">New customer or contact</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    navigate('/projects/new');
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <FolderKanban size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Project</div>
-                    <div className="text-sm text-gray-400">Start a new project</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    setShowNewInvoiceDrawer(true);
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <FileText size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Invoice</div>
-                    <div className="text-sm text-gray-400">Create billing document</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    openProductDrawer();
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <FileStack size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Product</div>
-                    <div className="text-sm text-gray-400">Add to inventory</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-              </div>
-              
-              {/* Templates section */}
-              <div>
-                <h3 className="text-gray-400 text-sm font-medium p-4 pb-2">Templates</h3>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle price book template creation
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <Book size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Price book template</div>
-                    <div className="text-sm text-gray-400">Reusable pricing structure</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle project template creation
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <FolderKanban size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Project template</div>
-                    <div className="text-sm text-gray-400">Standard project layout</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-                
-                <button 
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    // Handle contract template creation
-                  }}
-                  className="flex items-center w-full px-4 py-4 text-white hover:bg-[#232D3F] transition-colors border-b border-[#2D3748]"
-                >
-                  <span className="text-[#336699] mr-4 w-8 h-8 flex items-center justify-center">
-                    <FileText size={20} />
-                  </span>
-                  <div className="text-left">
-                    <div className="font-medium">Contract template</div>
-                    <div className="text-sm text-gray-400">Legal document template</div>
-                  </div>
-                  <ChevronRight className="ml-auto text-gray-400" size={20} />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto">
           {/* Grid navigation */}
           <div className={`${isSidebarCollapsed ? 'grid grid-cols-1' : 'grid grid-cols-2'} gap-0`}>
-            {/* Dashboard */}
+            {/* Profit Tracker (formerly Dashboard) */}
             <NavLink
-              to="/dashboard"
+              to="/profit-tracker"
               className={({ isActive }) =>
                 isActive
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
@@ -346,11 +148,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">⠿</span>
+                      <span className="text-base">💰</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Dashboard
+                        Profit Tracker
                       </span>
                     )}
                   </div>
@@ -458,9 +260,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Analytics */}
+            {/* Business Insights (formerly Analytics) */}
             <NavLink
-              to="/analytics"
+              to="/business-insights"
               className={({ isActive }) =>
                 isActive
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
@@ -471,11 +273,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📊</span>
+                      <span className="text-base">📈</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Analytics
+                        Business Insights
                       </span>
                     )}
                   </div>

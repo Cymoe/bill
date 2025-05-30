@@ -80,20 +80,53 @@ export const ProjectList: React.FC = () => {
   const searchParams = new URLSearchParams(location.search);
   const showTutorial = searchParams.get('tutorial') === 'true';
 
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const projectsData = await db.projects.list();
-        setProjects(projectsData);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-      } finally {
+  // Function to fetch projects
+  const fetchProjects = async (showLoading = true) => {
+    try {
+      if (showLoading) {
+        setLoading(true);
+      }
+      const projectsData = await db.projects.list();
+      setProjects(projectsData);
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      if (showLoading) {
         setLoading(false);
+      }
+    }
+  };
+
+  // Initial load and refresh on navigation/visibility changes
+  useEffect(() => {
+    fetchProjects(true); // Show loading on initial load
+
+    // Refresh when the page becomes visible again
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchProjects(false); // Don't show loading on refresh
       }
     };
 
-    fetchProjects();
+    // Refresh when the window regains focus
+    const handleFocus = () => {
+      fetchProjects(false); // Don't show loading on refresh
+    };
+
+    // Listen to page visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, []);
+
+  // Also refresh when location changes (navigation)
+  useEffect(() => {
+    fetchProjects(false); // Don't show loading on navigation
+  }, [location.pathname]);
 
   // Construction project categories
   const categories = [

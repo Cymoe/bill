@@ -35,7 +35,7 @@ interface Product {
 interface GlobalProductDrawerProps {
   editingProduct: Product | 'new' | null;
   setEditingProduct: (product: Product | 'new' | null) => void;
-  lineItems: any[];
+  lineItems?: any[];
   onProductSaved?: () => void;
 }
 

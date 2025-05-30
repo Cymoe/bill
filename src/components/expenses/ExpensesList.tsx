@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  DollarSign, Calendar, Tag, Building, FileText, 
-  Plus, Filter, Search, CheckCircle, Clock, 
-  AlertCircle, ChevronDown, Download, Trash2,
-  Edit2, MoreVertical
-} from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, Receipt, DollarSign } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
-import { ExpenseService } from '../../services/expenseService';
-import { VendorService, Vendor } from '../../services/vendorService';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface Expense {
@@ -20,6 +13,7 @@ interface Expense {
   date: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
   receipt_url?: string;
+  project_id: string;
   created_at: string;
   updated_at: string;
 }
@@ -33,46 +27,39 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'vendor'>('date');
-  const [showFilters, setShowFilters] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState<string | null>(null);
-  const [summary, setSummary] = useState<any>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [vendorsList, setVendorsList] = useState<Vendor[]>([]);
-  const [formData, setFormData] = useState({
+  const [showPaid, setShowPaid] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({
+    today: true,
+    thisWeek: true,
+    earlier: true
+  });
+  const [isCreating, setIsCreating] = useState(false);
+  const [newExpense, setNewExpense] = useState({
     description: '',
     amount: '',
-    category: 'Material',
     vendor: '',
-    vendor_id: '',
-    date: new Date().toISOString().split('T')[0],
-    receipt_url: '',
-    status: 'pending' as Expense['status']
+    category: '',
+    date: new Date().toISOString().split('T')[0]
   });
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && projectId) {
       loadExpenses();
-      loadVendors();
     }
   }, [user, projectId]);
 
   const loadExpenses = async () => {
     try {
       setLoading(true);
-      const [expensesData, summaryData] = await Promise.all([
-        ExpenseService.getProjectExpenses(projectId),
-        ExpenseService.getProjectExpenseSummary(projectId)
-      ]);
-      
-      setExpenses(expensesData || []);
-      setSummary(summaryData);
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      setExpenses(data || []);
     } catch (error) {
       console.error('Error loading expenses:', error);
     } finally {
@@ -80,353 +67,542 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
     }
   };
 
-  const loadVendors = async () => {
-    if (!user) return;
+  const toggleExpenseStatus = async (expenseId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
+    
     try {
-      const data = await VendorService.getVendors(user.id);
-      setVendorsList(data);
+      const { error } = await supabase
+        .from('expenses')
+        .update({ status: newStatus })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+      
+      // Update local state
+      setExpenses(expenses.map(expense => 
+        expense.id === expenseId 
+          ? { ...expense, status: newStatus }
+          : expense
+      ));
     } catch (error) {
-      console.error('Error loading vendors:', error);
+      console.error('Error updating expense:', error);
     }
   };
 
-  const updateExpenseStatus = async (expenseId: string, status: Expense['status']) => {
+  const createExpense = async () => {
+    if (!newExpense.description.trim() || !newExpense.amount) return;
+
     try {
-      await ExpenseService.updateExpenseStatus(expenseId, status);
-      await loadExpenses(); // Reload to get updated data
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert({
+          description: newExpense.description,
+          amount: parseFloat(newExpense.amount),
+          vendor: newExpense.vendor || null,
+          category: newExpense.category || 'Material',
+          date: newExpense.date,
+          status: 'pending',
+          project_id: projectId,
+          user_id: user?.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add to local state
+      setExpenses([data, ...expenses]);
+      
+      // Reset form
+      setNewExpense({
+        description: '',
+        amount: '',
+        vendor: '',
+        category: '',
+        date: new Date().toISOString().split('T')[0]
+      });
+      setIsCreating(false);
     } catch (error) {
-      console.error('Error updating expense status:', error);
+      console.error('Error creating expense:', error);
     }
   };
 
-  const getStatusColor = (status: Expense['status']) => {
-    switch (status) {
-      case 'paid': return 'text-green-400 bg-green-400/10';
-      case 'approved': return 'text-blue-400 bg-blue-400/10';
-      case 'pending': return 'text-yellow-400 bg-yellow-400/10';
-      case 'rejected': return 'text-red-400 bg-red-400/10';
-      default: return 'text-gray-400 bg-gray-400/10';
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      createExpense();
     }
-  };
-
-  const getStatusIcon = (status: Expense['status']) => {
-    switch (status) {
-      case 'paid': return <CheckCircle className="w-3 h-3" />;
-      case 'approved': return <CheckCircle className="w-3 h-3" />;
-      case 'pending': return <Clock className="w-3 h-3" />;
-      case 'rejected': return <AlertCircle className="w-3 h-3" />;
-      default: return null;
+    if (e.key === 'Escape') {
+      setIsCreating(false);
+      setNewExpense({
+        description: '',
+        amount: '',
+        vendor: '',
+        category: '',
+        date: new Date().toISOString().split('T')[0]
+      });
     }
   };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      'Material': 'bg-blue-500',
-      'Labor': 'bg-orange-500',
-      'Equipment': 'bg-purple-500',
-      'Permits': 'bg-green-500',
-      'Subcontractor': 'bg-pink-500',
-      'Other': 'bg-gray-500'
+      'Material': '#3b82f6',
+      'Labor': '#f59e0b',
+      'Equipment': '#8b5cf6',
+      'Permits': '#10b981',
+      'Subcontractor': '#ec4899',
+      'Other': '#6b7280'
     };
-    return colors[category] || 'bg-gray-500';
+    return colors[category] || '#6b7280';
   };
 
-  // Get unique categories and vendor names from expenses for filters
-  const categories = Array.from(new Set(expenses.map(e => e.category)));
-  const uniqueVendorNames = Array.from(new Set(expenses.map(e => e.vendor).filter(Boolean)));
+  const groupExpensesByDate = () => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
 
-  // Filter and sort expenses
-  const filteredExpenses = expenses
-    .filter(expense => {
-      const matchesCategory = selectedCategory === 'all' || expense.category === selectedCategory;
-      const matchesStatus = selectedStatus === 'all' || expense.status === selectedStatus;
-      const matchesSearch = expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          expense.vendor?.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesStatus && matchesSearch;
-    })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'amount': return b.amount - a.amount;
-        case 'vendor': return (a.vendor || '').localeCompare(b.vendor || '');
-        default: return new Date(b.date).getTime() - new Date(a.date).getTime();
+    const groups = {
+      today: [] as Expense[],
+      thisWeek: [] as Expense[],
+      earlier: [] as Expense[],
+      paid: [] as Expense[]
+    };
+
+    expenses.forEach(expense => {
+      if (expense.status === 'paid') {
+        groups.paid.push(expense);
+      } else {
+        const expenseDate = new Date(expense.date);
+        expenseDate.setHours(0, 0, 0, 0);
+        
+        if (expenseDate.getTime() === now.getTime()) {
+          groups.today.push(expense);
+        } else if (expenseDate > weekAgo) {
+          groups.thisWeek.push(expense);
+        } else {
+          groups.earlier.push(expense);
+        }
       }
     });
 
+    return groups;
+  };
+
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
+  };
+
+  const formatExpenseDate = (date: string) => {
+    const expenseDate = new Date(date);
+    const now = new Date();
+    const diffTime = now.getTime() - expenseDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return expenseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const setQuickDate = (option: string) => {
+    const today = new Date();
+    let targetDate = new Date();
+
+    switch (option) {
+      case 'today':
+        targetDate = today;
+        break;
+      case 'yesterday':
+        targetDate.setDate(today.getDate() - 1);
+        break;
+      case 'lastWeek':
+        targetDate.setDate(today.getDate() - 7);
+        break;
+    }
+
+    setNewExpense({
+      ...newExpense,
+      date: targetDate.toISOString().split('T')[0]
+    });
+    setShowDatePicker(false);
+  };
+
   if (loading) {
     return (
-      <div className="bg-[#333333] rounded-[4px] p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-[#404040] rounded w-1/4"></div>
-          <div className="space-y-2">
-            {[1,2,3].map(i => (
-              <div key={i} className="h-16 bg-[#404040] rounded"></div>
-            ))}
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
+  const groupedExpenses = groupExpensesByDate();
+  const totalPending = expenses.filter(e => e.status !== 'paid').reduce((sum, e) => sum + e.amount, 0);
+  const totalPaid = expenses.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = totalPending + totalPaid;
+
+  // Calculate category totals
+  const categoryTotals = expenses.reduce((acc, expense) => {
+    const category = expense.category || 'Other';
+    acc[category] = (acc[category] || 0) + expense.amount;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Sort categories by total amount
+  const sortedCategories = Object.entries(categoryTotals)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 3); // Top 3 categories
+
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[#333333] rounded-[4px] p-4 border-l-4 border-[#336699]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Total Expenses</span>
-            <DollarSign className="w-4 h-4 text-[#336699]" />
-          </div>
-          <p className="text-2xl font-bold font-mono">{formatCurrency(summary?.total || 0)}</p>
-          <p className="text-xs text-gray-400 mt-1">{expenses.length} items</p>
+      {/* KPI Header Strip */}
+      <div className="flex divide-x divide-[#2a2a2a] mb-6">
+        <div className="pr-6">
+          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Expenses</div>
+          <div className="text-2xl font-semibold">{formatCurrency(totalExpenses)}</div>
+          <div className="text-xs text-gray-500">({expenses.length} items)</div>
         </div>
 
-        <div className="bg-[#333333] rounded-[4px] p-4 border-l-4 border-[#388E3C]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Paid</span>
-            <CheckCircle className="w-4 h-4 text-[#388E3C]" />
-          </div>
-          <p className="text-2xl font-bold font-mono">{formatCurrency(summary?.paidTotal || 0)}</p>
-          <p className="text-xs text-gray-400 mt-1">
-            {((summary?.paidTotal / summary?.total) * 100 || 0).toFixed(0)}% of total
-          </p>
+        <div className="px-6">
+          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Paid</div>
+          <div className="text-2xl font-semibold text-green-500">{formatCurrency(totalPaid)}</div>
+          <div className="text-xs text-gray-500">({totalExpenses > 0 ? Math.round((totalPaid / totalExpenses) * 100) : 0}% of total)</div>
         </div>
 
-        <div className="bg-[#333333] rounded-[4px] p-4 border-l-4 border-[#F9D71C]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">Pending</span>
-            <Clock className="w-4 h-4 text-[#F9D71C]" />
-          </div>
-          <p className="text-2xl font-bold font-mono">{formatCurrency(summary?.pendingTotal || 0)}</p>
-          <p className="text-xs text-gray-400 mt-1">Awaiting payment</p>
+        <div className="px-6">
+          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pending</div>
+          <div className="text-2xl font-semibold text-yellow-500">{formatCurrency(totalPending)}</div>
+          <div className="text-xs text-gray-500">(awaiting payment)</div>
         </div>
 
-        <div className="bg-[#333333] rounded-[4px] p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-400">By Category</span>
-            <Tag className="w-4 h-4 text-gray-400" />
+        <div className="pl-6">
+          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Top Category</div>
+          <div className="text-2xl font-semibold">
+            {sortedCategories.length > 0 ? formatCurrency(sortedCategories[0][1]) : '$0.00'}
           </div>
-          <div className="space-y-1">
-            {Object.entries(summary?.byCategory || {}).slice(0, 3).map(([cat, amount]) => (
-              <div key={cat} className="flex items-center justify-between text-xs">
-                <span className="text-gray-300">{cat}</span>
-                <span className="font-mono">{formatCurrency(amount as number)}</span>
-              </div>
-            ))}
+          <div className="text-xs text-gray-500">
+            ({sortedCategories.length > 0 ? sortedCategories[0][0] : 'none'})
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="bg-[#333333] rounded-[4px] p-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium flex items-center gap-2">
-            <span className="text-[#336699]">▼</span> Expenses
-          </h3>
-          
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search expenses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
-              />
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <button className="text-sm text-gray-500 hover:text-gray-400">
+            ○ all expenses <ChevronDown className="inline w-3 h-3 ml-1" />
+          </button>
+        </div>
+        {!isCreating && editable && (
+          <button 
+            onClick={() => setIsCreating(true)}
+            className="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      {/* Expense Creation Form */}
+      {isCreating && (
+        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-600 flex items-center justify-center">
+              <DollarSign className="w-3 h-3 text-gray-600" />
             </div>
-
-            {/* Filter Toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-3 py-2 rounded-[4px] text-sm transition-colors ${
-                showFilters ? 'bg-[#336699] text-white' : 'bg-[#1E1E1E] text-gray-400 hover:text-white'
-              }`}
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-            </button>
-
-            {/* Export */}
-            <button className="p-2 bg-[#1E1E1E] text-gray-400 rounded-[4px] hover:text-white transition-colors">
-              <Download className="w-4 h-4" />
-            </button>
-
-            {/* Add Expense */}
-            {editable && (
-              <button className="flex items-center gap-2 px-3 py-2 bg-[#F9D71C] text-[#121212] rounded-[4px] hover:bg-[#E5C61A] transition-colors text-sm font-medium">
-                <Plus className="w-4 h-4" />
-                ADD EXPENSE
+            
+            <div className="flex-1 space-y-3">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={newExpense.description}
+                  onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
+                  onKeyDown={handleKeyPress}
+                  placeholder="What did you pay for?"
+                  className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm"
+                  autoFocus
+                />
+                <input
+                  type="number"
+                  value={newExpense.amount}
+                  onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
+                  onKeyDown={handleKeyPress}
+                  placeholder="0.00"
+                  step="0.01"
+                  className="w-24 bg-transparent text-white placeholder-gray-500 outline-none text-sm text-right"
+                />
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <input
+                  type="text"
+                  value={newExpense.vendor}
+                  onChange={(e) => setNewExpense({...newExpense, vendor: e.target.value})}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Vendor (optional)"
+                  className="flex-1 bg-transparent text-gray-400 placeholder-gray-600 outline-none text-xs"
+                />
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setShowDatePicker(!showDatePicker)}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-400"
+                  >
+                    <Calendar className="w-3 h-3" />
+                    {new Date(newExpense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </button>
+                  
+                  {showDatePicker && (
+                    <div className="absolute top-full mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-2 z-10">
+                      <div className="space-y-1">
+                        <button
+                          onClick={() => setQuickDate('today')}
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                        >
+                          Today
+                        </button>
+                        <button
+                          onClick={() => setQuickDate('yesterday')}
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                        >
+                          Yesterday
+                        </button>
+                        <button
+                          onClick={() => setQuickDate('lastWeek')}
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                        >
+                          Last week
+                        </button>
+                        <div className="border-t border-[#2a2a2a] my-1"></div>
+                        <input
+                          type="date"
+                          value={newExpense.date}
+                          onChange={(e) => {
+                            setNewExpense({...newExpense, date: e.target.value});
+                            setShowDatePicker(false);
+                          }}
+                          className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <select
+                  value={newExpense.category}
+                  onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                  className="text-xs bg-transparent text-gray-500 hover:text-gray-400 outline-none cursor-pointer"
+                >
+                  <option value="">Material</option>
+                  <option value="Labor">Labor</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Permits">Permits</option>
+                  <option value="Subcontractor">Subcontractor</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={createExpense}
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+              >
+                Add
               </button>
+              <button
+                onClick={() => {
+                  setIsCreating(false);
+                  setNewExpense({
+                    description: '',
+                    amount: '',
+                    vendor: '',
+                    category: '',
+                    date: new Date().toISOString().split('T')[0]
+                  });
+                }}
+                className="px-3 py-1 text-gray-500 hover:text-gray-400 text-xs"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Expense Groups */}
+      <div className="space-y-6">
+        {/* Today's Expenses */}
+        {groupedExpenses.today.length > 0 && (
+          <div>
+            <button
+              onClick={() => toggleSection('today')}
+              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+            >
+              {expandedSections.today ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              today
+            </button>
+            {expandedSections.today && (
+              <div className="space-y-2">
+                {groupedExpenses.today.map(expense => (
+                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                ))}
+              </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Filters */}
-        {showFilters && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-[#555555]">
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">CATEGORY</label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="w-full px-3 py-2 bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-sm text-white focus:outline-none focus:border-[#336699]"
-              >
-                <option value="all">All Categories</option>
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+        {/* This Week's Expenses */}
+        {groupedExpenses.thisWeek.length > 0 && (
+          <div>
+            <button
+              onClick={() => toggleSection('thisWeek')}
+              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+            >
+              {expandedSections.thisWeek ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              this week
+            </button>
+            {expandedSections.thisWeek && (
+              <div className="space-y-2">
+                {groupedExpenses.thisWeek.map(expense => (
+                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
                 ))}
-              </select>
-            </div>
+              </div>
+            )}
+          </div>
+        )}
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">STATUS</label>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
-                className="w-full px-3 py-2 bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-sm text-white focus:outline-none focus:border-[#336699]"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="paid">Paid</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
+        {/* Earlier Expenses */}
+        {groupedExpenses.earlier.length > 0 && (
+          <div>
+            <button
+              onClick={() => toggleSection('earlier')}
+              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+            >
+              {expandedSections.earlier ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              earlier
+            </button>
+            {expandedSections.earlier && (
+              <div className="space-y-2">
+                {groupedExpenses.earlier.map(expense => (
+                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">SORT BY</label>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="w-full px-3 py-2 bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-sm text-white focus:outline-none focus:border-[#336699]"
-              >
-                <option value="date">Date</option>
-                <option value="amount">Amount</option>
-                <option value="vendor">Vendor</option>
-              </select>
-            </div>
+        {/* Paid Expenses */}
+        {groupedExpenses.paid.length > 0 && (
+          <div className="mt-8 pt-8 border-t border-[#2a2a2a]">
+            <button
+              onClick={() => setShowPaid(!showPaid)}
+              className="flex items-center gap-2 text-sm text-gray-500 mb-3"
+            >
+              {showPaid ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              paid expenses ({groupedExpenses.paid.length})
+            </button>
+            {showPaid && (
+              <div className="space-y-2 opacity-50">
+                {groupedExpenses.paid.map(expense => (
+                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Expenses Table */}
-      <div className="bg-[#1E1E1E] rounded-[4px] overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-[#252525] text-xs text-gray-400 uppercase">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Name</th>
-              <th className="px-4 py-3 text-left font-medium">Material/Labor</th>
-              <th className="px-4 py-3 text-left font-medium">Trade</th>
-              <th className="px-4 py-3 text-right font-medium">Amount</th>
-              <th className="px-4 py-3 text-left font-medium">Date Paid</th>
-              <th className="px-4 py-3 text-left font-medium">Payee</th>
-              <th className="px-4 py-3 text-center font-medium">Receipt</th>
-              <th className="px-4 py-3 text-center font-medium">Status</th>
-              {editable && <th className="px-4 py-3 text-center font-medium">Actions</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#333333]">
-            {filteredExpenses.map((expense) => (
-              <tr key={expense.id} className="hover:bg-[#252525] transition-colors">
-                <td className="px-4 py-3 text-sm text-white">{expense.description}</td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center px-2 py-1 rounded-[2px] text-xs font-medium text-white ${getCategoryColor(expense.category)}`}>
-                    {expense.category}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-300">{expense.category}</td>
-                <td className="px-4 py-3 text-sm text-right font-mono font-medium">
-                  {formatCurrency(expense.amount)}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-300">
-                  {new Date(expense.date).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3 text-sm text-gray-300">{expense.vendor || '-'}</td>
-                <td className="px-4 py-3 text-center">
-                  {expense.receipt_url ? (
-                    <a href={expense.receipt_url} target="_blank" rel="noopener noreferrer" className="text-[#336699] hover:text-white">
-                      <FileText className="w-4 h-4 mx-auto" />
-                    </a>
-                  ) : (
-                    <span className="text-gray-500">-</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-[2px] text-xs font-medium ${getStatusColor(expense.status)}`}>
-                    {getStatusIcon(expense.status)}
-                    {expense.status.toUpperCase()}
-                  </span>
-                </td>
-                {editable && (
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        onClick={() => updateExpenseStatus(expense.id, expense.status === 'paid' ? 'pending' : 'paid')}
-                        className="p-1 text-gray-400 hover:text-white transition-colors"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-gray-400 hover:text-white transition-colors">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button className="p-1 text-gray-400 hover:text-red-400 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-[#252525] text-sm font-medium">
-            <tr>
-              <td colSpan={3} className="px-4 py-3 text-gray-400 uppercase">
-                Count: {filteredExpenses.length}
-              </td>
-              <td className="px-4 py-3 text-right font-mono text-white">
-                SUM: {formatCurrency(filteredExpenses.reduce((sum, exp) => sum + exp.amount, 0))}
-              </td>
-              <td colSpan={editable ? 5 : 4}></td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+      {/* Empty State */}
+      {expenses.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-gray-500 mb-4">No expenses tracked yet</p>
+          {editable && (
+            <button
+              onClick={() => setIsCreating(true)}
+              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm transition-colors"
+            >
+              Add First Expense
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
-      {/* Vendor Selection */}
-      <div>
-        <label className="block text-sm font-medium text-white/60 mb-2">
-          Vendor
-        </label>
-        <select
-          value={formData.vendor_id}
-          onChange={(e) => {
-            const vendorId = e.target.value;
-            const vendor = vendorsList.find(v => v.id === vendorId);
-            setFormData({ 
-              ...formData, 
-              vendor_id: vendorId,
-              vendor: vendor?.name || ''
-            });
-          }}
-          className="w-full px-4 py-2 bg-concrete-gray text-white rounded focus:outline-none focus:ring-2 focus:ring-blueprint-blue"
-        >
-          <option value="">Select vendor...</option>
-          {vendorsList.map(vendor => (
-            <option key={vendor.id} value={vendor.id}>
-              {vendor.name} {vendor.is_preferred && '⭐'}
-            </option>
-          ))}
-        </select>
-        {formData.vendor && !formData.vendor_id && (
-          <input
-            type="text"
-            value={formData.vendor}
-            onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-            className="w-full mt-2 px-4 py-2 bg-concrete-gray text-white rounded focus:outline-none focus:ring-2 focus:ring-blueprint-blue"
-            placeholder="Or enter vendor name"
-          />
+// Expense Item Component
+const ExpenseItem: React.FC<{
+  expense: Expense;
+  onToggle: (id: string, status: string) => void;
+  formatDate: (date: string) => string;
+  getCategoryColor: (category: string) => string;
+}> = ({ expense, onToggle, formatDate, getCategoryColor }) => {
+  const isPaid = expense.status === 'paid';
+  
+  return (
+    <div className="flex items-start gap-3 group hover:bg-[#0a0a0a] p-2 -mx-2 rounded transition-colors">
+      <button
+        onClick={() => onToggle(expense.id, expense.status)}
+        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+          isPaid
+            ? 'bg-green-500 border-green-500'
+            : 'border-gray-600 hover:border-gray-400'
+        }`}
+      >
+        {isPaid && (
+          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
         )}
+      </button>
+      
+      <div className="flex-1">
+        <div className="flex items-center gap-3">
+          <span className={`text-sm ${isPaid ? 'line-through text-gray-500' : 'text-white'}`}>
+            {expense.description}
+          </span>
+          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500' : 'text-white'}`}>
+            {formatCurrency(expense.amount)}
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-3 mt-1">
+          {expense.vendor && (
+            <span className="text-xs text-gray-500">{expense.vendor}</span>
+          )}
+          <span className="text-xs text-gray-500 flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {formatDate(expense.date)}
+          </span>
+          {expense.category && (
+            <span 
+              className="text-xs px-2 py-0.5 rounded"
+              style={{ 
+                backgroundColor: `${getCategoryColor(expense.category)}20`,
+                color: getCategoryColor(expense.category)
+              }}
+            >
+              {expense.category}
+            </span>
+          )}
+          {expense.receipt_url && (
+            <a 
+              href={expense.receipt_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
+            >
+              <Receipt className="w-3 h-3" />
+              Receipt
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );
