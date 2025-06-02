@@ -24,7 +24,7 @@ export const ProjectList: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled' | 'planned'>('all');
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   
   // Additional filter states
@@ -215,6 +215,8 @@ export const ProjectList: React.FC = () => {
 
   const getStatusColor = (status: Project['status']) => {
     switch (status) {
+      case 'planned':
+        return 'bg-[#a855f7] text-[#a855f7]';
       case 'active':
         return 'bg-[#10b981] text-[#10b981]';
       case 'completed':
@@ -230,6 +232,8 @@ export const ProjectList: React.FC = () => {
 
   const getStatusBadgeStyle = (status: Project['status']) => {
     switch (status) {
+      case 'planned':
+        return 'bg-[#a855f7]/20 text-[#a855f7]';
       case 'active':
         return 'bg-[#10b981]/20 text-[#10b981]';
       case 'completed':
@@ -603,6 +607,23 @@ export const ProjectList: React.FC = () => {
             <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
               <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0">
                 <button
+                  onClick={() => setSelectedStatus('planned')}
+                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                    selectedStatus === 'planned'
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                  }`}
+                >
+                  {isConstrained ? (
+                    `Planned (${projects.filter(p => p.status === 'planned').length})`
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span>Planned</span>
+                      <span className="text-xs opacity-70">({projects.filter(p => p.status === 'planned').length})</span>
+                    </div>
+                  )}
+                </button>
+                <button
                   onClick={() => setSelectedStatus('active')}
                   className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
                     selectedStatus === 'active'
@@ -866,9 +887,9 @@ export const ProjectList: React.FC = () => {
                     const progress = getProjectProgress(project.status);
                     return (
                       <div key={project.id} className="relative">
-                        <button
+                        <div
                           onClick={() => navigate(`/projects/${project.id}`)}
-                                className={`w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
+                          className={`w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group cursor-pointer ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
@@ -1028,7 +1049,7 @@ export const ProjectList: React.FC = () => {
                               </div>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       </div>
                     );
                   })}

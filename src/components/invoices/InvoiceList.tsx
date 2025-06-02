@@ -312,6 +312,7 @@ export const InvoiceList: React.FC = () => {
           product_id: item.product_id,
           quantity: item.quantity,
           unit_price: item.price,
+          total_price: item.price * item.quantity,
           description: item.description
         }));
 
@@ -963,6 +964,8 @@ export const InvoiceList: React.FC = () => {
         } : undefined}
         onSave={async (data) => {
           try {
+            console.log('Invoice save started with data:', data);
+            
             if (editingInvoice) {
               // Update existing invoice
               const { error: invoiceError } = await supabase
@@ -973,12 +976,16 @@ export const InvoiceList: React.FC = () => {
                   status: data.status,
                   issue_date: data.issue_date,
                   due_date: data.due_date,
-                  description: data.description,
-                  project_id: data.project_id || null // Add project_id
+                  description: data.description, // Re-enabled - column now exists
+                  project_id: data.project_id || null
                 })
                 .eq('id', editingInvoice.id);
 
-              if (invoiceError) throw invoiceError;
+              if (invoiceError) {
+                console.error('Error updating invoice:', invoiceError);
+                alert(`Error updating invoice: ${invoiceError.message}`);
+                throw invoiceError;
+              }
 
               // Delete existing items
               const { error: deleteError } = await supabase
@@ -986,55 +993,86 @@ export const InvoiceList: React.FC = () => {
                 .delete()
                 .eq('invoice_id', editingInvoice.id);
 
-              if (deleteError) throw deleteError;
+              if (deleteError) {
+                console.error('Error deleting invoice items:', deleteError);
+                throw deleteError;
+              }
 
               // Create new invoice items
               const itemsToInsert = data.items.map(item => ({
                 invoice_id: editingInvoice.id,
                 product_id: item.product_id,
                 quantity: item.quantity,
-                unit_price: item.price,
+                unit_price: item.price, // Changed back to unit_price
+                total_price: item.price * item.quantity, // Add total_price calculation
                 description: item.description
               }));
+
+              console.log('Inserting invoice items:', itemsToInsert);
 
               const { error: itemsError } = await supabase
                 .from('invoice_items')
                 .insert(itemsToInsert);
 
-              if (itemsError) throw itemsError;
+              if (itemsError) {
+                console.error('Error inserting invoice items:', itemsError);
+                alert(`Error inserting invoice items: ${itemsError.message}`);
+                throw itemsError;
+              }
             } else {
               // Create new invoice
+              console.log('Creating new invoice with user_id:', user?.id);
+              
+              const invoiceData = {
+                user_id: user?.id,
+                client_id: data.client_id,
+                amount: data.total_amount,
+                status: data.status,
+                issue_date: data.issue_date,
+                due_date: data.due_date,
+                description: data.description, // Re-enabled - column now exists
+                project_id: data.project_id || null
+              };
+              
+              console.log('Invoice data to insert:', invoiceData);
+              
               const { data: invoice, error: invoiceError } = await supabase
                 .from('invoices')
-                .insert({
-                  user_id: user?.id,
-                  client_id: data.client_id,
-                  amount: data.total_amount,
-                  status: data.status,
-                  issue_date: data.issue_date,
-                  due_date: data.due_date,
-                  description: data.description,
-                  project_id: data.project_id || null // Add project_id
-                })
+                .insert(invoiceData)
                 .select()
                 .single();
 
-              if (invoiceError) throw invoiceError;
+              if (invoiceError) {
+                console.error('Error creating invoice:', invoiceError);
+                alert(`Error creating invoice: ${invoiceError.message}`);
+                throw invoiceError;
+              }
+
+              console.log('Invoice created successfully:', invoice);
 
               // Create invoice items
               const itemsToInsert = data.items.map(item => ({
                 invoice_id: invoice.id,
                 product_id: item.product_id,
                 quantity: item.quantity,
-                unit_price: item.price,
+                unit_price: item.price, // Changed back to unit_price
+                total_price: item.price * item.quantity, // Add total_price calculation
                 description: item.description
               }));
+
+              console.log('Inserting invoice items:', itemsToInsert);
 
               const { error: itemsError } = await supabase
                 .from('invoice_items')
                 .insert(itemsToInsert);
 
-              if (itemsError) throw itemsError;
+              if (itemsError) {
+                console.error('Error inserting invoice items:', itemsError);
+                alert(`Error inserting invoice items: ${itemsError.message}`);
+                throw itemsError;
+              }
+              
+              console.log('Invoice and items created successfully!');
             }
 
             // Refresh the data
@@ -1043,7 +1081,7 @@ export const InvoiceList: React.FC = () => {
             setEditingInvoice(null);
           } catch (error) {
             console.error('Error saving invoice:', error);
-            // You might want to show an error toast here
+            // Error is already shown via alert
           }
         }}
       />

@@ -30,6 +30,8 @@ import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
 import { CategoryAnalytics } from './components/analytics/CategoryAnalytics';
 import Templates from './pages/Templates';
+import { WorkPackDetail } from './pages/WorkPackDetail';
+import IndustrySettings from './pages/IndustrySettings';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -193,6 +195,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/work-packs/:id"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <WorkPackDetail />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/invoices"
         element={
           <ProtectedRoute>
@@ -309,6 +321,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <LineItemTestPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/industries"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <IndustrySettings />
             </DashboardLayout>
           </ProtectedRoute>
         }

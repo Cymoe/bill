@@ -9,6 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/format';
 import { TaskList } from '../tasks/TaskList';
 import { ExpensesList } from '../expenses/ExpensesList';
+import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
+import { ProjectDocuments } from './ProjectDocuments';
 
 interface ProjectWithDetails {
   id: string;
@@ -69,7 +71,7 @@ interface Note {
   is_pinned: boolean;
 }
 
-type TabType = 'overview' | 'tasks' | 'expenses' | 'budget' | 'timeline' | 'photos';
+type TabType = 'overview' | 'tasks' | 'expenses' | 'budget' | 'timeline' | 'photos' | 'documents';
 
 export const ProjectDetails: React.FC = () => {
   const { id } = useParams();
@@ -82,6 +84,7 @@ export const ProjectDetails: React.FC = () => {
   const [expenseCount, setExpenseCount] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
   const [photoCount, setPhotoCount] = useState(0);
+  const [documentCount, setDocumentCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
@@ -90,6 +93,105 @@ export const ProjectDetails: React.FC = () => {
   const [isEditingPhotoLink, setIsEditingPhotoLink] = useState(false);
   const [isSavingPhotoLink, setIsSavingPhotoLink] = useState(false);
   const [projectInvoices, setProjectInvoices] = useState<any[]>([]);
+  const [showInvoiceDrawer, setShowInvoiceDrawer] = useState(false);
+
+  // Legacy template data - now replaced by database templates
+  // const projectTemplates = {
+  //   kitchen_remodel: {
+  //     tasks: [
+  //       { title: 'Demo existing kitchen', description: 'Remove old cabinets, countertops, and appliances', priority: 'high', estimated_hours: 16 },
+  //       { title: 'Rough plumbing work', description: 'Install new plumbing lines for sink and dishwasher', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Electrical rough-in', description: 'Install new electrical circuits and outlets', priority: 'high', estimated_hours: 12 },
+  //       { title: 'Drywall installation', description: 'Patch and install new drywall as needed', priority: 'medium', estimated_hours: 10 },
+  //       { title: 'Flooring installation', description: 'Install new kitchen flooring', priority: 'medium', estimated_hours: 12 },
+  //       { title: 'Cabinet installation', description: 'Install new kitchen cabinets', priority: 'high', estimated_hours: 16 },
+  //       { title: 'Countertop installation', description: 'Template and install countertops', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Backsplash installation', description: 'Install tile or stone backsplash', priority: 'medium', estimated_hours: 8 },
+  //       { title: 'Appliance installation', description: 'Install and connect all appliances', priority: 'medium', estimated_hours: 6 },
+  //       { title: 'Final plumbing fixtures', description: 'Install sink, faucet, and water connections', priority: 'medium', estimated_hours: 4 },
+  //       { title: 'Final electrical work', description: 'Install light fixtures and switches', priority: 'medium', estimated_hours: 4 },
+  //       { title: 'Paint and finish work', description: 'Final paint touch-ups and trim work', priority: 'low', estimated_hours: 8 }
+  //     ],
+  //     expenses: [
+  //       { description: 'Cabinet materials', category: 'materials', estimated_amount: 8000 },
+  //       { description: 'Countertop materials', category: 'materials', estimated_amount: 3000 },
+  //       { description: 'Appliances', category: 'materials', estimated_amount: 5000 },
+  //       { description: 'Flooring materials', category: 'materials', estimated_amount: 2000 },
+  //       { description: 'Plumbing fixtures', category: 'materials', estimated_amount: 1500 },
+  //       { description: 'Electrical materials', category: 'materials', estimated_amount: 800 },
+  //       { description: 'Paint and finishing materials', category: 'materials', estimated_amount: 500 },
+  //       { description: 'Demolition labor', category: 'labor', estimated_amount: 1200 },
+  //       { description: 'Installation labor', category: 'labor', estimated_amount: 6000 },
+  //       { description: 'Permit fees', category: 'permits', estimated_amount: 300 },
+  //       { description: 'Disposal costs', category: 'other', estimated_amount: 400 }
+  //     ]
+  //   },
+  //   bathroom_remodel: {
+  //     tasks: [
+  //       { title: 'Demo existing bathroom', description: 'Remove old fixtures, tile, and vanity', priority: 'high', estimated_hours: 12 },
+  //       { title: 'Rough plumbing work', description: 'Relocate or install new plumbing lines', priority: 'high', estimated_hours: 10 },
+  //       { title: 'Electrical rough-in', description: 'Install GFCI outlets and lighting circuits', priority: 'high', estimated_hours: 6 },
+  //       { title: 'Waterproofing', description: 'Install vapor barrier and waterproof membrane', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Tile installation', description: 'Install floor and wall tile', priority: 'medium', estimated_hours: 16 },
+  //       { title: 'Vanity installation', description: 'Install new vanity and countertop', priority: 'medium', estimated_hours: 6 },
+  //       { title: 'Toilet installation', description: 'Install new toilet and connections', priority: 'medium', estimated_hours: 3 },
+  //       { title: 'Shower/tub installation', description: 'Install shower or bathtub', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Final plumbing fixtures', description: 'Install faucets and accessories', priority: 'medium', estimated_hours: 4 },
+  //       { title: 'Final electrical work', description: 'Install light fixtures and exhaust fan', priority: 'medium', estimated_hours: 3 },
+  //       { title: 'Paint and finish work', description: 'Final paint and trim installation', priority: 'low', estimated_hours: 6 }
+  //     ],
+  //     expenses: [
+  //       { description: 'Tile materials', category: 'materials', estimated_amount: 2500 },
+  //       { description: 'Vanity and countertop', category: 'materials', estimated_amount: 2000 },
+  //       { description: 'Shower/tub materials', category: 'materials', estimated_amount: 1800 },
+  //       { description: 'Plumbing fixtures', category: 'materials', estimated_amount: 1200 },
+  //       { description: 'Electrical materials', category: 'materials', estimated_amount: 400 },
+  //       { description: 'Waterproofing materials', category: 'materials', estimated_amount: 300 },
+  //       { description: 'Paint and finishing materials', category: 'materials', estimated_amount: 200 },
+  //       { description: 'Installation labor', category: 'labor', estimated_amount: 4500 },
+  //       { description: 'Permit fees', category: 'permits', estimated_amount: 200 },
+  //       { description: 'Disposal costs', category: 'other', estimated_amount: 300 }
+  //     ]
+  //   },
+  //   flooring_installation: {
+  //     tasks: [
+  //       { title: 'Remove existing flooring', description: 'Demo and dispose of old flooring', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Subfloor preparation', description: 'Level and prepare subfloor', priority: 'high', estimated_hours: 6 },
+  //       { title: 'Underlayment installation', description: 'Install appropriate underlayment', priority: 'medium', estimated_hours: 4 },
+  //       { title: 'Flooring installation', description: 'Install new flooring material', priority: 'high', estimated_hours: 12 },
+  //       { title: 'Transition strips', description: 'Install transition strips and trim', priority: 'low', estimated_hours: 3 },
+  //       { title: 'Final cleanup', description: 'Clean and inspect completed work', priority: 'low', estimated_hours: 2 }
+  //     ],
+  //     expenses: [
+  //       { description: 'Flooring materials', category: 'materials', estimated_amount: 3000 },
+  //       { description: 'Underlayment', category: 'materials', estimated_amount: 300 },
+  //       { description: 'Transition strips and trim', category: 'materials', estimated_amount: 200 },
+  //       { description: 'Installation labor', category: 'labor', estimated_amount: 2000 },
+  //       { description: 'Disposal costs', category: 'other', estimated_amount: 200 }
+  //     ]
+  //   },
+  //   general_renovation: {
+  //     tasks: [
+  //       { title: 'Project planning and permits', description: 'Finalize plans and obtain permits', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Demolition work', description: 'Remove existing materials as needed', priority: 'high', estimated_hours: 16 },
+  //       { title: 'Structural work', description: 'Any required structural modifications', priority: 'high', estimated_hours: 12 },
+  //       { title: 'Electrical work', description: 'Update electrical systems', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Plumbing work', description: 'Update plumbing systems', priority: 'high', estimated_hours: 8 },
+  //       { title: 'Insulation and drywall', description: 'Install insulation and drywall', priority: 'medium', estimated_hours: 12 },
+  //       { title: 'Flooring installation', description: 'Install new flooring', priority: 'medium', estimated_hours: 10 },
+  //       { title: 'Paint and finish work', description: 'Paint and final finishing', priority: 'low', estimated_hours: 10 }
+  //     ],
+  //     expenses: [
+  //       { description: 'Construction materials', category: 'materials', estimated_amount: 5000 },
+  //       { description: 'Electrical materials', category: 'materials', estimated_amount: 800 },
+  //       { description: 'Plumbing materials', category: 'materials', estimated_amount: 600 },
+  //       { description: 'Labor costs', category: 'labor', estimated_amount: 8000 },
+  //       { description: 'Permit fees', category: 'permits', estimated_amount: 500 },
+  //       { description: 'Equipment rental', category: 'equipment', estimated_amount: 800 },
+  //       { description: 'Disposal costs', category: 'other', estimated_amount: 400 }
+  //     ]
+  //   }
+  // };
 
   const loadProjectData = async (showLoading = true) => {
     try {
@@ -98,7 +200,7 @@ export const ProjectDetails: React.FC = () => {
       }
       
       // Run all queries in parallel for faster loading
-      const [projectResult, tasksResult, expensesResult, photosResult, invoicesResult] = await Promise.all([
+      const [projectResult, tasksResult, expensesResult, photosResult, invoicesResult, documentsResult] = await Promise.all([
         // Load project with client details
         supabase
           .from('projects')
@@ -132,7 +234,13 @@ export const ProjectDetails: React.FC = () => {
           .from('invoices')
           .select('*')
           .eq('project_id', id)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+          
+        // Load document count
+        supabase
+          .from('project_documents')
+          .select('*', { count: 'exact', head: true })
+          .eq('project_id', id)
       ]);
       
       // Process project data
@@ -161,6 +269,11 @@ export const ProjectDetails: React.FC = () => {
       // Process invoices data
       if (!invoicesResult.error && invoicesResult.data) {
         setProjectInvoices(invoicesResult.data);
+      }
+      
+      // Process documents data
+      if (!documentsResult.error && documentsResult.count !== null) {
+        setDocumentCount(documentsResult.count);
       }
 
       // Mock recent activity for now
@@ -292,15 +405,7 @@ export const ProjectDetails: React.FC = () => {
   };
 
   const handleGenerateInvoice = () => {
-    const navigationState = { 
-      createNew: true,
-      projectId: project?.id,
-      clientId: project?.client_id,
-      projectName: project?.name,
-      projectBudget: project?.budget
-    };
-    console.log('ProjectDetails - Navigating to invoices with state:', navigationState);
-    navigate('/invoices', { state: navigationState });
+    setShowInvoiceDrawer(true);
   };
 
   const savePhotoLink = async (link: string) => {
@@ -330,21 +435,7 @@ export const ProjectDetails: React.FC = () => {
             label: 'Generate Invoice',
             action: handleGenerateInvoice,
             colorClass: 'group-hover:text-green-400',
-            primary: false
-          },
-          {
-            icon: <Plus className="w-5 h-5" />,
-            label: 'Add Expense',
-            action: () => setActiveTab('expenses'),
-            colorClass: 'group-hover:text-blue-400',
-            primary: false
-          },
-          {
-            icon: <CheckSquare className="w-5 h-5" />,
-            label: 'Create Task',
-            action: () => setActiveTab('tasks'),
-            colorClass: 'group-hover:text-yellow-400',
-            primary: false
+            primary: true // Made primary since it's the main action now
           },
           {
             icon: <Phone className="w-5 h-5" />,
@@ -451,6 +542,30 @@ export const ProjectDetails: React.FC = () => {
         // These tabs don't have quick actions
         return null;
       
+      case 'documents':
+        return [
+          {
+            icon: <FileText className="w-5 h-5" />,
+            label: 'Add Document',
+            action: () => {
+              // TODO: Open add document modal
+              console.log('Add document');
+            },
+            colorClass: 'group-hover:text-blue-400',
+            primary: true
+          },
+          {
+            icon: <MessageSquare className="w-5 h-5" />,
+            label: 'Generate Contract',
+            action: () => {
+              // TODO: Generate contract from template
+              console.log('Generate contract');
+            },
+            colorClass: 'group-hover:text-purple-400',
+            primary: false
+          }
+        ];
+      
       default:
         return [];
     }
@@ -464,6 +579,8 @@ export const ProjectDetails: React.FC = () => {
         return '📅 Use the timeline to drag and adjust schedules';
       case 'photos':
         return '📷 Drag photos here or use the upload button below';
+      case 'documents':
+        return '📄 View project documents';
       default:
         return '';
     }
@@ -759,6 +876,17 @@ export const ProjectDetails: React.FC = () => {
           Photos
           {photoCount > 0 && <span className="text-xs text-gray-500">{photoCount}</span>}
         </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'documents'
+              ? 'text-white after:bg-blue-500'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+          }`}
+        >
+          Documents
+          {documentCount > 0 && <span className="text-xs text-gray-500">{documentCount}</span>}
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -776,7 +904,7 @@ export const ProjectDetails: React.FC = () => {
             }
             return (
               <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
-                <div className="grid grid-cols-4 gap-1">
+                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
                   {actions.map((action, index) => (
                     <button 
                       key={index}
@@ -942,30 +1070,6 @@ export const ProjectDetails: React.FC = () => {
             )}
           </section>
 
-          {/* Recent Activity */}
-          <section className="bg-[#181818] rounded-xl p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Recent Activity</h3>
-            {recentActivity.length > 0 ? (
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex gap-3">
-                    <div className="w-8 h-8 bg-[#2a2a2a] rounded-full flex items-center justify-center flex-shrink-0 text-sm">
-                      {activity.icon}
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-sm text-white">{activity.text}</div>
-                      <div className="text-xs text-gray-500">{activity.time}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-gray-500">
-                <div className="text-sm">No recent activity</div>
-              </div>
-            )}
-          </section>
-
           {/* Invoices */}
           {projectInvoices.length > 0 ? (
             <section className="bg-[#181818] rounded-xl p-6">
@@ -1035,6 +1139,132 @@ export const ProjectDetails: React.FC = () => {
             </section>
           )}
 
+          {/* Tasks */}
+          {taskCount > 0 ? (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Tasks</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-[#121212] rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-medium mb-1">Task Progress</div>
+                      <div className="text-xs text-gray-500">
+                        {completedTaskCount} of {taskCount} tasks completed
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-lg font-medium ${progress >= 75 ? 'text-green-400' : progress >= 50 ? 'text-yellow-400' : 'text-red-400'}`}>
+                        {progress}%
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-300 ${progress >= 75 ? 'bg-green-400' : progress >= 50 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab('tasks')}
+                  className="w-full bg-[#121212] hover:bg-[#1a1a1a] rounded-lg p-4 text-left transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-300">View all tasks</span>
+                    <span className="text-xs text-blue-500">→</span>
+                  </div>
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Tasks</h3>
+              <div className="text-center py-8">
+                <CheckSquare className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">No tasks found</p>
+              </div>
+            </section>
+          )}
+
+          {/* Expenses */}
+          {expenseCount > 0 ? (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-sm font-semibold uppercase tracking-wider">Expenses</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="bg-[#121212] rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-medium mb-1">Total Expenses</div>
+                      <div className="text-xs text-gray-500">
+                        {expenseCount} expense{expenseCount !== 1 ? 's' : ''} • {budgetSpentPercentage}% of budget
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-lg font-medium ${expenseTotal <= project.budget ? 'text-green-400' : 'text-red-400'}`}>
+                        {formatCurrency(expenseTotal)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-300 ${expenseTotal <= project.budget ? 'bg-green-400' : 'bg-red-400'}`}
+                        style={{ width: `${Math.min(budgetSpentPercentage, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveTab('expenses')}
+                  className="w-full bg-[#121212] hover:bg-[#1a1a1a] rounded-lg p-4 text-left transition-colors"
+                >
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-300">View all expenses</span>
+                    <span className="text-xs text-blue-500">→</span>
+                  </div>
+                </button>
+              </div>
+            </section>
+          ) : (
+            <section className="bg-[#181818] rounded-xl p-6">
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Expenses</h3>
+              <div className="text-center py-8">
+                <DollarSign className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                <p className="text-gray-500 text-sm">No expenses found</p>
+              </div>
+            </section>
+          )}
+
+          {/* Recent Activity */}
+          <section className="bg-[#181818] rounded-xl p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Recent Activity</h3>
+            {recentActivity.length > 0 ? (
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                  <div key={index} className="flex gap-3">
+                    <div className="w-8 h-8 bg-[#2a2a2a] rounded-full flex items-center justify-center flex-shrink-0 text-sm">
+                      {activity.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm text-white">{activity.text}</div>
+                      <div className="text-xs text-gray-500">{activity.time}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 text-gray-500">
+                <div className="text-sm">No recent activity</div>
+              </div>
+            )}
+          </section>
+
           {/* Project Details */}
           <section className="bg-[#181818] rounded-xl p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Project Details</h3>
@@ -1080,7 +1310,7 @@ export const ProjectDetails: React.FC = () => {
             }
             return (
               <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
-                <div className="grid grid-cols-4 gap-1">
+                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
                   {actions.map((action, index) => (
                     <button 
                       key={index}
@@ -1130,7 +1360,7 @@ export const ProjectDetails: React.FC = () => {
             }
             return (
               <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
-                <div className="grid grid-cols-4 gap-1">
+                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
                   {actions.map((action, index) => (
                     <button 
                       key={index}
@@ -1287,6 +1517,127 @@ export const ProjectDetails: React.FC = () => {
           </div>
         </div>
       )}
+
+      {activeTab === 'documents' && (
+        <div className="space-y-4">
+          {/* Floating Quick Actions Bar */}
+          {(() => {
+            const actions = getQuickActionsForTab(activeTab);
+            if (!actions) {
+              return (
+                <div className="bg-[#181818] rounded-xl p-8 text-center">
+                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
+                </div>
+              );
+            }
+            return (
+              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
+                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
+                  {actions.map((action, index) => (
+                    <button 
+                      key={index}
+                      onClick={action.action}
+                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
+                        action.primary 
+                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
+                      }`}
+                      disabled={action.disabled}
+                    >
+                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
+                        {action.icon}
+                      </div>
+                      <span className="text-xs font-medium">{action.label}</span>
+                      {action.primary && (
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+          
+          <ProjectDocuments projectId={project.id} />
+        </div>
+      )}
+
+      {/* Create Invoice Drawer */}
+      <CreateInvoiceDrawer
+        isOpen={showInvoiceDrawer}
+        onClose={() => setShowInvoiceDrawer(false)}
+        projectContext={project ? {
+          projectId: project.id,
+          clientId: project.client_id,
+          projectName: project.name,
+          projectBudget: project.budget
+        } : undefined}
+        onSave={async (data) => {
+          try {
+            console.log('Invoice save started with data:', data);
+            
+            const invoiceData = {
+              user_id: user?.id,
+              client_id: data.client_id,
+              amount: data.total_amount,
+              status: data.status,
+              issue_date: data.issue_date,
+              due_date: data.due_date,
+              description: data.description,
+              project_id: data.project_id || null
+            };
+            
+            console.log('Invoice data to insert:', invoiceData);
+            
+            const { data: invoice, error: invoiceError } = await supabase
+              .from('invoices')
+              .insert(invoiceData)
+              .select()
+              .single();
+
+            if (invoiceError) {
+              console.error('Error creating invoice:', invoiceError);
+              alert(`Error creating invoice: ${invoiceError.message}`);
+              throw invoiceError;
+            }
+
+            console.log('Invoice created successfully:', invoice);
+
+            // Create invoice items
+            const itemsToInsert = data.items.map(item => ({
+              invoice_id: invoice.id,
+              product_id: item.product_id,
+              quantity: item.quantity,
+              unit_price: item.price,
+              total_price: item.price * item.quantity,
+              description: item.description
+            }));
+
+            console.log('Inserting invoice items:', itemsToInsert);
+
+            const { error: itemsError } = await supabase
+              .from('invoice_items')
+              .insert(itemsToInsert);
+
+            if (itemsError) {
+              console.error('Error inserting invoice items:', itemsError);
+              alert(`Error inserting invoice items: ${itemsError.message}`);
+              throw itemsError;
+            }
+            
+            console.log('Invoice and items created successfully!');
+            
+            // Refresh the invoices list
+            await loadProjectData(false);
+            setShowInvoiceDrawer(false);
+            
+            // Show success message
+            alert('Invoice created successfully!');
+          } catch (error) {
+            console.error('Error saving invoice:', error);
+          }
+        }}
+      />
     </div>
   );
 };

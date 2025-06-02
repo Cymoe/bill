@@ -7,7 +7,7 @@ interface MobileMenuProps {
   isOpen: boolean;
   onClose: () => void;
   selectedOrg: { id: string; name: string; industry: string };
-  mockOrgs: { id: string; name: string; industry: string }[];
+  organizations: { id: string; name: string; industry: string }[];
   onOrgChange: (org: { id: string; name: string; industry: string }) => void;
   onShowHelp: () => void;
 }
@@ -16,7 +16,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
   isOpen,
   onClose,
   selectedOrg,
-  mockOrgs,
+  organizations,
   onOrgChange,
   onShowHelp
 }) => {
@@ -59,7 +59,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
           
           {orgDropdownOpen && (
             <div className="mt-2 space-y-1">
-              {mockOrgs.map(org => (
+              {organizations.map(org => (
                 <button
                   key={org.id}
                   onClick={() => {

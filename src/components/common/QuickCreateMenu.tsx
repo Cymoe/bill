@@ -12,9 +12,11 @@ interface QuickCreateOption {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  showInvoiceDrawer: boolean;
+  setShowInvoiceDrawer: (value: boolean) => void;
 }
 
-export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose }) => {
+export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceDrawer, setShowInvoiceDrawer }) => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState(-1);
 
@@ -23,42 +25,47 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose }) => {
       id: 'project',
       name: 'Project',
       icon: 'P',
-      shortcut: '⌘P',
+      shortcut: '⌘⇧P',
       action: () => navigate('/projects/new')
     },
     {
       id: 'client',
       name: 'Client',
       icon: '👤',
-      shortcut: '⌘C',
+      shortcut: '⌘⇧C',
       action: () => navigate('/clients/new')
     },
     {
       id: 'invoice',
       name: 'Invoice',
       icon: '$',
-      shortcut: '⌘I',
-      action: () => navigate('/invoices/new')
+      shortcut: '⌘⇧I',
+      action: () => {
+        // Close the menu first
+        onClose();
+        // Open the drawer immediately
+        setShowInvoiceDrawer(true);
+      }
     },
     {
       id: 'lineitem',
       name: 'Line Item',
       icon: '+',
-      shortcut: '⌘L',
+      shortcut: '⌘⇧L',
       action: () => console.log('Create line item')
     },
     {
       id: 'product',
       name: 'Product',
       icon: '📦',
-      shortcut: '⌘D',
+      shortcut: '⌘⇧D',
       action: () => console.log('Create product')
     },
     {
       id: 'template',
       name: 'Template',
       icon: '📋',
-      shortcut: '⌘T',
+      shortcut: '⌘⇧T',
       action: () => console.log('Create template')
     }
   ];

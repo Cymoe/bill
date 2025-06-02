@@ -8,7 +8,8 @@ import {
   Building,
   CreditCard,
   HelpCircle,
-  LogOut
+  LogOut,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -19,7 +20,7 @@ interface SidebarProps {
   setOrgDropdownOpen: (value: boolean) => void;
   selectedOrg: { id: string; name: string; industry: string };
   setSelectedOrg: (org: { id: string; name: string; industry: string }) => void;
-  mockOrgs: { id: string; name: string; industry: string }[];
+  organizations: { id: string; name: string; industry: string }[];
   isProjectsSidebarOpen: boolean;
   setIsProjectsSidebarOpen: (value: boolean) => void;
   isProjectsSidebarLocked: boolean;
@@ -43,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setOrgDropdownOpen,
   selectedOrg,
   setSelectedOrg,
-  mockOrgs,
+  organizations,
   isProjectsSidebarOpen,
   setIsProjectsSidebarOpen,
   isProjectsSidebarLocked,
@@ -109,7 +110,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Organization Dropdown */}
           {orgDropdownOpen && !isSidebarCollapsed && (
             <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1A1A1A] border border-[#2A2A2A] shadow-lg z-50 py-1 overflow-hidden">
-              {mockOrgs.map((org) => (
+              {organizations.map((org) => (
                 <button
                   key={org.id}
                   className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#2A2A2A] transition-colors ${selectedOrg.id === org.id ? 'bg-[#2A2A2A]' : ''}`}
@@ -248,7 +249,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📦</span>
+                      <span className="text-xl font-bold">▢</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -285,7 +286,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Templates */}
+            {/* Work Packs */}
             <NavLink
               to="/templates"
               className={({ isActive }) =>
@@ -298,11 +299,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📋</span>
+                      <span className="text-xl font-bold">▣</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Templates
+                        Work Packs
                       </span>
                     )}
                   </div>
@@ -323,7 +324,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📘</span>
+                      <span className="text-2xl font-bold">•</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -520,6 +521,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 >
                   <User className="w-4 h-4 mr-3 text-[#9E9E9E]" />
                   <span className="font-['Roboto']">Profile Settings</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    navigate('/settings/industries');
+                    setIsProfileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center px-4 py-3 text-sm text-white hover:bg-[#333333] transition-colors duration-200"
+                >
+                  <Building2 className="w-4 h-4 mr-3 text-[#9E9E9E]" />
+                  <span className="font-['Roboto']">Industry Settings</span>
                 </button>
                 
                 <button

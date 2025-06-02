@@ -1,12 +1,8 @@
 import React from 'react';
-import { TemplateManager } from '../components/templates/TemplateManager';
+import WorkPacksPage from './WorkPacksPage';
 
 const Templates: React.FC = () => {
-  return (
-    <div className="container mx-auto px-4 py-8">
-      <TemplateManager />
-    </div>
-  );
+  return <WorkPacksPage />;
 };
 
 export default Templates; 

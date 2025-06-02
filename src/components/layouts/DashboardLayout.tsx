@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, createContext, useCallback } from 'react';
+import React, { useState, useEffect, useRef, createContext, useCallback, useMemo } from 'react';
 import { Outlet, useNavigate, useLocation, NavLink } from 'react-router-dom';
 import { QuickCreateButton } from '../common/QuickCreateButton';
 import { QuickCreateMenu } from '../common/QuickCreateMenu';
@@ -24,7 +24,12 @@ import {
   Settings,
   Building,
   CreditCard,
-  HelpCircle
+  HelpCircle,
+  Search,
+  UserPlus,
+  UserCheck,
+  UserX,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NewClientModal } from '../clients/NewClientModal';
@@ -43,7 +48,26 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+// Add types for organizations
+interface Organization {
+  id: string;
+  name: string;
+  industry: string;
+  industry_id?: string;
+  role?: string;
+  is_default?: boolean;
+}
+
 export const IndustryContext = createContext<{ selectedIndustry: string; setSelectedIndustry: (v: string) => void }>({ selectedIndustry: 'All Trades', setSelectedIndustry: () => {} });
+
+// Context for selected organization
+export const OrganizationContext = createContext<{ 
+  selectedOrg: { id: string; name: string; industry: string }; 
+  setSelectedOrg: (org: { id: string; name: string; industry: string }) => void;
+}>({ 
+  selectedOrg: { id: '', name: 'Loading...', industry: 'General Construction' }, 
+  setSelectedOrg: () => {} 
+});
 
 // Context for mobile menu state
 export const MobileMenuContext = createContext<{ isMobileMenuOpen: boolean; setIsMobileMenuOpen: (v: boolean) => void }>({ isMobileMenuOpen: false, setIsMobileMenuOpen: () => {} });
@@ -71,6 +95,7 @@ export const LayoutContext = createContext<{
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
   const { user, signOut, session, isLoading } = useAuth();
   const isAuthenticated = !!session;
+  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
@@ -113,6 +138,174 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const [availableContentWidth, setAvailableContentWidth] = useState<'full' | 'constrained' | 'minimal' | 'compact'>('full');
+  
+  // Real organizations state
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; industry: string; industry_id: string }>>([
+    {
+      id: '264f2bfa-3073-41ca-81cc-d7b795507522',
+      name: 'Myles Kameron\'s Company',
+      industry: 'General Construction',
+      industry_id: '5bf10848-8346-4860-aaf5-b7a0423c8119'
+    },
+    {
+      id: '9e7526ab-6c4d-46a3-b1e6-2006c0921b0c',
+      name: 'Elite Electrical Services',
+      industry: 'Electrical',
+      industry_id: 'ba342394-2dc3-4168-8a9e-1c4cf837ef7c'
+    },
+    {
+      id: 'e937cb24-deba-4f15-8bc1-87007a309a88',
+      name: 'Professional Plumbing Co.',
+      industry: 'Plumbing',
+      industry_id: 'ad07961b-c4ef-47ae-a429-20ecba120ffe'
+    },
+    {
+      id: 'ea99134b-c9d5-416a-8493-d53a14f2f349',
+      name: 'Superior HVAC Solutions',
+      industry: 'HVAC',
+      industry_id: '3cfb3c97-a3e8-4324-8515-069350c1a2e8'
+    },
+    {
+      id: '44a02835-dff5-43ae-a005-c47a826df30f',
+      name: 'Apex Roofing Contractors',
+      industry: 'Roofing',
+      industry_id: '3f8d6863-f220-4c9e-b82a-57de8ab0428f'
+    }
+  ]);
+  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string; industry: string }>({ 
+    id: '264f2bfa-3073-41ca-81cc-d7b795507522', 
+    name: 'Myles Kameron\'s Company', 
+    industry: 'General Construction' 
+  });
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+
+  // Load user's organizations
+  useEffect(() => {
+    // Temporarily disabled while debugging connectivity issue
+    // The correct organization is set in initial state above
+    setLoadingOrgs(false);
+    return;
+    
+    const loadOrganizations = async () => {
+      if (!user) {
+        console.log('No user, skipping organization load');
+        return;
+      }
+      
+      try {
+        setLoadingOrgs(true);
+        console.log('Loading organizations for user:', user.id);
+        
+        // Test basic Supabase connectivity first
+        console.log('Testing Supabase connectivity...');
+        const { data: testData, error: testError } = await supabase
+          .from('user_organizations')
+          .select('count')
+          .limit(1);
+        
+        console.log('Connectivity test result:', { testData, testError });
+        
+        if (testError) {
+          console.error('Connectivity test failed:', testError);
+          throw new Error(`Supabase connectivity failed: ${testError.message}`);
+        }
+        
+        // First get user-organization relationships
+        const { data: userOrgs, error: userOrgsError } = await supabase
+          .from('user_organizations')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('is_default', { ascending: false });
+          
+        console.log('User organizations result:', { userOrgs, userOrgsError });
+        
+        if (userOrgsError) {
+          console.error('User organizations query error:', userOrgsError);
+          throw userOrgsError;
+        }
+        
+        if (!userOrgs || userOrgs.length === 0) {
+          console.log('No organizations found for user');
+          setSelectedOrg({ 
+            id: '', 
+            name: 'No Organization', 
+            industry: 'General Construction' 
+          });
+          setLoadingOrgs(false);
+          return;
+        }
+        
+        // Get organization details
+        const orgIds = userOrgs.map(uo => uo.organization_id);
+        const { data: organizations, error: orgsError } = await supabase
+          .from('organizations')
+          .select(`
+            id,
+            name,
+            industry_id,
+            industries(name)
+          `)
+          .in('id', orgIds);
+          
+        console.log('Organizations details result:', { organizations, orgsError });
+        
+        if (orgsError) throw orgsError;
+        
+        // Combine the data
+        const orgs = userOrgs.map(userOrg => {
+          const org = organizations?.find(o => o.id === userOrg.organization_id);
+          return {
+            id: org?.id || '',
+            name: org?.name || 'Unknown Organization',
+            industry: org?.industries?.[0]?.name || 'General Construction',
+            industry_id: org?.industry_id || '',
+            role: userOrg.role,
+            is_default: userOrg.is_default
+          };
+        }).filter(org => org.id);
+        
+        console.log('Processed organizations:', orgs);
+        
+        setOrganizations(orgs);
+        
+        // Set the default organization or first one
+        const defaultOrg = orgs.find(o => o.is_default) || orgs[0];
+        console.log('Default organization to set:', defaultOrg);
+        
+        if (defaultOrg) {
+          const savedOrgId = localStorage.getItem('selectedOrgId');
+          const savedOrg = savedOrgId ? orgs.find(o => o.id === savedOrgId) : null;
+          const orgToSet = savedOrg || defaultOrg;
+          console.log('Final organization being set:', orgToSet);
+          setSelectedOrg(orgToSet);
+        }
+      } catch (error) {
+        console.error('Error loading organizations:', error);
+        console.error('Error details:', {
+          message: (error as any)?.message,
+          details: (error as any)?.details,
+          hint: (error as any)?.hint,
+          code: (error as any)?.code
+        });
+        setSelectedOrg({ 
+          id: '', 
+          name: 'Error Loading', 
+          industry: 'General Construction' 
+        });
+      } finally {
+        setLoadingOrgs(false);
+      }
+    };
+    
+    loadOrganizations();
+  }, [user]);
+
+  // Save selected org to localStorage when it changes
+  useEffect(() => {
+    if (selectedOrg.id) {
+      localStorage.setItem('selectedOrgId', selectedOrg.id);
+    }
+  }, [selectedOrg]);
 
   const startResizing = useCallback((mouseDownEvent: React.MouseEvent) => {
     mouseDownEvent.preventDefault();
@@ -182,14 +375,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     return 'Dashboard';
   };
 
-  const mockOrgs = [
-    { id: 'org1', name: 'Acme Construction', industry: 'New Construction' },
-    { id: 'org2', name: 'Remodel Pros', industry: 'Remodelers' },
-    { id: 'org3', name: 'Service Kings', industry: 'Service' },
-    { id: 'org4', name: 'Luxury Estates', industry: 'Luxury Villas' },
-  ];
-  const [selectedOrg, setSelectedOrg] = useState(mockOrgs[0]);
-  
   const moneyPulseData = {
     D: { revenue: 24500, profit: 7623, goal: 33500, percentage: 73 },
     W: { revenue: 127800, profit: 38340, goal: 150000, percentage: 85 },
@@ -261,6 +446,72 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
       navigate("/");
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle shortcuts when no input is focused and no modal is open
+      const activeElement = document.activeElement;
+      const isInputFocused = activeElement && (
+        activeElement.tagName === 'INPUT' || 
+        activeElement.tagName === 'TEXTAREA' || 
+        activeElement.getAttribute('contenteditable') === 'true'
+      );
+      
+      if (isInputFocused || showNewClientModal || showNewInvoiceDrawer || showLineItemDrawer || showHelpModal) {
+        return;
+      }
+
+      // Check for Cmd/Ctrl + key combinations
+      if (e.metaKey || e.ctrlKey) {
+        // ⌘K for quick create menu (this one is usually safe)
+        if (e.key.toLowerCase() === 'k' && !e.shiftKey) {
+          e.preventDefault();
+          setIsCreateMenuOpen(!isCreateMenuOpen);
+          return;
+        }
+        
+        // All other shortcuts require Shift to avoid browser conflicts
+        if (e.shiftKey) {
+          switch (e.key.toLowerCase()) {
+            case 'p':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              navigate('/projects/new');
+              break;
+            case 'c':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              navigate('/clients/new');
+              break;
+            case 'i':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              setShowNewInvoiceDrawer(true);
+              break;
+            case 'l':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              setShowLineItemDrawer(true);
+              break;
+            case 'd':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              navigate('/products');
+              break;
+            case 't':
+              e.preventDefault();
+              setIsCreateMenuOpen(false);
+              console.log('Template creation shortcut - not implemented yet');
+              break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigate, isCreateMenuOpen, showNewClientModal, showNewInvoiceDrawer, showLineItemDrawer, showHelpModal]);
 
   useEffect(() => {
     if (isChatPanelOpen && (isProjectsSidebarLocked || isProjectsSidebarOpen) && !isSidebarCollapsed) {
@@ -406,6 +657,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     <MobileCreateMenuContext.Provider value={{ isCreateMenuOpen, setIsCreateMenuOpen }}>
     <MobileMenuContext.Provider value={{ isMobileMenuOpen, setIsMobileMenuOpen }}>
     <IndustryContext.Provider value={{ selectedIndustry, setSelectedIndustry }}>
+    <OrganizationContext.Provider value={{ selectedOrg, setSelectedOrg }}>
     <LayoutContext.Provider value={{ 
       isConstrained: isConstrained, 
       isMinimal: isMinimal,
@@ -434,6 +686,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         <QuickCreateMenu 
           isOpen={isCreateMenuOpen} 
           onClose={() => setIsCreateMenuOpen(false)} 
+          showInvoiceDrawer={showNewInvoiceDrawer}
+          setShowInvoiceDrawer={setShowNewInvoiceDrawer}
         />
 
         {/* Desktop Layout Container */}
@@ -652,7 +906,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             setOrgDropdownOpen={setOrgDropdownOpen}
             selectedOrg={selectedOrg}
             setSelectedOrg={setSelectedOrg}
-            mockOrgs={mockOrgs}
+            organizations={organizations}
             isProjectsSidebarOpen={isProjectsSidebarOpen}
             setIsProjectsSidebarOpen={setIsProjectsSidebarOpen}
             isProjectsSidebarLocked={isProjectsSidebarLocked}
@@ -751,42 +1005,69 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           onClose={() => setShowNewInvoiceDrawer(false)}
           onSave={async (data) => {
             try {
-              // Create the invoice
+              console.log('Invoice save started with data:', data);
+              
+              const invoiceData = {
+                user_id: user?.id,
+                client_id: data.client_id,
+                amount: data.total_amount,
+                status: data.status,
+                issue_date: data.issue_date,
+                due_date: data.due_date,
+                description: data.description,
+                project_id: data.project_id || null
+              };
+              
+              console.log('Invoice data to insert:', invoiceData);
+              
               const { data: invoice, error: invoiceError } = await supabase
                 .from('invoices')
-                .insert({
-                  user_id: user?.id,
-                  client_id: data.client_id,
-                  amount: data.total_amount,
-                  status: data.status,
-                  issue_date: data.issue_date,
-                  due_date: data.due_date,
-                  description: data.description
-                })
+                .insert(invoiceData)
                 .select()
                 .single();
 
-              if (invoiceError) throw invoiceError;
+              if (invoiceError) {
+                console.error('Error creating invoice:', invoiceError);
+                alert(`Error creating invoice: ${invoiceError.message}`);
+                throw invoiceError;
+              }
+
+              console.log('Invoice created successfully:', invoice);
 
               // Create invoice items
               const itemsToInsert = data.items.map(item => ({
                 invoice_id: invoice.id,
                 product_id: item.product_id,
                 quantity: item.quantity,
-                price: item.price,
+                unit_price: item.price,
+                total_price: item.price * item.quantity,
                 description: item.description
               }));
+
+              console.log('Inserting invoice items:', itemsToInsert);
 
               const { error: itemsError } = await supabase
                 .from('invoice_items')
                 .insert(itemsToInsert);
 
-              if (itemsError) throw itemsError;
-
-              console.log('New invoice created:', invoice);
+              if (itemsError) {
+                console.error('Error inserting invoice items:', itemsError);
+                alert(`Error inserting invoice items: ${itemsError.message}`);
+                throw itemsError;
+              }
+              
+              console.log('Invoice and items created successfully!');
+              
+              // Close the drawer
               setShowNewInvoiceDrawer(false);
+              
+              // Show success message
+              alert('Invoice created successfully!');
+              
+              // Navigate to the invoices page  
+              navigate('/invoices');
             } catch (error) {
-              console.error('Error creating invoice:', error);
+              console.error('Error saving invoice:', error);
             }
           }}
         />
@@ -1051,7 +1332,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
           selectedOrg={selectedOrg}
-          mockOrgs={mockOrgs}
+          organizations={organizations}
           onOrgChange={setSelectedOrg}
           onShowHelp={() => setShowHelpModal(true)}
         />
@@ -1082,6 +1363,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         )}
       </div>
     </LayoutContext.Provider>
+    </OrganizationContext.Provider>
     </IndustryContext.Provider>
     </MobileMenuContext.Provider>
     </MobileCreateMenuContext.Provider>

@@ -6,7 +6,7 @@ export type Tables = {
     name: string;
     description: string;
     client_id: string;
-    status: 'active' | 'completed' | 'on-hold' | 'cancelled';
+    status: 'planned' | 'active' | 'completed' | 'on-hold' | 'cancelled';
     budget: number;
     start_date: string;
     end_date: string;

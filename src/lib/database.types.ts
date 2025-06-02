@@ -62,7 +62,7 @@ export interface TemplateInput {
 export interface ProjectInput {
   name: string;
   description: string;
-  status: 'active' | 'completed' | 'on-hold' | 'cancelled';
+  status: 'planned' | 'active' | 'completed' | 'on-hold' | 'cancelled';
   budget: number;
   start_date: string;
   end_date: string;

@@ -272,6 +272,10 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       console.log('Trades loaded:', tradesRes.data);
       console.log('Project category filter:', projectCategory);
       
+      // Add debugging for projects
+      console.log('Projects array length:', projectsRes.data?.length || 0);
+      console.log('Projects data:', projectsRes.data);
+      
       // For now, show all products in both tabs until we have a better way to differentiate
       const allProducts = productsRes.data || [];
       const allLineItems = lineItemsRes.data || [];
@@ -537,7 +541,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     <>
       {/* Backdrop with blur effect */}
       <div
-        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity z-[9998] ${
+        className={`fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity z-[10000] ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={handleClose}
@@ -545,7 +549,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
 
       {/* Drawer */}
       <div
-        className={`fixed right-0 top-0 h-full w-[80%] max-w-[1200px] bg-[#121212] shadow-xl transform transition-transform z-[9999] ${
+        className={`fixed right-0 top-0 h-full w-[80%] max-w-[1200px] bg-[#121212] shadow-xl transform transition-transform z-[10001] ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -944,6 +948,9 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
                   </select>
                   {selectedClient && projects.filter(p => p.client_id === selectedClient).length === 0 && (
                     <p className="text-xs text-gray-500 mt-1">No projects found for this client</p>
+                  )}
+                  {projects.length === 0 && (
+                    <p className="text-xs text-yellow-500 mt-1">No projects in system. Create a project first to associate invoices.</p>
                   )}
                 </div>
                 
