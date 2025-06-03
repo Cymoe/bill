@@ -184,7 +184,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
             }
           >
             <span className="text-lg">📘</span>
-            <span>Price Book</span>
+            <span>Cost Codes</span>
           </NavLink>
         </nav>
 

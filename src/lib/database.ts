@@ -93,10 +93,11 @@ export type Tables = {
 
 export const db = {
   projects: {
-    async list(clientId?: string) {
+    async list(organizationId: string, clientId?: string) {
       const query = supabase
         .from('projects')
         .select('*')
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (clientId) {
@@ -126,22 +127,33 @@ export const db = {
       return data;
     },
 
-    async create(data: Omit<Tables['projects'], 'id' | 'created_at' | 'updated_at'> & { user_id: string }) {
-      const { error } = await supabase
+    async create(data: Omit<Tables['projects'], 'id' | 'created_at' | 'updated_at'> & { organization_id: string }) {
+      const { data: project, error } = await supabase
         .from('projects')
-        .insert(data);
-      if (error) throw error;
-    },
-
-    async update(id: string, data: Partial<Tables['projects']>) {
-      const { error } = await supabase
-        .from('projects')
-        .update(data)
-        .eq('id', id);
+        .insert(data)
+        .select()
+        .single();
 
       if (error) {
         throw error;
       }
+
+      return project;
+    },
+
+    async update(id: string, data: Partial<Tables['projects']>) {
+      const { data: project, error } = await supabase
+        .from('projects')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return project;
     },
 
     async delete(id: string) {
@@ -228,15 +240,15 @@ export const db = {
     }
   },
   clients: {
-    async list(userId: string) {
+    async list(organizationId: string) {
       const { data, error } = await supabase
         .from('clients')
         .select()
-        .eq('user_id', userId);
+        .eq('organization_id', organizationId);
       if (error) throw error;
       return data;
     },
-    async create(data: Omit<Tables['clients'], 'id' | 'created_at'> & { user_id: string }): Promise<Tables['clients']> {
+    async create(data: Omit<Tables['clients'], 'id' | 'created_at'> & { user_id: string; organization_id: string }): Promise<Tables['clients']> {
       const { data: result, error } = await supabase
         .from('clients')
         .insert(data)
@@ -261,7 +273,7 @@ export const db = {
     }
   },
   invoices: {
-    async list(userId: string) {
+    async list(organizationId: string) {
       const { data, error } = await supabase
         .from('invoices')
         .select(`
@@ -272,7 +284,7 @@ export const db = {
             company
           )
         `)
-        .eq('user_id', userId);
+        .eq('organization_id', organizationId);
       if (error) throw error;
       return data;
     },
@@ -294,7 +306,7 @@ export const db = {
       if (error) throw error;
       return data;
     },
-    async create(data: Omit<Tables['invoices'], 'id' | 'created_at'>) {
+    async create(data: Omit<Tables['invoices'], 'id' | 'created_at'> & { organization_id: string }) {
       const { error } = await supabase
         .from('invoices')
         .insert(data);
@@ -316,33 +328,82 @@ export const db = {
     }
   },
   products: {
-    async list(userId: string) {
-      const { data, error } = await supabase
+    async list(organizationId: string, costCodeId?: string) {
+      const query = supabase
         .from('products')
-        .select()
-        .eq('user_id', userId);
-      if (error) throw error;
+        .select(`
+          *,
+          cost_code:cost_codes(name, code),
+          vendor:vendors(name)
+        `)
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+
+      if (costCodeId) {
+        query.eq('cost_code_id', costCodeId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
       return data;
     },
-    async create(data: Omit<Tables['products'], 'id' | 'created_at'>) {
-      const { error } = await supabase
+    async getById(id: string) {
+      const { data, error } = await supabase
         .from('products')
-        .insert(data);
-      if (error) throw error;
+        .select(`
+          *,
+          cost_code:cost_codes(name, code),
+          vendor:vendors(name)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+    async create(data: Omit<Tables['products'], 'id' | 'created_at' | 'updated_at'> & { organization_id: string }) {
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return product;
     },
     async update(id: string, data: Partial<Tables['products']>) {
-      const { error } = await supabase
+      const { data: product, error } = await supabase
         .from('products')
         .update(data)
-        .eq('id', id);
-      if (error) throw error;
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return product;
     },
     async delete(id: string) {
       const { error } = await supabase
         .from('products')
         .delete()
         .eq('id', id);
-      if (error) throw error;
+
+      if (error) {
+        throw error;
+      }
     }
   },
   invoice_items: {
@@ -525,6 +586,116 @@ export const db = {
         .eq('id', id);
       
       if (error) throw error;
+    }
+  },
+  costCodes: {
+    async list() {
+      const { data, error } = await supabase
+        .from('cost_codes')
+        .select('*')
+        .order('code');
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async getById(id: string) {
+      const { data, error } = await supabase
+        .from('cost_codes')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    }
+  },
+  lineItems: {
+    async list(costCodeId?: string) {
+      const query = supabase
+        .from('line_items')
+        .select(`
+          *,
+          cost_code:cost_codes(name, code),
+          vendor:vendors(name)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (costCodeId) {
+        query.eq('cost_code_id', costCodeId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async getById(id: string) {
+      const { data, error } = await supabase
+        .from('line_items')
+        .select(`
+          *,
+          cost_code:cost_codes(name, code),
+          vendor:vendors(name)
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async create(data: any) {
+      const { data: lineItem, error } = await supabase
+        .from('line_items')
+        .insert(data)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return lineItem;
+    },
+
+    async update(id: string, data: any) {
+      const { data: lineItem, error } = await supabase
+        .from('line_items')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return lineItem;
+    },
+
+    async delete(id: string) {
+      const { error } = await supabase
+        .from('line_items')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
     }
   }
 };

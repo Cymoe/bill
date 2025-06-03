@@ -9,7 +9,8 @@ import {
   CreditCard,
   HelpCircle,
   LogOut,
-  Building2
+  Building2,
+  Book
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -328,7 +329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Price Book
+                        Cost Codes
                       </span>
                     )}
                   </div>

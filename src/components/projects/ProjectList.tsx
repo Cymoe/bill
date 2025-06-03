@@ -9,7 +9,7 @@ import { NewButton } from '../common/NewButton';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { Dropdown } from '../common/Dropdown';
 import { formatCurrency } from '../../utils/format';
-import { LayoutContext } from '../layouts/DashboardLayout';
+import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateProjectWizard } from './CreateProjectWizard';
 
 type Project = Tables['projects'];
@@ -18,6 +18,7 @@ export const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isConstrained, availableWidth } = useContext(LayoutContext);
+  const { selectedOrg } = useContext(OrganizationContext);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -82,11 +83,17 @@ export const ProjectList: React.FC = () => {
 
   // Function to fetch projects
   const fetchProjects = async (showLoading = true) => {
+    if (!selectedOrg?.id) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       if (showLoading) {
         setLoading(true);
       }
-      const projectsData = await db.projects.list();
+      const projectsData = await db.projects.list(selectedOrg.id);
       setProjects(projectsData);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -99,18 +106,23 @@ export const ProjectList: React.FC = () => {
 
   // Initial load and refresh on navigation/visibility changes
   useEffect(() => {
-    fetchProjects(true); // Show loading on initial load
+    if (selectedOrg?.id) {
+      fetchProjects(true); // Show loading on initial load
+    }
+  }, [selectedOrg?.id]);
 
-    // Refresh when the page becomes visible again
+  // Refresh when the page becomes visible again or window regains focus
+  useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && selectedOrg?.id) {
         fetchProjects(false); // Don't show loading on refresh
       }
     };
 
-    // Refresh when the window regains focus
     const handleFocus = () => {
-      fetchProjects(false); // Don't show loading on refresh
+      if (selectedOrg?.id) {
+        fetchProjects(false); // Don't show loading on refresh
+      }
     };
 
     // Listen to page visibility changes
@@ -121,12 +133,14 @@ export const ProjectList: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [selectedOrg?.id]);
 
   // Also refresh when location changes (navigation)
   useEffect(() => {
-    fetchProjects(false); // Don't show loading on navigation
-  }, [location.pathname]);
+    if (selectedOrg?.id) {
+      fetchProjects(false); // Don't show loading on navigation
+    }
+  }, [location.pathname, selectedOrg?.id]);
 
   // Construction project categories
   const categories = [
@@ -1107,7 +1121,7 @@ export const ProjectList: React.FC = () => {
           // Refresh the project list when the wizard is closed
           const fetchProjects = async () => {
             try {
-              const projectsData = await db.projects.list();
+              const projectsData = await db.projects.list(selectedOrg.id);
               setProjects(projectsData);
             } catch (error) {
               console.error('Error fetching projects:', error);

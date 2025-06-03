@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, ChevronDown, ChevronRight, Receipt, DollarSign } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, Receipt, DollarSign, Filter } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+
+interface CostCode {
+  id: string;
+  name: string;
+  code: string;
+  category: string;
+}
 
 interface Expense {
   id: string;
@@ -16,6 +23,8 @@ interface Expense {
   project_id: string;
   created_at: string;
   updated_at: string;
+  cost_code_id?: string;
+  cost_code?: CostCode;
 }
 
 interface ExpensesListProps {
@@ -39,22 +48,44 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
     amount: '',
     vendor: '',
     category: '',
+    cost_code_id: '',
     date: new Date().toISOString().split('T')[0]
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [costCodes, setCostCodes] = useState<CostCode[]>([]);
+  const [selectedCostCode, setSelectedCostCode] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'date' | 'costcode'>('date');
 
   useEffect(() => {
     if (user && projectId) {
       loadExpenses();
+      loadCostCodes();
     }
   }, [user, projectId]);
+
+  const loadCostCodes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cost_codes')
+        .select('*')
+        .order('code');
+
+      if (error) throw error;
+      setCostCodes(data || []);
+    } catch (error) {
+      console.error('Error loading cost codes:', error);
+    }
+  };
 
   const loadExpenses = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('expenses')
-        .select('*')
+        .select(`
+          *,
+          cost_code:cost_codes(id, name, code, category)
+        `)
         .eq('project_id', projectId)
         .order('date', { ascending: false });
 
@@ -100,12 +131,16 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
           amount: parseFloat(newExpense.amount),
           vendor: newExpense.vendor || null,
           category: newExpense.category || 'Material',
+          cost_code_id: newExpense.cost_code_id || null,
           date: newExpense.date,
           status: 'pending',
           project_id: projectId,
           user_id: user?.id
         })
-        .select()
+        .select(`
+          *,
+          cost_code:cost_codes(id, name, code, category)
+        `)
         .single();
 
       if (error) throw error;
@@ -119,6 +154,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
         amount: '',
         vendor: '',
         category: '',
+        cost_code_id: '',
         date: new Date().toISOString().split('T')[0]
       });
       setIsCreating(false);
@@ -139,6 +175,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
         amount: '',
         vendor: '',
         category: '',
+        cost_code_id: '',
         date: new Date().toISOString().split('T')[0]
       });
     }
@@ -188,6 +225,31 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
     });
 
     return groups;
+  };
+
+  const groupExpensesByCostCode = () => {
+    const groups = expenses.reduce((acc, expense) => {
+      const costCodeId = expense.cost_code_id || 'no-cost-code';
+      if (!acc[costCodeId]) {
+        acc[costCodeId] = {
+          costCode: expense.cost_code,
+          expenses: [],
+          total: 0,
+          count: 0
+        };
+      }
+      acc[costCodeId].expenses.push(expense);
+      acc[costCodeId].total += expense.amount;
+      acc[costCodeId].count += 1;
+      return acc;
+    }, {} as Record<string, { costCode?: CostCode; expenses: Expense[]; total: number; count: number }>);
+
+    return Object.values(groups).sort((a, b) => {
+      if (!a.costCode && !b.costCode) return 0;
+      if (!a.costCode) return 1;
+      if (!b.costCode) return -1;
+      return a.costCode.code.localeCompare(b.costCode.code);
+    });
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -242,6 +304,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
   }
 
   const groupedExpenses = groupExpensesByDate();
+  const groupedByCostCode = groupExpensesByCostCode();
   const totalPending = expenses.filter(e => e.status !== 'paid').reduce((sum, e) => sum + e.amount, 0);
   const totalPaid = expenses.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
   const totalExpenses = totalPending + totalPaid;
@@ -257,6 +320,10 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
   const sortedCategories = Object.entries(categoryTotals)
     .sort(([, a], [, b]) => b - a)
     .slice(0, 3); // Top 3 categories
+
+  const filteredExpenses = selectedCostCode === 'all' 
+    ? expenses 
+    : expenses.filter(e => e.cost_code_id === selectedCostCode || (selectedCostCode === 'no-cost-code' && !e.cost_code_id));
 
   return (
     <div className="space-y-6">
@@ -291,12 +358,46 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
         </div>
       </div>
 
-      {/* Header */}
+      {/* View Mode Toggle & Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <button className="text-sm text-gray-500 hover:text-gray-400">
-            ○ all expenses <ChevronDown className="inline w-3 h-3 ml-1" />
-          </button>
+          <div className="flex items-center bg-[#1a1a1a] rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('date')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                viewMode === 'date' 
+                  ? 'bg-[#336699] text-white' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              By Date
+            </button>
+            <button
+              onClick={() => setViewMode('costcode')}
+              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                viewMode === 'costcode' 
+                  ? 'bg-[#336699] text-white' 
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              By Cost Code
+            </button>
+          </div>
+          {viewMode === 'costcode' && (
+            <select
+              value={selectedCostCode}
+              onChange={(e) => setSelectedCostCode(e.target.value)}
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
+            >
+              <option value="all">All Cost Codes</option>
+              <option value="no-cost-code">No Cost Code</option>
+              {costCodes.map(cc => (
+                <option key={cc.id} value={cc.id}>
+                  {cc.code} {cc.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
         {!isCreating && editable && (
           <button 
@@ -312,11 +413,11 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
       {isCreating && (
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-600 flex items-center justify-center">
+            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-600 flex items-center justify-center flex-shrink-0">
               <DollarSign className="w-3 h-3 text-gray-600" />
             </div>
             
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 space-y-3 min-w-0">
               <div className="flex gap-3">
                 <input
                   type="text"
@@ -324,7 +425,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
                   onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
                   onKeyDown={handleKeyPress}
                   placeholder="What did you pay for?"
-                  className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm"
+                  className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm min-w-0"
                   autoFocus
                 />
                 <input
@@ -334,81 +435,98 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
                   onKeyDown={handleKeyPress}
                   placeholder="0.00"
                   step="0.01"
-                  className="w-24 bg-transparent text-white placeholder-gray-500 outline-none text-sm text-right"
+                  className="w-24 bg-transparent text-white placeholder-gray-500 outline-none text-sm text-right flex-shrink-0"
                 />
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="space-y-3">
                 <input
                   type="text"
                   value={newExpense.vendor}
                   onChange={(e) => setNewExpense({...newExpense, vendor: e.target.value})}
                   onKeyDown={handleKeyPress}
                   placeholder="Vendor (optional)"
-                  className="flex-1 bg-transparent text-gray-400 placeholder-gray-600 outline-none text-xs"
+                  className="w-full bg-transparent text-gray-400 placeholder-gray-600 outline-none text-xs"
                 />
                 
-                <div className="relative">
-                  <button
-                    onClick={() => setShowDatePicker(!showDatePicker)}
-                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-400"
-                  >
-                    <Calendar className="w-3 h-3" />
-                    {new Date(newExpense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </button>
-                  
-                  {showDatePicker && (
-                    <div className="absolute top-full mt-1 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-2 z-10">
-                      <div className="space-y-1">
-                        <button
-                          onClick={() => setQuickDate('today')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                        >
-                          Today
-                        </button>
-                        <button
-                          onClick={() => setQuickDate('yesterday')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                        >
-                          Yesterday
-                        </button>
-                        <button
-                          onClick={() => setQuickDate('lastWeek')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                        >
-                          Last week
-                        </button>
-                        <div className="border-t border-[#2a2a2a] my-1"></div>
-                        <input
-                          type="date"
-                          value={newExpense.date}
-                          onChange={(e) => {
-                            setNewExpense({...newExpense, date: e.target.value});
-                            setShowDatePicker(false);
-                          }}
-                          className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white"
-                        />
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowDatePicker(!showDatePicker)}
+                      className="flex items-center gap-1 px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] transition-colors"
+                    >
+                      <Calendar className="w-3 h-3" />
+                      {new Date(newExpense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </button>
+                    
+                    {showDatePicker && (
+                      <div className="absolute top-full mt-1 left-0 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-2 z-10 min-w-[160px]">
+                        <div className="space-y-1">
+                          <button
+                            onClick={() => setQuickDate('today')}
+                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          >
+                            Today
+                          </button>
+                          <button
+                            onClick={() => setQuickDate('yesterday')}
+                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          >
+                            Yesterday
+                          </button>
+                          <button
+                            onClick={() => setQuickDate('lastWeek')}
+                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          >
+                            Last week
+                          </button>
+                          <div className="border-t border-[#2a2a2a] my-1"></div>
+                          <input
+                            type="date"
+                            value={newExpense.date}
+                            onChange={(e) => {
+                              setNewExpense({...newExpense, date: e.target.value});
+                              setShowDatePicker(false);
+                            }}
+                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white"
+                          />
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+                  
+                  <select
+                    value={newExpense.category}
+                    onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
+                    className="px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] outline-none cursor-pointer min-w-[100px]"
+                  >
+                    <option value="">Material</option>
+                    <option value="Labor">Labor</option>
+                    <option value="Equipment">Equipment</option>
+                    <option value="Permits">Permits</option>
+                    <option value="Subcontractor">Subcontractor</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  
+                  <div className="flex-1"></div>
+                  
+                  <select
+                    value={newExpense.cost_code_id}
+                    onChange={(e) => setNewExpense({...newExpense, cost_code_id: e.target.value})}
+                    className="px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] outline-none cursor-pointer min-w-[200px]"
+                  >
+                    <option value="">No Cost Code</option>
+                    {costCodes.map(cc => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.code} {cc.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                
-                <select
-                  value={newExpense.category}
-                  onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                  className="text-xs bg-transparent text-gray-500 hover:text-gray-400 outline-none cursor-pointer"
-                >
-                  <option value="">Material</option>
-                  <option value="Labor">Labor</option>
-                  <option value="Equipment">Equipment</option>
-                  <option value="Permits">Permits</option>
-                  <option value="Subcontractor">Subcontractor</option>
-                  <option value="Other">Other</option>
-                </select>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={createExpense}
                 className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
@@ -423,6 +541,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
                     amount: '',
                     vendor: '',
                     category: '',
+                    cost_code_id: '',
                     date: new Date().toISOString().split('T')[0]
                   });
                 }}
@@ -435,88 +554,157 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
         </div>
       )}
 
-      {/* Expense Groups */}
-      <div className="space-y-6">
-        {/* Today's Expenses */}
-        {groupedExpenses.today.length > 0 && (
-          <div>
-            <button
-              onClick={() => toggleSection('today')}
-              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-            >
-              {expandedSections.today ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              today
-            </button>
-            {expandedSections.today && (
-              <div className="space-y-2">
-                {groupedExpenses.today.map(expense => (
-                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+      {/* Expense Display based on View Mode */}
+      {viewMode === 'costcode' ? (
+        // Cost Code View
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Cost Code Navigation */}
+          <div className="lg:col-span-1">
+            <div className="bg-[#1a1a1a] rounded-lg p-4 sticky top-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Cost Categories</h3>
+              <div className="space-y-1">
+                <button
+                  onClick={() => setSelectedCostCode('all')}
+                  className={`w-full flex justify-between items-center px-3 py-2 rounded text-sm transition-colors ${
+                    selectedCostCode === 'all'
+                      ? 'bg-[#336699]/20 text-[#336699]'
+                      : 'hover:bg-[#2a2a2a]'
+                  }`}
+                >
+                  <span className="font-medium">All Categories</span>
+                  <span className="text-xs">{formatCurrency(totalExpenses)}</span>
+                </button>
+                
+                {groupedByCostCode.map(group => (
+                  <button
+                    key={group.costCode?.id || 'no-cost-code'}
+                    onClick={() => setSelectedCostCode(group.costCode?.id || 'no-cost-code')}
+                    className={`w-full flex justify-between items-center px-3 py-2 rounded text-sm transition-colors ${
+                      selectedCostCode === (group.costCode?.id || 'no-cost-code')
+                        ? 'bg-[#336699]/20 text-[#336699]'
+                        : 'hover:bg-[#2a2a2a]'
+                    }`}
+                  >
+                    <span className="text-left">
+                      {group.costCode ? (
+                        <>
+                          <span className="font-medium">{group.costCode.code}</span>
+                          <span className="text-xs text-gray-500 block">{group.costCode.name}</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-500">No Cost Code</span>
+                      )}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-xs block">{formatCurrency(group.total)}</span>
+                      <span className="text-xs text-gray-500">{group.count} items</span>
+                    </div>
+                  </button>
                 ))}
               </div>
-            )}
+            </div>
           </div>
-        )}
 
-        {/* This Week's Expenses */}
-        {groupedExpenses.thisWeek.length > 0 && (
-          <div>
-            <button
-              onClick={() => toggleSection('thisWeek')}
-              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-            >
-              {expandedSections.thisWeek ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              this week
-            </button>
-            {expandedSections.thisWeek && (
-              <div className="space-y-2">
-                {groupedExpenses.thisWeek.map(expense => (
-                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                ))}
-              </div>
-            )}
+          {/* Expenses List */}
+          <div className="lg:col-span-3">
+            <div className="space-y-2">
+              {filteredExpenses.map(expense => (
+                <ExpenseItem 
+                  key={expense.id} 
+                  expense={expense} 
+                  onToggle={toggleExpenseStatus} 
+                  formatDate={formatExpenseDate} 
+                  getCategoryColor={getCategoryColor}
+                  showCostCode={true}
+                />
+              ))}
+            </div>
           </div>
-        )}
+        </div>
+      ) : (
+        // Date View (existing functionality)
+        <div className="space-y-6">
+          {/* Today's Expenses */}
+          {groupedExpenses.today.length > 0 && (
+            <div>
+              <button
+                onClick={() => toggleSection('today')}
+                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+              >
+                {expandedSections.today ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                today
+              </button>
+              {expandedSections.today && (
+                <div className="space-y-2">
+                  {groupedExpenses.today.map(expense => (
+                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Earlier Expenses */}
-        {groupedExpenses.earlier.length > 0 && (
-          <div>
-            <button
-              onClick={() => toggleSection('earlier')}
-              className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-            >
-              {expandedSections.earlier ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              earlier
-            </button>
-            {expandedSections.earlier && (
-              <div className="space-y-2">
-                {groupedExpenses.earlier.map(expense => (
-                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+          {/* This Week's Expenses */}
+          {groupedExpenses.thisWeek.length > 0 && (
+            <div>
+              <button
+                onClick={() => toggleSection('thisWeek')}
+                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+              >
+                {expandedSections.thisWeek ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                this week
+              </button>
+              {expandedSections.thisWeek && (
+                <div className="space-y-2">
+                  {groupedExpenses.thisWeek.map(expense => (
+                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
-        {/* Paid Expenses */}
-        {groupedExpenses.paid.length > 0 && (
-          <div className="mt-8 pt-8 border-t border-[#2a2a2a]">
-            <button
-              onClick={() => setShowPaid(!showPaid)}
-              className="flex items-center gap-2 text-sm text-gray-500 mb-3"
-            >
-              {showPaid ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-              paid expenses ({groupedExpenses.paid.length})
-            </button>
-            {showPaid && (
-              <div className="space-y-2 opacity-50">
-                {groupedExpenses.paid.map(expense => (
-                  <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+          {/* Earlier Expenses */}
+          {groupedExpenses.earlier.length > 0 && (
+            <div>
+              <button
+                onClick={() => toggleSection('earlier')}
+                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
+              >
+                {expandedSections.earlier ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                earlier
+              </button>
+              {expandedSections.earlier && (
+                <div className="space-y-2">
+                  {groupedExpenses.earlier.map(expense => (
+                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Paid Expenses */}
+          {groupedExpenses.paid.length > 0 && (
+            <div className="mt-8 pt-8 border-t border-[#2a2a2a]">
+              <button
+                onClick={() => setShowPaid(!showPaid)}
+                className="flex items-center gap-2 text-sm text-gray-500 mb-3"
+              >
+                {showPaid ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                paid expenses ({groupedExpenses.paid.length})
+              </button>
+              {showPaid && (
+                <div className="space-y-2 opacity-50">
+                  {groupedExpenses.paid.map(expense => (
+                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty State */}
       {expenses.length === 0 && (
@@ -542,7 +730,8 @@ const ExpenseItem: React.FC<{
   onToggle: (id: string, status: string) => void;
   formatDate: (date: string) => string;
   getCategoryColor: (category: string) => string;
-}> = ({ expense, onToggle, formatDate, getCategoryColor }) => {
+  showCostCode?: boolean;
+}> = ({ expense, onToggle, formatDate, getCategoryColor, showCostCode = false }) => {
   const isPaid = expense.status === 'paid';
   
   return (
@@ -589,6 +778,17 @@ const ExpenseItem: React.FC<{
               }}
             >
               {expense.category}
+            </span>
+          )}
+          {showCostCode && expense.cost_code && (
+            <span 
+              className="text-xs px-2 py-0.5 rounded"
+              style={{ 
+                backgroundColor: `${getCategoryColor(expense.cost_code.category)}20`,
+                color: getCategoryColor(expense.cost_code.category)
+              }}
+            >
+              {expense.cost_code.code}
             </span>
           )}
           {expense.receipt_url && (

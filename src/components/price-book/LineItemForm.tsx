@@ -10,12 +10,13 @@ interface LineItemFormData {
   price: number;
   unit: string;
   type: string;
-  trade_id: string;
+  cost_code_id: string;
 }
 
-interface Trade {
+interface CostCode {
   id: string;
   name: string;
+  code: string;
 }
 
 interface LineItemFormProps {
@@ -39,27 +40,27 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
       price: initialData?.price?.toString() || '0',
       unit: initialData?.unit || 'hour',
       type: initialData?.type || 'material',
-      trade_id: initialData?.trade_id || ''
+      cost_code_id: initialData?.cost_code_id || ''
     }
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [costCodes, setCostCodes] = useState<CostCode[]>([]);
 
   useEffect(() => {
-    fetchTrades();
+    fetchCostCodes();
   }, [user]);
 
-  const fetchTrades = async () => {
+  const fetchCostCodes = async () => {
     try {
       const { data, error } = await supabase
-        .from('trades')
-        .select('id, name')
-        .order('name');
+        .from('cost_codes')
+        .select('id, name, code')
+        .order('code');
       
       if (error) throw error;
-      setTrades(data || []);
+      setCostCodes(data || []);
     } catch (error) {
-      console.error('Error fetching trades:', error);
+      console.error('Error fetching cost codes:', error);
     }
   };
 
@@ -75,7 +76,7 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
         price: isNaN(price) ? 0 : price,
         unit: data.unit,
         type: data.type,
-        trade_id: data.trade_id
+        cost_code_id: data.cost_code_id
       });
     } finally {
       setIsLoading(false);
@@ -85,23 +86,23 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="p-4 space-y-4">
       <div>
-        <label htmlFor="trade_id" className="block text-sm font-medium text-gray-300 mb-1">
-          Trade
+        <label htmlFor="cost_code_id" className="block text-sm font-medium text-gray-300 mb-1">
+          Cost Code
         </label>
         <select
-          {...register('trade_id', { required: 'Trade selection is required' })}
-          id="trade_id"
+          {...register('cost_code_id', { required: 'Cost Code selection is required' })}
+          id="cost_code_id"
           className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
         >
-          <option value="" className="bg-[#333333] text-white">Select Trade</option>
-          {trades.map(trade => (
-            <option key={trade.id} value={trade.id} className="bg-[#333333] text-white">
-              {trade.name}
+          <option value="" className="bg-[#333333] text-white">Select Cost Code</option>
+          {costCodes.map(code => (
+            <option key={code.id} value={code.id} className="bg-[#333333] text-white">
+              {code.code} {code.name}
             </option>
           ))}
         </select>
-        {errors.trade_id && (
-          <p className="mt-1 text-sm text-[#D32F2F]">{errors.trade_id.message as string}</p>
+        {errors.cost_code_id && (
+          <p className="mt-1 text-sm text-[#D32F2F]">{errors.cost_code_id.message as string}</p>
         )}
       </div>
 

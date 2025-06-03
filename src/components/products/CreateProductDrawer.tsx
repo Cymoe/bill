@@ -12,12 +12,13 @@ interface LineItem {
   price: number;
   unit: string;
   type: string;
-  trade_id?: string;
+  cost_code_id?: string;
 }
 
-interface Trade {
+interface CostCode {
   id: string;
   name: string;
+  code: string;
 }
 
 interface SelectedLineItem extends LineItem {
@@ -41,7 +42,7 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
   const [category, setCategory] = useState('');
   const [markupPercentage, setMarkupPercentage] = useState(0);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [trades, setTrades] = useState<Trade[]>([]);
+  const [costCodes, setCostCodes] = useState<CostCode[]>([]);
   const [selectedLineItems, setSelectedLineItems] = useState<SelectedLineItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeType, setActiveType] = useState<string>('all');
@@ -51,21 +52,21 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
   useEffect(() => {
     if (isOpen) {
       fetchLineItems();
-      fetchTrades();
+      fetchCostCodes();
     }
   }, [isOpen, user?.id]);
 
-  const fetchTrades = async () => {
+  const fetchCostCodes = async () => {
     try {
       const { data, error } = await supabase
-        .from('trades')
-        .select('id, name')
-        .order('name');
+        .from('cost_codes')
+        .select('id, name, code')
+        .order('code');
       
       if (error) throw error;
-      setTrades(data || []);
+      setCostCodes(data || []);
     } catch (error) {
-      console.error('Error fetching trades:', error);
+      console.error('Error fetching cost codes:', error);
     }
   };
 
@@ -97,21 +98,21 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
     return matchesSearch && matchesType && notAlreadySelected;
   });
 
-  // Group filtered items by trade
+  // Group filtered items by cost code
   const groupedLineItems = filteredLineItems.reduce((groups, item) => {
-    const trade = trades.find(t => t.id === item.trade_id);
-    const tradeName = trade?.name || 'Unassigned';
+    const costCode = costCodes.find(c => c.id === item.cost_code_id);
+    const costCodeName = costCode?.name || 'Unassigned';
     
-    if (!groups[tradeName]) {
-      groups[tradeName] = [];
+    if (!groups[costCodeName]) {
+      groups[costCodeName] = [];
     }
-    groups[tradeName].push(item);
+    groups[costCodeName].push(item);
     
     return groups;
   }, {} as Record<string, LineItem[]>);
 
-  // Sort trade names alphabetically
-  const sortedTradeNames = Object.keys(groupedLineItems).sort();
+  // Sort cost code names alphabetically
+  const sortedCostCodeNames = Object.keys(groupedLineItems).sort();
 
   const addLineItem = (item: LineItem) => {
     setSelectedLineItems([...selectedLineItems, { ...item, quantity: 1 }]);
@@ -243,7 +244,7 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
 
         {/* Main Content - Compact Layout */}
         <div className="flex h-[calc(100%-60px)]">
-          {/* Left Column - Line Items (40% width) */}
+          {/* Left Column - Cost Code Items (40% width) */}
           <div className="w-[40%] border-r border-[#333333] flex flex-col">
             {/* Search and Filters */}
             <div className="p-3 border-b border-[#333333] space-y-2">
@@ -251,7 +252,7 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search line items..."
+                  placeholder="Search cost code items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-9 pr-3 py-1.5 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
@@ -286,18 +287,18 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
                 </div>
               ) : (
                 <div>
-                  {sortedTradeNames.map(tradeName => (
-                    <div key={tradeName}>
-                      {/* Trade Header */}
+                  {sortedCostCodeNames.map(costCodeName => (
+                    <div key={costCodeName}>
+                      {/* Cost Code Header */}
                       <div className="sticky top-0 bg-[#336699]/20 backdrop-blur-sm border-b border-[#336699]/30 px-3 py-2 z-10">
                         <h4 className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-                          {tradeName} ({groupedLineItems[tradeName].length})
+                          {costCodeName} ({groupedLineItems[costCodeName].length})
                         </h4>
                       </div>
                       
-                      {/* Trade Items */}
+                      {/* Cost Code Items */}
                       <div className="divide-y divide-[#333333]">
-                        {groupedLineItems[tradeName].map(item => (
+                        {groupedLineItems[costCodeName].map(item => (
                           <div
                             key={item.id}
                             className="px-3 py-2 hover:bg-[#1E1E1E] cursor-pointer transition-colors"

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
@@ -10,7 +10,7 @@ import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { PageHeaderBar } from '../common/PageHeaderBar';
-import { LayoutContext } from '../layouts/DashboardLayout';
+import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateInvoiceDrawer } from './CreateInvoiceDrawer';
 
 type Invoice = {
@@ -36,6 +36,7 @@ export const InvoiceList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -104,10 +105,15 @@ export const InvoiceList: React.FC = () => {
   }, [openInvoiceDropdown]);
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedOrg?.id) {
       fetchData();
+    } else {
+      setInvoices([]);
+      setClients([]);
+      setProducts([]);
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, selectedOrg?.id]);
 
   // Handle navigation from project page
   useEffect(() => {
@@ -120,21 +126,29 @@ export const InvoiceList: React.FC = () => {
   }, [location.state]);
 
   const fetchData = async () => {
+    if (!selectedOrg?.id) {
+      setInvoices([]);
+      setClients([]);
+      setProducts([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const [invoicesRes, clientsRes, productsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('organization_id', selectedOrg.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('clients')
           .select('*')
-          .eq('user_id', user?.id),
+          .eq('organization_id', selectedOrg.id),
         supabase
           .from('products')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('organization_id', selectedOrg.id)
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;

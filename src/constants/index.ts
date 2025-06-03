@@ -30,5 +30,7 @@ export const PRODUCT_TYPE_OPTIONS = [
   { value: "labor", label: "Labor" },
   { value: "equipment", label: "Equipment" },
   { value: "service", label: "Service" },
-  { value: "subcontractor", label: "Subcontractor" }
+  { value: "subcontractor", label: "Subcontractor" },
+  { value: "permits", label: "Permits" },
+  { value: "other", label: "Other" }
 ]; 

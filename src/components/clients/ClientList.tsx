@@ -9,7 +9,7 @@ import { Dropdown } from '../common/Dropdown';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
-import { LayoutContext } from '../layouts/DashboardLayout';
+import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { StatsBar } from '../common/StatsBar';
 import { ControlsBar } from '../common/ControlsBar';
@@ -40,6 +40,7 @@ export const ClientList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
@@ -95,23 +96,35 @@ export const ClientList: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      fetchData();
+    if (user && selectedOrg?.id) {
+      fetchClients();
+    } else {
+      setClients([]);
+      setProjects([]);
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, selectedOrg?.id]);
 
-  const fetchData = async () => {
+  const fetchClients = async () => {
+    if (!selectedOrg?.id) {
+      setClients([]);
+      setProjects([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      setIsLoading(true);
       const [clientsRes, projectsRes] = await Promise.all([
         supabase
-        .from('clients')
-        .select('*')
-        .eq('user_id', user?.id)
+          .from('clients')
+          .select('*')
+          .eq('organization_id', selectedOrg.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('projects')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('organization_id', selectedOrg.id)
       ]);
 
       if (clientsRes.error) throw clientsRes.error;
@@ -137,7 +150,7 @@ export const ClientList: React.FC = () => {
       setClients(enrichedClients);
       setProjects(projectsData);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching clients:', err);
     } finally {
       setIsLoading(false);
     }
@@ -299,24 +312,27 @@ export const ClientList: React.FC = () => {
 
       if (error) throw error;
       setShowNewModal(false);
-      fetchData(); // Refresh the list
+      await fetchClients(); // Refresh the list
     } catch (err) {
       console.error('Error creating client:', err);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('clients')
-        .delete()
-        .eq('id', id);
+  const handleDeleteClient = async (clientId: string) => {
+    if (window.confirm('Are you sure you want to delete this client? This action cannot be undone.')) {
+      try {
+        const { error } = await supabase
+          .from('clients')
+          .delete()
+          .eq('id', clientId)
+          .eq('organization_id', selectedOrg?.id);
 
-      if (error) throw error;
-      setDeletingClient(null);
-      fetchData(); // Refresh the list
-    } catch (err) {
-      console.error('Error deleting client:', err);
+        if (error) throw error;
+        await fetchClients();
+      } catch (error) {
+        console.error('Error deleting client:', error);
+        alert('Failed to delete client. Please try again.');
+      }
     }
   };
 
@@ -905,7 +921,7 @@ export const ClientList: React.FC = () => {
               if (error) throw error;
               
               setShowNewModal(false);
-              await fetchData();
+              await fetchClients();
             } catch (error) {
               console.error('Error creating client:', error);
             }
@@ -946,7 +962,7 @@ export const ClientList: React.FC = () => {
                 if (error) throw error;
                 
                 setEditingClient(null);
-                await fetchData();
+                await fetchClients();
               } catch (error) {
                 console.error('Error updating client:', error);
               }
@@ -961,7 +977,7 @@ export const ClientList: React.FC = () => {
         <DeleteConfirmationModal
           title="Delete Client"
           message="Are you sure you want to delete this client? This action cannot be undone."
-          onConfirm={() => handleDelete(deletingClient.id)}
+          onConfirm={() => handleDeleteClient(deletingClient.id)}
           onCancel={() => setDeletingClient(null)}
         />
       )}

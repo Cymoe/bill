@@ -30,6 +30,7 @@ import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
 import { CategoryAnalytics } from './components/analytics/CategoryAnalytics';
 import Templates from './pages/Templates';
+import WorkPacksPage from './pages/WorkPacksPage';
 import { WorkPackDetail } from './pages/WorkPackDetail';
 import IndustrySettings from './pages/IndustrySettings';
 
@@ -190,6 +191,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <Templates />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/work-packs"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <WorkPacksPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

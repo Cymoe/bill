@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import ProductComparisonModal from './ProductComparisonModal';
 import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package, Search, Plus, List, LayoutGrid, Settings, FileText, Columns } from 'lucide-react';
 import { ProductVariantComparison } from './ProductVariantComparison';
@@ -16,7 +16,7 @@ import { NewButton } from '../common/NewButton';
 import TabMenu from '../common/TabMenu';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
-import { LayoutContext } from '../layouts/DashboardLayout';
+import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { getCollectionLabel, PRODUCT_COLLECTIONS } from '../../constants/collections';
 
 // Product type
@@ -32,15 +32,19 @@ interface Product {
   is_base_product: boolean;
   created_at: string;
   updated_at: string;
-  trade_id?: string;
+  cost_code_id?: string;
   user_id?: string;
   parent_product_id?: string;
   parent_name?: string;
   variant?: boolean;
-  trade?: {
+  cost_code?: {
     id: string;
     name: string;
-};
+    code: string;
+  };
+  vendor?: {
+    name: string;
+  };
   variants: any[];
   items?: any[];
 }
@@ -69,6 +73,7 @@ interface ProductsPageProps {
 // Accept editingProduct and setEditingProduct as props
 export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPageProps) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -98,6 +103,8 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const [sortBy, setSortBy] = useState<string>(searchParams.get('sortBy') || 'price');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>((searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc');
   const [selectedDateRange, setSelectedDateRange] = useState(searchParams.get('dateRange') || 'all');
+  const [costCodes, setCostCodes] = useState<{ id: string; name: string; code: string }[]>([]);
+  const [selectedCostCode, setSelectedCostCode] = useState<string>(searchParams.get('costCode') || 'all');
 
   const [expandedProductId, setExpandedProductId] = useState<string | null>(null);
   const [comparingProduct, setComparingProduct] = useState<any>(null);
@@ -175,80 +182,53 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   }, [editingProduct]);
 
   useEffect(() => {
-    console.log('Auth state:', { userId: user?.id, isAuthenticated: !!user });
-    if (user) {
-      console.log('User authenticated, fetching products...');
+    console.log('Auth state:', { userId: user?.id, isAuthenticated: !!user, orgId: selectedOrg?.id });
+    if (user && selectedOrg?.id) {
+      console.log('User authenticated and org selected, fetching products...');
       fetchProducts();
+      fetchCostCodes();
     } else {
-      console.log('No user found, skipping product fetch');
+      console.log('No user or organization found, skipping product fetch');
+      setProducts([]);
+      setIsLoading(false);
     }
-  }, [user]);
+  }, [user, selectedOrg?.id]);
 
-  const fetchTrades = async () => {
+  const fetchCostCodes = async () => {
     try {
       const { data, error } = await supabase
-        .from('trades')
-        .select('id, name')
-        .order('name');
-      if (!error && data) setTrades(data);
+        .from('cost_codes')
+        .select('id, name, code')
+        .order('code');
+      if (!error && data) setCostCodes(data);
     } catch (error) {
-      console.error('Error fetching trades:', error);
+      console.error('Error fetching cost codes:', error);
     }
   };
 
   const fetchProducts = async () => {
+    if (!selectedOrg?.id) {
+      setProducts([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
-      console.log('Starting to fetch products...');
-      
-      // Single optimized query with relationships
-      const { data: productsData, error: productsError } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select(`
-          id,
-          name,
-          description,
-          price,
-          unit,
-          type,
-          category,
-          status,
-          is_base_product,
-          created_at,
-          updated_at,
-          variants:products!parent_product_id(
-            id,
-            name,
-            description,
-            price,
-            unit,
-            type,
-            category,
-            status,
-            is_base_product,
-            created_at,
-            updated_at
-          ),
-          items:product_line_items!product_line_items_product_id_fkey(
-            id,
-            quantity,
-            price,
-            unit
-          )
+          *,
+          cost_code:cost_codes(name, code),
+          vendor:vendors(name)
         `)
-        .eq('is_base_product', true)
+        .eq('organization_id', selectedOrg.id)
         .order('created_at', { ascending: false });
 
-      if (productsError) {
-        console.error('Error from Supabase:', productsError);
-        throw productsError;
-      }
-
-      console.log('Raw products data:', productsData);
-      setProducts(productsData || []);
-      console.log('Products set in state:', productsData?.length);
-    } catch (err) {
-      console.error('Error fetching products:', err);
+      if (error) throw error;
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
     } finally {
       setIsLoading(false);
     }
@@ -261,10 +241,17 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(product => {
+        const matchesSearch = 
+          product.name.toLowerCase().includes(searchLower) ||
+          product.description?.toLowerCase().includes(searchLower) ||
+          product.cost_code?.name?.toLowerCase().includes(searchLower) ||
+          product.cost_code?.code?.toLowerCase().includes(searchLower) ||
+          product.vendor?.name?.toLowerCase().includes(searchLower);
+        
+        return matchesSearch;
+      });
     }
 
     // Category filter
@@ -1000,7 +987,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                                   parent_name: product.name,
                                   price: variant.price,
                                   unit: variant.unit,
-                                  trade_id: variant.trade_id,
+                                  cost_code_id: variant.cost_code_id,
                                   category: product.category,
                                     variant: true,
                                     type: variant.type || 'service',

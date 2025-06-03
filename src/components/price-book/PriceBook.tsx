@@ -23,7 +23,7 @@ interface Product {
   user_id: string;
   created_at: string;
   type: string;
-  trade_id?: string;
+  cost_code_id?: string;
   status: string;
   favorite: boolean;
   updated_at: string;
@@ -65,7 +65,7 @@ export const PriceBook: React.FC = () => {
   const optionsMenuRef = useRef<HTMLDivElement>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [trades, setTrades] = useState<{ id: string; name: string }[]>([]);
+  const [trades, setTrades] = useState<{ id: string; name: string; code: string }[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -109,7 +109,7 @@ export const PriceBook: React.FC = () => {
           price: data.price,
           unit: data.unit,
           type: data.type,
-          trade_id: data.trade_id || null,
+          cost_code_id: data.cost_code_id || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingProduct.id);
@@ -138,7 +138,7 @@ export const PriceBook: React.FC = () => {
           status: product.status,
           favorite: false,
           vendor_id: product.vendor_id,
-          trade_id: product.trade_id
+          cost_code_id: product.cost_code_id
         });
 
       if (error) throw error;
@@ -236,8 +236,8 @@ export const PriceBook: React.FC = () => {
   };
 
   const handlePrintPriceBook = () => {
-    // TODO: Implement print price book functionality
-    console.log('Print price book clicked');
+    // TODO: Implement print cost codes functionality
+    console.log('Print cost codes clicked');
   };
 
   // Close menus when clicking outside
@@ -303,33 +303,23 @@ export const PriceBook: React.FC = () => {
     }
   };
 
-  // Helper function to determine the trade for a product based on name and description
+  // Helper function to get the cost code for a product
   const getTrade = (product: Product): string => {
-    // Combine name and description for better matching
-    const searchText = (product.name + ' ' + product.description).toLowerCase();
+    if (!product.cost_code_id) return '—';
     
-    // Map product names and descriptions to trades
-    if (searchText.includes('plumb')) return 'Plumbing';
-    if (searchText.includes('electric') || searchText.includes('wire') || searchText.includes('circuit')) return 'Electrical';
-    if (searchText.includes('hvac') || searchText.includes('air') || searchText.includes('heat') || searchText.includes('cool')) return 'HVAC';
-    if (searchText.includes('carpent') || searchText.includes('wood') || searchText.includes('timber')) return 'Carpentry';
-    if (searchText.includes('paint') || searchText.includes('finish')) return 'Painting';
-    if (searchText.includes('floor') || searchText.includes('tile')) return 'Flooring';
-    if (searchText.includes('roof')) return 'Roofing';
-    if (searchText.includes('landscape') || searchText.includes('garden') || searchText.includes('yard')) return 'Landscaping';
-    if (searchText.includes('mason') || searchText.includes('brick') || searchText.includes('stone')) return 'Masonry';
+    const trade = trades.find(t => t.id === product.cost_code_id);
+    if (!trade) return '—';
     
-    // If no match, default to General Construction
-    return 'General Construction';
+    return `${trade.code} ${trade.name}`;
   };
   
   // Fetch trades from DB
   useEffect(() => {
     const fetchTrades = async () => {
       const { data, error } = await supabase
-        .from('trades')
-        .select('id, name')
-        .order('name');
+        .from('cost_codes')
+        .select('id, name, code')
+        .order('code');
       if (!error && data) setTrades(data);
     };
     fetchTrades();
@@ -376,9 +366,9 @@ export const PriceBook: React.FC = () => {
       filtered = filtered.filter(product => product.vendor_id === selectedVendorId);
     }
 
-    // Filter by trade_id (if not 'all')
+    // Filter by cost_code_id (if not 'all')
     if (selectedTradeId !== 'all') {
-      filtered = filtered.filter(product => product.trade_id === selectedTradeId);
+      filtered = filtered.filter(product => product.cost_code_id === selectedTradeId);
     }
 
     // Filter by search term
@@ -430,7 +420,7 @@ export const PriceBook: React.FC = () => {
     <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
       <PageHeaderBar 
-        title="Price Book"
+        title="Cost Codes"
         searchPlaceholder="Search items..."
         onSearch={(query) => setSearchInput(query)}
         searchValue={searchInput}
@@ -501,10 +491,10 @@ export const PriceBook: React.FC = () => {
                 value={selectedTradeId}
                 onChange={(e) => setSelectedTradeId(e.target.value)}
               >
-                <option value="all">All Trades ({products.length})</option>
+                <option value="all">All Cost Codes ({products.length})</option>
                 {trades.map(trade => (
                   <option key={trade.id} value={trade.id}>
-                    {trade.name} ({products.filter(p => p.trade_id === trade.id).length})
+                    {trade.code} {trade.name} ({products.filter(p => p.cost_code_id === trade.id).length})
                   </option>
                 ))}
               </select>
@@ -663,7 +653,7 @@ export const PriceBook: React.FC = () => {
                     className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                   >
                     <FileText className="w-3 h-3 mr-3 text-gray-400" />
-                    Print Price Book
+                    Print Cost Codes
                   </button>
                 </div>
               )}
@@ -739,7 +729,7 @@ export const PriceBook: React.FC = () => {
                 onClick={() => setActiveCategory('service')}
                 className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
                   activeCategory === 'service'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
                     : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
                 }`}
               >
@@ -756,7 +746,7 @@ export const PriceBook: React.FC = () => {
                 onClick={() => setActiveCategory('subcontractor')}
                 className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
                   activeCategory === 'subcontractor'
-                    ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
                     : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
                 }`}
               >
@@ -769,6 +759,40 @@ export const PriceBook: React.FC = () => {
                   </div>
                 )}
               </button>
+              <button
+                onClick={() => setActiveCategory('permits')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'permits'
+                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `${isMinimal ? 'Pmt' : 'Permits'} (${products.filter(p => p.type === 'permits').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Permits</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'permits').length})</span>
+                  </div>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveCategory('other')}
+                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                  activeCategory === 'other'
+                    ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                }`}
+              >
+                {isMinimal || isConstrained ? (
+                  `Other (${products.filter(p => p.type === 'other').length})`
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <span>Other</span>
+                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'other').length})</span>
+                  </div>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -776,10 +800,10 @@ export const PriceBook: React.FC = () => {
         {/* Table Column Headers */}
         <div className={`${isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
           <div className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
-            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>ITEM</div>
-            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>PRICE</div>
-            {!isMinimal && !isConstrained && <div className="col-span-2">TRADE</div>}
-            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right`}></div>
+            {!isMinimal && !isConstrained && <div className="col-span-2">COST CODE</div>}
+            <div className={`${isMinimal ? 'col-span-5' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>ITEM</div>
+            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-2' : 'col-span-3'} text-right`}>PRICE</div>
+            <div className={`col-span-1 text-right`}></div>
           </div>
         </div>
         
@@ -788,14 +812,14 @@ export const PriceBook: React.FC = () => {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-400">Loading your price book...</p>
+              <p className="text-gray-400">Loading cost codes...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
                 <span className="text-red-400 text-2xl">⚠</span>
               </div>
-              <h3 className="text-lg font-medium text-white mb-2">Error Loading Price Book</h3>
+              <h3 className="text-lg font-medium text-white mb-2">Error Loading Cost Codes</h3>
               <p className="text-gray-400 mb-6 max-w-md">{error}</p>
               <button
                 onClick={() => fetchProducts()}
@@ -809,9 +833,9 @@ export const PriceBook: React.FC = () => {
             <div className="w-16 h-16 bg-[#333333] rounded-full flex items-center justify-center mb-4">
               <Plus className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-medium text-white mb-2">No items in your price book yet</h3>
+            <h3 className="text-lg font-medium text-white mb-2">No cost code items yet</h3>
             <p className="text-gray-400 mb-6 max-w-md">
-              Start building your price book by adding materials, labor, and services. This will help you create accurate estimates and invoices.
+              Start building your cost codes by adding materials, labor, and services. This will help you create accurate estimates and invoices.
             </p>
             <button
               onClick={() => setShowNewLineItemModal(true)}
@@ -835,18 +859,28 @@ export const PriceBook: React.FC = () => {
                 }}
                   className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 ${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
                 >
+                  {/* Cost Code Column - Hidden in minimal mode */}
+                  {!isMinimal && !isConstrained && (
+                    <div className="col-span-2 text-sm text-gray-300">
+                      {getTrade(product)}
+                    </div>
+                  )}
+                    
                   {/* Item Column */}
-                  <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
+                  <div className={`${isMinimal ? 'col-span-5' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
                     <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
                       <span className={`text-xs px-2 py-1 rounded-[2px] font-medium min-w-[60px] text-center ${
-                    product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
-                    product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
-                    product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
-                    product.type === 'service' ? 'bg-purple-500/20 text-purple-300' :
-                    'bg-gray-500/20 text-gray-300'
-                  }`}>
+                        product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
+                        product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
+                        product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
+                        product.type === 'service' ? 'bg-cyan-500/20 text-cyan-300' :
+                        product.type === 'subcontractor' ? 'bg-purple-500/20 text-purple-300' :
+                        product.type === 'permits' ? 'bg-yellow-500/20 text-yellow-300' :
+                        product.type === 'other' ? 'bg-gray-500/20 text-gray-300' :
+                        'bg-gray-500/20 text-gray-300'
+                      }`}>
                         {product.type === 'subcontractor' ? 'sub' : product.type}
-                  </span>
+                      </span>
                       <div className="min-w-0 flex-1">
                         <div className={`font-medium text-gray-100 truncate ${isMinimal ? 'text-sm' : ''}`}>{product.name}</div>
                         {product.description && !isMinimal && !isConstrained && (
@@ -854,27 +888,20 @@ export const PriceBook: React.FC = () => {
                         )}
                       </div>
                     </div>
-                    </div>
-                    
+                  </div>
+
                   {/* Price Column */}
-                  <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
+                  <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-2' : 'col-span-3'} text-right`}>
                     <div className={`font-mono font-semibold text-gray-100 ${isMinimal ? 'text-sm' : ''}`}>
-                  {formatCurrency(product.price)}
+                      {formatCurrency(product.price)}
                     </div>
                     {!isMinimal && !isConstrained && (
                       <div className="text-xs text-gray-400 capitalize">{product.unit}</div>
                     )}
-                    </div>
-                    
-                  {/* Trade Column - Hidden in minimal mode */}
-                  {!isMinimal && !isConstrained && (
-                    <div className="col-span-2 text-sm text-gray-300">
-                      {getTrade(product)}
-                </div>
-                  )}
+                  </div>
 
                   {/* Actions Column */}
-                  <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                  <div className={`${isMinimal ? 'col-span-1' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
                     <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -972,7 +999,7 @@ export const PriceBook: React.FC = () => {
         size="md"
       >
         <LineItemForm
-          onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; trade_id: string }) => {
+          onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; cost_code_id: string }) => {
             try {
               const { error } = await supabase
                 .from('products')
@@ -982,7 +1009,7 @@ export const PriceBook: React.FC = () => {
                   status: 'active',
                   favorite: false,
                   vendor_id: null,
-                  trade_id: data.trade_id || null
+                  cost_code_id: data.cost_code_id || null
                 });
 
               if (error) throw error;
@@ -1010,7 +1037,7 @@ export const PriceBook: React.FC = () => {
       >
         {editingProduct && (
           <LineItemForm
-            onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; trade_id: string }) => {
+            onSubmit={async (data: { name: string; description: string; price: number; unit: string; type: string; cost_code_id: string }) => {
               await handleSaveEdit(data);
             }}
             onCancel={() => {
