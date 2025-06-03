@@ -11,6 +11,8 @@ import { TaskList } from '../tasks/TaskList';
 import { ExpensesList } from '../expenses/ExpensesList';
 import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
 import { ProjectDocuments } from './ProjectDocuments';
+import { BudgetAnalysis } from './BudgetAnalysis';
+import { TimelineView } from './TimelineView';
 
 interface ProjectWithDetails {
   id: string;
@@ -83,6 +85,8 @@ export const ProjectDetails: React.FC = () => {
   const [completedTaskCount, setCompletedTaskCount] = useState(0);
   const [expenseCount, setExpenseCount] = useState(0);
   const [expenseTotal, setExpenseTotal] = useState(0);
+  const [expensePaid, setExpensePaid] = useState(0);
+  const [expensePending, setExpensePending] = useState(0);
   const [photoCount, setPhotoCount] = useState(0);
   const [documentCount, setDocumentCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -217,10 +221,10 @@ export const ProjectDetails: React.FC = () => {
           .select('status')
           .eq('project_id', id),
         
-        // Load expenses
+        // Load expenses with status
         supabase
           .from('expenses')
-          .select('amount')
+          .select('amount, status')
           .eq('project_id', id),
         
         // Load photo count
@@ -258,7 +262,12 @@ export const ProjectDetails: React.FC = () => {
       if (!expensesResult.error && expensesResult.data) {
         setExpenseCount(expensesResult.data.length);
         const total = expensesResult.data.reduce((sum, expense) => sum + expense.amount, 0);
+        const paid = expensesResult.data.filter(e => e.status === 'paid').reduce((sum, expense) => sum + expense.amount, 0);
+        const pending = expensesResult.data.filter(e => e.status === 'pending').reduce((sum, expense) => sum + expense.amount, 0);
+        
         setExpenseTotal(total);
+        setExpensePaid(paid);
+        setExpensePending(pending);
       }
       
       // Process photos data
@@ -434,7 +443,7 @@ export const ProjectDetails: React.FC = () => {
             icon: <DollarSign className="w-5 h-5" />,
             label: 'Generate Invoice',
             action: handleGenerateInvoice,
-            colorClass: 'group-hover:text-green-400',
+            colorClass: 'group-hover:text-[#F9D71C]',
             primary: true // Made primary since it's the main action now
           },
           {
@@ -445,55 +454,17 @@ export const ProjectDetails: React.FC = () => {
                 window.location.href = `tel:${project.client.phone}`;
               }
             },
-            colorClass: 'group-hover:text-purple-400',
+            colorClass: 'group-hover:text-[#336699]',
             disabled: !project?.client?.phone,
             primary: false
           }
         ];
       
       case 'tasks':
-        return [
-          {
-            icon: <CheckSquare className="w-5 h-5" />,
-            label: 'Create Task',
-            action: () => {
-              // TODO: Open create task modal
-              console.log('Create task');
-            },
-            colorClass: 'group-hover:text-yellow-400',
-            primary: true
-          },
-          {
-            icon: <Users className="w-5 h-5" />,
-            label: 'Assign Team',
-            action: () => {
-              // TODO: Open assign team modal
-              console.log('Assign team');
-            },
-            colorClass: 'group-hover:text-blue-400',
-            primary: false
-          },
-          {
-            icon: <Calendar className="w-5 h-5" />,
-            label: 'Schedule Work',
-            action: () => {
-              // TODO: Open schedule modal
-              console.log('Schedule work');
-            },
-            colorClass: 'group-hover:text-green-400',
-            primary: false
-          },
-          {
-            icon: <MessageSquare className="w-5 h-5" />,
-            label: 'Team Chat',
-            action: () => {
-              // TODO: Open team chat
-              console.log('Team chat');
-            },
-            colorClass: 'group-hover:text-purple-400',
-            primary: false
-          }
-        ];
+      case 'timeline':
+      case 'photos':
+        // These tabs don't have quick actions
+        return null;
       
       case 'expenses':
         return [
@@ -504,14 +475,14 @@ export const ProjectDetails: React.FC = () => {
               // TODO: Open add expense modal
               console.log('Add expense');
             },
-            colorClass: 'group-hover:text-blue-400',
+            colorClass: 'group-hover:text-[#F9D71C]',
             primary: true
           },
           {
             icon: <DollarSign className="w-5 h-5" />,
             label: 'Generate Invoice',
             action: handleGenerateInvoice,
-            colorClass: 'group-hover:text-green-400',
+            colorClass: 'group-hover:text-[#F9D71C]',
             primary: false
           },
           {
@@ -521,7 +492,7 @@ export const ProjectDetails: React.FC = () => {
               // TODO: Export expense report
               console.log('Export report');
             },
-            colorClass: 'group-hover:text-yellow-400',
+            colorClass: 'group-hover:text-[#336699]',
             primary: false
           },
           {
@@ -531,16 +502,34 @@ export const ProjectDetails: React.FC = () => {
               // TODO: Open bulk categorize modal
               console.log('Bulk categorize');
             },
-            colorClass: 'group-hover:text-purple-400',
+            colorClass: 'group-hover:text-[#F9D71C]',
             primary: false
           }
         ];
       
       case 'budget':
-      case 'timeline':
-      case 'photos':
-        // These tabs don't have quick actions
-        return null;
+        return [
+          {
+            icon: <DollarSign className="w-5 h-5" />,
+            label: 'Compare Margins',
+            action: () => {
+              // TODO: Show margin comparison view
+              console.log('Compare margins');
+            },
+            colorClass: 'group-hover:text-[#F9D71C]',
+            primary: true
+          },
+          {
+            icon: <FileText className="w-5 h-5" />,
+            label: 'Export Report',
+            action: () => {
+              // TODO: Export budget report
+              console.log('Export budget report');
+            },
+            colorClass: 'group-hover:text-[#336699]',
+            primary: false
+          }
+        ];
       
       case 'documents':
         return [
@@ -551,7 +540,7 @@ export const ProjectDetails: React.FC = () => {
               // TODO: Open add document modal
               console.log('Add document');
             },
-            colorClass: 'group-hover:text-blue-400',
+            colorClass: 'group-hover:text-[#F9D71C]',
             primary: true
           },
           {
@@ -561,7 +550,7 @@ export const ProjectDetails: React.FC = () => {
               // TODO: Generate contract from template
               console.log('Generate contract');
             },
-            colorClass: 'group-hover:text-purple-400',
+            colorClass: 'group-hover:text-[#336699]',
             primary: false
           }
         ];
@@ -573,8 +562,6 @@ export const ProjectDetails: React.FC = () => {
 
   const getNoActionsMessage = (tab: TabType) => {
     switch (tab) {
-      case 'budget':
-        return '📊 This is a read-only view for budget analysis';
       case 'timeline':
         return '📅 Use the timeline to drag and adjust schedules';
       case 'photos':
@@ -725,7 +712,7 @@ export const ProjectDetails: React.FC = () => {
                           {project.client.phone && (
                             <div>
                               <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Phone</div>
-                              <a href={`tel:${project.client.phone}`} className="text-sm text-blue-500 hover:text-blue-400 flex items-center gap-2">
+                              <a href={`tel:${project.client.phone}`} className="text-sm text-[#336699] hover:text-[#5A8BB8] flex items-center gap-2">
                                 <Phone className="w-3 h-3" />
                                 {project.client.phone}
                               </a>
@@ -735,7 +722,7 @@ export const ProjectDetails: React.FC = () => {
                           {project.client.email && (
                             <div>
                               <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Email</div>
-                              <a href={`mailto:${project.client.email}`} className="text-sm text-blue-500 hover:text-blue-400 break-all flex items-center gap-2">
+                              <a href={`mailto:${project.client.email}`} className="text-sm text-[#336699] hover:text-[#5A8BB8] break-all flex items-center gap-2">
                                 <Mail className="w-3 h-3 flex-shrink-0" />
                                 {project.client.email}
                               </a>
@@ -755,7 +742,7 @@ export const ProjectDetails: React.FC = () => {
                           <div className="border-t border-[#2a2a2a] pt-3 mt-3">
                             <button
                               onClick={() => navigate(`/clients/${project.client_id}`)}
-                              className="w-full text-center text-sm text-blue-500 hover:text-blue-400 flex items-center justify-center gap-1"
+                              className="w-full text-center text-sm text-[#336699] hover:text-[#5A8BB8] flex items-center justify-center gap-1"
                             >
                               View Full Client Details
                               <ExternalLink className="w-3 h-3" />
@@ -817,8 +804,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('overview')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'overview'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Overview
@@ -827,8 +814,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('tasks')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'tasks'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Tasks
@@ -838,8 +825,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('expenses')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'expenses'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Expenses
@@ -849,8 +836,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('budget')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'budget'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Budget
@@ -859,8 +846,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('timeline')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'timeline'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Timeline
@@ -869,8 +856,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('photos')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'photos'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Photos
@@ -880,8 +867,8 @@ export const ProjectDetails: React.FC = () => {
           onClick={() => setActiveTab('documents')}
           className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
             activeTab === 'documents'
-              ? 'text-white after:bg-blue-500'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-blue-500'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
           }`}
         >
           Documents
@@ -911,7 +898,7 @@ export const ProjectDetails: React.FC = () => {
                       onClick={action.action}
                       className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
                         action.primary 
-                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          ? 'bg-[#0f1729] border border-[#336699] hover:bg-[#1a2940] hover:border-[#5A8BB8]' 
                           : 'bg-[#121212] hover:bg-[#1a1a1a]'
                       }`}
                       disabled={action.disabled}
@@ -921,7 +908,7 @@ export const ProjectDetails: React.FC = () => {
                       </div>
                       <span className="text-xs font-medium">{action.label}</span>
                       {action.primary && (
-                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-[#F9D71C]">Most Used</span>
                       )}
                     </button>
                   ))}
@@ -1022,49 +1009,62 @@ export const ProjectDetails: React.FC = () => {
               
               <div className="bg-[#121212] rounded-lg p-4 text-center cursor-pointer hover:bg-[#1a1a1a] transition-all">
                 <div className={`text-lg font-bold mb-1 ${(() => {
-                  const profit = project.budget - expenseTotal;
-                  const margin = project.budget > 0 ? (profit / project.budget) * 100 : 0;
-                  if (margin >= 30) return 'text-green-500';
-                  if (margin >= 15) return 'text-green-400';
-                  if (margin >= 5) return 'text-yellow-400';
-                  if (margin > 0) return 'text-orange-400';
+                  if (expenseCount === 0) return 'text-gray-400';
+                  const paidPercentage = (expensePaid / expenseTotal) * 100;
+                  if (paidPercentage >= 80) return 'text-green-400';
+                  if (paidPercentage >= 50) return 'text-[#F9D71C]';
                   return 'text-red-400';
                 })()}`}>
                   {(() => {
-                    const profit = project.budget - expenseTotal;
-                    const margin = project.budget > 0 ? (profit / project.budget) * 100 : 0;
-                    return `${Math.round(margin)}%`;
+                    if (expenseCount === 0) return '0%';
+                    const paidPercentage = (expensePaid / expenseTotal) * 100;
+                    return `${Math.round(paidPercentage)}%`;
                   })()}
                 </div>
-                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Profit Margin</div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Expenses Paid</div>
               </div>
             </div>
 
             {/* Quick stats row */}
-            {projectInvoices.length > 0 && (
+            {(projectInvoices.length > 0 || expenseCount > 0) && (
               <div className="mt-4 pt-4 border-t border-[#2a2a2a] flex items-center justify-between text-xs">
                 <div className="flex items-center gap-4">
-                  <span className="text-gray-500">
-                    {projectInvoices.length} invoice{projectInvoices.length !== 1 ? 's' : ''} generated
-                  </span>
-                  {(() => {
-                    const totalInvoiced = projectInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-                    const paidInvoices = projectInvoices.filter(inv => inv.status === 'paid');
-                    const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
-                    
-                    return (
-                      <>
-                        <span className="text-gray-500">
-                          ${totalInvoiced.toLocaleString()} invoiced
-                        </span>
-                        {paidInvoices.length > 0 && (
-                          <span className="text-green-400">
-                            ${totalPaid.toLocaleString()} paid
-                          </span>
-                        )}
-                      </>
-                    );
-                  })()}
+                  {projectInvoices.length > 0 && (
+                    <>
+                      <span className="text-gray-500">
+                        {projectInvoices.length} invoice{projectInvoices.length !== 1 ? 's' : ''} generated
+                      </span>
+                      {(() => {
+                        const totalInvoiced = projectInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                        const paidInvoices = projectInvoices.filter(inv => inv.status === 'paid');
+                        const totalPaid = paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0);
+                        
+                        return (
+                          <>
+                            <span className="text-gray-500">
+                              ${totalInvoiced.toLocaleString()} invoiced
+                            </span>
+                            {paidInvoices.length > 0 && (
+                              <span className="text-green-400">
+                                ${totalPaid.toLocaleString()} paid
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </>
+                  )}
+                  
+                  {expenseCount > 0 && (
+                    <>
+                      <span className="text-green-400">
+                        ${expensePaid.toLocaleString()} paid expenses
+                      </span>
+                      <span className="text-[#F9D71C]">
+                        ${expensePending.toLocaleString()} pending
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -1077,7 +1077,7 @@ export const ProjectDetails: React.FC = () => {
                 <h3 className="text-sm font-semibold uppercase tracking-wider">Invoices</h3>
                 <button 
                   onClick={handleGenerateInvoice}
-                  className="text-xs text-blue-500 hover:text-blue-400"
+                  className="text-xs text-[#F9D71C] hover:text-[#E6C419]"
                 >
                   + New Invoice
                 </button>
@@ -1097,7 +1097,7 @@ export const ProjectDetails: React.FC = () => {
                             invoice.status === 'paid' 
                               ? 'bg-green-500/20 text-green-400' 
                               : invoice.status === 'sent'
-                              ? 'bg-blue-500/20 text-blue-400'
+                              ? 'bg-[#336699]/20 text-[#336699]'
                               : invoice.status === 'overdue'
                               ? 'bg-red-500/20 text-red-400'
                               : 'bg-gray-500/20 text-gray-400'
@@ -1131,7 +1131,7 @@ export const ProjectDetails: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-4">No invoices generated yet</p>
                 <button 
                   onClick={handleGenerateInvoice}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors"
+                  className="px-4 py-2 bg-[#F9D71C] text-black rounded-md text-sm hover:bg-[#E6C419] transition-colors"
                 >
                   Generate First Invoice
                 </button>
@@ -1175,7 +1175,7 @@ export const ProjectDetails: React.FC = () => {
                 >
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-300">View all tasks</span>
-                    <span className="text-xs text-blue-500">→</span>
+                    <span className="text-xs text-[#F9D71C]">→</span>
                   </div>
                 </button>
               </div>
@@ -1197,6 +1197,7 @@ export const ProjectDetails: React.FC = () => {
                 <h3 className="text-sm font-semibold uppercase tracking-wider">Expenses</h3>
               </div>
               <div className="space-y-3">
+                {/* Total Expenses Card */}
                 <div className="bg-[#121212] rounded-lg p-4">
                   <div className="flex justify-between items-center">
                     <div>
@@ -1220,13 +1221,49 @@ export const ProjectDetails: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                
+                {/* Status Breakdown Cards */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#121212] rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="text-sm font-medium mb-1 text-green-400">Paid</div>
+                        <div className="text-xs text-gray-500">
+                          {expenseTotal > 0 ? Math.round((expensePaid / expenseTotal) * 100) : 0}% of total
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-medium text-green-400">
+                          {formatCurrency(expensePaid)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-[#121212] rounded-lg p-4">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="text-sm font-medium mb-1 text-[#F9D71C]">Pending</div>
+                        <div className="text-xs text-gray-500">
+                          awaiting payment
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-medium text-[#F9D71C]">
+                          {formatCurrency(expensePending)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
                 <button
                   onClick={() => setActiveTab('expenses')}
                   className="w-full bg-[#121212] hover:bg-[#1a1a1a] rounded-lg p-4 text-left transition-colors"
                 >
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-300">View all expenses</span>
-                    <span className="text-xs text-blue-500">→</span>
+                    <span className="text-xs text-[#F9D71C]">→</span>
                   </div>
                 </button>
               </div>
@@ -1298,44 +1335,6 @@ export const ProjectDetails: React.FC = () => {
 
       {activeTab === 'tasks' && (
         <div className="space-y-4">
-          {/* Floating Quick Actions Bar */}
-          {(() => {
-            const actions = getQuickActionsForTab(activeTab);
-            if (!actions) {
-              return (
-                <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
-                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
-                </div>
-              );
-            }
-            return (
-              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
-                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
-                  {actions.map((action, index) => (
-                    <button 
-                      key={index}
-                      onClick={action.action}
-                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
-                        action.primary 
-                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
-                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
-                      }`}
-                      disabled={action.disabled}
-                    >
-                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
-                        {action.icon}
-                      </div>
-                      <span className="text-xs font-medium">{action.label}</span>
-                      {action.primary && (
-                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
             <TaskList 
               projectId={project.id} 
@@ -1348,44 +1347,6 @@ export const ProjectDetails: React.FC = () => {
 
       {activeTab === 'expenses' && (
         <div className="space-y-4">
-          {/* Floating Quick Actions Bar */}
-          {(() => {
-            const actions = getQuickActionsForTab(activeTab);
-            if (!actions) {
-              return (
-                <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
-                  <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
-                </div>
-              );
-            }
-            return (
-              <div className="bg-gradient-to-r from-[#181818] to-[#1a1a1a] rounded-xl p-1 mb-6">
-                <div className={`grid ${actions.length === 2 ? 'grid-cols-2' : actions.length === 3 ? 'grid-cols-3' : 'grid-cols-4'} gap-1`}>
-                  {actions.map((action, index) => (
-                    <button 
-                      key={index}
-                      onClick={action.action}
-                      className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
-                        action.primary 
-                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
-                          : 'bg-[#121212] hover:bg-[#1a1a1a]'
-                      }`}
-                      disabled={action.disabled}
-                    >
-                      <div className={`w-5 h-5 mb-1.5 text-gray-400 ${action.colorClass} transition-colors`}>
-                        {action.icon}
-                      </div>
-                      <span className="text-xs font-medium">{action.label}</span>
-                      {action.primary && (
-                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
-          
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
             <ExpensesList projectId={project.id} />
           </div>
@@ -1394,28 +1355,16 @@ export const ProjectDetails: React.FC = () => {
 
       {activeTab === 'budget' && (
         <div className="space-y-4">
-          {/* Info message for read-only view */}
-          <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
-            <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
-          </div>
-          
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-            <h3 className="text-base font-semibold uppercase tracking-wider mb-6">Budget Overview</h3>
-            <p className="text-gray-500">Budget tracking and analysis coming soon...</p>
+            <BudgetAnalysis projectId={project.id} />
           </div>
         </div>
       )}
 
       {activeTab === 'timeline' && (
         <div className="space-y-4">
-          {/* Info message for interactive view */}
-          <div className="bg-[#181818] rounded-xl p-8 text-center mb-6">
-            <p className="text-gray-500 text-sm">{getNoActionsMessage(activeTab)}</p>
-          </div>
-          
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
-            <h3 className="text-base font-semibold uppercase tracking-wider mb-6">Project Timeline</h3>
-            <p className="text-gray-500">Interactive timeline coming soon...</p>
+            <TimelineView projectId={project.id} />
           </div>
         </div>
       )}
@@ -1434,7 +1383,7 @@ export const ProjectDetails: React.FC = () => {
                 {!isEditingPhotoLink && (
                   <button
                     onClick={() => setIsEditingPhotoLink(true)}
-                    className="text-sm text-blue-500 hover:text-blue-400"
+                    className="text-sm text-[#F9D71C] hover:text-[#E6C419]"
                   >
                     {photoLink ? 'Edit Link' : 'Add Link'}
                   </button>
@@ -1452,7 +1401,7 @@ export const ProjectDetails: React.FC = () => {
                       value={photoLink}
                       onChange={(e) => setPhotoLink(e.target.value)}
                       placeholder="https://drive.google.com/... or https://dropbox.com/..."
-                      className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 transition-colors"
+                      className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-md px-4 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] transition-colors"
                     />
                     <p className="mt-2 text-xs text-gray-500">
                       Add a link to where your project photos are stored (Google Drive, Dropbox, etc.)
@@ -1463,7 +1412,7 @@ export const ProjectDetails: React.FC = () => {
                     <button
                       onClick={() => savePhotoLink(photoLink)}
                       disabled={isSavingPhotoLink}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors disabled:opacity-50"
+                      className="px-4 py-2 bg-[#F9D71C] text-black rounded-md text-sm hover:bg-[#E6C419] transition-colors disabled:opacity-50"
                     >
                       {isSavingPhotoLink ? 'Saving...' : 'Save Link'}
                     </button>
@@ -1489,7 +1438,7 @@ export const ProjectDetails: React.FC = () => {
                         href={photoLink}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-500 hover:text-blue-400 break-all"
+                        className="text-[#336699] hover:text-[#5A8BB8] break-all"
                       >
                         {photoLink}
                       </a>
@@ -1507,7 +1456,7 @@ export const ProjectDetails: React.FC = () => {
                   <p className="text-gray-500 mb-4">No photo storage location set</p>
                   <button
                     onClick={() => setIsEditingPhotoLink(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600 transition-colors"
+                    className="px-4 py-2 bg-[#F9D71C] text-black rounded-md text-sm hover:bg-[#E6C419] transition-colors"
                   >
                     Add Photo Storage Link
                   </button>
@@ -1539,7 +1488,7 @@ export const ProjectDetails: React.FC = () => {
                       onClick={action.action}
                       className={`relative flex flex-col items-center justify-center py-4 px-2 rounded-lg transition-all group ${
                         action.primary 
-                          ? 'bg-[#0f1729] border border-[#1e3a5f] hover:bg-[#1a2940] hover:border-[#3B82F6]' 
+                          ? 'bg-[#0f1729] border border-[#336699] hover:bg-[#1a2940] hover:border-[#5A8BB8]' 
                           : 'bg-[#121212] hover:bg-[#1a1a1a]'
                       }`}
                       disabled={action.disabled}
@@ -1549,7 +1498,7 @@ export const ProjectDetails: React.FC = () => {
                       </div>
                       <span className="text-xs font-medium">{action.label}</span>
                       {action.primary && (
-                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-blue-400">Most Used</span>
+                        <span className="absolute top-2 right-2 text-[10px] uppercase tracking-wide text-[#F9D71C]">Most Used</span>
                       )}
                     </button>
                   ))}

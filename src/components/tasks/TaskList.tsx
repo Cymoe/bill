@@ -248,7 +248,7 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#336699]"></div>
       </div>
     );
   }
@@ -327,7 +327,7 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder="What needs to be done?"
+                placeholder="What task needs to be completed?"
                 className="w-full bg-transparent text-white placeholder-gray-500 outline-none text-sm"
                 autoFocus
               />
@@ -347,19 +347,19 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
                       <div className="space-y-1">
                         <button
                           onClick={() => setQuickDate('today')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] hover:text-white rounded transition-colors"
                         >
                           Today
                         </button>
                         <button
                           onClick={() => setQuickDate('tomorrow')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] hover:text-white rounded transition-colors"
                         >
                           Tomorrow
                         </button>
                         <button
                           onClick={() => setQuickDate('nextWeek')}
-                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
+                          className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] hover:text-white rounded transition-colors"
                         >
                           Next week
                         </button>
@@ -371,7 +371,7 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
                             setNewTaskDate(e.target.value);
                             setShowDatePicker(false);
                           }}
-                          className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white"
+                          className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white focus:outline-none focus:border-[#336699] transition-colors"
                         />
                       </div>
                     </div>
@@ -381,17 +381,17 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
                 <select
                   value={newTaskCategory}
                   onChange={(e) => setNewTaskCategory(e.target.value)}
-                  className="text-xs bg-transparent text-gray-500 hover:text-gray-400 outline-none cursor-pointer"
+                  className="text-xs bg-transparent text-gray-500 hover:text-gray-400 outline-none cursor-pointer border border-transparent hover:border-[#336699] rounded px-2 py-1 transition-colors"
                 >
-                  <option value="">No category</option>
-                  <option value="electrical">Electrical</option>
-                  <option value="plumbing">Plumbing</option>
-                  <option value="framing">Framing</option>
-                  <option value="drywall">Drywall</option>
-                  <option value="painting">Painting</option>
-                  <option value="flooring">Flooring</option>
-                  <option value="roofing">Roofing</option>
-                  <option value="hvac">HVAC</option>
+                  <option value="" className="bg-[#1a1a1a]">No category</option>
+                  <option value="electrical" className="bg-[#1a1a1a]">Electrical</option>
+                  <option value="plumbing" className="bg-[#1a1a1a]">Plumbing</option>
+                  <option value="framing" className="bg-[#1a1a1a]">Framing</option>
+                  <option value="drywall" className="bg-[#1a1a1a]">Drywall</option>
+                  <option value="painting" className="bg-[#1a1a1a]">Painting</option>
+                  <option value="flooring" className="bg-[#1a1a1a]">Flooring</option>
+                  <option value="roofing" className="bg-[#1a1a1a]">Roofing</option>
+                  <option value="hvac" className="bg-[#1a1a1a]">HVAC</option>
                 </select>
               </div>
             </div>
@@ -399,7 +399,7 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
             <div className="flex items-center gap-2">
               <button
                 onClick={createTask}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+                className="px-3 py-1 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded text-xs transition-colors"
               >
                 Add
               </button>
@@ -411,7 +411,7 @@ export const TaskList: React.FC<TaskListProps> = ({ projectId, categoryId, onTas
                   setNewTaskCategory('');
                   setShowDatePicker(false);
                 }}
-                className="px-3 py-1 text-gray-500 hover:text-gray-400 text-xs"
+                className="px-3 py-1 text-gray-500 hover:text-gray-400 border border-transparent hover:border-gray-600 rounded text-xs transition-colors"
               >
                 Cancel
               </button>

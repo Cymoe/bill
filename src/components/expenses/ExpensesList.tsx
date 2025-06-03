@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Calendar, ChevronDown, ChevronRight, Receipt, DollarSign, Filter } from 'lucide-react';
+import { Plus, Calendar, ChevronDown, ChevronRight, Filter, ArrowUpDown, X, Edit, Trash2, CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
@@ -30,31 +30,27 @@ interface Expense {
 interface ExpensesListProps {
   projectId: string;
   editable?: boolean;
+  defaultViewMode?: 'cost-codes' | 'categories' | 'payee' | 'timeline';
 }
 
-export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable = true }) => {
+export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable = true, defaultViewMode = 'cost-codes' }) => {
   const { user } = useAuth();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPaid, setShowPaid] = useState(false);
-  const [expandedSections, setExpandedSections] = useState({
-    today: true,
-    thisWeek: true,
-    earlier: true
-  });
-  const [isCreating, setIsCreating] = useState(false);
+  const [costCodes, setCostCodes] = useState<CostCode[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'cost-codes' | 'categories' | 'payee' | 'timeline'>(defaultViewMode);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending' | 'unpaid'>('all');
+  
   const [newExpense, setNewExpense] = useState({
     description: '',
-    amount: '',
     vendor: '',
-    category: '',
+    amount: '',
+    category: 'Materials',
     cost_code_id: '',
-    date: new Date().toISOString().split('T')[0]
   });
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [costCodes, setCostCodes] = useState<CostCode[]>([]);
-  const [selectedCostCode, setSelectedCostCode] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'date' | 'costcode'>('date');
 
   useEffect(() => {
     if (user && projectId) {
@@ -80,47 +76,58 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
   const loadExpenses = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      const { data: expensesData, error: expensesError } = await supabase
         .from('expenses')
-        .select(`
-          *,
-          cost_code:cost_codes(id, name, code, category)
-        `)
+        .select('*')
         .eq('project_id', projectId)
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      setExpenses(data || []);
+      if (expensesError) {
+        console.error('Supabase error details:', expensesError);
+        throw expensesError;
+      }
+
+      if (expensesData && expensesData.length > 0) {
+        const costCodeIds = [...new Set(expensesData
+          .filter(expense => expense.cost_code_id)
+          .map(expense => expense.cost_code_id)
+        )];
+
+        let costCodesMap: Record<string, CostCode> = {};
+        
+        if (costCodeIds.length > 0) {
+          const { data: costCodesData, error: costCodesError } = await supabase
+            .from('cost_codes')
+            .select('*')
+            .in('id', costCodeIds);
+
+          if (!costCodesError && costCodesData) {
+            costCodesMap = costCodesData.reduce((acc, cc) => {
+              acc[cc.id] = cc;
+              return acc;
+            }, {} as Record<string, CostCode>);
+          }
+        }
+
+        const expensesWithCostCodes = expensesData.map(expense => ({
+          ...expense,
+          cost_code: expense.cost_code_id ? costCodesMap[expense.cost_code_id] : undefined
+        }));
+
+        setExpenses(expensesWithCostCodes);
+      } else {
+        setExpenses([]);
+      }
     } catch (error) {
       console.error('Error loading expenses:', error);
+      setExpenses([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleExpenseStatus = async (expenseId: string, currentStatus: string) => {
-    const newStatus = currentStatus === 'paid' ? 'pending' : 'paid';
-    
-    try {
-      const { error } = await supabase
-        .from('expenses')
-        .update({ status: newStatus })
-        .eq('id', expenseId);
-
-      if (error) throw error;
-      
-      // Update local state
-      setExpenses(expenses.map(expense => 
-        expense.id === expenseId 
-          ? { ...expense, status: newStatus }
-          : expense
-      ));
-    } catch (error) {
-      console.error('Error updating expense:', error);
-    }
-  };
-
-  const createExpense = async () => {
+  const handleAddExpense = async () => {
     if (!newExpense.description.trim() || !newExpense.amount) return;
 
     try {
@@ -130,133 +137,46 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
           description: newExpense.description,
           amount: parseFloat(newExpense.amount),
           vendor: newExpense.vendor || null,
-          category: newExpense.category || 'Material',
+          category: newExpense.category,
           cost_code_id: newExpense.cost_code_id || null,
-          date: newExpense.date,
+          date: new Date().toISOString().split('T')[0],
           status: 'pending',
           project_id: projectId,
           user_id: user?.id
         })
-        .select(`
-          *,
-          cost_code:cost_codes(id, name, code, category)
-        `)
+        .select('*')
         .single();
 
       if (error) throw error;
 
-      // Add to local state
-      setExpenses([data, ...expenses]);
+      loadExpenses();
       
-      // Reset form
       setNewExpense({
         description: '',
-        amount: '',
         vendor: '',
-        category: '',
+        amount: '',
+        category: 'Materials',
         cost_code_id: '',
-        date: new Date().toISOString().split('T')[0]
       });
-      setIsCreating(false);
+      setShowAddForm(false);
     } catch (error) {
       console.error('Error creating expense:', error);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      createExpense();
+  const handleDeleteExpense = async (expenseId: string) => {
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      setExpenses(expenses.filter(expense => expense.id !== expenseId));
+    } catch (error) {
+      console.error('Error deleting expense:', error);
     }
-    if (e.key === 'Escape') {
-      setIsCreating(false);
-      setNewExpense({
-        description: '',
-        amount: '',
-        vendor: '',
-        category: '',
-        cost_code_id: '',
-        date: new Date().toISOString().split('T')[0]
-      });
-    }
-  };
-
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'Material': '#3b82f6',
-      'Labor': '#f59e0b',
-      'Equipment': '#8b5cf6',
-      'Permits': '#10b981',
-      'Subcontractor': '#ec4899',
-      'Other': '#6b7280'
-    };
-    return colors[category] || '#6b7280';
-  };
-
-  const groupExpensesByDate = () => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    
-    const weekAgo = new Date(now);
-    weekAgo.setDate(weekAgo.getDate() - 7);
-
-    const groups = {
-      today: [] as Expense[],
-      thisWeek: [] as Expense[],
-      earlier: [] as Expense[],
-      paid: [] as Expense[]
-    };
-
-    expenses.forEach(expense => {
-      if (expense.status === 'paid') {
-        groups.paid.push(expense);
-      } else {
-        const expenseDate = new Date(expense.date);
-        expenseDate.setHours(0, 0, 0, 0);
-        
-        if (expenseDate.getTime() === now.getTime()) {
-          groups.today.push(expense);
-        } else if (expenseDate > weekAgo) {
-          groups.thisWeek.push(expense);
-        } else {
-          groups.earlier.push(expense);
-        }
-      }
-    });
-
-    return groups;
-  };
-
-  const groupExpensesByCostCode = () => {
-    const groups = expenses.reduce((acc, expense) => {
-      const costCodeId = expense.cost_code_id || 'no-cost-code';
-      if (!acc[costCodeId]) {
-        acc[costCodeId] = {
-          costCode: expense.cost_code,
-          expenses: [],
-          total: 0,
-          count: 0
-        };
-      }
-      acc[costCodeId].expenses.push(expense);
-      acc[costCodeId].total += expense.amount;
-      acc[costCodeId].count += 1;
-      return acc;
-    }, {} as Record<string, { costCode?: CostCode; expenses: Expense[]; total: number; count: number }>);
-
-    return Object.values(groups).sort((a, b) => {
-      if (!a.costCode && !b.costCode) return 0;
-      if (!a.costCode) return 1;
-      if (!b.costCode) return -1;
-      return a.costCode.code.localeCompare(b.costCode.code);
-    });
-  };
-
-  const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
   };
 
   const formatExpenseDate = (date: string) => {
@@ -272,537 +192,566 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
     return expenseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const setQuickDate = (option: string) => {
-    const today = new Date();
-    let targetDate = new Date();
+  const toggleGroup = (groupKey: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
 
-    switch (option) {
-      case 'today':
-        targetDate = today;
+  // Map our status system to the display statuses
+  const mapStatusToDisplay = (status: string): 'paid' | 'pending' | 'unpaid' => {
+    switch (status) {
+      case 'paid':
+        return 'paid';
+      case 'pending':
+      case 'approved':
+        return 'pending';
+      case 'rejected':
+      default:
+        return 'unpaid';
+    }
+  };
+
+  const getStatusIcon = (status: 'paid' | 'pending' | 'unpaid') => {
+    switch (status) {
+      case 'paid':
+        return <CheckCircle2 className="h-4 w-4 text-green-400" />;
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-400" />;
+      case 'unpaid':
+        return <AlertCircle className="h-4 w-4 text-red-400" />;
+    }
+  };
+
+  const getStatusBadge = (status: 'paid' | 'pending' | 'unpaid', count: number) => {
+    const baseClasses = "px-2 py-1 rounded text-xs font-medium flex items-center gap-1";
+    switch (status) {
+      case 'paid':
+        return (
+          <span className={`${baseClasses} bg-green-900/20 text-green-400 border border-green-900/30`}>
+            <CheckCircle2 className="h-3 w-3" />
+            {count}
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className={`${baseClasses} bg-yellow-900/20 text-yellow-400 border border-yellow-900/30`}>
+            <Clock className="h-3 w-3" />
+            {count}
+          </span>
+        );
+      case 'unpaid':
+        return (
+          <span className={`${baseClasses} bg-red-900/20 text-red-400 border border-red-900/30`}>
+            <AlertCircle className="h-3 w-3" />
+            {count}
+          </span>
+        );
+    }
+  };
+
+  const handleUpdateStatus = async (expenseId: string, newStatus: 'paid' | 'pending' | 'unpaid') => {
+    // Map display status back to our database status
+    let dbStatus: 'pending' | 'approved' | 'paid' | 'rejected';
+    switch (newStatus) {
+      case 'paid':
+        dbStatus = 'paid';
         break;
-      case 'yesterday':
-        targetDate.setDate(today.getDate() - 1);
+      case 'pending':
+        dbStatus = 'pending';
         break;
-      case 'lastWeek':
-        targetDate.setDate(today.getDate() - 7);
+      case 'unpaid':
+        dbStatus = 'rejected';
         break;
     }
 
-    setNewExpense({
-      ...newExpense,
-      date: targetDate.toISOString().split('T')[0]
-    });
-    setShowDatePicker(false);
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .update({ status: dbStatus })
+        .eq('id', expenseId);
+
+      if (error) throw error;
+
+      // Update local state
+      setExpenses(expenses.map(expense => 
+        expense.id === expenseId 
+          ? { ...expense, status: dbStatus }
+          : expense
+      ));
+    } catch (error) {
+      console.error('Error updating expense status:', error);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#336699]"></div>
       </div>
     );
   }
 
-  const groupedExpenses = groupExpensesByDate();
-  const groupedByCostCode = groupExpensesByCostCode();
-  const totalPending = expenses.filter(e => e.status !== 'paid').reduce((sum, e) => sum + e.amount, 0);
-  const totalPaid = expenses.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
-  const totalExpenses = totalPending + totalPaid;
+  // Calculate totals
+  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  const paidExpenses = expenses.filter(e => mapStatusToDisplay(e.status) === 'paid').reduce((sum, expense) => sum + expense.amount, 0);
+  const pendingExpenses = expenses.filter(e => mapStatusToDisplay(e.status) === 'pending').reduce((sum, expense) => sum + expense.amount, 0);
+  const unpaidExpenses = expenses.filter(e => mapStatusToDisplay(e.status) === 'unpaid').reduce((sum, expense) => sum + expense.amount, 0);
 
-  // Calculate category totals
-  const categoryTotals = expenses.reduce((acc, expense) => {
-    const category = expense.category || 'Other';
-    acc[category] = (acc[category] || 0) + expense.amount;
+  // Filter expenses by status
+  const filteredExpenses = expenses.filter(expense => {
+    if (statusFilter === 'all') return true;
+    return mapStatusToDisplay(expense.status) === statusFilter;
+  });
+
+  const groupedExpenses = filteredExpenses.reduce((acc, expense) => {
+    let groupKey: string;
+    
+    if (viewMode === 'cost-codes') {
+      groupKey = expense.cost_code_id || 'no-cost-code';
+    } else if (viewMode === 'categories') {
+      groupKey = expense.category || 'Other';
+    } else if (viewMode === 'payee') {
+      groupKey = expense.vendor || 'No Vendor';
+    } else {
+      // Timeline mode
+      const expenseDate = new Date(expense.date);
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(today.getDate() - 1);
+      
+      const expenseDateStr = expenseDate.toDateString();
+      const todayStr = today.toDateString();
+      const yesterdayStr = yesterday.toDateString();
+      
+      if (expenseDateStr === todayStr) {
+        groupKey = 'Today';
+      } else if (expenseDateStr === yesterdayStr) {
+        groupKey = 'Yesterday';
+      } else {
+        // Use the date as the group key
+        groupKey = expenseDate.toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric',
+          year: expenseDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined 
+        });
+      }
+    }
+    
+    if (!acc[groupKey]) {
+      acc[groupKey] = [];
+    }
+    acc[groupKey].push(expense);
+    return acc;
+  }, {} as Record<string, Expense[]>);
+
+  // Calculate totals and status counts for each group
+  const groupTotals = Object.keys(groupedExpenses).reduce((acc, groupKey) => {
+    acc[groupKey] = groupedExpenses[groupKey].reduce((sum, expense) => sum + expense.amount, 0);
     return acc;
   }, {} as Record<string, number>);
 
-  // Sort categories by total amount
-  const sortedCategories = Object.entries(categoryTotals)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3); // Top 3 categories
+  const groupStatusCounts = Object.keys(groupedExpenses).reduce((acc, groupKey) => {
+    acc[groupKey] = {
+      paid: groupedExpenses[groupKey].filter(e => mapStatusToDisplay(e.status) === 'paid').length,
+      pending: groupedExpenses[groupKey].filter(e => mapStatusToDisplay(e.status) === 'pending').length,
+      unpaid: groupedExpenses[groupKey].filter(e => mapStatusToDisplay(e.status) === 'unpaid').length,
+    };
+    return acc;
+  }, {} as Record<string, { paid: number; pending: number; unpaid: number }>);
 
-  const filteredExpenses = selectedCostCode === 'all' 
-    ? expenses 
-    : expenses.filter(e => e.cost_code_id === selectedCostCode || (selectedCostCode === 'no-cost-code' && !e.cost_code_id));
+  // Sort groups by total amount or date depending on view mode
+  const sortedGroups = Object.keys(groupedExpenses).sort((a, b) => {
+    if (viewMode === 'timeline') {
+      // Sort timeline groups chronologically
+      const dateOrder = ['Today', 'Yesterday'];
+      const aIndex = dateOrder.indexOf(a);
+      const bIndex = dateOrder.indexOf(b);
+      
+      // If both are special dates (Today, Yesterday), use their predefined order
+      if (aIndex !== -1 && bIndex !== -1) {
+        return aIndex - bIndex;
+      }
+      // If only one is a special date, it comes first
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      
+      // For regular dates, parse and sort chronologically
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return sortOrder === 'asc' ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime();
+    } else {
+      // Sort by total amount for other view modes
+      const comparison = groupTotals[a] - groupTotals[b];
+      return sortOrder === 'asc' ? comparison : -comparison;
+    }
+  });
 
   return (
     <div className="space-y-6">
-      {/* KPI Header Strip */}
-      <div className="flex divide-x divide-[#2a2a2a] mb-6">
-        <div className="pr-6">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Expenses</div>
-          <div className="text-2xl font-semibold">{formatCurrency(totalExpenses)}</div>
-          <div className="text-xs text-gray-500">({expenses.length} items)</div>
+      {/* Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-medium uppercase tracking-wider text-gray-400">
+            {viewMode === 'cost-codes' ? 'Cost Categories' : 
+             viewMode === 'categories' ? 'Expense Types' : 
+             viewMode === 'payee' ? 'Payees' : 'Timeline'}
+          </h2>
         </div>
 
-        <div className="px-6">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Paid</div>
-          <div className="text-2xl font-semibold text-green-500">{formatCurrency(totalPaid)}</div>
-          <div className="text-xs text-gray-500">({totalExpenses > 0 ? Math.round((totalPaid / totalExpenses) * 100) : 0}% of total)</div>
-        </div>
-
-        <div className="px-6">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Pending</div>
-          <div className="text-2xl font-semibold text-yellow-500">{formatCurrency(totalPending)}</div>
-          <div className="text-xs text-gray-500">(awaiting payment)</div>
-        </div>
-
-        <div className="pl-6">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Top Category</div>
-          <div className="text-2xl font-semibold">
-            {sortedCategories.length > 0 ? formatCurrency(sortedCategories[0][1]) : '$0.00'}
-          </div>
-          <div className="text-xs text-gray-500">
-            ({sortedCategories.length > 0 ? sortedCategories[0][0] : 'none'})
-          </div>
-        </div>
-      </div>
-
-      {/* View Mode Toggle & Header */}
-      <div className="flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center bg-[#1a1a1a] rounded-lg p-1">
-            <button
-              onClick={() => setViewMode('date')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                viewMode === 'date' 
-                  ? 'bg-[#336699] text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              By Date
-            </button>
-            <button
-              onClick={() => setViewMode('costcode')}
-              className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                viewMode === 'costcode' 
-                  ? 'bg-[#336699] text-white' 
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              By Cost Code
-            </button>
-          </div>
-          {viewMode === 'costcode' && (
+        <div className="flex items-center gap-2">
+          {/* View Mode Selector */}
+          <div className="relative">
             <select
-              value={selectedCostCode}
-              onChange={(e) => setSelectedCostCode(e.target.value)}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
+              value={viewMode}
+              onChange={(e) => setViewMode(e.target.value as 'cost-codes' | 'categories' | 'payee' | 'timeline')}
+              className="w-40 bg-[#111827]/50 border border-gray-700 rounded-[4px] pl-8 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699] appearance-none cursor-pointer"
             >
-              <option value="all">All Cost Codes</option>
-              <option value="no-cost-code">No Cost Code</option>
-              {costCodes.map(cc => (
-                <option key={cc.id} value={cc.id}>
-                  {cc.code} {cc.name}
-                </option>
-              ))}
+              <option value="cost-codes">Cost Codes</option>
+              <option value="categories">Categories</option>
+              <option value="payee">Payee</option>
+              <option value="timeline">Timeline</option>
             </select>
-          )}
-        </div>
-        {!isCreating && editable && (
-          <button 
-            onClick={() => setIsCreating(true)}
-            className="p-2 hover:bg-[#2a2a2a] rounded transition-colors"
+            <Filter className="w-4 h-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="p-1.5 bg-[#111827]/50 border border-gray-700 rounded-[4px] text-gray-400 hover:text-white transition-colors"
+            title={`Sort by amount ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
           >
-            <Plus className="w-5 h-5" />
+            <ArrowUpDown className="w-4 h-4" />
           </button>
-        )}
-      </div>
 
-      {/* Expense Creation Form */}
-      {isCreating && (
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 w-5 h-5 rounded-full border-2 border-gray-600 flex items-center justify-center flex-shrink-0">
-              <DollarSign className="w-3 h-3 text-gray-600" />
-            </div>
-            
-            <div className="flex-1 space-y-3 min-w-0">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={newExpense.description}
-                  onChange={(e) => setNewExpense({...newExpense, description: e.target.value})}
-                  onKeyDown={handleKeyPress}
-                  placeholder="What did you pay for?"
-                  className="flex-1 bg-transparent text-white placeholder-gray-500 outline-none text-sm min-w-0"
-                  autoFocus
-                />
-                <input
-                  type="number"
-                  value={newExpense.amount}
-                  onChange={(e) => setNewExpense({...newExpense, amount: e.target.value})}
-                  onKeyDown={handleKeyPress}
-                  placeholder="0.00"
-                  step="0.01"
-                  className="w-24 bg-transparent text-white placeholder-gray-500 outline-none text-sm text-right flex-shrink-0"
-                />
-              </div>
-              
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={newExpense.vendor}
-                  onChange={(e) => setNewExpense({...newExpense, vendor: e.target.value})}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Vendor (optional)"
-                  className="w-full bg-transparent text-gray-400 placeholder-gray-600 outline-none text-xs"
-                />
-                
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowDatePicker(!showDatePicker)}
-                      className="flex items-center gap-1 px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] transition-colors"
-                    >
-                      <Calendar className="w-3 h-3" />
-                      {new Date(newExpense.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    </button>
-                    
-                    {showDatePicker && (
-                      <div className="absolute top-full mt-1 left-0 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-2 z-10 min-w-[160px]">
-                        <div className="space-y-1">
-                          <button
-                            onClick={() => setQuickDate('today')}
-                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                          >
-                            Today
-                          </button>
-                          <button
-                            onClick={() => setQuickDate('yesterday')}
-                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                          >
-                            Yesterday
-                          </button>
-                          <button
-                            onClick={() => setQuickDate('lastWeek')}
-                            className="block w-full text-left px-3 py-2 text-xs text-gray-400 hover:bg-[#2a2a2a] rounded"
-                          >
-                            Last week
-                          </button>
-                          <div className="border-t border-[#2a2a2a] my-1"></div>
-                          <input
-                            type="date"
-                            value={newExpense.date}
-                            onChange={(e) => {
-                              setNewExpense({...newExpense, date: e.target.value});
-                              setShowDatePicker(false);
-                            }}
-                            className="w-full px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded text-xs text-white"
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <select
-                    value={newExpense.category}
-                    onChange={(e) => setNewExpense({...newExpense, category: e.target.value})}
-                    className="px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] outline-none cursor-pointer min-w-[100px]"
-                  >
-                    <option value="">Material</option>
-                    <option value="Labor">Labor</option>
-                    <option value="Equipment">Equipment</option>
-                    <option value="Permits">Permits</option>
-                    <option value="Subcontractor">Subcontractor</option>
-                    <option value="Other">Other</option>
-                  </select>
-                  
-                  <div className="flex-1"></div>
-                  
-                  <select
-                    value={newExpense.cost_code_id}
-                    onChange={(e) => setNewExpense({...newExpense, cost_code_id: e.target.value})}
-                    className="px-3 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-[4px] text-xs text-gray-300 hover:text-white focus:border-[#336699] outline-none cursor-pointer min-w-[200px]"
-                  >
-                    <option value="">No Cost Code</option>
-                    {costCodes.map(cc => (
-                      <option key={cc.id} value={cc.id}>
-                        {cc.code} {cc.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={createExpense}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
-              >
-                Add
-              </button>
-              <button
-                onClick={() => {
-                  setIsCreating(false);
-                  setNewExpense({
-                    description: '',
-                    amount: '',
-                    vendor: '',
-                    category: '',
-                    cost_code_id: '',
-                    date: new Date().toISOString().split('T')[0]
-                  });
-                }}
-                className="px-3 py-1 text-gray-500 hover:text-gray-400 text-xs"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Expense Display based on View Mode */}
-      {viewMode === 'costcode' ? (
-        // Cost Code View
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Cost Code Navigation */}
-          <div className="lg:col-span-1">
-            <div className="bg-[#1a1a1a] rounded-lg p-4 sticky top-4">
-              <h3 className="text-sm font-semibold uppercase tracking-wider mb-4">Cost Categories</h3>
-              <div className="space-y-1">
-                <button
-                  onClick={() => setSelectedCostCode('all')}
-                  className={`w-full flex justify-between items-center px-3 py-2 rounded text-sm transition-colors ${
-                    selectedCostCode === 'all'
-                      ? 'bg-[#336699]/20 text-[#336699]'
-                      : 'hover:bg-[#2a2a2a]'
-                  }`}
-                >
-                  <span className="font-medium">All Categories</span>
-                  <span className="text-xs">{formatCurrency(totalExpenses)}</span>
-                </button>
-                
-                {groupedByCostCode.map(group => (
-                  <button
-                    key={group.costCode?.id || 'no-cost-code'}
-                    onClick={() => setSelectedCostCode(group.costCode?.id || 'no-cost-code')}
-                    className={`w-full flex justify-between items-center px-3 py-2 rounded text-sm transition-colors ${
-                      selectedCostCode === (group.costCode?.id || 'no-cost-code')
-                        ? 'bg-[#336699]/20 text-[#336699]'
-                        : 'hover:bg-[#2a2a2a]'
-                    }`}
-                  >
-                    <span className="text-left">
-                      {group.costCode ? (
-                        <>
-                          <span className="font-medium">{group.costCode.code}</span>
-                          <span className="text-xs text-gray-500 block">{group.costCode.name}</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-500">No Cost Code</span>
-                      )}
-                    </span>
-                    <div className="text-right">
-                      <span className="text-xs block">{formatCurrency(group.total)}</span>
-                      <span className="text-xs text-gray-500">{group.count} items</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Expenses List */}
-          <div className="lg:col-span-3">
-            <div className="space-y-2">
-              {filteredExpenses.map(expense => (
-                <ExpenseItem 
-                  key={expense.id} 
-                  expense={expense} 
-                  onToggle={toggleExpenseStatus} 
-                  formatDate={formatExpenseDate} 
-                  getCategoryColor={getCategoryColor}
-                  showCostCode={true}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        // Date View (existing functionality)
-        <div className="space-y-6">
-          {/* Today's Expenses */}
-          {groupedExpenses.today.length > 0 && (
-            <div>
-              <button
-                onClick={() => toggleSection('today')}
-                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-              >
-                {expandedSections.today ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                today
-              </button>
-              {expandedSections.today && (
-                <div className="space-y-2">
-                  {groupedExpenses.today.map(expense => (
-                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* This Week's Expenses */}
-          {groupedExpenses.thisWeek.length > 0 && (
-            <div>
-              <button
-                onClick={() => toggleSection('thisWeek')}
-                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-              >
-                {expandedSections.thisWeek ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                this week
-              </button>
-              {expandedSections.thisWeek && (
-                <div className="space-y-2">
-                  {groupedExpenses.thisWeek.map(expense => (
-                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Earlier Expenses */}
-          {groupedExpenses.earlier.length > 0 && (
-            <div>
-              <button
-                onClick={() => toggleSection('earlier')}
-                className="flex items-center gap-2 text-sm text-gray-400 mb-3"
-              >
-                {expandedSections.earlier ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                earlier
-              </button>
-              {expandedSections.earlier && (
-                <div className="space-y-2">
-                  {groupedExpenses.earlier.map(expense => (
-                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Paid Expenses */}
-          {groupedExpenses.paid.length > 0 && (
-            <div className="mt-8 pt-8 border-t border-[#2a2a2a]">
-              <button
-                onClick={() => setShowPaid(!showPaid)}
-                className="flex items-center gap-2 text-sm text-gray-500 mb-3"
-              >
-                {showPaid ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                paid expenses ({groupedExpenses.paid.length})
-              </button>
-              {showPaid && (
-                <div className="space-y-2 opacity-50">
-                  {groupedExpenses.paid.map(expense => (
-                    <ExpenseItem key={expense.id} expense={expense} onToggle={toggleExpenseStatus} formatDate={formatExpenseDate} getCategoryColor={getCategoryColor} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Empty State */}
-      {expenses.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 mb-4">No expenses tracked yet</p>
           {editable && (
             <button
-              onClick={() => setIsCreating(true)}
-              className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm transition-colors"
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] text-sm font-medium transition-colors"
             >
-              Add First Expense
+              <Plus className="w-4 h-4" />
             </button>
           )}
         </div>
-      )}
-    </div>
-  );
-};
+      </div>
 
-// Expense Item Component
-const ExpenseItem: React.FC<{
-  expense: Expense;
-  onToggle: (id: string, status: string) => void;
-  formatDate: (date: string) => string;
-  getCategoryColor: (category: string) => string;
-  showCostCode?: boolean;
-}> = ({ expense, onToggle, formatDate, getCategoryColor, showCostCode = false }) => {
-  const isPaid = expense.status === 'paid';
-  
-  return (
-    <div className="flex items-start gap-3 group hover:bg-[#0a0a0a] p-2 -mx-2 rounded transition-colors">
-      <button
-        onClick={() => onToggle(expense.id, expense.status)}
-        className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-          isPaid
-            ? 'bg-green-500 border-green-500'
-            : 'border-gray-600 hover:border-gray-400'
-        }`}
-      >
-        {isPaid && (
-          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
+      {/* Payment Status Filter Tabs */}
+      <div className="bg-[#111827]/50 border border-gray-800 rounded-[4px] p-1 flex gap-1">
+        <button
+          onClick={() => setStatusFilter('all')}
+          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors ${
+            statusFilter === 'all'
+              ? 'bg-[#336699] text-white'
+              : 'text-gray-400 hover:text-white hover:bg-[#1f2937]'
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setStatusFilter('paid')}
+          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+            statusFilter === 'paid'
+              ? 'bg-green-900/20 text-green-400'
+              : 'text-gray-400 hover:text-green-400 hover:bg-green-900/10'
+          }`}
+        >
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Paid
+        </button>
+        <button
+          onClick={() => setStatusFilter('pending')}
+          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+            statusFilter === 'pending'
+              ? 'bg-yellow-900/20 text-yellow-400'
+              : 'text-gray-400 hover:text-yellow-400 hover:bg-yellow-900/10'
+          }`}
+        >
+          <Clock className="h-3.5 w-3.5" />
+          Pending
+        </button>
+        <button
+          onClick={() => setStatusFilter('unpaid')}
+          className={`flex-1 px-3 py-2 rounded text-sm font-medium transition-colors flex items-center justify-center gap-1.5 ${
+            statusFilter === 'unpaid'
+              ? 'bg-red-900/20 text-red-400'
+              : 'text-gray-400 hover:text-red-400 hover:bg-red-900/10'
+          }`}
+        >
+          <AlertCircle className="h-3.5 w-3.5" />
+          Unpaid
+        </button>
+      </div>
+
+      {/* Add Expense Form */}
+      {showAddForm && (
+        <div className="bg-[#111827]/50 border border-gray-700 rounded-[4px] p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-medium uppercase tracking-wider text-gray-400">Add New Expense</h3>
+            <button onClick={() => setShowAddForm(false)} className="text-gray-400 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <input
+                type="text"
+                placeholder="What did you pay for?"
+                value={newExpense.description}
+                onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
+            </div>
+
+            <div>
+              <input
+                type="number"
+                placeholder="0.00"
+                step="0.01"
+                value={newExpense.amount}
+                onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
+            </div>
+
+            <div>
+              <input
+                type="text"
+                placeholder="Vendor (optional)"
+                value={newExpense.vendor}
+                onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+              />
+            </div>
+
+            <div>
+              <select
+                value={newExpense.category}
+                onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white focus:outline-none focus:border-[#336699] cursor-pointer"
+              >
+                <option value="Materials">Materials</option>
+                <option value="Labor">Labor</option>
+                <option value="Equipment">Equipment</option>
+                <option value="Service">Service</option>
+                <option value="Permits">Permits</option>
+                <option value="Subcontractor">Subcontractor</option>
+                <option value="Disposal">Disposal</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={newExpense.cost_code_id}
+                onChange={(e) => setNewExpense({ ...newExpense, cost_code_id: e.target.value })}
+                className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white focus:outline-none focus:border-[#336699] cursor-pointer"
+              >
+                <option value="">No Cost Code</option>
+                {costCodes.map(cc => (
+                  <option key={cc.id} value={cc.id}>
+                    {cc.code} - {cc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={() => setShowAddForm(false)}
+              className="px-4 py-2 border border-gray-700 rounded-[4px] text-gray-400 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAddExpense}
+              className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+            >
+              Add Expense
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* All Summary */}
+      <div className="bg-[#F9D71C]/10 border border-[#F9D71C]/20 rounded-[4px] p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="text-[#F9D71C] font-medium">
+              {viewMode === 'cost-codes' ? 'All Categories' : 
+               viewMode === 'categories' ? 'All Expenses' : 
+               viewMode === 'payee' ? 'All Payees' : 'All Timeline'}
+            </div>
+            <div className="flex items-center gap-2">
+              {filteredExpenses.some(e => mapStatusToDisplay(e.status) === 'paid') && (
+                <span className="px-2 py-1 bg-green-900/10 text-green-400 border border-green-900/30 rounded text-xs flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {filteredExpenses.filter(e => mapStatusToDisplay(e.status) === 'paid').length}
+                </span>
+              )}
+              {filteredExpenses.some(e => mapStatusToDisplay(e.status) === 'pending') && (
+                <span className="px-2 py-1 bg-yellow-900/10 text-yellow-400 border border-yellow-900/30 rounded text-xs flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {filteredExpenses.filter(e => mapStatusToDisplay(e.status) === 'pending').length}
+                </span>
+              )}
+              {filteredExpenses.some(e => mapStatusToDisplay(e.status) === 'unpaid') && (
+                <span className="px-2 py-1 bg-red-900/10 text-red-400 border border-red-900/30 rounded text-xs flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {filteredExpenses.filter(e => mapStatusToDisplay(e.status) === 'unpaid').length}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-xl font-bold text-[#F9D71C]">{formatCurrency(filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0))}</div>
+        </div>
+      </div>
+
+      {/* Collapsible Groups */}
+      <div className="space-y-2">
+        {sortedGroups.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-gray-400 mb-4">
+              {statusFilter === 'all' ? 'No expenses tracked yet' : `No ${statusFilter} expenses`}
+            </div>
+            {editable && statusFilter === 'all' && (
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+              >
+                Add First Expense
+              </button>
+            )}
+          </div>
+        ) : (
+          sortedGroups.map((groupKey) => {
+            const isExpanded = expandedGroups.has(groupKey);
+            
+            // Get display information based on view mode
+            let displayCode = '';
+            let displayName = '';
+            
+            if (viewMode === 'cost-codes') {
+              if (groupKey === 'no-cost-code') {
+                displayCode = 'No Code';
+                displayName = 'Unassigned';
+              } else {
+                const costCode = costCodes.find(cc => cc.id === groupKey);
+                displayCode = costCode?.code || groupKey;
+                displayName = costCode?.name || 'Unknown Cost Code';
+              }
+            } else if (viewMode === 'categories') {
+              displayCode = groupKey;
+              displayName = groupKey;
+            } else if (viewMode === 'payee') {
+              displayCode = groupKey === 'No Vendor' ? 'No Vendor' : '';
+              displayName = groupKey;
+            } else {
+              // Timeline mode
+              displayCode = groupKey;
+              displayName = groupKey;
+            }
+            
+            return (
+              <div key={groupKey}>
+                {/* Group Header */}
+                <div 
+                  className={`bg-[#111827]/30 border border-gray-800/50 rounded-[4px] p-4 cursor-pointer transition-colors hover:bg-[#111827]/50 ${
+                    isExpanded ? 'bg-[#111827]/50' : ''
+                  }`}
+                  onClick={() => toggleGroup(groupKey)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      )}
+                      <div className="font-mono text-sm text-gray-400">
+                        {displayCode}
+                      </div>
+                      <div className="font-medium text-white">
+                        {displayName}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {groupStatusCounts[groupKey].paid > 0 && getStatusBadge('paid', groupStatusCounts[groupKey].paid)}
+                        {groupStatusCounts[groupKey].pending > 0 && getStatusBadge('pending', groupStatusCounts[groupKey].pending)}
+                        {groupStatusCounts[groupKey].unpaid > 0 && getStatusBadge('unpaid', groupStatusCounts[groupKey].unpaid)}
+                      </div>
+                    </div>
+                    <div className="text-lg font-semibold text-white">
+                      {formatCurrency(groupTotals[groupKey])}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Expense Items */}
+                {isExpanded && (
+                  <div className="ml-6 mt-2 space-y-1">
+                    {groupedExpenses[groupKey].map((expense) => {
+                      const displayStatus = mapStatusToDisplay(expense.status);
+                      return (
+                        <div key={expense.id} className={`border border-gray-800/30 rounded-[4px] p-3 ${
+                          displayStatus === 'paid' ? 'bg-green-900/5' :
+                          displayStatus === 'pending' ? 'bg-yellow-900/5' :
+                          'bg-red-900/5'
+                        }`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                {getStatusIcon(displayStatus)}
+                                <div className="font-medium text-white text-sm">{expense.description}</div>
+                              </div>
+                              <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                                {expense.vendor && <span>{expense.vendor}</span>}
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  {formatExpenseDate(expense.date)}
+                                </span>
+                                <span className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300">
+                                  {expense.category}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="font-semibold text-white">{formatCurrency(expense.amount)}</div>
+                              <div className="flex items-center gap-1">
+                                <select
+                                  value={displayStatus}
+                                  onChange={(e) => handleUpdateStatus(expense.id, e.target.value as 'paid' | 'pending' | 'unpaid')}
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="h-7 w-24 bg-transparent border border-gray-700 rounded text-xs text-white focus:outline-none focus:border-[#336699] cursor-pointer"
+                                >
+                                  <option value="paid" className="bg-[#111827]">Paid</option>
+                                  <option value="pending" className="bg-[#111827]">Pending</option>
+                                  <option value="unpaid" className="bg-[#111827]">Unpaid</option>
+                                </select>
+                                <button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteExpense(expense.id);
+                                  }}
+                                  className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
-      </button>
-      
-      <div className="flex-1">
-        <div className="flex items-center gap-3">
-          <span className={`text-sm ${isPaid ? 'line-through text-gray-500' : 'text-white'}`}>
-            {expense.description}
-          </span>
-          <span className={`text-sm font-semibold ${isPaid ? 'text-gray-500' : 'text-white'}`}>
-            {formatCurrency(expense.amount)}
-          </span>
-        </div>
-        
-        <div className="flex items-center gap-3 mt-1">
-          {expense.vendor && (
-            <span className="text-xs text-gray-500">{expense.vendor}</span>
-          )}
-          <span className="text-xs text-gray-500 flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {formatDate(expense.date)}
-          </span>
-          {expense.category && (
-            <span 
-              className="text-xs px-2 py-0.5 rounded"
-              style={{ 
-                backgroundColor: `${getCategoryColor(expense.category)}20`,
-                color: getCategoryColor(expense.category)
-              }}
-            >
-              {expense.category}
-            </span>
-          )}
-          {showCostCode && expense.cost_code && (
-            <span 
-              className="text-xs px-2 py-0.5 rounded"
-              style={{ 
-                backgroundColor: `${getCategoryColor(expense.cost_code.category)}20`,
-                color: getCategoryColor(expense.cost_code.category)
-              }}
-            >
-              {expense.cost_code.code}
-            </span>
-          )}
-          {expense.receipt_url && (
-            <a 
-              href={expense.receipt_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-xs text-blue-500 hover:text-blue-400 flex items-center gap-1"
-            >
-              <Receipt className="w-3 h-3" />
-              Receipt
-            </a>
-          )}
-        </div>
       </div>
     </div>
   );

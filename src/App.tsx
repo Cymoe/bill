@@ -33,6 +33,7 @@ import Templates from './pages/Templates';
 import WorkPacksPage from './pages/WorkPacksPage';
 import { WorkPackDetail } from './pages/WorkPackDetail';
 import IndustrySettings from './pages/IndustrySettings';
+import { Expenses } from './pages/Expenses';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -342,6 +343,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <IndustrySettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Expenses />
             </DashboardLayout>
           </ProtectedRoute>
         }
