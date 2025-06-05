@@ -13,17 +13,29 @@ interface WorkPack {
   id: string;
   name: string;
   description: string;
-  category_id: string;
-  category?: { name: string; icon: string };
+  industry_id: string;
+  project_type_id: string;
   tier: 'budget' | 'standard' | 'premium';
   base_price: number;
+  created_at: string;
+  updated_at: string;
   is_active: boolean;
-  display_order: number;
-  tasks?: WorkPackTask[];
-  expenses?: WorkPackExpense[];
-  items?: WorkPackItem[];
-  documents?: any[];
   usage_count?: number;
+  display_order?: number;
+  industry?: {
+    id: string;
+    name: string;
+    slug: string;
+    icon?: string;
+  };
+  project_type?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  tasks?: any[];
+  expenses?: any[];
+  items?: any[];
 }
 
 interface WorkPackTask {
@@ -98,24 +110,26 @@ export const WorkPackManager: React.FC = () => {
     try {
       setLoading(true);
       
-      // Load categories
-      const { data: categoriesData, error: categoriesError } = await supabase
-        .from('project_categories')
+      // Load industries
+      const { data: industriesData, error: industriesError } = await supabase
+        .from('industries')
         .select('*')
+        .eq('is_active', true)
         .order('display_order');
         
-      if (!categoriesError && categoriesData) {
-        setCategories(categoriesData);
+      if (!industriesError && industriesData) {
+        setCategories(industriesData); // For now, use same state variable
       }
       
-      // Load work packs with all related data
+      // Load work packs with industry and project type data
       const { data: workPacksData, error: workPacksError } = await supabase
         .from('work_packs')
         .select(`
           *,
-          category:project_categories(name, icon)
+          industry:industries(id, name, slug, icon),
+          project_type:project_categories!project_type_id(id, name, slug)
         `)
-        .order('category_id')
+        .order('industry_id')
         .order('base_price');
 
       if (!workPacksError && workPacksData) {
@@ -178,12 +192,12 @@ export const WorkPackManager: React.FC = () => {
   };
 
   const filteredWorkPacks = workPacks.filter(pack => {
-    const matchesCategory = selectedCategory === 'all' || pack.category_id === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || pack.industry_id === selectedCategory;
     const matchesTier = selectedTier === 'all' || pack.tier === selectedTier;
     const matchesSearch = 
       pack.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       pack.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pack.category?.name.toLowerCase().includes(searchQuery.toLowerCase());
+      pack.industry?.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = 
       filterStatus === 'all' ||
       (filterStatus === 'active' && pack.is_active) ||
@@ -245,7 +259,8 @@ export const WorkPackManager: React.FC = () => {
         .insert({
           name: `${packToDuplicate.name} (Copy)`,
           description: packToDuplicate.description,
-          category_id: packToDuplicate.category_id,
+          industry_id: packToDuplicate.industry_id,
+          project_type_id: packToDuplicate.project_type_id,
           tier: packToDuplicate.tier,
           base_price: packToDuplicate.base_price,
           is_active: true,
@@ -537,7 +552,7 @@ export const WorkPackManager: React.FC = () => {
                   <div className="flex items-start justify-between mb-6">
                     <div className="flex-1">
                       <h3 className="text-lg font-semibold text-white mb-1">{pack.name}</h3>
-                      <p className="text-sm text-gray-500">{pack.category?.name || 'Uncategorized'}</p>
+                      <p className="text-sm text-gray-500">{pack.industry?.name || 'Uncategorized'}</p>
                     </div>
                     <span className={`px-2 py-1 rounded text-xs font-medium uppercase ${getTierStyle(pack.tier)}`}>
                       {pack.tier}
@@ -624,7 +639,7 @@ export const WorkPackManager: React.FC = () => {
                 </div>
 
                 {/* Category */}
-                <div className="text-[13px] text-gray-300">{pack.category?.name}</div>
+                <div className="text-[13px] text-gray-300">{pack.industry?.name}</div>
 
                 {/* Products Count */}
                 <div className="text-sm text-gray-300 text-center">{pack.items?.length || 0}</div>

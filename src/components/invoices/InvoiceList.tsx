@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2 } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { Modal } from '../common/Modal';
 import { SlideOutDrawer } from '../common/SlideOutDrawer';
@@ -12,10 +12,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateInvoiceDrawer } from './CreateInvoiceDrawer';
+import { PaymentTracker } from './PaymentTracker';
+import { ProgressBillingModal } from './ProgressBillingModal';
 
 type Invoice = {
   id: string;
   number: string;
+  invoice_number?: string;
   client_id: string;
   date: string;
   issue_date: string;
@@ -29,6 +32,19 @@ type Invoice = {
   amount: number;
   user_id: string;
   created_at: string;
+  // New contractor properties
+  total_paid?: number;
+  balance_due?: number;
+  payment_terms?: string;
+  is_progress_billing?: boolean;
+  project_milestone?: string;
+  milestone_percentage?: number;
+  payments?: Array<{
+    id: string;
+    amount: number;
+    payment_date: string;
+    payment_method: string;
+  }>;
 };
 type InvoiceStatus = 'all' | 'draft' | 'sent' | 'paid' | 'overdue';
 
@@ -63,6 +79,11 @@ export const InvoiceList: React.FC = () => {
   // Add state for invoice dropdown menus
   const [openInvoiceDropdown, setOpenInvoiceDropdown] = useState<string | null>(null);
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  
+  // New contractor features state
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [showPaymentTracker, setShowPaymentTracker] = useState(false);
+  const [showProgressBilling, setShowProgressBilling] = useState(false);
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -99,6 +120,7 @@ export const InvoiceList: React.FC = () => {
     };
 
     document.addEventListener('mousedown', handleClickOutside);
+    
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
@@ -135,27 +157,46 @@ export const InvoiceList: React.FC = () => {
     }
 
     try {
+      // Load invoices with enhanced payment information
       const [invoicesRes, clientsRes, productsRes] = await Promise.all([
         supabase
           .from('invoices')
-          .select('*')
-          .eq('organization_id', selectedOrg.id)
+          .select(`
+            *,
+            payments:invoice_payments(
+              id,
+              amount,
+              payment_date,
+              payment_method
+            )
+          `)
+          .eq('user_id', user?.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('clients')
           .select('*')
-          .eq('organization_id', selectedOrg.id),
+          .eq('user_id', user?.id),
         supabase
           .from('products')
           .select('*')
-          .eq('organization_id', selectedOrg.id)
+          .eq('user_id', user?.id)
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;
       if (clientsRes.error) throw clientsRes.error;
       if (productsRes.error) throw productsRes.error;
 
-      setInvoices(invoicesRes.data || []);
+      // Calculate payment totals for each invoice
+      const processedInvoices = (invoicesRes.data || []).map(invoice => {
+        const totalPaid = invoice.payments?.reduce((sum: number, payment: any) => sum + payment.amount, 0) || 0;
+        return {
+          ...invoice,
+          total_paid: totalPaid,
+          balance_due: invoice.amount - totalPaid
+        };
+      });
+
+      setInvoices(processedInvoices);
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
     } catch (err) {
@@ -616,6 +657,41 @@ export const InvoiceList: React.FC = () => {
     );
   };
 
+  // New contractor features functions
+  const handleViewPayments = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setShowPaymentTracker(true);
+  };
+
+  const handleCreateProgressInvoice = () => {
+    setShowProgressBilling(true);
+  };
+
+  const getPaymentProgress = (invoice: any) => {
+    if (invoice.amount <= 0) return 0;
+    const totalPaid = invoice.total_paid || 0;
+    return Math.min((totalPaid / invoice.amount) * 100, 100);
+  };
+
+  const getStatusBadge = (invoice: any) => {
+    const balanceDue = invoice.amount - (invoice.total_paid || 0);
+    
+    if (balanceDue <= 0) {
+      return { text: 'PAID', color: 'bg-[#388E3C] text-white' };
+    }
+    
+    if (invoice.total_paid > 0) {
+      return { text: 'PARTIAL', color: 'bg-[#F9D71C] text-black' };
+    }
+    
+    const isOverdue = new Date(invoice.due_date) < new Date();
+    if (isOverdue) {
+      return { text: 'OVERDUE', color: 'bg-[#D32F2F] text-white' };
+    }
+    
+    return { text: 'UNPAID', color: 'bg-gray-600 text-white' };
+  };
+
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       {/* Header */}
@@ -636,44 +712,57 @@ export const InvoiceList: React.FC = () => {
             // Compact 4-column row for constrained/minimal
             <div className="grid grid-cols-4 gap-4">
               <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL INVOICED</div>
+                <div className="text-base font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))}</div>
+                <div className="text-xs text-gray-500">{invoices.length} invoices</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL PAID</div>
+                <div className="text-base font-semibold text-[#388E3C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.total_paid || 0), 0))}</div>
+                <div className="text-xs text-gray-500">collected</div>
+              </div>
+              <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">OUTSTANDING</div>
-                <div className="text-base font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
+                <div className="text-base font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.amount - (inv.total_paid || 0)), 0))}</div>
+                <div className="text-xs text-gray-500">owed</div>
               </div>
               <div className="text-center">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">OVERDUE</div>
-                <div className="text-base font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">COLLECTED</div>
-                <div className="text-base font-semibold mt-1">{formatCurrency(paidAmountForPeriod)}</div>
-              </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">AVG</div>
-                <div className="text-base font-semibold mt-1">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</div>
+                <div className="text-base font-semibold text-[#D32F2F] mt-1">{formatCurrency(invoices.reduce((sum, inv) => {
+                  const isOverdue = new Date(inv.due_date) < new Date() && (inv.total_paid || 0) < inv.amount;
+                  return sum + (isOverdue ? (inv.amount - (inv.total_paid || 0)) : 0);
+                }, 0))}</div>
+                <div className="text-xs text-gray-500">past due</div>
               </div>
             </div>
           ) : (
             // Full 4-column layout for desktop
             <div className="grid grid-cols-4 gap-6">
               <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL INVOICED</div>
+                <div className="text-lg font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + inv.amount, 0))}</div>
+                <div className="text-xs text-gray-500">({invoices.length} invoices • lifetime business)</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL PAID</div>
+                <div className="text-lg font-semibold text-[#388E3C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.total_paid || 0), 0))}</div>
+                <div className="text-xs text-gray-500">(cash collected • {Math.round((invoices.reduce((sum, inv) => sum + (inv.total_paid || 0), 0) / Math.max(invoices.reduce((sum, inv) => sum + inv.amount, 0), 1)) * 100)}% collection rate)</div>
+              </div>
+              <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">OUTSTANDING</div>
-                <div className="text-lg font-semibold mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status !== 'paid' ? inv.amount : 0), 0))}</div>
-                <div className="text-xs text-gray-500">({invoices.filter(inv => inv.status !== 'paid').length} invoices)</div>
+                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.amount - (inv.total_paid || 0)), 0))}</div>
+                <div className="text-xs text-gray-500">({invoices.filter(inv => (inv.amount - (inv.total_paid || 0)) > 0).length} invoices owed)</div>
               </div>
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">OVERDUE</div>
-                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{formatCurrency(invoices.reduce((sum, inv) => sum + (inv.status === 'overdue' ? inv.amount : 0), 0))}</div>
-                <div className="text-xs text-gray-500">({invoices.filter(inv => inv.status === 'overdue').length})</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">COLLECTED</div>
-                <div className="text-lg font-semibold mt-1">{formatCurrency(paidAmountForPeriod)}</div>
-                <div className="text-xs text-gray-500">(this year)</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">AVG INVOICE</div>
-                <div className="text-lg font-semibold mt-1">{formatCurrency(invoices.length > 0 ? invoices.reduce((sum, inv) => sum + inv.amount, 0) / invoices.length : 0)}</div>
-                <div className="text-xs text-gray-500">(average)</div>
+                <div className="text-lg font-semibold text-[#D32F2F] mt-1">{formatCurrency(invoices.reduce((sum, inv) => {
+                  const isOverdue = new Date(inv.due_date) < new Date() && (inv.total_paid || 0) < inv.amount;
+                  return sum + (isOverdue ? (inv.amount - (inv.total_paid || 0)) : 0);
+                }, 0))}</div>
+                <div className="text-xs text-gray-500">({invoices.filter(inv => {
+                  const isOverdue = new Date(inv.due_date) < new Date() && (inv.total_paid || 0) < inv.amount;
+                  return isOverdue;
+                }).length} past due • requires action)</div>
               </div>
             </div>
           )}
@@ -800,6 +889,17 @@ export const InvoiceList: React.FC = () => {
                   </div>
                   <button
                     onClick={() => {
+                      handleCreateProgressInvoice();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <FileText className="w-3 h-3 mr-3 text-gray-400" />
+                    Progress Invoice
+                  </button>
+                  <div className="border-t border-[#333333] my-1"></div>
+                  <button
+                    onClick={() => {
                       handleImportInvoices();
                       setShowOptionsMenu(false);
                     }}
@@ -864,6 +964,8 @@ export const InvoiceList: React.FC = () => {
                     {filteredInvoices.map((invoice) => {
                       const client = clients.find(c => c.id === invoice.client_id);
                       const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+                      const status = getStatusBadge(invoice);
+                      const progress = getPaymentProgress(invoice);
                       
                       return (
                         <div
@@ -877,24 +979,33 @@ export const InvoiceList: React.FC = () => {
                           } items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
                           onClick={() => handleViewInvoice(invoice.id)}
                         >
-                          {/* Invoice Column with Status Badge */}
+                          {/* Invoice Column with Enhanced Status Badge */}
                           <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
                             <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
-                              <span className={`text-xs px-2 py-1 rounded-[2px] font-medium min-w-[60px] text-center ${
-                                invoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
-                                invoice.status === 'overdue' ? 'bg-red-500/20 text-red-300' :
-                                invoice.status === 'sent' ? 'bg-blue-500/20 text-blue-300' :
-                                'bg-gray-500/20 text-gray-300'
-                              }`}>
-                                {invoice.status === 'overdue' ? 'overdue' : invoice.status}
+                              <span className={`text-xs px-2 py-1 rounded-[4px] font-medium min-w-[60px] text-center ${status.color}`}>
+                                {status.text}
                               </span>
                               <div className="min-w-0 flex-1">
                                 <div className={`font-medium text-white truncate ${isMinimal ? 'text-sm' : ''}`}>
-                                  {`INV-${invoice.id.slice(0, 8)}`}
+                                  {invoice.invoice_number || `INV-${invoice.id.slice(0, 8)}`}
                                 </div>
                                 <div className="text-xs text-gray-400 truncate mt-0.5">
                                   {client?.name || 'Unknown Client'}
                                 </div>
+                                {/* Payment Progress Bar */}
+                                {(invoice.total_paid || 0) > 0 && (
+                                  <div className="mt-1">
+                                    <div className="w-full bg-[#333333] rounded-[2px] h-1">
+                                      <div 
+                                        className="bg-[#388E3C] h-1 rounded-[2px] transition-all duration-300"
+                                        style={{ width: `${progress}%` }}
+                                      />
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                      {Math.round(progress)}% paid
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1133,6 +1244,17 @@ export const InvoiceList: React.FC = () => {
           </button>
           <button
             onClick={() => {
+              const invoice = invoices.find(inv => inv.id === openInvoiceDropdown);
+              if (invoice) handleViewPayments(invoice);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <CreditCard className="w-4 h-4 mr-3 text-gray-400" />
+            Track Payments
+          </button>
+          <button
+            onClick={() => {
               handleDuplicateInvoice(openInvoiceDropdown);
               setOpenInvoiceDropdown(null);
             }}
@@ -1164,6 +1286,46 @@ export const InvoiceList: React.FC = () => {
           </button>
         </div>
       )}
+      
+      {/* Payment Tracker Modal */}
+      {showPaymentTracker && selectedInvoice && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-[4px] w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-[#2a2a2a]">
+              <h2 className="text-xl font-bold text-white">
+                Payment Tracking - {selectedInvoice.invoice_number || `INV-${selectedInvoice.id.slice(-6)}`}
+              </h2>
+              <button
+                onClick={() => setShowPaymentTracker(false)}
+                className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] rounded-[4px] transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6">
+              <PaymentTracker
+                invoiceId={selectedInvoice.id}
+                invoiceAmount={selectedInvoice.amount}
+                totalPaid={selectedInvoice.total_paid || 0}
+                balanceDue={selectedInvoice.amount - (selectedInvoice.total_paid || 0)}
+                onPaymentAdded={() => {
+                  fetchData(); // Refresh your existing data
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Progress Billing Modal */}
+      <ProgressBillingModal
+        isOpen={showProgressBilling}
+        onClose={() => setShowProgressBilling(false)}
+        onSuccess={(invoiceId) => {
+          console.log('Progress invoice created:', invoiceId);
+          fetchData(); // Refresh your existing data
+        }}
+      />
     </div>
   );
 };

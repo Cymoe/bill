@@ -43,12 +43,15 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
   
   // Form data
   const [workPackName, setWorkPackName] = useState('');
-  const [workPackCategory, setWorkPackCategory] = useState('');
+  const [workPackIndustry, setWorkPackIndustry] = useState('');
+  const [workPackProjectType, setWorkPackProjectType] = useState('');
   const [workPackDescription, setWorkPackDescription] = useState('');
   const [workPackTier, setWorkPackTier] = useState<'budget' | 'standard' | 'premium'>('standard');
   
   // Data
   const [products, setProducts] = useState<Product[]>([]);
+  const [industries, setIndustries] = useState<any[]>([]);
+  const [projectTypes, setProjectTypes] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<Product[]>([]);
   const [tasks, setTasks] = useState<Task[]>([
@@ -65,8 +68,7 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
 
   useEffect(() => {
     if (isOpen) {
-      loadProducts();
-      loadCategories();
+      loadData();
       
       if (workPackId) {
         // Load existing work pack data for editing
@@ -74,7 +76,8 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
       } else {
         // Reset form for creating new work pack
         setWorkPackName('');
-        setWorkPackCategory('');
+        setWorkPackIndustry('');
+        setWorkPackProjectType('');
         setWorkPackDescription('');
         setWorkPackTier('standard');
         setSelectedProducts([]);
@@ -94,6 +97,51 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
     }
   }, [isOpen, workPackId]);
 
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load industries
+      const { data: industriesData, error: industriesError } = await supabase
+        .from('industries')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+        
+      if (!industriesError && industriesData) {
+        setIndustries(industriesData);
+        setCategories(industriesData); // Keep for compatibility
+      }
+      
+      // Load project types
+      const { data: projectTypesData, error: projectTypesError } = await supabase
+        .from('project_categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+        
+      if (!projectTypesError && projectTypesData) {
+        setProjectTypes(projectTypesData);
+      }
+
+      // Load products for selection
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('name');
+        
+      if (!productsError && productsData) {
+        setProducts(productsData);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setLoading(false);
+    }
+  };
+
   const loadWorkPackData = async (packId: string) => {
     try {
       // Load work pack details
@@ -101,14 +149,16 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
         .from('work_packs')
         .select(`
           *,
-          category:project_categories(id, name)
+          industry:industries(id, name),
+          project_type:project_categories!project_type_id(id, name)
         `)
         .eq('id', packId)
         .single();
 
       if (workPack) {
         setWorkPackName(workPack.name);
-        setWorkPackCategory(workPack.category_id || '');
+        setWorkPackIndustry(workPack.industry_id || '');
+        setWorkPackProjectType(workPack.project_type_id || '');
         setWorkPackDescription(workPack.description || '');
         setWorkPackTier(workPack.tier);
       }
@@ -158,75 +208,6 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
       }
     } catch (error) {
       console.error('Error loading work pack data:', error);
-    }
-  };
-
-  const loadProducts = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          category:project_categories!category_id(name),
-          items:product_line_items!product_line_items_product_id_fkey(
-            id,
-            quantity,
-            price,
-            unit
-          )
-        `)
-        .eq('user_id', user?.id)
-        .eq('is_base_product', true)
-        .order('name');
-
-      if (error) {
-        console.error('Error loading products:', error);
-        return;
-      }
-
-      if (data) {
-        const processedProducts = data.map(product => {
-          // Calculate total price from line items
-          const lineItemsTotal = product.items?.reduce((sum: number, item: any) => {
-            return sum + ((item.price || 0) * (item.quantity || 1));
-          }, 0) || 0;
-          
-          return {
-            ...product,
-            line_items_count: product.items?.length || 0,
-            category: product.category,
-            // Use the calculated total from line items, fallback to product price
-            price: lineItemsTotal > 0 ? lineItemsTotal : (product.price || 0)
-          };
-        });
-        
-        console.log(`✅ Loaded ${processedProducts.length} base products`);
-        setProducts(processedProducts);
-      }
-    } catch (error) {
-      console.error('Error loading products:', error);
-    }
-  };
-
-  const loadCategories = async () => {
-    // If categories are provided as props, use them
-    if (propCategories) {
-      setCategories(propCategories);
-      return;
-    }
-    
-    // Otherwise load from database
-    try {
-      const { data } = await supabase
-        .from('project_categories')
-        .select('*')
-        .order('display_order');
-      
-      if (data) {
-        setCategories(data);
-      }
-    } catch (error) {
-      console.error('Error loading categories:', error);
     }
   };
 
@@ -301,6 +282,17 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
     };
   };
 
+  // Filter project types based on selected industry
+  const filteredProjectTypes = projectTypes.filter(projectType => 
+    !workPackIndustry || projectType.industry_id === workPackIndustry
+  );
+
+  const handleIndustryChange = (industryId: string) => {
+    setWorkPackIndustry(industryId);
+    // Reset project type when industry changes
+    setWorkPackProjectType('');
+  };
+
   const handleCreate = async () => {
     if (!workPackName.trim() || selectedProducts.length === 0) {
       alert('Please enter a name and select at least one product');
@@ -316,7 +308,8 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
           .update({
             name: workPackName,
             description: workPackDescription,
-            category_id: workPackCategory || null,
+            industry_id: workPackIndustry || null,
+            project_type_id: workPackProjectType || null,
             tier: workPackTier,
             base_price: calculateTotals().total,
             organization_id: selectedOrg?.id || null
@@ -387,7 +380,8 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
           .insert({
             name: workPackName,
             description: workPackDescription,
-            category_id: workPackCategory || null,
+            industry_id: workPackIndustry || null,
+            project_type_id: workPackProjectType || null,
             tier: workPackTier,
             base_price: calculateTotals().total,
             user_id: user?.id,
@@ -631,16 +625,31 @@ export const CreateWorkPackModal: React.FC<CreateWorkPackModalProps> = ({ isOpen
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
-                      Category
+                      Industry
                     </label>
                     <select
                       className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white focus:outline-none focus:border-[#336699]"
-                      value={workPackCategory}
-                      onChange={(e) => setWorkPackCategory(e.target.value)}
+                      value={workPackIndustry}
+                      onChange={(e) => handleIndustryChange(e.target.value)}
                     >
-                      <option value="">Select category</option>
-                      {categories.map(category => (
-                        <option key={category.id} value={category.id}>{category.name}</option>
+                      <option value="">Select industry</option>
+                      {industries.map(industry => (
+                        <option key={industry.id} value={industry.id}>{industry.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
+                      Project Type
+                    </label>
+                    <select
+                      className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white focus:outline-none focus:border-[#336699]"
+                      value={workPackProjectType}
+                      onChange={(e) => setWorkPackProjectType(e.target.value)}
+                    >
+                      <option value="">Select project type</option>
+                      {filteredProjectTypes.map(projectType => (
+                        <option key={projectType.id} value={projectType.id}>{projectType.name}</option>
                       ))}
                     </select>
                   </div>

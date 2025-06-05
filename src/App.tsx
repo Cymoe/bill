@@ -34,6 +34,7 @@ import WorkPacksPage from './pages/WorkPacksPage';
 import { WorkPackDetail } from './pages/WorkPackDetail';
 import IndustrySettings from './pages/IndustrySettings';
 import { Expenses } from './pages/Expenses';
+import { InvoicesPage } from './pages/InvoicesPage';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -221,7 +222,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <InvoiceList />
+              <InvoicesPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

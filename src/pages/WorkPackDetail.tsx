@@ -1,27 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MoreVertical, TrendingUp, Calendar, Clock } from 'lucide-react';
+import { 
+  ArrowLeft, Edit, MoreVertical, Share2, FileText, Camera, 
+  MessageSquare, DollarSign, CheckSquare, Plus, Phone, Mail, MapPin, ExternalLink, Users, Calendar, Tag, Clock, TrendingUp, Trash2, X,
+  Filter, ArrowUpDown, ChevronDown, ChevronRight, CheckCircle2, AlertCircle
+} from 'lucide-react';
 import { formatCurrency } from '../utils/format';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { WorkPackBudget } from '../components/work-packs/WorkPackBudget';
+import { WorkPackTaskList } from '../components/WorkPackTaskList';
+import { WorkPackTimelineView } from '../components/WorkPackTimelineView';
+import { WorkPackAnalytics } from '../components/WorkPackAnalytics';
 
 interface WorkPack {
   id: string;
   name: string;
   description: string;
-  category_id: string;
-  category?: { name: string; icon: string };
-  tier: 'budget' | 'standard' | 'premium';
+  industry_id: string;
+  project_type_id: string;
+  tier: string;
   base_price: number;
-  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  usage_count?: number;
+  industry?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
+  project_type?: {
+    id: string;
+    name: string;
+    slug: string;
+  };
   tasks?: any[];
   expenses?: any[];
   items?: any[];
-  usage_count?: number;
-  created_at: string;
-  updated_at: string;
 }
+
+type TabType = 'overview' | 'tasks' | 'expenses' | 'budget' | 'products' | 'timeline' | 'analytics';
 
 export const WorkPackDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -29,14 +46,39 @@ export const WorkPackDetail: React.FC = () => {
   const { user } = useAuth();
   const [workPack, setWorkPack] = useState<WorkPack | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'products' | 'tasks' | 'expenses' | 'budget' | 'analytics'>('products');
-  const [selectedCostCode, setSelectedCostCode] = useState<string>('all');
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showAddExpense, setShowAddExpense] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [costCodes, setCostCodes] = useState<any[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'cost-codes' | 'categories'>('categories');
+  const [newExpense, setNewExpense] = useState({
+    description: '',
+    amount: '',
+    category: 'material',
+    vendor: '',
+    cost_code_id: ''
+  });
 
   useEffect(() => {
     if (id) {
       loadWorkPackDetails();
     }
   }, [id]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.more-menu') && !target.closest('.more-menu-trigger')) {
+        setShowMoreMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const loadWorkPackDetails = async () => {
     try {
@@ -46,7 +88,8 @@ export const WorkPackDetail: React.FC = () => {
         .from('work_packs')
         .select(`
           *,
-          category:project_categories(name, icon),
+          industry:industries(id, name, slug),
+          project_type:project_categories!project_type_id(id, name, slug),
           tasks:work_pack_tasks(*),
           expenses:work_pack_expenses(
             *,
@@ -63,6 +106,8 @@ export const WorkPackDetail: React.FC = () => {
       if (!error && workPackData) {
         // Mock usage count for now
         setWorkPack({ ...workPackData, usage_count: 15 });
+      } else if (error) {
+        console.error('Error loading work pack:', error);
       }
     } catch (error) {
       console.error('Error loading work pack details:', error);
@@ -71,57 +116,188 @@ export const WorkPackDetail: React.FC = () => {
     }
   };
 
-  const getTierStyle = (tier: string) => {
-    switch (tier) {
-      case 'budget':
-        return 'bg-[#0d2818] text-[#4ade80]';
-      case 'standard':
-        return 'bg-[#1a1a1a] text-[#999]';
-      case 'premium':
-        return 'bg-[#2d2006] text-[#fbbf24]';
-      default:
-        return 'bg-[#1a1a1a] text-[#666]';
+  const loadCostCodes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cost_codes')
+        .select('*')
+        .order('code');
+
+      if (!error) {
+        setCostCodes(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading cost codes:', error);
     }
   };
 
-  const getExpenseIcon = (category: string) => {
-    const icons: Record<string, string> = {
-      'material': '🧱',
-      'labor': '👷',
-      'equipment': '🔨',
-      'service': '💼',
-      'permits': '📋',
-      'subcontractor': '🤝',
-      'other': '📦'
-    };
-    return icons[category?.toLowerCase()] || '💰';
+  const handleAddExpense = () => {
+    setEditingExpense(null);
+    setNewExpense({
+      description: '',
+      amount: '',
+      category: 'material',
+      vendor: '',
+      cost_code_id: ''
+    });
+    setShowAddExpense(true);
+    loadCostCodes();
   };
 
-  const handleUseInProject = () => {
-    // TODO: Implement project selection modal
-    console.log('Use in project');
+  const handleEditExpense = (expense: any) => {
+    setEditingExpense(expense);
+    setNewExpense({
+      description: expense.description,
+      amount: expense.amount.toString(),
+      category: expense.category,
+      vendor: expense.vendor || '',
+      cost_code_id: expense.cost_code?.id || ''
+    });
+    setShowAddExpense(true);
+    loadCostCodes();
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Are you sure you want to delete this expense?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('work_pack_expenses')
+        .delete()
+        .eq('id', expenseId);
+
+      if (!error) {
+        await loadWorkPackDetails(); // Refresh the data
+      }
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+    }
+  };
+
+  const handleSaveExpense = async () => {
+    try {
+      const expenseData = {
+        work_pack_id: workPack?.id,
+        description: newExpense.description,
+        amount: parseFloat(newExpense.amount),
+        category: newExpense.category,
+        vendor: newExpense.vendor || null,
+        cost_code_id: newExpense.cost_code_id || null
+      };
+
+      if (editingExpense) {
+        // Update existing expense
+        const { error } = await supabase
+          .from('work_pack_expenses')
+          .update(expenseData)
+          .eq('id', editingExpense.id);
+
+        if (error) throw error;
+      } else {
+        // Create new expense
+        const { error } = await supabase
+          .from('work_pack_expenses')
+          .insert(expenseData);
+
+        if (error) throw error;
+      }
+
+      // Reset form and close
+      setShowAddExpense(false);
+      setEditingExpense(null);
+      setNewExpense({
+        description: '',
+        amount: '',
+        category: 'material',
+        vendor: '',
+        cost_code_id: ''
+      });
+      
+      await loadWorkPackDetails(); // Refresh the data
+    } catch (error) {
+      console.error('Error saving expense:', error);
+    }
+  };
+
+  const toggleGroup = (groupKey: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  const formatExpenseDate = (date: string) => {
+    const expenseDate = new Date(date);
+    const now = new Date();
+    const diffTime = now.getTime() - expenseDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return expenseDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getTierBadgeClass = (tier: string) => {
+    switch (tier) {
+      case 'budget':
+        return 'bg-green-500/20 text-green-400';
+      case 'standard':
+        return 'bg-[#336699]/20 text-[#336699]';
+      case 'premium':
+        return 'bg-[#F9D71C]/20 text-[#F9D71C]';
+      default:
+        return 'bg-gray-500/20 text-gray-400';
+    }
   };
 
   const handleEdit = () => {
     navigate(`/work-packs/${id}/edit`);
   };
 
-  if (loading) {
+  if (loading && !workPack) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#fbbf24]"></div>
+      <div className="max-w-[1600px] mx-auto p-8">
+        {/* Header Skeleton */}
+        <div className="mb-8">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-[#1a1a1a] rounded animate-pulse" />
+              <div>
+                <div className="h-8 w-64 bg-[#1a1a1a] rounded mb-2 animate-pulse" />
+                <div className="flex items-center gap-4">
+                  <div className="h-6 w-20 bg-[#1a1a1a] rounded animate-pulse" />
+                  <div className="h-5 w-32 bg-[#1a1a1a] rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="h-10 w-32 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-10 w-20 bg-[#1a1a1a] rounded animate-pulse" />
+              <div className="h-10 w-10 bg-[#1a1a1a] rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-4">
+          <div className="h-32 bg-[#181818] rounded-xl animate-pulse" />
+          <div className="h-64 bg-[#181818] rounded-xl animate-pulse" />
+        </div>
       </div>
     );
   }
 
   if (!workPack) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-white mb-2">Work Pack Not Found</h2>
+          <p className="text-white text-lg mb-4">Work Pack Not Found</p>
           <button
             onClick={() => navigate('/work-packs')}
-            className="px-4 py-2 bg-[#fbbf24] text-black rounded-lg text-sm font-semibold hover:bg-[#f59e0b] transition-all"
+            className="px-4 py-2 bg-[#F9D71C] text-black rounded-md text-sm hover:bg-[#E6C419] transition-colors"
           >
             Back to Work Packs
           </button>
@@ -139,461 +315,820 @@ export const WorkPackDetail: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="max-w-[1200px] mx-auto px-6 py-10">
-        {/* Header */}
-        <div className="flex justify-between items-start mb-10">
-          <div className="flex gap-8">
-            {/* Icon */}
-            <div className="w-20 h-20 border border-[#2a2a2a] rounded-xl bg-[#111] flex items-center justify-center text-[32px] font-semibold text-[#666]">
-              {workPack.name.substring(0, 2).toUpperCase()}
-            </div>
+    <div className="max-w-[1600px] mx-auto p-8">
+      {/* Header Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between">
+          {/* Left side - Back button, title, badges */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/work-packs')}
+              className="p-2 hover:bg-[#1a1a1a] rounded-md transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-400" />
+            </button>
             
-            {/* Info */}
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-4">
-                <h1 className="text-[32px] font-bold text-white tracking-tight">{workPack.name}</h1>
-                <span className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider rounded-md ${getTierStyle(workPack.tier)}`}>
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <h1 className="text-2xl font-semibold text-white">{workPack.name}</h1>
+                <span className="text-gray-400 text-sm">• {workPack.industry?.name || 'Uncategorized'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded text-xs font-medium uppercase bg-[#F9D71C]/20 text-[#F9D71C] border border-[#F9D71C]/40">
+                  📋 Template
+                </span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium uppercase ${getTierBadgeClass(workPack.tier)}`}>
                   {workPack.tier}
                 </span>
               </div>
-              <div className="text-base text-[#666]">{workPack.category?.name}</div>
-              <p className="text-sm text-[#999] max-w-[600px] leading-relaxed">{workPack.description}</p>
             </div>
           </div>
           
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={handleUseInProject}
-              className="px-5 py-2.5 bg-[#fbbf24] text-black rounded-lg text-sm font-semibold hover:bg-[#f59e0b] transition-all"
-            >
-              Use in Project
+          {/* Right side - Action buttons */}
+          <div className="flex items-center gap-3">
+            <button className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white hover:bg-[#2a2a2a] transition-colors text-sm rounded-md">
+              <Share2 className="w-4 h-4" />
+              <span>Share</span>
             </button>
+            
             <button
               onClick={handleEdit}
-              className="px-5 py-2.5 bg-transparent border border-[#2a2a2a] text-[#999] hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg text-sm font-medium transition-all"
+              className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white hover:bg-[#2a2a2a] transition-colors text-sm rounded-md"
             >
-              Edit
+              <Edit className="w-4 h-4" />
+              <span>Edit</span>
             </button>
-            <button className="w-10 h-10 bg-transparent border border-[#2a2a2a] text-[#999] hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg flex items-center justify-center transition-all">
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="grid grid-cols-5 gap-6 mb-10 p-6 bg-[#111] border border-[#1a1a1a] rounded-xl">
-          <div className="flex flex-col gap-1 pr-6 border-r border-[#1a1a1a]">
-            <span className="text-[11px] uppercase tracking-[0.5px] text-[#666]">Total Value</span>
-            <span className="text-2xl font-bold text-white">{formatCurrency(stats.totalValue)}</span>
-            <span className="text-xs text-[#666]">base price</span>
-          </div>
-          <div className="flex flex-col gap-1 pr-6 border-r border-[#1a1a1a]">
-            <span className="text-[11px] uppercase tracking-[0.5px] text-[#666]">Products</span>
-            <span className="text-2xl font-bold text-white">{stats.productsCount}</span>
-            <span className="text-xs text-[#666]">included</span>
-          </div>
-          <div className="flex flex-col gap-1 pr-6 border-r border-[#1a1a1a]">
-            <span className="text-[11px] uppercase tracking-[0.5px] text-[#666]">Tasks</span>
-            <span className="text-2xl font-bold text-white">{stats.tasksCount}</span>
-            <span className="text-xs text-[#666]">to complete</span>
-          </div>
-          <div className="flex flex-col gap-1 pr-6 border-r border-[#1a1a1a]">
-            <span className="text-[11px] uppercase tracking-[0.5px] text-[#666]">Expenses</span>
-            <span className="text-2xl font-bold text-white">{stats.expensesCount}</span>
-            <span className="text-xs text-[#666]">additional</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] uppercase tracking-[0.5px] text-[#666]">Used In</span>
-            <span className="text-2xl font-bold text-white">{stats.usageCount}</span>
-            <span className="text-xs text-[#666]">projects</span>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-8 mb-8 border-b border-[#2a2a2a]">
-          {[
-            { id: 'products', label: 'Products', count: stats.productsCount },
-            { id: 'tasks', label: 'Tasks', count: stats.tasksCount },
-            { id: 'expenses', label: 'Expenses', count: stats.expensesCount },
-            { id: 'budget', label: 'Budget', count: null },
-            { id: 'analytics', label: 'Analytics', count: null }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`relative py-3 text-sm font-medium transition-all flex items-center gap-2 ${
-                activeTab === tab.id
-                  ? 'text-white'
-                  : 'text-[#666] hover:text-[#999]'
-              }`}
-            >
-              {tab.label}
-              {tab.count !== null && (
-                <span className="text-xs text-[#666]">({tab.count})</span>
+            
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="more-menu-trigger w-9 h-9 flex items-center justify-center border border-[#2a2a2a] bg-[#1a1a1a] rounded-md hover:bg-[#2a2a2a] transition-colors"
+              >
+                <MoreVertical className="w-4 h-4 text-gray-400" />
+              </button>
+              
+              {showMoreMenu && (
+                <div className="more-menu absolute right-0 top-full mt-2 w-48 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg shadow-lg z-50">
+                  <button className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#2a2a2a] transition-colors">
+                    Duplicate Template
+                  </button>
+                  <button className="w-full text-left px-4 py-3 text-sm text-white hover:bg-[#2a2a2a] transition-colors">
+                    Export Template
+                  </button>
+                  <div className="border-t border-[#2a2a2a]" />
+                  <button className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-[#2a2a2a] transition-colors">
+                    Delete Template
+                  </button>
+                </div>
               )}
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-[#fbbf24]" />
-              )}
-            </button>
-          ))}
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Tab Content */}
-        <div className="mb-10">
-          {/* Budget Tab */}
-          {activeTab === 'budget' && (
-            <WorkPackBudget workPackId={workPack.id} />
+      {/* Tabs Navigation */}
+      <div className="flex justify-between mb-8 border-b border-[#2a2a2a]">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'overview'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('tasks')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'tasks'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Tasks
+          <span className="text-xs text-gray-500">{stats.tasksCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('expenses')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'expenses'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Expenses
+          <span className="text-xs text-gray-500">{stats.expensesCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('budget')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'budget'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Budget
+        </button>
+        <button
+          onClick={() => setActiveTab('products')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'products'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Products
+          <span className="text-xs text-gray-500">{stats.productsCount}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'timeline'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Timeline
+        </button>
+        <button
+          onClick={() => setActiveTab('analytics')}
+          className={`flex-1 pb-4 text-sm font-medium transition-colors relative text-center after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+            activeTab === 'analytics'
+              ? 'text-white after:bg-[#336699]'
+              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
+          }`}
+        >
+          Analytics
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-4">
+          {/* Template Health Section */}
+          <section className="bg-[#181818] rounded-xl p-5">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Template Summary</h2>
+                <div className="px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 bg-[#F9D71C]/20 text-[#F9D71C]">
+                  <span className="text-[#F9D71C]">●</span>
+                  Ready for Use
+                </div>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="bg-[#121212] rounded-lg p-4 text-center">
+                <div className="text-lg font-bold mb-1 text-[#F9D71C]">
+                  {formatCurrency(stats.totalValue)}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Base Price</div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center">
+                <div className="text-lg font-bold mb-1 text-[#336699]">
+                  {stats.productsCount}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Products</div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center">
+                <div className="text-lg font-bold mb-1 text-green-400">
+                  {stats.tasksCount}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Template Tasks</div>
+              </div>
+              
+              <div className="bg-[#121212] rounded-lg p-4 text-center">
+                <div className="text-lg font-bold mb-1 text-orange-400">
+                  {stats.usageCount}
+                </div>
+                <div className="text-[11px] text-gray-300 uppercase tracking-wide">Times Used</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Description */}
+          <section className="bg-[#181818] rounded-xl p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Template Description</h3>
+            <p className="text-white mb-4">{workPack.description || 'No description provided'}</p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Industry</div>
+                <div className="text-white">{workPack.industry?.name || 'Uncategorized'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Project Type</div>
+                <div className="text-white capitalize">{workPack.project_type?.name || 'Uncategorized'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Created</div>
+                <div className="text-white">{new Date(workPack.created_at).toLocaleDateString()}</div>
+              </div>
+              <div>
+                <div className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Last Updated</div>
+                <div className="text-white">{new Date(workPack.updated_at).toLocaleDateString()}</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Recent Usage */}
+          <section className="bg-[#181818] rounded-xl p-6">
+            <h3 className="text-sm font-semibold uppercase tracking-wider mb-6">Recent Usage</h3>
+            {/* Mock recent projects using this template */}
+            <div className="space-y-4">
+              {[
+                { name: 'Johnson Master Bath', date: '2 days ago', amount: 13450 },
+                { name: 'Chen Bathroom Remodel', date: '1 week ago', amount: 12800 },
+                { name: 'Williams Guest Bath', date: '2 weeks ago', amount: 11200 }
+              ].map((project, idx) => (
+                <div key={idx} className="flex gap-3">
+                  <div className="w-8 h-8 bg-[#2a2a2a] rounded-full flex items-center justify-center flex-shrink-0 text-sm">
+                    📋
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm text-white">{project.name}</div>
+                    <div className="text-xs text-gray-500">{project.date} • {formatCurrency(project.amount)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Tasks Tab */}
+      {activeTab === 'tasks' && (
+        <div className="space-y-4">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <WorkPackTaskList 
+              workPackId={workPack.id} 
+              onTaskUpdate={() => loadWorkPackDetails()} 
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Expenses Tab */}
+      {activeTab === 'expenses' && (
+        <div className="space-y-6">
+          {/* Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-medium uppercase tracking-wider text-gray-400">
+                {viewMode === 'cost-codes' ? 'Cost Categories' : 'Expense Types'}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* View Mode Selector */}
+              <div className="relative">
+                <select
+                  value={viewMode}
+                  onChange={(e) => setViewMode(e.target.value as 'cost-codes' | 'categories')}
+                  className="w-40 bg-[#111827]/50 border border-gray-700 rounded-[4px] pl-8 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699] appearance-none cursor-pointer"
+                >
+                  <option value="cost-codes">Cost Codes</option>
+                  <option value="categories">Categories</option>
+                </select>
+                <Filter className="w-4 h-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="p-1.5 bg-[#111827]/50 border border-gray-700 rounded-[4px] text-gray-400 hover:text-white transition-colors"
+                title={`Sort by amount ${sortOrder === 'asc' ? 'descending' : 'ascending'}`}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={handleAddExpense}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] text-sm font-medium transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          
+          {/* Add Expense Form - Inline like Projects */}
+          {showAddExpense && (
+            <div className="bg-[#111827]/50 border border-gray-700 rounded-[4px] p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium uppercase tracking-wider text-gray-400">
+                  {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+                </h3>
+                <button 
+                  onClick={() => {
+                    setShowAddExpense(false);
+                    setEditingExpense(null);
+                    setNewExpense({
+                      description: '',
+                      amount: '',
+                      category: 'material',
+                      vendor: '',
+                      cost_code_id: ''
+                    });
+                  }}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                  <input
+                    type="text"
+                    placeholder="What did you pay for?"
+                    value={newExpense.description}
+                    onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    step="0.01"
+                    value={newExpense.amount}
+                    onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="text"
+                    placeholder="Vendor (optional)"
+                    value={newExpense.vendor}
+                    onChange={(e) => setNewExpense({ ...newExpense, vendor: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:border-[#336699]"
+                  />
+                </div>
+
+                <div>
+                  <select
+                    value={newExpense.category}
+                    onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white focus:outline-none focus:border-[#336699] cursor-pointer"
+                  >
+                    <option value="material">Materials</option>
+                    <option value="labor">Labor</option>
+                    <option value="equipment">Equipment</option>
+                    <option value="service">Service</option>
+                    <option value="permits">Permits</option>
+                    <option value="subcontractor">Subcontractor</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <select
+                    value={newExpense.cost_code_id}
+                    onChange={(e) => setNewExpense({ ...newExpense, cost_code_id: e.target.value })}
+                    className="w-full bg-gray-900/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white focus:outline-none focus:border-[#336699] cursor-pointer"
+                  >
+                    <option value="">No Cost Code</option>
+                    {costCodes.map((code) => (
+                      <option key={code.id} value={code.id}>
+                        {code.code} - {code.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  onClick={() => {
+                    setShowAddExpense(false);
+                    setEditingExpense(null);
+                    setNewExpense({
+                      description: '',
+                      amount: '',
+                      category: 'material',
+                      vendor: '',
+                      cost_code_id: ''
+                    });
+                  }}
+                  className="px-4 py-2 border border-gray-700 rounded-[4px] text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveExpense}
+                  className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+                >
+                  {editingExpense ? 'Update Expense' : 'Add Expense'}
+                </button>
+              </div>
+            </div>
           )}
 
-          {/* Products Tab */}
-          {activeTab === 'products' && (
+          {workPack.expenses && workPack.expenses.length > 0 ? (
+            <>
+              {/* All Summary */}
+              <div className="bg-[#F9D71C]/10 border border-[#F9D71C]/20 rounded-[4px] p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="text-[#F9D71C] font-medium">
+                      {viewMode === 'cost-codes' ? 'All Categories' : 'All Expenses'}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-1 bg-gray-900/10 text-gray-400 border border-gray-700/30 rounded text-xs flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        {workPack.expenses.length}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-xl font-bold text-[#F9D71C]">
+                    {formatCurrency(workPack.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Collapsible Groups */}
+              <div className="space-y-2">
+                {(() => {
+                  // Group expenses by view mode
+                  const groupedExpenses = workPack.expenses.reduce((acc: any, expense: any) => {
+                    let groupKey: string;
+                    
+                    if (viewMode === 'cost-codes') {
+                      groupKey = expense.cost_code_id || 'no-cost-code';
+                    } else {
+                      groupKey = expense.category || 'Other';
+                    }
+                    
+                    if (!acc[groupKey]) {
+                      acc[groupKey] = [];
+                    }
+                    acc[groupKey].push(expense);
+                    return acc;
+                  }, {});
+
+                  // Calculate totals for each group
+                  const groupTotals = Object.keys(groupedExpenses).reduce((acc: any, groupKey) => {
+                    acc[groupKey] = groupedExpenses[groupKey].reduce((sum: number, expense: any) => sum + expense.amount, 0);
+                    return acc;
+                  }, {});
+
+                  // Sort groups by total amount
+                  const sortedGroups = Object.keys(groupedExpenses).sort((a, b) => {
+                    const comparison = groupTotals[a] - groupTotals[b];
+                    return sortOrder === 'asc' ? comparison : -comparison;
+                  });
+
+                  return sortedGroups.map((groupKey) => {
+                    const isExpanded = expandedGroups.has(groupKey);
+                    
+                    // Get display information based on view mode
+                    let displayCode = '';
+                    let displayName = '';
+                    
+                    if (viewMode === 'cost-codes') {
+                      if (groupKey === 'no-cost-code') {
+                        displayCode = 'No Code';
+                        displayName = 'Unassigned';
+                      } else {
+                        const costCode = costCodes.find((cc: any) => cc.id === groupKey);
+                        displayCode = costCode?.code || groupKey;
+                        displayName = costCode?.name || 'Unknown Cost Code';
+                      }
+                    } else {
+                      displayCode = groupKey;
+                      displayName = groupKey;
+                    }
+                    
+                    return (
+                      <div key={groupKey}>
+                        {/* Group Header */}
+                        <div 
+                          className={`bg-[#111827]/30 border border-gray-800/50 rounded-[4px] p-4 cursor-pointer transition-colors hover:bg-[#111827]/50 ${
+                            isExpanded ? 'bg-[#111827]/50' : ''
+                          }`}
+                          onClick={() => toggleGroup(groupKey)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-gray-400" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-gray-400" />
+                              )}
+                              <div className="font-mono text-sm text-gray-400">
+                                {displayCode}
+                              </div>
+                              <div className="font-medium text-white">
+                                {displayName}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 bg-gray-900/10 text-gray-400 border border-gray-700/30 rounded text-xs flex items-center gap-1">
+                                  <DollarSign className="h-3 w-3" />
+                                  {groupedExpenses[groupKey].length}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-lg font-semibold text-white">
+                              {formatCurrency(groupTotals[groupKey])}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expanded Expense Items */}
+                        {isExpanded && (
+                          <div className="ml-6 mt-2 space-y-1">
+                            {groupedExpenses[groupKey].map((expense: any) => (
+                              <div key={expense.id} className="border border-gray-800/30 rounded-[4px] p-3 bg-gray-900/5">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <DollarSign className="h-4 w-4 text-gray-400" />
+                                      <div className="font-medium text-white text-sm">{expense.description}</div>
+                                    </div>
+                                    <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                                      {expense.vendor && <span>{expense.vendor}</span>}
+                                      {expense.cost_code && (
+                                        <span className="flex items-center gap-1">
+                                          <Tag className="w-3 h-3" />
+                                          {expense.cost_code.code}
+                                        </span>
+                                      )}
+                                      <span className="px-2 py-1 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300">
+                                        {expense.category}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <div className="font-semibold text-white">{formatCurrency(expense.amount)}</div>
+                                    <div className="flex items-center gap-1">
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEditExpense(expense);
+                                        }}
+                                        className="p-1 text-gray-400 hover:text-white transition-colors"
+                                      >
+                                        <Edit className="h-3 w-3" />
+                                      </button>
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteExpense(expense.id);
+                                        }}
+                                        className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <div className="text-gray-400 mb-4">No expenses tracked yet</div>
+              <button
+                onClick={handleAddExpense}
+                className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+              >
+                Add First Expense
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Budget Tab */}
+      {activeTab === 'budget' && (
+        <div className="space-y-6">
+          {/* Summary Header */}
+          <div className="bg-[#F9D71C]/10 border border-[#F9D71C]/20 rounded-[4px] p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div className="text-[#F9D71C] font-medium text-lg">Template Cost Breakdown</div>
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-[#F9D71C]" />
+                <span className="text-lg font-bold text-white">
+                  {formatCurrency(workPack.base_price)}
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">Base Price</div>
+                <div className="text-xl font-bold text-white">{formatCurrency(workPack.base_price)}</div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">Template Expenses</div>
+                <div className="text-xl font-bold text-white">
+                  {formatCurrency(workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0)}
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">Estimated Margin</div>
+                <div className="text-xl font-bold text-green-400">
+                  {(() => {
+                    const expenseTotal = workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0;
+                    const margin = workPack.base_price - expenseTotal;
+                    return formatCurrency(margin);
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Cost Breakdown by Category */}
+          <div className="space-y-2">
+            {(() => {
+              if (!workPack.expenses || workPack.expenses.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <div className="text-gray-400 mb-4">No expenses in template budget</div>
+                    <div className="text-sm text-gray-500">
+                      Add expenses to see detailed cost breakdown
+                    </div>
+                  </div>
+                );
+              }
+
+              // Group expenses by category
+              const expensesByCategory = workPack.expenses.reduce((acc: any, expense: any) => {
+                const category = expense.category || 'Other';
+                if (!acc[category]) {
+                  acc[category] = { total: 0, count: 0, expenses: [] };
+                }
+                acc[category].total += expense.amount;
+                acc[category].count += 1;
+                acc[category].expenses.push(expense);
+                return acc;
+              }, {});
+
+              // Sort categories by total amount (descending)
+              const sortedCategories = Object.entries(expensesByCategory).sort(
+                ([, a]: any, [, b]: any) => b.total - a.total
+              );
+
+              return sortedCategories.map(([category, data]: any) => {
+                const percentOfTotal = workPack.base_price > 0 ? (data.total / workPack.base_price) * 100 : 0;
+                const isExpanded = expandedGroups.has(category);
+                
+                return (
+                  <div key={category}>
+                    {/* Category Header */}
+                    <div 
+                      className="bg-[#111827]/30 border border-gray-800/50 rounded-[4px] p-4 cursor-pointer transition-colors hover:bg-[#111827]/50"
+                      onClick={() => toggleGroup(category)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 text-gray-400" />
+                          )}
+                          <div className="font-medium text-white">{category}</div>
+                          <div className="text-sm text-gray-400">
+                            {data.count} item{data.count !== 1 ? 's' : ''}
+                          </div>
+                          <div className="text-sm text-[#F9D71C]">
+                            {percentOfTotal.toFixed(1)}% of budget
+                          </div>
+                        </div>
+                        <div className="text-lg font-semibold text-white">
+                          {formatCurrency(data.total)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded Expense Items */}
+                    {isExpanded && (
+                      <div className="ml-6 mt-2 space-y-1">
+                        {data.expenses.map((expense: any) => (
+                          <div key={expense.id} className="border border-gray-800/30 rounded-[4px] p-3 bg-gray-900/5">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="font-medium text-white text-sm">{expense.description}</div>
+                                <div className="flex items-center gap-4 text-xs text-gray-400 mt-1">
+                                  {expense.vendor && <span>{expense.vendor}</span>}
+                                  {expense.cost_code && (
+                                    <span className="flex items-center gap-1">
+                                      <Tag className="w-3 h-3" />
+                                      {expense.cost_code.code}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="font-semibold text-white">{formatCurrency(expense.amount)}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+
+          {/* Template Insights */}
+          {workPack.expenses && workPack.expenses.length > 0 && (
+            <div className="bg-[#111827]/30 border border-gray-800/50 rounded-[4px] p-4">
+              <h4 className="text-sm font-semibold text-gray-300 mb-3 uppercase tracking-wider">Template Insights</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-400 mb-2">Most Expensive Category</div>
+                  <div className="text-white">
+                    {(() => {
+                      const expensesByCategory = workPack.expenses.reduce((acc: any, expense: any) => {
+                        const category = expense.category || 'Other';
+                        acc[category] = (acc[category] || 0) + expense.amount;
+                        return acc;
+                      }, {});
+                      const maxCategory = Object.entries(expensesByCategory).reduce(
+                        ([maxCat, maxAmount]: any, [cat, amount]: any) => 
+                          amount > maxAmount ? [cat, amount] : [maxCat, maxAmount],
+                        ['', 0]
+                      );
+                      return `${maxCategory[0]} (${formatCurrency(maxCategory[1])})`;
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-gray-400 mb-2">Average Cost per Item</div>
+                  <div className="text-white">
+                    {formatCurrency((workPack.expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0)) / workPack.expenses.length)}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Products Tab */}
+      {activeTab === 'products' && (
+        <div className="space-y-4">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <h3 className="text-base font-semibold uppercase tracking-wider mb-6">Template Products</h3>
             <div className="grid gap-4">
               {workPack.items?.map((item: any) => (
-                <div key={item.id} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 hover:bg-[#151515] hover:border-[#2a2a2a] transition-all">
-                  <div className="flex justify-between items-start mb-5">
+                <div key={item.id} className="bg-[#121212] border border-[#2a2a2a] rounded p-4">
+                  <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-white mb-1">
+                      <h4 className="text-sm font-semibold text-white mb-1">
                         {item.product?.name || 'Unknown Product'}
-                      </h3>
-                      <div className="text-[13px] text-[#666]">
+                      </h4>
+                      <div className="text-xs text-gray-400">
                         Quantity: {item.quantity} • {item.product?.category || 'Product'}
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-[#fbbf24]">
+                    <div className="text-lg font-bold text-[#F9D71C]">
                       {formatCurrency(item.price * item.quantity)}
                     </div>
                   </div>
                   
                   {item.product?.description && (
-                    <div className="pt-5 border-t border-[#1a1a1a]">
-                      <div className="text-xs uppercase tracking-[0.5px] text-[#666] mb-3">Product Details</div>
-                      <p className="text-sm text-[#999] leading-relaxed">{item.product.description}</p>
+                    <div className="pt-3 border-t border-[#2a2a2a]">
+                      <p className="text-sm text-gray-300">{item.product.description}</p>
                     </div>
                   )}
                 </div>
               ))}
             </div>
-          )}
-
-          {/* Tasks Tab */}
-          {activeTab === 'tasks' && (
-            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6">
-              {workPack.tasks?.map((task: any, index: number) => (
-                <div key={task.id} className={`flex gap-4 py-4 ${index < (workPack.tasks?.length || 0) - 1 ? 'border-b border-[#1a1a1a]' : ''}`}>
-                  <div className="w-8 h-8 bg-[#1a1a1a] rounded-full flex items-center justify-center text-sm font-semibold text-[#666]">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-[15px] text-white mb-1">{task.title}</div>
-                    {task.description && (
-                      <div className="text-[13px] text-[#666] leading-relaxed">{task.description}</div>
-                    )}
-                  </div>
-                  {task.estimated_hours > 0 && (
-                    <div className="text-[13px] text-[#666] flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      {task.estimated_hours} {task.estimated_hours === 1 ? 'hour' : 'hours'}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Expenses Tab */}
-          {activeTab === 'expenses' && (
-            <div className="space-y-6">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-                <div className="bg-[#111] rounded-xl p-6 relative overflow-hidden border border-[#1a1a1a]">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#336699]"></div>
-                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Total Template Cost</h3>
-                  <div className="text-[32px] font-semibold text-white">
-                    {formatCurrency(workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0)}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {Object.keys(workPack.expenses?.reduce((groups: any, expense: any) => {
-                      const costCodeId = expense.cost_code?.id || 'no-cost-code';
-                      groups[costCodeId] = true;
-                      return groups;
-                    }, {}) || {}).length} cost categories
-                  </div>
-                </div>
-                
-                <div className="bg-[#111] rounded-xl p-6 relative overflow-hidden border border-[#1a1a1a]">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
-                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Materials</h3>
-                  <div className="text-[32px] font-semibold text-white">
-                    {formatCurrency(workPack.expenses?.filter((exp: any) => exp.category === 'material').reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0)}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {Math.round(((workPack.expenses?.filter((exp: any) => exp.category === 'material').reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0) / (workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 1)) * 100)}% of total
-                  </div>
-                </div>
-                
-                <div className="bg-[#111] rounded-xl p-6 relative overflow-hidden border border-[#1a1a1a]">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#8b5cf6]"></div>
-                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Labor</h3>
-                  <div className="text-[32px] font-semibold text-white">
-                    {formatCurrency(workPack.expenses?.filter((exp: any) => exp.category === 'labor').reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0)}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    {Math.round(((workPack.expenses?.filter((exp: any) => exp.category === 'labor').reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0) / (workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 1)) * 100)}% of total
-                  </div>
-                </div>
-                
-                <div className="bg-[#111] rounded-xl p-6 relative overflow-hidden border border-[#1a1a1a]">
-                  <div className="absolute top-0 left-0 w-1 h-full bg-[#f59e0b]"></div>
-                  <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Active Categories</h3>
-                  <div className="text-[32px] font-semibold text-white">
-                    {Object.keys(workPack.expenses?.reduce((groups: any, expense: any) => {
-                      const costCodeId = expense.cost_code?.id || 'no-cost-code';
-                      groups[costCodeId] = true;
-                      return groups;
-                    }, {}) || {}).length}
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">of 7 total</div>
-                </div>
-              </div>
-
-              {/* Main Content Grid */}
-              <div className="space-y-6">
-                {/* Cost Code Navigation - Horizontal */}
-                <div className="bg-[#111] rounded-xl p-6 border border-[#1a1a1a]">
-                  <h2 className="text-base font-semibold text-white mb-4">Cost Categories</h2>
-                  <div className="space-y-1">
-                    {(() => {
-                      const groupedExpenses = workPack.expenses?.reduce((groups: any, expense: any) => {
-                        const costCodeId = expense.cost_code?.id || 'no-cost-code';
-                        if (!groups[costCodeId]) {
-                          groups[costCodeId] = {
-                            costCode: expense.cost_code,
-                            total: 0,
-                            count: 0
-                          };
-                        }
-                        groups[costCodeId].total += expense.amount;
-                        groups[costCodeId].count += 1;
-                        return groups;
-                      }, {});
-
-                      const allTotal = workPack.expenses?.reduce((sum: number, exp: any) => sum + exp.amount, 0) || 0;
-                      const sortedGroups = Object.values(groupedExpenses || {}).sort((a: any, b: any) => {
-                        if (!a.costCode && !b.costCode) return 0;
-                        if (!a.costCode) return 1;
-                        if (!b.costCode) return -1;
-                        return a.costCode.code.localeCompare(b.costCode.code);
-                      });
-
-                      return (
-                        <>
-                          <div 
-                            onClick={() => setSelectedCostCode('all')}
-                            className={`flex justify-between items-center p-3 rounded-lg font-medium cursor-pointer transition-all ${
-                              selectedCostCode === 'all' 
-                                ? 'bg-[#336699]/20 border border-[#336699]/40 text-[#336699]' 
-                                : 'hover:bg-[#1a1a1a]'
-                            }`}
-                          >
-                            <span><span className="font-semibold">All</span> Categories</span>
-                            <span className="text-sm">{formatCurrency(allTotal)}</span>
-                          </div>
-                          {sortedGroups.map((group: any) => (
-                            <div 
-                              key={group.costCode?.id || 'no-cost-code'} 
-                              onClick={() => setSelectedCostCode(group.costCode?.id || 'no-cost-code')}
-                              className={`flex justify-between items-center p-3 rounded-lg cursor-pointer transition-all ${
-                                selectedCostCode === (group.costCode?.id || 'no-cost-code')
-                                  ? 'bg-[#336699]/20 border border-[#336699]/40 text-[#336699]'
-                                  : 'hover:bg-[#1a1a1a]'
-                              }`}
-                            >
-                              <span className="text-sm">
-                                {group.costCode ? (
-                                  <><span className="font-semibold">{group.costCode.code}</span> {group.costCode.name}</>
-                                ) : (
-                                  'No Cost Code'
-                                )}
-                              </span>
-                              <span className="text-sm text-gray-400">{formatCurrency(group.total)}</span>
-                            </div>
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-
-                {/* Expense Table */}
-                <div className="bg-[#111] rounded-xl p-8 border border-[#1a1a1a]">
-                  <div className="flex items-center justify-between mb-6">
-                    <div>
-                      <h2 className="text-xl font-semibold text-white">Template Expenses</h2>
-                      {selectedCostCode !== 'all' && (
-                        <p className="text-sm text-gray-400 mt-1">
-                          Filtered by: {
-                            selectedCostCode === 'no-cost-code' 
-                              ? 'No Cost Code' 
-                              : workPack.expenses?.find((exp: any) => exp.cost_code?.id === selectedCostCode)?.cost_code?.code + ' ' + 
-                                workPack.expenses?.find((exp: any) => exp.cost_code?.id === selectedCostCode)?.cost_code?.name
-                          }
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button className="flex items-center gap-2 px-4 py-2 border border-[#2a2a2a] bg-transparent text-gray-400 rounded-md hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all text-sm font-medium">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                        </svg>
-                        Export
-                      </button>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-[#336699] text-white rounded-md hover:bg-[#2a5580] transition-all text-sm font-medium">
-                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="12" y1="5" x2="12" y2="19"></line>
-                          <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        Add Expense
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b-2 border-[#2a2a2a]">
-                          <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Cost Code</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Description</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Category</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Vendor</th>
-                          <th className="text-right py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Amount</th>
-                          <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-400">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {workPack.expenses
-                          ?.filter((expense: any) => {
-                            if (selectedCostCode === 'all') return true;
-                            return expense.cost_code?.id === selectedCostCode || (selectedCostCode === 'no-cost-code' && !expense.cost_code);
-                          })
-                          .map((expense: any, index: number) => (
-                          <tr 
-                            key={expense.id}
-                            className="border-b border-[#1a1a1a] hover:bg-[#0a0a0a] transition-all"
-                          >
-                            <td className="py-4 px-4">
-                              {expense.cost_code ? (
-                                <strong className="font-semibold">{expense.cost_code.code}</strong>
-                              ) : (
-                                <span className="text-gray-500">—</span>
-                              )}
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="text-sm">{expense.description}</span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
-                                expense.category === 'material' 
-                                  ? 'bg-blue-500/10 text-blue-500'
-                                  : expense.category === 'labor'
-                                  ? 'bg-green-500/10 text-green-500'
-                                  : expense.category === 'equipment'
-                                  ? 'bg-orange-500/10 text-orange-500'
-                                  : expense.category === 'service'
-                                  ? 'bg-cyan-500/10 text-cyan-500'
-                                  : expense.category === 'subcontractor'
-                                  ? 'bg-purple-500/10 text-purple-500'
-                                  : expense.category === 'permits'
-                                  ? 'bg-yellow-500/10 text-yellow-500'
-                                  : expense.category === 'other'
-                                  ? 'bg-gray-500/10 text-gray-500'
-                                  : 'bg-gray-600/10 text-gray-400'
-                              }`}>
-                                <span>{getExpenseIcon(expense.category)}</span>
-                                <span className="capitalize">{expense.category}</span>
-                              </span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <span className="text-sm text-gray-400">{expense.vendor || '—'}</span>
-                            </td>
-                            <td className="py-4 px-4 text-right">
-                              <span className="text-sm font-semibold">{formatCurrency(expense.amount)}</span>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center gap-2">
-                                <button className="px-3 py-1.5 text-xs font-medium border border-[#2a2a2a] bg-transparent text-gray-400 rounded-md hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all">
-                                  Edit
-                                </button>
-                                <button className="px-3 py-1.5 text-xs font-medium border border-[#2a2a2a] bg-transparent text-gray-400 rounded-md hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all">
-                                  Remove
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Analytics Tab */}
-          {activeTab === 'analytics' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Usage Chart Placeholder */}
-              <div className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl p-6 h-[300px] flex items-center justify-center text-[#666]">
-                <div className="text-center">
-                  <TrendingUp className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p className="text-sm">Usage analytics coming soon</p>
-                </div>
-              </div>
-              
-              {/* Recent Projects */}
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6">
-                <div className="text-sm font-semibold uppercase tracking-[0.5px] mb-5 pb-3 border-b border-[#1a1a1a]">
-                  Recent Projects Using This Pack
-                </div>
-                <div className="space-y-3">
-                  {[
-                    { name: 'Johnson Master Bath', date: '2 days ago', amount: 13450 },
-                    { name: 'Chen Bathroom Remodel', date: '1 week ago', amount: 12800 },
-                    { name: 'Williams Guest Bath', date: '2 weeks ago', amount: 11200 }
-                  ].map((project, idx) => (
-                    <div key={idx} className="flex justify-between items-center py-3 border-b border-[#1a1a1a] last:border-0">
-                      <div>
-                        <div className="text-sm text-white">{project.name}</div>
-                        <div className="text-xs text-[#666]">{project.date}</div>
-                      </div>
-                      <span className="text-sm font-medium">{formatCurrency(project.amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="pt-10 border-t border-[#2a2a2a] flex items-center justify-between">
-          <div className="text-[13px] text-[#666]">
-            Last updated {new Date(workPack.updated_at || workPack.created_at).toLocaleDateString()}
-          </div>
-          <div className="flex gap-3">
-            <button className="px-4 py-2 bg-transparent border border-[#2a2a2a] text-[#999] hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg text-sm font-medium transition-all">
-              Duplicate Pack
-            </button>
-            <button className="px-4 py-2 bg-transparent border border-[#2a2a2a] text-[#999] hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg text-sm font-medium transition-all">
-              Export Template
-            </button>
-            <button className="px-4 py-2 bg-transparent border border-[#2a2a2a] text-[#999] hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg text-sm font-medium transition-all">
-              Version History
-            </button>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Timeline Tab */}
+      {activeTab === 'timeline' && (
+        <div className="space-y-4">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <WorkPackTimelineView workPackId={workPack.id} />
+          </div>
+        </div>
+      )}
+
+      {/* Analytics Tab */}
+      {activeTab === 'analytics' && (
+        <div className="space-y-4">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <WorkPackAnalytics workPackId={workPack.id} workPackName={workPack.name} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

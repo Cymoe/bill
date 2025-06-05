@@ -162,6 +162,56 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
+            {/* Business Insights (formerly Analytics) */}
+            <NavLink
+              to="/business-insights"
+              className={({ isActive }) =>
+                isActive
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-base">📈</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Business Insights
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </NavLink>
+
+            {/* Invoices */}
+            <NavLink
+              to="/invoices"
+              className={({ isActive }) =>
+                isActive
+                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
+                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <div className="relative z-10 flex flex-col items-center">
+                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-base">📄</span>
+                    </div>
+                    {!isSidebarCollapsed && (
+                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Invoices
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </NavLink>
+
             {/* People (formerly Clients) */}
             <NavLink
               to="/people"
@@ -212,9 +262,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Invoices */}
+            {/* Work Packs */}
             <NavLink
-              to="/invoices"
+              to="/templates"
               className={({ isActive }) =>
                 isActive
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
@@ -225,11 +275,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📄</span>
+                      <span className="text-xl font-bold">▣</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Invoices
+                        Work Packs
                       </span>
                     )}
                   </div>
@@ -255,56 +305,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
                         Products
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
-            </NavLink>
-
-            {/* Business Insights (formerly Analytics) */}
-            <NavLink
-              to="/business-insights"
-              className={({ isActive }) =>
-                isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className="relative z-10 flex flex-col items-center">
-                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">📈</span>
-                    </div>
-                    {!isSidebarCollapsed && (
-                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Business Insights
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
-            </NavLink>
-
-            {/* Work Packs */}
-            <NavLink
-              to="/templates"
-              className={({ isActive }) =>
-                isActive
-                  ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
-                  : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <div className="relative z-10 flex flex-col items-center">
-                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-xl font-bold">▣</span>
-                    </div>
-                    {!isSidebarCollapsed && (
-                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Work Packs
                       </span>
                     )}
                   </div>

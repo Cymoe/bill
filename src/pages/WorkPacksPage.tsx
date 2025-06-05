@@ -23,6 +23,14 @@ interface WorkPack {
   products_count?: number;
   tasks_count?: number;
   expenses_count?: number;
+  industry?: {
+    id: string;
+    name: string;
+  };
+  project_type?: {
+    id: string;
+    name: string;
+  };
 }
 
 export default function WorkPacksPage() {
@@ -157,7 +165,8 @@ export default function WorkPacksPage() {
         .from('work_packs')
         .select(`
           *,
-          category:project_categories(id, name),
+          industry:industries(id, name, slug),
+          project_type:project_categories!project_type_id(id, name, slug),
           items:work_pack_items(count),
           tasks:work_pack_tasks(count),
           expenses:work_pack_expenses(count)
@@ -181,7 +190,7 @@ export default function WorkPacksPage() {
       // Apply user industries filter (if user has selected specific industries)
       if (hasUserIndustries) {
         filteredData = filteredData.filter(workPack => 
-          workPack.category && userCategories.includes(workPack.category.name)
+          workPack.project_type && userCategories.includes(workPack.project_type.name)
         );
       }
       
@@ -261,7 +270,8 @@ export default function WorkPacksPage() {
         .insert({
           name: `${pack.name} (Copy)`,
           description: pack.description,
-          category_id: pack.category.id,
+          industry_id: pack.industry?.id,
+          project_type_id: pack.project_type?.id,
           tier: pack.tier,
           base_price: pack.base_price,
           user_id: user?.id,

@@ -34,28 +34,9 @@ export const WorkPackSelector: React.FC<WorkPackSelectorProps> = ({
     try {
       setLoading(true);
       
-      // Map category names to IDs
-      const categoryNameToId: Record<string, string> = {
-        'Kitchen Remodel': '6008fc0f-134f-4d76-90aa-b5870c1851a7',
-        'Bathroom Remodel': 'c06256b1-b884-4d7a-b0ce-6ec0a3c77959',
-        'Flooring Installation': '344b6b62-0935-4b31-8d6f-e63770906246',
-        'Roof Repair': 'afefa73c-8247-4244-8a22-bbc10ab7c941',
-        'Deck Construction': '35bff790-8c05-4d14-ab76-4038072ba33c',
-        'Electrical': 'c2447e6c-38c0-4ee6-87be-289dd0c4879a',
-        'Exterior Painting': '0f3b5a2b-bd6d-4d4d-99b1-c59ef50cd0f6',
-        'Interior Painting': '5d7e0297-6be0-4067-88eb-aa01760399b6',
-        'Landscaping': 'c733df7e-31ba-444f-b6ab-7f4f3f58dc7c',
-        'General Repair': '5b405cd8-37a0-4fe8-bd3a-6a84259e84dd',
-        'Plumbing': 'eca821b2-153f-437b-9e20-e098fb26816c',
-        'HVAC': 'bd658a77-e238-4a4b-9457-00d9a2284c2b'
-      };
-      
-      // Get the category ID from the map
-      const targetCategoryId = categoryNameToId[categoryName] || categoryId;
-
-      console.log('Loading work packs for:', {
+      console.log('Loading work packs for project type:', {
         categoryName,
-        categoryId: targetCategoryId
+        categoryId
       });
       
       // Get work packs with their related counts and details
@@ -67,10 +48,11 @@ export const WorkPackSelector: React.FC<WorkPackSelectorProps> = ({
           expenses:work_pack_expenses(count),
           items:work_pack_items(count),
           documents:work_pack_document_templates(count),
-          category:project_categories(name)
+          industry:industries(id, name, slug),
+          project_type:project_categories!project_type_id(id, name, slug)
         `)
         .eq('is_active', true)
-        .eq('category_id', targetCategoryId)
+        .eq('project_type_id', categoryId)
         .order('tier');
 
       if (error) {

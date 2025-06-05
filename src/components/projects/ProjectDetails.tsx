@@ -1087,7 +1087,13 @@ export const ProjectDetails: React.FC = () => {
                   <div 
                     key={invoice.id} 
                     className="bg-[#121212] rounded-lg p-4 hover:bg-[#1a1a1a] transition-colors cursor-pointer"
-                    onClick={() => navigate(`/invoices/${invoice.id}`)}
+                    onClick={() => navigate(`/invoices/${invoice.id}`, { 
+                      state: { 
+                        from: 'project', 
+                        projectId: project.id,
+                        projectName: project.name 
+                      } 
+                    })}
                   >
                     <div className="flex justify-between items-start">
                       <div>
