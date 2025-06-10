@@ -41,23 +41,25 @@ export interface VendorFormData {
 }
 
 export const VENDOR_CATEGORIES = [
-  'General Contractor',
-  'Plumber',
-  'Electrician',
-  'HVAC',
-  'Roofing',
-  'Flooring',
-  'Painting',
-  'Drywall',
-  'Framing',
   'Concrete',
-  'Landscaping',
-  'Material Supplier',
+  'Drywall', 
+  'Electrical',
   'Equipment Rental',
-  'Architect',
-  'Engineer',
-  'Inspector',
-  'Other'
+  'Glass & Glazing',
+  'Hardware & Fasteners',
+  'HVAC',
+  'Industrial Supplies',
+  'Landscaping',
+  'Lumber & Building Materials',
+  'Masonry & Stone',
+  'Metal Work',
+  'Painting',
+  'Plumbing',
+  'Roofing',
+  'Roofing & Siding',
+  'Security Systems',
+  'Tile & Flooring',
+  'Tools & Equipment'
 ];
 
 export class VendorService {

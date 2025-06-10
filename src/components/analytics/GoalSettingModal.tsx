@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { X, Target, TrendingUp, Calendar, Plus, Edit2, Trash2 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 interface Goal {
   id: string;
   type: 'revenue' | 'profit' | 'projects' | 'category_revenue';
-  categoryId?: string;
-  categoryName?: string;
-  targetValue: number;
+  category_id?: string;
+  category_name?: string;
+  target_value: number;
   period: 'monthly' | 'quarterly' | 'yearly';
   year: number;
   month?: number;
   quarter?: number;
-  createdAt: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+  organization_id: string;
 }
 
 interface GoalSettingModalProps {
@@ -49,58 +53,99 @@ export const GoalSettingModal: React.FC<GoalSettingModalProps> = ({
     }
   }, [isOpen]);
 
-  const loadGoals = () => {
-    // Load from localStorage for demo (would be from Supabase in production)
-    const savedGoals = localStorage.getItem(`goals_${user?.id}`);
-    if (savedGoals) {
-      setGoals(JSON.parse(savedGoals));
+  const loadGoals = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading goals:', error);
+        return;
+      }
+
+      setGoals(data || []);
+    } catch (error) {
+      console.error('Error loading goals:', error);
     }
   };
 
-  const saveGoal = () => {
-    const newGoal: Goal = {
-      id: editingGoal?.id || Date.now().toString(),
+  const saveGoal = async () => {
+    if (!user) return;
+
+    const goalData = {
       type: formData.type,
-      categoryId: formData.type === 'category_revenue' ? formData.categoryId : undefined,
-      categoryName: formData.type === 'category_revenue' 
+      category_id: formData.type === 'category_revenue' ? formData.categoryId : null,
+      category_name: formData.type === 'category_revenue' 
         ? categories.find(c => c.id === formData.categoryId)?.name 
-        : undefined,
-      targetValue: formData.targetValue,
+        : null,
+      target_value: formData.targetValue,
       period: formData.period,
       year: formData.year,
-      month: formData.period === 'monthly' ? formData.month : undefined,
-      quarter: formData.period === 'quarterly' ? formData.quarter : undefined,
-      createdAt: editingGoal?.createdAt || new Date().toISOString()
+      month: formData.period === 'monthly' ? formData.month : null,
+      quarter: formData.period === 'quarterly' ? formData.quarter : null,
+      user_id: user.id
     };
 
-    let updatedGoals;
-    if (editingGoal) {
-      updatedGoals = goals.map(g => g.id === editingGoal.id ? newGoal : g);
-    } else {
-      updatedGoals = [...goals, newGoal];
-    }
+    try {
+      let result;
+      if (editingGoal) {
+        result = await supabase
+          .from('goals')
+          .update(goalData)
+          .eq('id', editingGoal.id)
+          .select()
+          .single();
+      } else {
+        result = await supabase
+          .from('goals')
+          .insert([goalData])
+          .select()
+          .single();
+      }
 
-    setGoals(updatedGoals);
-    localStorage.setItem(`goals_${user?.id}`, JSON.stringify(updatedGoals));
-    
-    resetForm();
-    onGoalsUpdate?.();
+      if (result.error) {
+        console.error('Error saving goal:', result.error);
+        return;
+      }
+
+      await loadGoals(); // Reload goals from database
+      resetForm();
+      onGoalsUpdate?.();
+    } catch (error) {
+      console.error('Error saving goal:', error);
+    }
   };
 
-  const deleteGoal = (goalId: string) => {
-    if (confirm('Are you sure you want to delete this goal?')) {
-      const updatedGoals = goals.filter(g => g.id !== goalId);
-      setGoals(updatedGoals);
-      localStorage.setItem(`goals_${user?.id}`, JSON.stringify(updatedGoals));
+  const deleteGoal = async (goalId: string) => {
+    if (!confirm('Are you sure you want to delete this goal?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', goalId);
+
+      if (error) {
+        console.error('Error deleting goal:', error);
+        return;
+      }
+
+      await loadGoals(); // Reload goals from database
       onGoalsUpdate?.();
+    } catch (error) {
+      console.error('Error deleting goal:', error);
     }
   };
 
   const editGoal = (goal: Goal) => {
     setFormData({
       type: goal.type,
-      categoryId: goal.categoryId || '',
-      targetValue: goal.targetValue,
+      categoryId: goal.category_id || '',
+      targetValue: goal.target_value,
       period: goal.period,
       year: goal.year,
       month: goal.month || new Date().getMonth() + 1,
@@ -126,8 +171,8 @@ export const GoalSettingModal: React.FC<GoalSettingModalProps> = ({
 
   const getGoalLabel = (goal: Goal) => {
     let label = goal.type.charAt(0).toUpperCase() + goal.type.slice(1);
-    if (goal.type === 'category_revenue' && goal.categoryName) {
-      label = `${goal.categoryName} Revenue`;
+    if (goal.type === 'category_revenue' && goal.category_name) {
+      label = `${goal.category_name} Revenue`;
     }
     
     let period = '';
@@ -165,7 +210,7 @@ export const GoalSettingModal: React.FC<GoalSettingModalProps> = ({
               {/* Add New Button */}
               <button
                 onClick={() => setIsCreating(true)}
-                className="mb-6 flex items-center gap-2 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors"
+                className="mb-6 flex items-center gap-2 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
               >
                 <Plus className="w-4 h-4" />
                 <span className="font-medium">SET NEW GOAL</span>
@@ -189,7 +234,7 @@ export const GoalSettingModal: React.FC<GoalSettingModalProps> = ({
                             <div>
                               <p className="text-xs text-gray-400 uppercase mb-1">Target</p>
                               <p className="text-xl font-mono font-semibold">
-                                {goal.type === 'projects' ? goal.targetValue : formatCurrency(goal.targetValue)}
+                                {goal.type === 'projects' ? goal.target_value : formatCurrency(goal.target_value)}
                               </p>
                             </div>
                             <div>
@@ -344,7 +389,7 @@ export const GoalSettingModal: React.FC<GoalSettingModalProps> = ({
                 </button>
                 <button
                   onClick={saveGoal}
-                  className="px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors"
+                  className="px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
                 >
                   {editingGoal ? 'UPDATE GOAL' : 'SET GOAL'}
                 </button>

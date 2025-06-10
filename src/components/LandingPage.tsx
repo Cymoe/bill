@@ -488,7 +488,7 @@ export const LandingPage = () => {
               </p>
               <a 
                 href="/docs/construction-saas-user-feedback" 
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
               >
                 Read the Research
                 <ArrowRight className="ml-2 h-4 w-4" />

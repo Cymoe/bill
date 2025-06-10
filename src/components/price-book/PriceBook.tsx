@@ -823,7 +823,7 @@ export const PriceBook: React.FC = () => {
               <p className="text-gray-400 mb-6 max-w-md">{error}</p>
               <button
                 onClick={() => fetchProducts()}
-                className="bg-[#336699] hover:bg-[#2A5580] text-white px-6 py-3 rounded-[4px] font-medium transition-colors"
+                className="bg-white hover:bg-gray-100 text-black px-6 py-3 rounded-[8px] font-medium transition-colors"
               >
                 Try Again
               </button>

@@ -16,6 +16,7 @@ export const SlideOutDrawer: React.FC<SlideOutDrawerProps> = ({
   children,
   width = 'md'
 }) => {
+  console.log('🔧 SlideOutDrawer render - isOpen:', isOpen, 'title:', title);
   const [isClosing, setIsClosing] = useState(false);
 
   const handleClose = () => {
@@ -33,10 +34,15 @@ export const SlideOutDrawer: React.FC<SlideOutDrawerProps> = ({
     xl: 'max-w-xl'
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('🔧 SlideOutDrawer returning null because isOpen is false');
+    return null;
+  }
+  
+  console.log('🔧 SlideOutDrawer rendering drawer content');
 
   return (
-    <div className="fixed inset-0 z-[11000] flex justify-end">
+    <div className="fixed inset-0 z-[11000] flex justify-end" style={{ backgroundColor: 'rgba(255, 0, 0, 0.1)' }}>
       {/* Backdrop with blur and darker opacity */}
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
@@ -44,8 +50,8 @@ export const SlideOutDrawer: React.FC<SlideOutDrawerProps> = ({
       />
       
       {/* Drawer */}
-      <div className={`relative w-full ${widthClasses[width]} bg-[#1E1E1E] h-full shadow-2xl border-l border-[#333333] ${
-        isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'
+      <div className={`relative w-full ${widthClasses[width]} bg-red-500 h-full shadow-2xl border-l-4 border-yellow-400 transform transition-transform duration-300 ${
+        isClosing ? 'translate-x-full' : 'translate-x-0'
       }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#333333]">

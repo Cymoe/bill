@@ -11,6 +11,7 @@ import { Dropdown } from '../common/Dropdown';
 import { formatCurrency } from '../../utils/format';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateProjectWizard } from './CreateProjectWizard';
+import { StatusBadge } from './StatusBadge';
 
 type Project = Tables['projects'];
 
@@ -25,7 +26,7 @@ export const ProjectList: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'active' | 'on-hold' | 'completed' | 'cancelled' | 'planned'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'lead' | 'quoted' | 'planned' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   
   // Additional filter states
@@ -77,9 +78,17 @@ export const ProjectList: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [openDropdownId, showFilters, showMainOptions]);
 
-  // Check if tutorial mode is enabled via URL parameter
+  // Check URL parameters
   const searchParams = new URLSearchParams(location.search);
   const showTutorial = searchParams.get('tutorial') === 'true';
+  
+  // Handle status filtering from URL parameters
+  useEffect(() => {
+    const statusParam = searchParams.get('status');
+    if (statusParam && ['lead', 'quoted', 'planned', 'active', 'on-hold', 'completed', 'cancelled'].includes(statusParam)) {
+      setSelectedStatus(statusParam as any);
+    }
+  }, [location.search]);
 
   // Function to fetch projects
   const fetchProjects = async (showLoading = true) => {
@@ -241,23 +250,6 @@ export const ProjectList: React.FC = () => {
         return 'bg-[#ef4444] text-[#ef4444]';
       default:
         return 'bg-[#6b7280] text-[#6b7280]';
-    }
-  };
-
-  const getStatusBadgeStyle = (status: Project['status']) => {
-    switch (status) {
-      case 'planned':
-        return 'bg-[#a855f7]/20 text-[#a855f7]';
-      case 'active':
-        return 'bg-[#10b981]/20 text-[#10b981]';
-      case 'completed':
-        return 'bg-[#3b82f6]/20 text-[#3b82f6]';
-      case 'on-hold':
-        return 'bg-[#f59e0b]/20 text-[#f59e0b]';
-      case 'cancelled':
-        return 'bg-[#ef4444]/20 text-[#ef4444]';
-      default:
-        return 'bg-[#6b7280]/20 text-[#6b7280]';
     }
   };
 
@@ -498,7 +490,7 @@ export const ProjectList: React.FC = () => {
                 }`}
                 onClick={() => setViewType('list')}
               >
-                List
+                <List className="w-4 h-4" />
               </button>
               <button
                       className={`px-3 py-2 text-sm font-medium transition-colors ${
@@ -506,7 +498,7 @@ export const ProjectList: React.FC = () => {
                 }`}
                 onClick={() => setViewType('gantt')}
               >
-                Gantt
+                <BarChart3 className="w-4 h-4" />
               </button>
             </div>
                   
@@ -620,6 +612,57 @@ export const ProjectList: React.FC = () => {
             {/* Status Categories Section */}
             <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
               <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0">
+                <button
+                  onClick={() => setSelectedStatus('all')}
+                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                    selectedStatus === 'all'
+                      ? 'bg-white/20 text-white border border-white/30'
+                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                  }`}
+                >
+                  {isConstrained ? (
+                    `All (${projects.length})`
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span>All</span>
+                      <span className="text-xs opacity-70">({projects.length})</span>
+                    </div>
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedStatus('lead')}
+                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                    selectedStatus === 'lead'
+                      ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
+                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                  }`}
+                >
+                  {isConstrained ? (
+                    `Leads (${projects.filter(p => p.status === 'lead').length})`
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span>Leads</span>
+                      <span className="text-xs opacity-70">({projects.filter(p => p.status === 'lead').length})</span>
+                    </div>
+                  )}
+                </button>
+                <button
+                  onClick={() => setSelectedStatus('quoted')}
+                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                    selectedStatus === 'quoted'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
+                  }`}
+                >
+                  {isConstrained ? (
+                    `Quoted (${projects.filter(p => p.status === 'quoted').length})`
+                  ) : (
+                    <div className="flex flex-col items-center">
+                      <span>Quoted</span>
+                      <span className="text-xs opacity-70">({projects.filter(p => p.status === 'quoted').length})</span>
+                    </div>
+                  )}
+                </button>
                 <button
                   onClick={() => setSelectedStatus('planned')}
                   className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
@@ -786,7 +829,7 @@ export const ProjectList: React.FC = () => {
                 </p>
                 <button
                   onClick={() => setShowProjectWizard(true)}
-                  className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+                  className="w-full bg-white text-black py-2 px-4 rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
                 >
                   CREATE PROJECT
                 </button>
@@ -915,9 +958,7 @@ export const ProjectList: React.FC = () => {
                                         'bg-[#ef4444]'
                                 }`}></div>
                                       <span className="text-white text-sm md:text-base font-medium truncate">{project.name}</span>
-                                      <span className={`px-2 py-0.5 rounded-[2px] text-[10px] md:text-xs font-medium uppercase ${getStatusBadgeStyle(project.status)}`}>
-                                        {project.status.replace('-', ' ')}
-                                </span>
+                                      <StatusBadge status={project.status} className="scale-75" />
                               </div>
                                     <div className="flex items-center gap-3 md:gap-4 text-gray-400 text-xs md:text-sm ml-3.5 md:ml-5">
                                       <span className="uppercase tracking-wide text-[10px] md:text-xs">Client Name</span>
@@ -1100,7 +1141,7 @@ export const ProjectList: React.FC = () => {
                     setSelectedStatus('all');
                     setSearchQuery('');
                   }}
-                  className="px-4 py-2 bg-[#336699] text-white rounded-lg font-medium hover:bg-[#2851A3] transition-colors"
+                  className="px-4 py-2 bg-white text-black rounded-[8px] font-medium hover:bg-gray-100 transition-colors"
                 >
                   Clear Filters
                 </button>

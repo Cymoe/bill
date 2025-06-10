@@ -173,7 +173,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     }
   ]);
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string; industry: string }>({ 
-    id: '264f2bfa-3073-41ca-81cc-d7b795507522', 
+    id: '3d2c5387-fe36-48cd-ba52-d51d29375adc', 
     name: 'Myles Kameron\'s Company', 
     industry: 'General Construction' 
   });
@@ -1318,7 +1318,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       setShowHelpModal(false);
                       window.location.reload();
                     }}
-                    className="bg-[#336699] text-white px-4 py-2 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+                    className="bg-white text-black px-4 py-2 rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
                   >
                     Reset All Tutorials
                   </button>

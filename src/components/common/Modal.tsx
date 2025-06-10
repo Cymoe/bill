@@ -16,7 +16,14 @@ export const Modal: React.FC<ModalProps> = ({
   children,
   size = 'md'
 }) => {
-  if (!isOpen) return null;
+  console.log('🔧 Modal render - isOpen:', isOpen, 'title:', title);
+  
+  if (!isOpen) {
+    console.log('🔧 Modal returning null because isOpen is false');
+    return null;
+  }
+  
+  console.log('🔧 Modal rendering modal content');
 
   const sizeClasses = {
     sm: 'max-w-sm',
@@ -30,7 +37,7 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0, 255, 0, 0.2)' }}>
       {/* Backdrop with blur and darker opacity */}
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
@@ -38,7 +45,7 @@ export const Modal: React.FC<ModalProps> = ({
       />
       
       {/* Modal */}
-      <div className={`relative w-full ${sizeClasses[size]} bg-[#1E1E1E] rounded-[4px] shadow-2xl border border-[#333333] max-h-[90vh] overflow-hidden`}>
+      <div className={`relative w-full ${sizeClasses[size]} bg-red-500 rounded-[4px] shadow-2xl border-4 border-yellow-400 max-h-[90vh] overflow-hidden`}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#333333]">
           <h2 className="text-lg font-semibold text-white">{title}</h2>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { ArrowLeft, Download, Eye, Send, Share2, Edit, Activity, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Download, Eye, Send, Share2, Edit, Activity, CheckCircle, Copy } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { DetailSkeleton } from '../skeletons/DetailSkeleton';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +16,7 @@ export const InvoiceDetail: React.FC = () => {
   const [client, setClient] = useState<any>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   // Get navigation context from location state
   const fromProject = location.state?.from === 'project';
@@ -100,6 +101,29 @@ export const InvoiceDetail: React.FC = () => {
     }
   };
 
+  const handleShare = () => {
+    setShowShareModal(true);
+  };
+
+  const handleCopyShareLink = async () => {
+    const shareUrl = `${window.location.origin}/share/invoice/${invoice.id}`;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      // You could add a toast notification here
+      alert('Share link copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      alert('Share link copied to clipboard!');
+    }
+  };
+
   const subtotal = (invoice.invoice_items || []).reduce((sum: number, item: any) => sum + (item.unit_price * item.quantity), 0);
   const tax = 0; // 0% tax for now
   const total = subtotal + tax;
@@ -123,6 +147,7 @@ export const InvoiceDetail: React.FC = () => {
               
               <span className={`text-xs px-3 py-1 rounded-[4px] font-medium uppercase ${
                 invoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
+                invoice.status === 'signed' ? 'bg-purple-500/20 text-purple-300' :
                 invoice.status === 'overdue' ? 'bg-red-500/20 text-red-300' :
                 invoice.status === 'sent' ? 'bg-blue-500/20 text-blue-300' :
                 'bg-gray-500/20 text-gray-300'
@@ -141,6 +166,7 @@ export const InvoiceDetail: React.FC = () => {
           {/* Right side - Action Buttons */}
           <div className="flex items-center gap-4">
             <button 
+              onClick={handleShare}
               className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors text-sm"
               title="Share Invoice"
             >
@@ -211,6 +237,7 @@ export const InvoiceDetail: React.FC = () => {
                 </div>
                 <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mt-2 ${
                   invoice.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                  invoice.status === 'signed' ? 'bg-purple-500/20 text-purple-400' :
                   invoice.status === 'overdue' ? 'bg-red-500/20 text-red-400' :
                   invoice.status === 'sent' ? 'bg-blue-500/20 text-blue-400' :
                   'bg-yellow-500/20 text-yellow-400'
@@ -289,6 +316,55 @@ export const InvoiceDetail: React.FC = () => {
       {error && (
         <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
           {error}
+        </div>
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowShareModal(false)} />
+          <div className="relative bg-[#1E1E1E] rounded-lg border border-[#333333] p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-white mb-4">Share Invoice</h3>
+            <p className="text-gray-400 mb-4">
+              Generate a shareable link for this invoice. Clients can view the invoice without needing to log in.
+            </p>
+            
+            <div className="bg-[#121212] border border-[#333333] rounded-lg p-3 mb-4">
+              <div className="text-xs text-gray-400 mb-1">Shareable Link</div>
+              <div className="text-sm text-white break-all">
+                {`${window.location.origin}/share/invoice/${invoice.id}`}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowShareModal(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleCopyShareLink();
+                  setShowShareModal(false);
+                }}
+                className="px-4 py-2 bg-[#336699] hover:bg-[#2A5580] text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Copy className="w-4 h-4" />
+                Copy Link
+              </button>
+              <button
+                onClick={() => {
+                  window.open(`/share/invoice/${invoice.id}`, '_blank');
+                  setShowShareModal(false);
+                }}
+                className="px-4 py-2 bg-[#EAB308] hover:bg-[#D97706] text-black rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                Preview
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

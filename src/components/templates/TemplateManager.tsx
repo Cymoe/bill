@@ -609,7 +609,7 @@ export const TemplateManager: React.FC = () => {
                             setSelectedTemplate(template);
                             // Use template logic here
                           }}
-                          className="flex-1 px-3 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors text-sm font-medium"
+                          className="flex-1 px-3 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors text-sm font-medium"
                         >
                           USE TEMPLATE
                         </button>
@@ -663,7 +663,7 @@ export const TemplateManager: React.FC = () => {
                           setSelectedTemplate(template);
                           // Use template logic here
                         }}
-                        className="px-3 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors text-sm font-medium"
+                        className="px-3 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors text-sm font-medium"
                       >
                         USE
                       </button>

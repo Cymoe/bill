@@ -512,12 +512,11 @@ export const Projects = () => {
             <div className="col-span-full text-center py-12">
               <p className="text-lg text-gray-600">No projects found matching your criteria.</p>
               <button 
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
                 onClick={() => {
                   setFilter('all');
                   setSearchTerm('');
                 }}
-                style={{ backgroundColor: '#336699', borderRadius: '4px' }}
               >
                 Clear Filters
               </button>
@@ -536,8 +535,7 @@ export const Projects = () => {
             </p>
             <button 
               onClick={() => navigate('/')}
-              className="inline-flex items-center px-6 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-              style={{ backgroundColor: '#336699', borderRadius: '4px' }}
+              className="inline-flex items-center px-6 py-3 text-black bg-white rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
             >
               Get Started Today
               <ArrowRight className="ml-2 h-5 w-5" />

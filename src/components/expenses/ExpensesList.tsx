@@ -430,7 +430,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
           {editable && (
             <button
               onClick={() => setShowAddForm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] text-sm font-medium transition-colors"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-100 text-black rounded-[8px] text-sm font-medium transition-colors"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -569,7 +569,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
             </button>
             <button
               onClick={handleAddExpense}
-              className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+                              className="px-4 py-2 bg-white hover:bg-gray-100 text-black rounded-[8px] font-medium transition-colors"
             >
               Add Expense
             </button>
@@ -621,7 +621,7 @@ export const ExpensesList: React.FC<ExpensesListProps> = ({ projectId, editable 
             {editable && statusFilter === 'all' && (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-[#336699] hover:bg-[#5A8BB8] text-white rounded-[4px] transition-colors"
+                className="px-4 py-2 bg-white hover:bg-gray-100 text-black rounded-[8px] font-medium transition-colors"
               >
                 Add First Expense
               </button>

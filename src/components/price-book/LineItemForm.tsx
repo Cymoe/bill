@@ -205,7 +205,7 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
         </button>
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors disabled:opacity-50"
+                        className="flex-1 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors disabled:opacity-50"
           disabled={isLoading}
         >
           {isLoading ? 'Saving...' : submitLabel}

@@ -13,13 +13,15 @@ import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
 import { ProjectDocuments } from './ProjectDocuments';
 import { BudgetAnalysis } from './BudgetAnalysis';
 import { TimelineView } from './TimelineView';
+import { StatusBadge } from './StatusBadge';
+import { StatusTransition } from './StatusTransition';
 
 interface ProjectWithDetails {
   id: string;
   name: string;
   description: string;
   client_id: string;
-  status: 'active' | 'on-hold' | 'completed' | 'cancelled';
+  status: string; // Updated to support all workflow statuses
   budget: number;
   start_date: string;
   end_date: string;
@@ -350,16 +352,6 @@ export const ProjectDetails: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const getStatusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-500 text-black';
-      case 'completed': return 'bg-blue-500 text-white';
-      case 'on-hold': return 'bg-yellow-500 text-black';
-      case 'cancelled': return 'bg-red-500 text-white';
-      default: return 'bg-gray-500 text-white';
-    }
-  };
-
   const calculateProgress = () => {
     if (!project) return 0;
     if (taskCount === 0) return 0;
@@ -573,6 +565,34 @@ export const ProjectDetails: React.FC = () => {
     }
   };
 
+  const handleStatusChange = async (newStatus: string, reason?: string) => {
+    if (!project || !user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({ 
+          status: newStatus,
+          status_changed_by: user.id,
+          status_changed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', project.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setProject(prev => prev ? { ...prev, status: newStatus } : null);
+      
+      // Refresh project data to get any automatic updates
+      await loadProjectData(false);
+      
+    } catch (error) {
+      console.error('Error updating project status:', error);
+      throw error; // Re-throw so StatusTransition can handle the error
+    }
+  };
+
   if (loading && !project) {
     return (
       <div className="max-w-[1600px] mx-auto p-8">
@@ -683,9 +703,12 @@ export const ProjectDetails: React.FC = () => {
             <div>
               <h1 className="text-2xl font-semibold text-white mb-1">{project.name}</h1>
               <div className="flex items-center gap-4">
-                <span className={`px-3 py-1 rounded text-xs font-medium uppercase ${getStatusBadgeClass(project.status)}`}>
-                  {project.status}
-                </span>
+                <StatusTransition 
+                  currentStatus={project.status}
+                  projectId={project.id}
+                  projectName={project.name}
+                  onStatusChange={handleStatusChange}
+                />
                 {project.client ? (
                   <div className="relative">
                     <button

@@ -12,6 +12,10 @@ import ChatManagementSystem from './pages/chat/ChatManagementSystem';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
 import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
+import { ShareableInvoice } from './components/invoices/ShareableInvoice';
+import { EstimatesPage } from './pages/EstimatesPage';
+import { EstimateDetail } from './components/estimates/EstimateDetail';
+import { ShareableEstimate } from './components/estimates/ShareableEstimate';
 // Packages page removed as part of simplification
 import { LandingPage } from './components/LandingPage';
 import Projects from './pages/marketing/Projects';
@@ -28,13 +32,16 @@ import { GlobalProductDrawer } from './components/products/GlobalProductDrawer';
 import { supabase } from './lib/supabase';
 import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
-import { CategoryAnalytics } from './components/analytics/CategoryAnalytics';
 import Templates from './pages/Templates';
 import WorkPacksPage from './pages/WorkPacksPage';
 import { WorkPackDetail } from './pages/WorkPackDetail';
 import IndustrySettings from './pages/IndustrySettings';
 import { Expenses } from './pages/Expenses';
 import { InvoicesPage } from './pages/InvoicesPage';
+import { VendorDetailPage } from './pages/VendorDetailPage';
+import { ClientDetailPage } from './pages/ClientDetailPage';
+import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
+import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -103,6 +110,36 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <People />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/vendors/:id"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <VendorDetailPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/subcontractors/:subcontractorId"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <SubcontractorDetailPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/team-members/:teamMemberId"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <TeamMemberDetailPage />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -178,16 +215,6 @@ function AppRoutes() {
         }
       />
       <Route
-        path="/business-insights"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <CategoryAnalytics />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
         path="/templates"
         element={
           <ProtectedRoute>
@@ -236,6 +263,38 @@ function AppRoutes() {
             </DashboardLayout>
           </ProtectedRoute>
         }
+      />
+      {/* Public shareable invoice route - no auth required */}
+      <Route
+        path="/share/invoice/:id"
+        element={<ShareableInvoice />}
+      />
+      
+      {/* Estimate routes */}
+      <Route
+        path="/estimates"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <EstimatesPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/estimates/:id"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <EstimateDetail />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      {/* Public shareable estimate route - no auth required */}
+      <Route
+        path="/share/estimate/:id"
+        element={<ShareableEstimate />}
       />
       {/* Packages route removed as part of simplification */}
       <Route
@@ -312,6 +371,26 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <ProjectForm />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Client routes */}
+      <Route
+        path="/clients"
+        element={
+          <ProtectedRoute>
+            <Navigate to="/people" replace />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/clients/:clientId"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ClientDetailPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

@@ -98,6 +98,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
   const [customBudget, setCustomBudget] = useState('');
   const [userIndustries, setUserIndustries] = useState<Industry[]>([]);
   const [projectCategories, setProjectCategories] = useState<ProjectCategory[]>([]);
+  const [projectStatus, setProjectStatus] = useState<'lead' | 'planned' | 'quoted'>('planned');
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -122,6 +123,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
       setSelectedCategory(null);
       setSelectedWorkPack(null);
       setCustomBudget('');
+      setProjectStatus('planned');
       setFormData({
         name: '',
         description: '',
@@ -345,6 +347,77 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           <div className="space-y-8">
             <h3 className="text-2xl font-bold text-white tracking-tight uppercase">Project Details</h3>
 
+            {/* Project Type Selector */}
+            <div className="bg-[#111] border border-[#2a2a2a] rounded-lg p-4">
+              <label className="text-xs uppercase tracking-wider text-gray-500 font-medium mb-3 block">
+                Project Type
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setProjectStatus('lead')}
+                  className={`p-3 rounded-lg border transition-all text-left ${
+                    projectStatus === 'lead'
+                      ? 'bg-[#F9D71C]/10 border-[#F9D71C] text-[#F9D71C]'
+                      : 'bg-[#0a0a0a] border-[#2a2a2a] text-gray-400 hover:border-[#3a3a3a]'
+                  }`}
+                >
+                  <div className="font-medium text-sm">💡 Lead</div>
+                  <div className="text-xs mt-1 opacity-75">Initial inquiry</div>
+                  {projectStatus === 'lead' && (
+                    <div className="text-xs mt-2 p-2 bg-[#F9D71C]/5 border border-[#F9D71C]/20 rounded text-[#F9D71C]">
+                      📝 Will create project for lead tracking
+                      <div className="text-xs mt-1 opacity-75">
+                        No invoices or estimates created
+                      </div>
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectStatus('quoted')}
+                  className={`p-3 rounded-lg border transition-all text-left ${
+                    projectStatus === 'quoted'
+                      ? 'bg-[#336699]/10 border-[#336699] text-[#336699]'
+                      : 'bg-[#0a0a0a] border-[#2a2a2a] text-gray-400 hover:border-[#3a3a3a]'
+                  }`}
+                >
+                  <div className="font-medium text-sm">📋 Quote</div>
+                  <div className="text-xs mt-1 opacity-75">Generate estimate</div>
+                  {projectStatus === 'quoted' && (
+                    <div className="text-xs mt-2 p-2 bg-[#336699]/5 border border-[#336699]/20 rounded text-[#336699]">
+                      ✨ Will create project + estimate automatically
+                      {!formData.client_id && (
+                        <div className="text-orange-400 mt-1">
+                          ⚠️ Client required for estimates
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setProjectStatus('planned')}
+                  className={`p-3 rounded-lg border transition-all text-left ${
+                    projectStatus === 'planned'
+                      ? 'bg-[#388E3C]/10 border-[#388E3C] text-[#388E3C]'
+                      : 'bg-[#0a0a0a] border-[#2a2a2a] text-gray-400 hover:border-[#3a3a3a]'
+                  }`}
+                >
+                  <div className="font-medium text-sm">🏗️ Project</div>
+                  <div className="text-xs mt-1 opacity-75">Sold & planned</div>
+                  {projectStatus === 'planned' && (
+                    <div className="text-xs mt-2 p-2 bg-[#388E3C]/5 border border-[#388E3C]/20 rounded text-[#388E3C]">
+                      🚀 Will create project + invoice automatically
+                      <div className="text-xs mt-1 opacity-75">
+                        Ready to start work
+                      </div>
+                    </div>
+                  )}
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               {/* Project Name */}
               <div className="flex flex-col gap-2">
@@ -543,11 +616,12 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           description: formData.description || '',
           client_id: formData.client_id || null,
           user_id: user?.id,
+          organization_id: selectedOrg?.id,
           start_date: formData.start_date,
           end_date: formData.end_date || formData.start_date,
-          status: 'planned' as const, // Use 'planned' for new projects that haven't started
-          budget: selectedWorkPack?.base_price || parseInt(customBudget) || 0, // Use 'budget' (the actual column name)
-          category: selectedCategory?.name || 'Custom Project' // Use 'category' (the actual column name)
+          status: projectStatus,
+          budget: selectedWorkPack?.base_price || parseInt(customBudget) || 0,
+          category: selectedCategory?.name || 'Custom Project'
         };
 
         console.log('Attempting to create project with correct schema:', projectData);
@@ -565,8 +639,124 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
 
         console.log('Project created successfully:', project);
 
-        // If a work pack was selected, create invoice with work pack items
-        if (project && selectedWorkPack && selectedWorkPack.id !== 'custom') {
+        // If project status is 'quoted', create an estimate
+        if (projectStatus === 'quoted' && project) {
+          // Validate that client is selected for quotes
+          if (!formData.client_id) {
+            alert('⚠️ A client must be selected to create estimates.\n\nPlease select a client and try again.');
+            setIsCreating(false);
+            return;
+          }
+          // Check if we have a work pack with items to create estimate from
+          if (!selectedWorkPack || selectedWorkPack.id === 'custom' || !selectedWorkPack.items || selectedWorkPack.items.length === 0) {
+            console.log('Quote selected but no work pack items available - creating empty estimate');
+            
+            // Import EstimateService for empty estimate
+            const { EstimateService } = await import('../../services/EstimateService');
+            
+            try {
+              const estimate = await EstimateService.create({
+                organization_id: selectedOrg?.id!,
+                user_id: user?.id!,
+                client_id: formData.client_id,
+                project_id: project.id,
+                title: `${project.name} - Estimate`,
+                description: formData.description || 'Project estimate ready for customization',
+                status: 'draft',
+                issue_date: new Date().toISOString().split('T')[0],
+                expiry_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                subtotal: 0,
+                tax_rate: 0,
+                tax_amount: 0,
+                total_amount: 0,
+                items: []
+              });
+              
+              console.log('✅ Empty estimate created successfully:', estimate);
+              
+              setTimeout(() => {
+                alert(`🎉 Project "${project.name}" created successfully!\n\n📋 Empty estimate "${estimate.title}" has been created and is ready for you to add items.\n\nYou'll be redirected to the estimates page.`);
+                navigate('/estimates');
+              }, 1000);
+              
+              onSuccess?.();
+              onClose();
+              return;
+              
+            } catch (estimateError: any) {
+              console.error('Empty estimate creation error:', estimateError);
+              const errorMessage = estimateError?.message || 'Unknown error occurred';
+              alert(`⚠️ Project "${project.name}" was created successfully, but estimate creation failed.\n\nError: ${errorMessage}\n\nYou can create an estimate manually from the project page.`);
+              navigate(`/projects/${project.id}`);
+              onSuccess?.();
+              onClose();
+              return;
+            }
+          }
+          
+          // If we reach here, we have a work pack with items - create estimate from work pack
+          console.log('=== ESTIMATE CREATION FOR QUOTED PROJECT ===');
+          console.log('Creating estimate for quoted project:', project.name);
+          
+          // Import EstimateService dynamically to avoid circular imports
+          const { EstimateService } = await import('../../services/EstimateService');
+          
+          try {
+            const estimate = await EstimateService.createFromWorkPack({
+              organization_id: selectedOrg?.id!,
+              user_id: user?.id!,
+              client_id: formData.client_id,
+              project_id: project.id,
+              title: `${project.name} - Estimate`,
+              description: formData.description,
+              work_pack_id: selectedWorkPack.id,
+              work_pack_items: selectedWorkPack.items || []
+            });
+            
+            console.log('✅ Estimate created successfully:', estimate);
+            
+            // Success feedback and navigation
+            setTimeout(() => {
+              alert(`🎉 Project "${project.name}" created successfully!\n\n📋 Estimate "${estimate.title}" has been generated and is ready for review.\n\nYou'll be redirected to the estimates page.`);
+              navigate('/estimates');
+            }, 1000);
+            
+            onSuccess?.();
+            onClose();
+            return; // Exit early to avoid the project navigation
+            
+          } catch (estimateError: any) {
+            console.error('Estimate creation error:', estimateError);
+            console.warn('Project created but estimate creation failed');
+            
+            // Better error messaging
+            const errorMessage = estimateError?.message || 'Unknown error occurred';
+            alert(`⚠️ Project "${project.name}" was created successfully, but estimate creation failed.\n\nError: ${errorMessage}\n\nYou can create an estimate manually from the project page.`);
+            
+            // Still navigate to the project since it was created successfully
+            navigate(`/projects/${project.id}`);
+            onSuccess?.();
+            onClose();
+            return;
+          }
+        }
+        // If project status is 'lead', just create the project without any additional documents
+        else if (projectStatus === 'lead' && project) {
+          console.log('=== LEAD PROJECT CREATION ===');
+          console.log('Lead project created:', project.name);
+          
+          // Success feedback for lead
+          setTimeout(() => {
+            alert(`💡 Lead "${project.name}" created successfully!\n\n📝 Your lead is now being tracked and ready for follow-up.\n\nNext steps:\n• Follow up with client\n• Convert to Quote when ready\n• Add notes and communications\n\nYou'll be redirected to the project page.`);
+            navigate(`/projects/${project.id}`);
+          }, 1000);
+          
+          onSuccess?.();
+          onClose();
+          return;
+        }
+        // If a work pack was selected and it's a planned project (not lead or quote), create invoice with work pack items
+        else if (projectStatus === 'planned' && project && selectedWorkPack && selectedWorkPack.id !== 'custom') {
           console.log('=== WORK PACK INVOICE CREATION ===');
           console.log('Selected work pack:', selectedWorkPack);
           console.log('Work pack has items?', selectedWorkPack.items);
@@ -594,7 +784,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               status: 'draft' as const,
               issue_date: new Date().toISOString().split('T')[0], // Today's date
               due_date: formData.end_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-              amount: selectedWorkPack.base_price // Use 'amount' (the actual column name)
+              amount: selectedWorkPack.base_price
             };
 
             console.log('Creating invoice with data:', invoiceData);
@@ -647,8 +837,8 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           console.log('No work pack selected or work pack has no items');
         }
 
-        // Create tasks and expenses from work pack instead of templates
-        if (selectedWorkPack && selectedWorkPack.id !== 'custom') {
+        // Create tasks and expenses from work pack for planned projects only
+        if (projectStatus === 'planned' && selectedWorkPack && selectedWorkPack.id !== 'custom') {
           console.log('=== TASK AND EXPENSE CREATION FROM WORK PACK ===');
           console.log('Work pack:', selectedWorkPack.name, 'ID:', selectedWorkPack.id);
           
@@ -780,24 +970,34 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           console.log('No work pack selected or work pack has no items');
         }
 
-        // Success
-        console.log('Project creation completed successfully');
-        
-        // Verify invoice creation
-        const { data: projectInvoices, error: checkError } = await supabase
-          .from('invoices')
-          .select('*')
-          .eq('project_id', project.id);
-        
-        console.log('=== INVOICE VERIFICATION ===');
-        console.log('Invoices found for project:', projectInvoices);
-        console.log('Number of invoices:', projectInvoices?.length || 0);
-        
-        onSuccess?.();
-        onClose();
-        
-        // Navigate to the created project
-        navigate(`/projects/${project.id}`);
+        // Success for planned projects (Lead and Quote already handled above)
+        if (projectStatus === 'planned') {
+          console.log('Project creation completed successfully');
+          
+          // Verify invoice creation
+          const { data: projectInvoices } = await supabase
+            .from('invoices')
+            .select('*')
+            .eq('project_id', project.id);
+          
+          console.log('=== INVOICE VERIFICATION ===');
+          console.log('Invoices found for project:', projectInvoices);
+          console.log('Number of invoices:', projectInvoices?.length || 0);
+          
+          // Success feedback for planned project
+          setTimeout(() => {
+            const invoiceCount = projectInvoices?.length || 0;
+            const message = invoiceCount > 0 
+              ? `🏗️ Project "${project.name}" created successfully!\n\n📄 ${invoiceCount} invoice(s) generated and ready for review.\n\n✅ Tasks and expenses have been set up from your work pack.\n\nYou'll be redirected to the project page.`
+              : `🏗️ Project "${project.name}" created successfully!\n\n📝 Your project is ready to start.\n\nYou'll be redirected to the project page.`;
+            
+            alert(message);
+            navigate(`/projects/${project.id}`);
+          }, 1000);
+          
+          onSuccess?.();
+          onClose();
+        }
       } catch (error: any) {
         console.error('Error creating project:', error);
         console.error('Error details:', {
@@ -929,7 +1129,9 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                     console.error('Error in handleNext:', error);
                   }
                 }}
-                disabled={isCreating || (currentStep === 2 && !selectedWorkPack)}
+                disabled={isCreating || 
+                         (currentStep === 2 && !selectedWorkPack) ||
+                         (currentStep === 3 && projectStatus === 'quoted' && !formData.client_id)}
                 className="px-5 py-2.5 bg-[#fbbf24] text-black rounded-lg text-sm font-semibold hover:bg-[#f59e0b] hover:-translate-y-px transition-all duration-200 disabled:bg-[#2a2a2a] disabled:text-gray-600 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
                 style={{
                   pointerEvents: isCreating ? 'none' : 'auto'

@@ -462,7 +462,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
             </p>
       <button
         onClick={() => setEditingProduct('new')}
-              className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+              className="w-full bg-white text-black py-2 px-4 rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
       >
               CREATE PRODUCT
       </button>
@@ -778,7 +778,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
                             resetFilters();
                             setShowFilterMenu(false);
                           }}
-                            className="w-full bg-[#336699] hover:bg-[#2A5580] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                            className="w-full bg-white hover:bg-gray-100 text-black py-2 px-3 rounded-[8px] text-sm font-medium transition-colors"
                         >
                           Clear All Filters
                         </button>

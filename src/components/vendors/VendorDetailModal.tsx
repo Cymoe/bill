@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   X, Save, Star, Phone, Mail, Globe, MapPin, 
   Shield, CheckCircle, Edit2, DollarSign, 
-  Briefcase, Calendar, TrendingUp, FileText
+  Briefcase, Calendar, TrendingUp, FileText, Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { VendorService, Vendor, VendorFormData, VENDOR_CATEGORIES } from '../../services/vendorService';
 import { formatCurrency } from '../../utils/format';
+import { VendorContactsList } from './VendorContactsList';
 
 interface VendorDetailModalProps {
   vendor: Vendor;
@@ -33,6 +34,7 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [expenses, setExpenses] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'details' | 'contacts'>('details');
   const [formData, setFormData] = useState<VendorFormData>({
     name: vendor.name,
     contact_name: vendor.contact_name || '',
@@ -122,6 +124,33 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
               </button>
             </div>
           </div>
+          
+          {/* Tab Navigation */}
+          {!isEditing && (
+            <div className="flex border-b border-white/10 mt-4">
+              <button
+                onClick={() => setActiveTab('details')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
+                  activeTab === 'details'
+                    ? 'text-white border-[#336699]'
+                    : 'text-gray-400 border-transparent hover:text-white'
+                }`}
+              >
+                Details
+              </button>
+              <button
+                onClick={() => setActiveTab('contacts')}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 ${
+                  activeTab === 'contacts'
+                    ? 'text-white border-[#336699]'
+                    : 'text-gray-400 border-transparent hover:text-white'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                Contacts
+              </button>
+            </div>
+          )}
         </div>
 
         {isEditing ? (
@@ -373,6 +402,9 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
         ) : (
           /* View Mode */
           <div className="p-6 space-y-6">
+            {activeTab === 'details' ? (
+              /* Details Tab Content */
+              <div className="space-y-6">
             {/* Stats Overview */}
             {stats && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -568,6 +600,14 @@ export const VendorDetailModal: React.FC<VendorDetailModalProps> = ({
                   ))}
                 </div>
               </div>
+            )}
+              </div>
+            ) : (
+              /* Contacts Tab Content */
+              <VendorContactsList 
+                vendorId={vendor.id} 
+                vendorName={vendor.name}
+              />
             )}
           </div>
         )}

@@ -221,7 +221,7 @@ export const CreateCustomTemplateModal: React.FC<CreateCustomTemplateModalProps>
                 <button
                   type="button"
                   onClick={addItem}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors text-sm"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors text-sm font-medium"
                 >
                   <Plus className="w-4 h-4" />
                   ADD ITEM
@@ -235,7 +235,7 @@ export const CreateCustomTemplateModal: React.FC<CreateCustomTemplateModalProps>
                   <button
                     type="button"
                     onClick={addItem}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors mx-auto"
+                    className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors mx-auto font-medium"
                   >
                     <Plus className="w-4 h-4" />
                     ADD FIRST ITEM
@@ -363,7 +363,7 @@ export const CreateCustomTemplateModal: React.FC<CreateCustomTemplateModalProps>
               type="submit"
               onClick={handleSubmit}
               disabled={loading || formData.items.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Save className="w-4 h-4" />
               {loading ? 'CREATING...' : 'CREATE TEMPLATE'}

@@ -338,7 +338,7 @@ export const Expenses: React.FC = () => {
         {!isCreating && (
           <button 
             onClick={() => setIsCreating(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#336699] hover:bg-[#336699]/80 text-white rounded transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-black rounded-[8px] font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             ADD EXPENSE
@@ -572,7 +572,7 @@ export const Expenses: React.FC = () => {
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={createExpense}
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+                className="px-3 py-1 bg-white hover:bg-gray-100 text-black rounded-[8px] text-xs font-medium transition-colors"
               >
                 Add
               </button>
@@ -715,7 +715,7 @@ export const Expenses: React.FC = () => {
           <p className="text-gray-500 mb-4">No expenses found</p>
           <button
             onClick={() => setIsCreating(true)}
-            className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md text-sm transition-colors"
+            className="px-4 py-2 bg-white hover:bg-gray-100 text-black rounded-[8px] text-sm font-medium transition-colors"
           >
             Add First Expense
           </button>

@@ -239,7 +239,7 @@ export const SmartSuggestions: React.FC<SmartSuggestionsProps> = ({
           ))}
         </div>
 
-        <button className="mt-4 w-full py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors text-sm font-medium">
+        <button className="mt-4 w-full py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors text-sm font-medium">
           VIEW FULL RESOURCE PLAN
         </button>
       </div>

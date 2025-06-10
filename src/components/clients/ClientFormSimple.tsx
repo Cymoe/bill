@@ -128,31 +128,31 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 space-y-4">
+    <form onSubmit={handleSubmit} className="p-6 space-y-6">
       {/* Name and Company */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             Contact Name <span className="text-red-400">*</span>
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="John Smith"
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             Company Name
           </label>
           <input
             type="text"
             value={formData.company_name}
             onChange={(e) => setFormData(prev => ({ ...prev, company_name: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="ABC Construction"
           />
         </div>
@@ -161,27 +161,27 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
       {/* Email and Phone */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             Email <span className="text-red-400">*</span>
           </label>
           <input
             type="email"
             value={formData.email}
             onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="john@example.com"
             required
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             Phone
           </label>
           <input
             type="tel"
             value={formData.phone}
             onChange={handlePhoneChange}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="(555) 123-4567"
           />
         </div>
@@ -189,14 +189,14 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
 
       {/* Address */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-white/90 mb-2">
           Street Address
         </label>
         <input
           type="text"
           value={formData.address}
           onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-          className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+          className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           placeholder="123 Main Street"
         />
       </div>
@@ -204,25 +204,25 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
       {/* City, State, Zip */}
       <div className="grid grid-cols-6 gap-4">
         <div className="col-span-3">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             City
           </label>
           <input
             type="text"
             value={formData.city}
             onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="New York"
           />
         </div>
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             State
           </label>
           <select
             value={formData.state}
             onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             {US_STATES.map(state => (
               <option key={state.value} value={state.value}>
@@ -232,14 +232,14 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
           </select>
         </div>
         <div className="col-span-1">
-          <label className="block text-sm font-medium text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-white/90 mb-2">
             Zip
           </label>
           <input
             type="text"
             value={formData.zip}
             onChange={(e) => setFormData(prev => ({ ...prev, zip: e.target.value }))}
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             placeholder="10001"
             maxLength={5}
           />
@@ -247,18 +247,18 @@ export const ClientFormSimple: React.FC<ClientFormSimpleProps> = ({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-4 pt-4">
+      <div className="flex gap-4 pt-6">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-2 border border-[#336699]/40 rounded-[4px] text-white hover:bg-[#333333] transition-colors"
+          className="flex-1 px-4 py-2 border border-blue-500/60 rounded-lg text-white hover:bg-white/10 transition-colors"
           disabled={loading}
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors disabled:opacity-50"
+          className="flex-1 px-4 py-2 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 font-medium"
           disabled={loading}
         >
           {loading ? 'Saving...' : submitLabel}

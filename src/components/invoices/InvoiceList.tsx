@@ -534,7 +534,7 @@ export const InvoiceList: React.FC = () => {
             </p>
             <button
               onClick={() => setShowCreateDrawer(true)}
-              className="w-full bg-[#336699] text-white py-2 px-4 rounded-[4px] hover:bg-[#2A5580] transition-colors font-medium"
+              className="w-full bg-white text-black py-2 px-4 rounded-[8px] hover:bg-gray-100 transition-colors font-medium"
             >
               CREATE INVOICE
             </button>

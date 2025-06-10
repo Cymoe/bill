@@ -71,7 +71,7 @@ export const PageHeaderBar: React.FC<PageHeaderBarProps> = ({
             {showAddButton && (
               <button
                 onClick={onAddClick}
-                className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-3 py-1.5' : 'px-3 md:px-4 py-1.5 md:py-2'} rounded-[4px] text-xs md:text-sm font-medium transition-colors flex items-center gap-1 md:gap-2`}
+                className={`bg-white hover:bg-gray-100 text-[#121212] ${isConstrained ? 'px-3 py-1.5' : 'px-3 md:px-4 py-1.5 md:py-2'} rounded-[8px] text-xs md:text-sm font-medium transition-colors flex items-center gap-1 md:gap-2`}
               >
                 <Plus className="w-3 h-3 md:w-4 md:h-4" />
                 <span className={isConstrained ? 'hidden sm:inline' : ''}>{addButtonLabel}</span>
