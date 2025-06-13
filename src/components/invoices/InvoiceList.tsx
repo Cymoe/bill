@@ -170,16 +170,16 @@ export const InvoiceList: React.FC = () => {
               payment_method
             )
           `)
-          .eq('user_id', user?.id)
+          .eq('organization_id', selectedOrg.id)
           .order('created_at', { ascending: false }),
         supabase
           .from('clients')
           .select('*')
-          .eq('user_id', user?.id),
+          .eq('organization_id', selectedOrg.id),
         supabase
           .from('products')
           .select('*')
-          .eq('user_id', user?.id)
+          .eq('organization_id', selectedOrg.id)
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;
