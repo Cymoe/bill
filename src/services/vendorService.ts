@@ -64,13 +64,13 @@ export const VENDOR_CATEGORIES = [
 
 export class VendorService {
   /**
-   * Get all vendors for the current user
+   * Get all vendors for the current organization
    */
-  static async getVendors(userId: string): Promise<Vendor[]> {
+  static async getVendors(organizationId: string): Promise<Vendor[]> {
     const { data, error } = await supabase
       .from('vendors')
       .select('*')
-      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
       .order('is_preferred', { ascending: false })
       .order('name');
 
@@ -81,11 +81,11 @@ export class VendorService {
   /**
    * Get vendors by category
    */
-  static async getVendorsByCategory(userId: string, category: string): Promise<Vendor[]> {
+  static async getVendorsByCategory(organizationId: string, category: string): Promise<Vendor[]> {
     const { data, error } = await supabase
       .from('vendors')
       .select('*')
-      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
       .eq('category', category)
       .order('is_preferred', { ascending: false })
       .order('rating', { ascending: false });
@@ -97,11 +97,11 @@ export class VendorService {
   /**
    * Get preferred vendors
    */
-  static async getPreferredVendors(userId: string): Promise<Vendor[]> {
+  static async getPreferredVendors(organizationId: string): Promise<Vendor[]> {
     const { data, error } = await supabase
       .from('vendors')
       .select('*')
-      .eq('user_id', userId)
+      .eq('organization_id', organizationId)
       .eq('is_preferred', true)
       .order('category')
       .order('name');
@@ -127,11 +127,11 @@ export class VendorService {
   /**
    * Create a new vendor
    */
-  static async createVendor(userId: string, vendorData: VendorFormData): Promise<Vendor> {
+  static async createVendor(organizationId: string, vendorData: VendorFormData): Promise<Vendor> {
     const { data, error } = await supabase
       .from('vendors')
       .insert({
-        user_id: userId,
+        organization_id: organizationId,
         ...vendorData
       })
       .select()

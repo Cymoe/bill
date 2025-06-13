@@ -1,27 +1,31 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import { supabase } from "../../lib/supabase";
 import type { Tables } from "../../lib/database";
 import { Search, Plus } from "lucide-react";
 import { formatCurrency } from "../../utils/format";
+import { OrganizationContext } from "../layouts/DashboardLayout";
 
 export function BillsList() {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [bills, setBills] = useState<Tables['bills'][]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedOrg?.id) {
       fetchBills();
     }
-  }, [user]);
+  }, [user, selectedOrg?.id]);
 
   const fetchBills = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from('bills')
         .select('*')
-        .eq('user_id', user?.id);
+        .eq('organization_id', selectedOrg.id);
 
       if (error) throw error;
       setBills(data || []);
@@ -51,11 +55,12 @@ export function BillsList() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !selectedOrg?.id) return;
 
     try {
       await createBill({
         user_id: user.id,
+        organization_id: selectedOrg.id,
         amount: parseFloat(amount),
         description,
         due_date: new Date(dueDate).toISOString(),

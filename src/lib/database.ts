@@ -440,12 +440,12 @@ export const db = {
     }
   },
   invoice_templates: {
-    async list(userId: string) {
+    async list(organizationId: string) {
       // Get templates with their content
       const { data: templates, error: templatesError } = await supabase
         .from('invoice_templates')
         .select('*')
-        .eq('user_id', userId)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
 
       if (templatesError) throw templatesError;
