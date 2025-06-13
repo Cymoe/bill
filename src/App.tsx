@@ -42,6 +42,7 @@ import { VendorDetailPage } from './pages/VendorDetailPage';
 import { ClientDetailPage } from './pages/ClientDetailPage';
 import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
 import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
+import { DebugData } from './pages/DebugData';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -413,6 +414,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <LineItemTestPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/debug"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <DebugData />
             </DashboardLayout>
           </ProtectedRoute>
         }

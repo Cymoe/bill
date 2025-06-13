@@ -140,51 +140,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [availableContentWidth, setAvailableContentWidth] = useState<'full' | 'constrained' | 'minimal' | 'compact'>('full');
   
   // Real organizations state
-  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; industry: string; industry_id: string }>>([
-    {
-      id: '264f2bfa-3073-41ca-81cc-d7b795507522',
-      name: 'Myles Kameron\'s Company',
-      industry: 'General Construction',
-      industry_id: '5bf10848-8346-4860-aaf5-b7a0423c8119'
-    },
-    {
-      id: '9e7526ab-6c4d-46a3-b1e6-2006c0921b0c',
-      name: 'Elite Electrical Services',
-      industry: 'Electrical',
-      industry_id: 'ba342394-2dc3-4168-8a9e-1c4cf837ef7c'
-    },
-    {
-      id: 'e937cb24-deba-4f15-8bc1-87007a309a88',
-      name: 'Professional Plumbing Co.',
-      industry: 'Plumbing',
-      industry_id: 'ad07961b-c4ef-47ae-a429-20ecba120ffe'
-    },
-    {
-      id: 'ea99134b-c9d5-416a-8493-d53a14f2f349',
-      name: 'Superior HVAC Solutions',
-      industry: 'HVAC',
-      industry_id: '3cfb3c97-a3e8-4324-8515-069350c1a2e8'
-    },
-    {
-      id: '44a02835-dff5-43ae-a005-c47a826df30f',
-      name: 'Apex Roofing Contractors',
-      industry: 'Roofing',
-      industry_id: '3f8d6863-f220-4c9e-b82a-57de8ab0428f'
-    }
-  ]);
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string; industry: string; industry_id: string }>>([]);
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string; industry: string }>({ 
-    id: '3d2c5387-fe36-48cd-ba52-d51d29375adc', 
-    name: 'Myles Kameron\'s Company', 
+    id: '', 
+    name: 'Loading...', 
     industry: 'General Construction' 
   });
   const [loadingOrgs, setLoadingOrgs] = useState(false);
 
   // Load user's organizations
   useEffect(() => {
-    // Temporarily disabled while debugging connectivity issue
-    // The correct organization is set in initial state above
-    setLoadingOrgs(false);
-    return;
     
     const loadOrganizations = async () => {
       if (!user) {

@@ -31,8 +31,8 @@ export const QuickCreateButton: React.FC<Props> = ({
 
   // Dynamic positioning based on sidebar states
   const rightPosition = isSidebarCollapsed 
-    ? isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[23rem]' : 'right-16'
-    : isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[33rem]' : 'right-52';
+    ? isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[25rem]' : 'right-24'
+    : isProjectsSidebarLocked || isProjectsSidebarOpen ? 'right-[35rem]' : 'right-60';
 
   return (
     <button

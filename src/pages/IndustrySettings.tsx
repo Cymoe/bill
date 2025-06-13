@@ -76,17 +76,37 @@ export default function IndustrySettings() {
 
     setIsSaving(true);
     try {
-      // Delete all existing organization industries
-      const { error: deleteError } = await supabase
+      // Get current industries for this org
+      const { data: currentIndustries, error: fetchError } = await supabase
         .from('organization_industries')
-        .delete()
+        .select('industry_id')
         .eq('organization_id', selectedOrg.id);
 
-      if (deleteError) throw deleteError;
+      if (fetchError) throw fetchError;
 
-      // Insert new selections
-      if (selectedIndustries.size > 0) {
-        const inserts = Array.from(selectedIndustries).map(industryId => ({
+      const currentIds = new Set(currentIndustries?.map(item => item.industry_id) || []);
+      const selectedIds = selectedIndustries;
+
+      // Find industries to delete
+      const toDelete = Array.from(currentIds).filter(id => !selectedIds.has(id));
+      
+      // Find industries to add
+      const toAdd = Array.from(selectedIds).filter(id => !currentIds.has(id));
+
+      // Delete removed industries
+      if (toDelete.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('organization_industries')
+          .delete()
+          .eq('organization_id', selectedOrg.id)
+          .in('industry_id', toDelete);
+
+        if (deleteError) throw deleteError;
+      }
+
+      // Insert new industries
+      if (toAdd.length > 0) {
+        const inserts = toAdd.map(industryId => ({
           organization_id: selectedOrg.id,
           industry_id: industryId
         }));

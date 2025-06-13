@@ -437,7 +437,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate }
                       onClick={() => navigate(`/estimates/${estimate.id}`)}
                     >
                       {/* Estimate Column with Status Badge */}
-                      <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-4' : 'col-span-5'}`}>
+                      <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-3' : 'col-span-4'}`}>
                         <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
                           <div className="min-w-0 flex-1">
                             <div className={`font-medium text-white truncate ${isMinimal ? 'text-sm' : ''}`}>
@@ -459,7 +459,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate }
                       </div>
                       
                       {/* Amount Column */}
-                      <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-3'} text-center`}>
+                      <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
                         <div className={`font-mono font-semibold text-white ${isMinimal ? 'text-sm' : ''}`}>
                           {formatCurrency(estimate.total_amount)}
                         </div>
@@ -477,19 +477,19 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate }
                       )}
 
                       {/* Actions Column */}
-                      <div className={`${isMinimal ? 'col-span-1' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                      <div className={`${isMinimal ? 'col-span-1' : isConstrained ? 'col-span-1' : 'col-span-1'} flex justify-end items-center`}>
                         <div
                           ref={(el) => {
                             estimateDropdownRefs.current[estimate.id!] = el;
                           }}
-                          className="relative"
+                          className="relative flex-shrink-0"
                         >
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setDropdownOpen(dropdownOpen === estimate.id ? null : estimate.id!);
                             }}
-                            className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                            className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors flex-shrink-0`}
                           >
                             <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                           </button>

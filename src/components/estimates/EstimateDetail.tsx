@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Edit, Send, Download, Share2, Trash2,
-  CheckCircle, XCircle, Clock, FileText, User,
-  Phone, Mail, MapPin, Calendar, DollarSign
+  CheckCircle, XCircle, FileText, User,
+  Phone, Mail, MapPin
 } from 'lucide-react';
 import { EstimateService, Estimate } from '../../services/EstimateService';
 import { formatCurrency } from '../../utils/format';
@@ -73,16 +73,6 @@ export const EstimateDetail: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: Estimate['status']) => {
-    switch (status) {
-      case 'draft': return 'text-gray-400 bg-gray-400/10';
-      case 'sent': return 'text-blue-400 bg-blue-400/10';
-      case 'accepted': return 'text-green-400 bg-green-400/10';
-      case 'rejected': return 'text-red-400 bg-red-400/10';
-      case 'expired': return 'text-orange-400 bg-orange-400/10';
-      default: return 'text-gray-400 bg-gray-400/10';
-    }
-  };
 
   if (loading) {
     return (
@@ -108,70 +98,80 @@ export const EstimateDetail: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/estimates')}
-            className="p-2 text-gray-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">
-              {estimate.title || estimate.estimate_number}
-            </h1>
-            <div className="flex items-center gap-4 mt-1">
-              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(estimate.status)}`}>
-                {estimate.status.charAt(0).toUpperCase() + estimate.status.slice(1)}
+    <div className="min-h-screen bg-[#121212] text-white">
+      {/* Header - Matching Invoice Detail Style */}
+      <div className="border-b border-[#333333] px-6 py-4">
+        <div className="flex items-center justify-between">
+          {/* Left side - Back, Title, Status, Client */}
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => navigate('/estimates')}
+              className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold text-white whitespace-nowrap">{estimate.estimate_number}</h1>
+              
+              <span className={`text-xs px-3 py-1 rounded-[4px] font-medium uppercase ${
+                estimate.status === 'accepted' ? 'bg-green-500/20 text-green-300' :
+                estimate.status === 'rejected' ? 'bg-red-500/20 text-red-300' :
+                estimate.status === 'sent' ? 'bg-blue-500/20 text-blue-300' :
+                'bg-gray-500/20 text-gray-300'
+              }`}>
+                {estimate.status}
               </span>
-              <span className="text-sm text-gray-400">
-                {estimate.estimate_number}
-              </span>
+              
+              <span className="text-gray-400">{estimate.client?.name || 'Client'}</span>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {estimate.status === 'accepted' && (
-            <button
-              onClick={handleConvertToInvoice}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          {/* Right side - Action Buttons */}
+          <div className="flex items-center gap-2 md:gap-4">
+            {estimate.status === 'accepted' && (
+              <button
+                onClick={handleConvertToInvoice}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                Convert to Invoice
+              </button>
+            )}
+            
+            <button 
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors text-sm"
+              title="Share Estimate"
             >
-              Convert to Invoice
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Share</span>
             </button>
-          )}
-          
-          {estimate.status === 'draft' && (
-            <button
-              onClick={() => handleStatusUpdate('sent')}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            
+            <button 
+              onClick={() => navigate(`/estimates/${estimate.id}/edit`)}
+              className="flex items-center gap-2 px-3 md:px-4 py-2 bg-[#F9D71C] text-black rounded-md hover:bg-[#F9D71C]/90 transition-colors text-sm font-medium"
+              title="Edit Estimate"
             >
-              <Send className="w-4 h-4" />
-              Send to Client
+              <Edit className="w-4 h-4" />
+              <span className="hidden sm:inline">Edit</span>
             </button>
-          )}
-
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#333] text-white rounded-lg hover:bg-[#444] transition-colors"
-          >
-            <Share2 className="w-4 h-4" />
-            Share
-          </button>
-
-          <button
-            onClick={() => navigate(`/estimates/${estimate.id}/edit`)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#F9D71C] text-black rounded-lg hover:bg-[#F9D71C]/90 transition-colors"
-          >
-            <Edit className="w-4 h-4" />
-            Edit
-          </button>
+            
+            {estimate.status === 'draft' && (
+              <button 
+                onClick={() => handleStatusUpdate('sent')}
+                className="bg-[#336699] text-white px-3 md:px-4 py-2 rounded-md hover:bg-[#2A5580] transition-colors flex items-center gap-2 text-sm"
+              >
+                <Send className="w-4 h-4" />
+                <span className="hidden sm:inline">Send</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Estimate Items */}
@@ -180,20 +180,20 @@ export const EstimateDetail: React.FC = () => {
               <h2 className="text-lg font-semibold text-white">Line Items</h2>
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-hidden">
+              <table className="w-full table-fixed">
                 <thead className="bg-[#0a0a0a]">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="w-2/5 px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Description
                     </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="w-1/6 px-2 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Qty
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="w-1/4 px-2 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Unit Price
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    <th className="w-1/4 px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider">
                       Total
                     </th>
                   </tr>
@@ -201,16 +201,16 @@ export const EstimateDetail: React.FC = () => {
                 <tbody className="divide-y divide-[#333]">
                   {estimate.items?.map((item) => (
                     <tr key={item.id}>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-white">{item.description}</div>
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-white truncate">{item.description}</div>
                       </td>
-                      <td className="px-6 py-4 text-center text-sm text-white">
+                      <td className="px-2 py-4 text-center text-sm text-white">
                         {item.quantity}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm text-white">
+                      <td className="px-2 py-4 text-right text-sm text-white">
                         {formatCurrency(item.unit_price)}
                       </td>
-                      <td className="px-6 py-4 text-right text-sm font-medium text-white">
+                      <td className="px-4 py-4 text-right text-sm font-medium text-white">
                         {formatCurrency(item.total_price)}
                       </td>
                     </tr>
@@ -218,28 +218,28 @@ export const EstimateDetail: React.FC = () => {
                 </tbody>
                 <tfoot className="bg-[#0a0a0a]">
                   <tr>
-                    <td colSpan={3} className="px-6 py-3 text-right text-sm font-medium text-gray-400">
+                    <td colSpan={3} className="pl-6 pr-4 py-3 text-right text-sm font-medium text-gray-400">
                       Subtotal:
                     </td>
-                    <td className="px-6 py-3 text-right text-sm font-medium text-white">
+                    <td className="pl-4 pr-6 lg:pr-12 py-3 text-right text-sm font-medium text-white">
                       {formatCurrency(estimate.subtotal)}
                     </td>
                   </tr>
                   {estimate.tax_rate && estimate.tax_rate > 0 && (
                     <tr>
-                      <td colSpan={3} className="px-6 py-3 text-right text-sm font-medium text-gray-400">
+                      <td colSpan={3} className="pl-6 pr-4 py-3 text-right text-sm font-medium text-gray-400">
                         Tax ({estimate.tax_rate}%):
                       </td>
-                      <td className="px-6 py-3 text-right text-sm font-medium text-white">
+                      <td className="pl-4 pr-6 lg:pr-12 py-3 text-right text-sm font-medium text-white">
                         {formatCurrency(estimate.tax_amount || 0)}
                       </td>
                     </tr>
                   )}
                   <tr>
-                    <td colSpan={3} className="px-6 py-4 text-right text-lg font-bold text-white">
+                    <td colSpan={3} className="pl-6 pr-4 py-4 text-right text-lg font-bold text-white">
                       Total:
                     </td>
-                    <td className="px-6 py-4 text-right text-lg font-bold text-[#F9D71C]">
+                    <td className="pl-4 pr-6 lg:pr-12 py-4 text-right text-lg font-bold text-[#F9D71C]">
                       {formatCurrency(estimate.total_amount)}
                     </td>
                   </tr>
@@ -393,6 +393,7 @@ export const EstimateDetail: React.FC = () => {
               </button>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

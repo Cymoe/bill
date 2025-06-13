@@ -6,6 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - Always refer to me as eeeeeefhan
 
+## Repositroy Information
+
+Project Repository: https://github.com/Cymoe/bill
+
+
 ## Development Commands
 
 - **Start development server**: `npm run dev` (runs on port 3000)

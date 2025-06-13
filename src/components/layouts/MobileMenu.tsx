@@ -128,6 +128,21 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
           </NavLink>
 
           <NavLink
+            to="/estimates"
+            onClick={onClose}
+            className={({ isActive }) =>
+              `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
+                isActive
+                  ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border border-[#336699]/50 text-white'
+                  : 'hover:bg-[#333333] text-gray-300'
+              }`
+            }
+          >
+            <span className="text-lg">📋</span>
+            <span>Estimates</span>
+          </NavLink>
+
+          <NavLink
             to="/invoices"
             onClick={onClose}
             className={({ isActive }) =>
