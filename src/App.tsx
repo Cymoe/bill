@@ -44,6 +44,7 @@ import { ClientDetailPage } from './pages/ClientDetailPage';
 import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
 import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
 import { DebugData } from './pages/DebugData';
+import { Work } from './pages/Work';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -246,6 +247,59 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      
+      {/* Work Hub - combines Estimates, Projects, and Invoices */}
+      <Route
+        path="/work"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/work/estimates"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/work/projects"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/work/invoices"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/work/pipeline"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      
       <Route
         path="/invoices"
         element={
