@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns } from 'lucide-react';
+import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
@@ -12,6 +12,7 @@ import { formatCurrency } from '../../utils/format';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateProjectWizard } from './CreateProjectWizard';
 import { StatusBadge } from './StatusBadge';
+import { ProjectsOverviewMap } from '../maps/ProjectsOverviewMap';
 
 type Project = Tables['projects'];
 
@@ -26,7 +27,7 @@ export const ProjectList: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'lead' | 'quoted' | 'planned' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'planned' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   
   // Additional filter states
@@ -35,7 +36,7 @@ export const ProjectList: React.FC = () => {
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'budget' | 'status'>('date');
   
   // Load view preference from localStorage - default to 'list'
-  const [viewType, setViewType] = useState<'list' | 'gantt'>('list');
+  const [viewType, setViewType] = useState<'list' | 'gantt' | 'map'>('list');
   
   // Dropdown state management
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -85,7 +86,7 @@ export const ProjectList: React.FC = () => {
   // Handle status filtering from URL parameters
   useEffect(() => {
     const statusParam = searchParams.get('status');
-    if (statusParam && ['lead', 'quoted', 'planned', 'active', 'on-hold', 'completed', 'cancelled'].includes(statusParam)) {
+    if (statusParam && ['planned', 'active', 'on-hold', 'completed', 'cancelled'].includes(statusParam)) {
       setSelectedStatus(statusParam as any);
     }
   }, [location.search]);
@@ -500,6 +501,14 @@ export const ProjectList: React.FC = () => {
               >
                 <BarChart3 className="w-4 h-4" />
               </button>
+              <button
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${
+                        viewType === 'map' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
+                }`}
+                onClick={() => setViewType('map')}
+              >
+                <Map className="w-4 h-4" />
+              </button>
             </div>
                   
                   <div className="relative" ref={mainOptionsRef}>
@@ -626,40 +635,6 @@ export const ProjectList: React.FC = () => {
                     <div className="flex flex-col items-center">
                       <span>All</span>
                       <span className="text-xs opacity-70">({projects.length})</span>
-                    </div>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('lead')}
-                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                    selectedStatus === 'lead'
-                      ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                  }`}
-                >
-                  {isConstrained ? (
-                    `Leads (${projects.filter(p => p.status === 'lead').length})`
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <span>Leads</span>
-                      <span className="text-xs opacity-70">({projects.filter(p => p.status === 'lead').length})</span>
-                    </div>
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedStatus('quoted')}
-                  className={`${isConstrained ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                    selectedStatus === 'quoted'
-                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                      : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                  }`}
-                >
-                  {isConstrained ? (
-                    `Quoted (${projects.filter(p => p.status === 'quoted').length})`
-                  ) : (
-                    <div className="flex flex-col items-center">
-                      <span>Quoted</span>
-                      <span className="text-xs opacity-70">({projects.filter(p => p.status === 'quoted').length})</span>
                     </div>
                   )}
                 </button>
@@ -1117,7 +1092,7 @@ export const ProjectList: React.FC = () => {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : viewType === 'gantt' ? (
               // Gantt Chart View
               <div className="bg-[#1a1a1a] border border-[#333333] rounded-xl p-6 overflow-x-auto">
                 <div className="text-center py-12">
@@ -1125,10 +1100,20 @@ export const ProjectList: React.FC = () => {
                   <div className="text-gray-500 text-sm">Coming soon...</div>
                 </div>
               </div>
+            ) : (
+              // Map View
+              <div>
+                <div className="h-[600px] rounded-lg overflow-hidden border border-[#333]">
+                  <ProjectsOverviewMap 
+                    selectedStatus={selectedStatus}
+                    filteredProjectIds={filteredProjects.map(p => p.id)}
+                  />
+                </div>
+              </div>
             )}
 
-            {/* Empty State for filtered results */}
-            {filteredProjects.length === 0 && (
+            {/* Empty State for filtered results - only show in list/gantt view */}
+            {viewType !== 'map' && filteredProjects.length === 0 && (
               <div className="flex flex-col items-center justify-center py-12">
                 <div className="w-16 h-16 bg-[#1a1a1a] rounded-lg flex items-center justify-center mb-4">
                   <FolderKanban className="w-8 h-8 text-[#666666]" />

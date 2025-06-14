@@ -249,6 +249,60 @@ export const ShareableEstimate: React.FC = () => {
           </div>
         )}
 
+        {/* Category Summary */}
+        {estimate.items && estimate.items.length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Cost Breakdown by Category</h3>
+            </div>
+            
+            <div className="p-6">
+              {(() => {
+                // Group items by cost code
+                const categoryTotals = estimate.items.reduce((acc, item) => {
+                  const category = item.cost_code_name || 'Uncategorized';
+                  if (!acc[category]) {
+                    acc[category] = 0;
+                  }
+                  acc[category] += item.total_price;
+                  return acc;
+                }, {} as Record<string, number>);
+
+                // Sort categories by total amount (highest first)
+                const sortedCategories = Object.entries(categoryTotals)
+                  .sort(([, a], [, b]) => b - a);
+
+                return (
+                  <div className="space-y-3">
+                    {sortedCategories.map(([category, total]) => (
+                      <div key={category} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                        <span className="text-sm font-medium text-gray-700">{category}</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatCurrency(total)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between items-center pt-3 mt-3 border-t-2 border-gray-200">
+                      <span className="text-base font-bold text-gray-900">Subtotal</span>
+                      <span className="text-base font-bold text-gray-900">{formatCurrency(estimate.subtotal)}</span>
+                    </div>
+                    {estimate.tax_amount && estimate.tax_amount > 0 && (
+                      <>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-600">Tax ({estimate.tax_rate}%)</span>
+                          <span className="text-sm text-gray-600">{formatCurrency(estimate.tax_amount)}</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                          <span className="text-base font-bold text-gray-900">Total</span>
+                          <span className="text-base font-bold text-blue-600">{formatCurrency(estimate.total_amount)}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* Line Items */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden mb-6">
           <div className="px-6 py-4 border-b border-gray-200">

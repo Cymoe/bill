@@ -61,18 +61,18 @@ export const VendorsList: React.FC<VendorsListProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFilterMenu]);
 
-  // Only reload when user.id changes, not when user object reference changes
+  // Only reload when user.id or organization changes
   useEffect(() => {
-    if (user?.id && !hasLoadedData) {
+    if (user?.id && selectedOrg?.id && !hasLoadedData) {
       loadVendors();
     }
-  }, [user?.id, hasLoadedData]);
+  }, [user?.id, selectedOrg?.id, hasLoadedData]);
 
   const loadVendors = async () => {
-    if (!user) return;
+    if (!user || !selectedOrg?.id) return;
     setLoading(true);
     try {
-      const data = await VendorService.getVendors(user.id);
+      const data = await VendorService.getVendors(selectedOrg.id);
       setVendors(data);
       setLoading(false); // Show vendors immediately
       setHasLoadedData(true);
@@ -116,11 +116,16 @@ export const VendorsList: React.FC<VendorsListProps> = ({
   const handleDeleteVendor = async (vendorId: string) => {
     if (!confirm('Are you sure you want to delete this vendor?')) return;
     
+    if (!selectedOrg?.id) {
+      console.error('No organization selected');
+      return;
+    }
+    
     try {
       await VendorService.deleteVendor(vendorId);
       // Just reload vendors instead of resetting cache
       setLoading(true);
-      const data = await VendorService.getVendors(user!.id);
+      const data = await VendorService.getVendors(selectedOrg.id);
       setVendors(data);
       setLoading(false);
     } catch (error) {

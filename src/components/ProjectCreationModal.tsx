@@ -7,6 +7,7 @@ import { X, Calendar, MapPin, DollarSign, User, Building } from 'lucide-react';
 interface ProjectCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess?: (projectId: string) => void;
   workPack: {
     id: string;
     name: string;
@@ -22,6 +23,7 @@ interface ProjectCreationModalProps {
 export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
   isOpen,
   onClose,
+  onSuccess,
   workPack
 }) => {
   const { user } = useAuth();
@@ -158,8 +160,13 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
         }
       }
 
-      // Redirect to the new project
-      window.location.href = `/projects/${project.id}`;
+      // Call success callback or navigate
+      if (onSuccess) {
+        onSuccess(project.id);
+      } else {
+        // Redirect to the new project
+        window.location.href = `/projects/${project.id}`;
+      }
       
     } catch (error) {
       console.error('Error creating project from template:', error);

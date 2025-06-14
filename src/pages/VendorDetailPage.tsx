@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Save, Star, Phone, Mail, Globe, MapPin, 
@@ -8,6 +8,7 @@ import {
   MoreVertical, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { OrganizationContext } from '../components/layouts/DashboardLayout';
 import { VendorService, Vendor, VendorFormData, VENDOR_CATEGORIES } from '../services/vendorService';
 import { formatCurrency } from '../utils/format';
 import { VendorContactsList } from '../components/vendors/VendorContactsList';
@@ -16,6 +17,7 @@ export const VendorDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [stats, setStats] = useState<any>(null);
@@ -43,18 +45,18 @@ export const VendorDetailPage: React.FC = () => {
   });
 
   useEffect(() => {
-    if (id && user) {
+    if (id && user && selectedOrg?.id) {
       loadVendorData();
     }
-  }, [id, user]);
+  }, [id, user, selectedOrg?.id]);
 
   const loadVendorData = async () => {
-    if (!id || !user) return;
+    if (!id || !user || !selectedOrg?.id) return;
     
     try {
       setLoading(true);
       
-      const vendors = await VendorService.getVendors(user.id);
+      const vendors = await VendorService.getVendors(selectedOrg.id);
       const foundVendor = vendors.find(v => v.id === id);
       
       if (!foundVendor) {

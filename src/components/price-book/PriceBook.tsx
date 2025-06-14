@@ -11,7 +11,7 @@ import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Cal
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutContext } from '../layouts/DashboardLayout';
+import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import React from 'react';
 
 interface Product {
@@ -45,6 +45,7 @@ export const PriceBook: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isConstrained, isMinimal, isCompact } = React.useContext(LayoutContext);
+  const { selectedOrg } = React.useContext(OrganizationContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
   const [showEditLineItemModal, setShowEditLineItemModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -83,6 +84,7 @@ export const PriceBook: React.FC = () => {
   const [selectedTrade, setSelectedTrade] = useState('all');
   const [viewMode, setViewMode] = useState<'expanded' | 'condensed'>('expanded');
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingCostCodes, setIsLoadingCostCodes] = useState(true);
   
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -270,21 +272,30 @@ export const PriceBook: React.FC = () => {
   }, [activeDropdown]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [user?.id]);
+    if (selectedOrg?.id) {
+      fetchProducts();
+    }
+  }, [user?.id, selectedOrg?.id]);
 
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
       setError(null);
       
-      console.log('Fetching line items for user:', user?.id);
+      console.log('Fetching line items for organization:', selectedOrg?.id);
       
-      // Only fetch products that are NOT base products (i.e., they are line items)
+      if (!selectedOrg?.id) {
+        console.error('No organization selected');
+        setError('No organization selected');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Only fetch products for the user's organization
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('organization_id', selectedOrg.id)
         .or('is_base_product.is.null,is_base_product.eq.false')
         .order('created_at', { ascending: false });
 
@@ -316,11 +327,29 @@ export const PriceBook: React.FC = () => {
   // Fetch trades from DB
   useEffect(() => {
     const fetchTrades = async () => {
-      const { data, error } = await supabase
-        .from('cost_codes')
-        .select('id, name, code')
-        .order('code');
-      if (!error && data) setTrades(data);
+      try {
+        setIsLoadingCostCodes(true);
+        console.log('Fetching cost codes...');
+        
+        // Optimize query by explicitly filtering for shared codes (organization_id is NULL)
+        // This avoids the RLS policy having to check every row
+        const { data, error } = await supabase
+          .from('cost_codes')
+          .select('id, name, code')
+          .is('organization_id', null)  // Only fetch shared cost codes
+          .order('code');
+          
+        if (error) {
+          console.error('Error fetching cost codes:', error);
+        } else {
+          console.log('Cost codes fetched:', data?.length || 0);
+          setTrades(data || []);
+        }
+      } catch (err) {
+        console.error('Error in fetchTrades:', err);
+      } finally {
+        setIsLoadingCostCodes(false);
+      }
     };
     fetchTrades();
   }, []);
@@ -809,10 +838,10 @@ export const PriceBook: React.FC = () => {
         
       {/* Table Content */}
         <div className="overflow-hidden rounded-b-[4px]">
-          {isLoading ? (
+          {(isLoading || isLoadingCostCodes) ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mb-4"></div>
-              <p className="text-gray-400">Loading cost codes...</p>
+              <p className="text-gray-400">{isLoadingCostCodes ? 'Loading cost codes...' : 'Loading items...'}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">

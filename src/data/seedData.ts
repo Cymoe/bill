@@ -41,7 +41,7 @@ export const seedClients: ClientInput[] = [
     name: "John Doe",
     email: "john@acme.com",
     phone: "555-0123",
-    address: "123 Main St\nCity, ST 12345",
+    address: "1560 Broadway, Denver, CO 80202",
     user_id: ""
   },
   {
@@ -49,7 +49,7 @@ export const seedClients: ClientInput[] = [
     name: 'Sarah Johnson',
     email: 'accounts@techstart.com',
     phone: '(555) 987-6543',
-    address: '456 Innovation Blvd',
+    address: '3000 E 1st Ave, Denver, CO 80206',
     user_id: ""
   },
   {
@@ -57,7 +57,7 @@ export const seedClients: ClientInput[] = [
     name: 'Michael Chen',
     email: 'finance@globalsolutions.com',
     phone: '(555) 246-8135',
-    address: '789 Enterprise St',
+    address: '8800 Westminster Blvd, Westminster, CO 80031',
     user_id: ""
   }
 ];

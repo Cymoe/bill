@@ -15,6 +15,7 @@ import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { ShareableInvoice } from './components/invoices/ShareableInvoice';
 import { EstimatesPage } from './pages/EstimatesPage';
 import { EstimateDetail } from './components/estimates/EstimateDetail';
+import { EditEstimatePage } from './pages/EditEstimatePage';
 import { ShareableEstimate } from './components/estimates/ShareableEstimate';
 // Packages page removed as part of simplification
 import { LandingPage } from './components/LandingPage';
@@ -288,6 +289,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <EstimateDetail />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/estimates/:id/edit"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <EditEstimatePage />
             </DashboardLayout>
           </ProtectedRoute>
         }

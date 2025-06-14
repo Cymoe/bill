@@ -12,6 +12,7 @@ interface ExpenseTemplate {
 
 interface ProjectExpense {
   user_id: string;
+  organization_id: string;
   project_id: string;
   description: string;
   amount: number;
@@ -30,6 +31,7 @@ export class ExpenseService {
     projectId: string,
     categoryId: string,
     userId: string,
+    organizationId: string,
     startDate: string
   ): Promise<void> {
     try {
@@ -51,6 +53,7 @@ export class ExpenseService {
         
         return {
           user_id: userId,
+          organization_id: organizationId,
           project_id: projectId,
           description: template.description,
           amount: template.typical_amount,

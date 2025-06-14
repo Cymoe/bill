@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
@@ -10,10 +10,6 @@ export const ShareableInvoice: React.FC = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [signature, setSignature] = useState<string>('');
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isSigned, setIsSigned] = useState(false);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -65,108 +61,6 @@ export const ShareableInvoice: React.FC = () => {
     }
   };
 
-  // Signature drawing functions
-  const getEventPos = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
-    
-    const rect = canvas.getBoundingClientRect();
-    
-    if ('touches' in e) {
-      // Touch event
-      const touch = e.touches[0] || e.changedTouches[0];
-      return {
-        x: touch.clientX - rect.left,
-        y: touch.clientY - rect.top
-      };
-    } else {
-      // Mouse event
-      return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-      };
-    }
-  };
-
-  const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    setIsDrawing(true);
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const pos = getEventPos(e);
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-  };
-
-  const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    if (!isDrawing) return;
-    
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    const pos = getEventPos(e);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-  };
-
-  const stopDrawing = () => {
-    if (isDrawing) {
-      setIsDrawing(false);
-      const canvas = canvasRef.current;
-      if (canvas) {
-        setSignature(canvas.toDataURL());
-        setIsSigned(true);
-      }
-    }
-  };
-
-  const clearSignature = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setSignature('');
-    setIsSigned(false);
-  };
-
-  const saveSignature = async () => {
-    if (!signature || !invoice) return;
-    
-    try {
-      const { error } = await supabase
-        .from('invoices')
-        .update({ 
-          client_signature: signature,
-          signed_at: new Date().toISOString(),
-          status: 'signed'
-        })
-        .eq('id', invoice.id);
-
-      if (error) throw error;
-      
-      alert('Signature saved successfully!');
-      // Refresh the invoice data
-      fetchInvoiceData();
-    } catch (err) {
-      console.error('Error saving signature:', err);
-      alert('Failed to save signature. Please try again.');
-    }
-  };
 
   if (isLoading) {
     return (
@@ -297,65 +191,6 @@ export const ShareableInvoice: React.FC = () => {
           </div>
         )}
 
-        {/* Signature Section */}
-        <div className="mb-8 p-6 border-2 border-gray-300 rounded-lg bg-gray-50 no-print">
-          <h4 className="font-semibold text-gray-700 mb-4">Client Acceptance & Signature</h4>
-          
-          {invoice.client_signature ? (
-            <div className="mb-4">
-              <p className="text-sm text-green-600 mb-2">✓ This invoice has been signed</p>
-              <img src={invoice.client_signature} alt="Client Signature" className="border border-gray-300 bg-white" />
-              <p className="text-xs text-gray-500 mt-2">
-                Signed on: {new Date(invoice.signed_at).toLocaleDateString()} at {new Date(invoice.signed_at).toLocaleTimeString()}
-              </p>
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-gray-600 mb-4">
-                By signing below, you acknowledge that you have reviewed this invoice and agree to the terms and amounts shown.
-              </p>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Digital Signature
-                </label>
-                <canvas
-                  ref={canvasRef}
-                  width={400}
-                  height={100}
-                  className="border-2 border-gray-300 bg-white cursor-crosshair rounded"
-                  onMouseDown={startDrawing}
-                  onMouseMove={draw}
-                  onMouseUp={stopDrawing}
-                  onMouseLeave={stopDrawing}
-                  onTouchStart={startDrawing}
-                  onTouchMove={draw}
-                  onTouchEnd={stopDrawing}
-                  style={{ touchAction: 'none' }}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Sign above using your mouse or finger on touch devices
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <button
-                  onClick={clearSignature}
-                  className="px-4 py-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded transition-colors text-sm"
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={saveSignature}
-                  disabled={!isSigned}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded transition-colors text-sm font-medium"
-                >
-                  Save Signature
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
 
         {/* Footer */}
         <div className="mt-16 pt-8 border-t border-gray-200 text-center text-sm text-gray-600">
@@ -374,11 +209,6 @@ export const ShareableInvoice: React.FC = () => {
           .no-print {
             display: none !important;
           }
-        }
-        canvas {
-          border: 2px solid #d1d5db;
-          background-color: white;
-          border-radius: 4px;
         }
       `}</style>
     </div>

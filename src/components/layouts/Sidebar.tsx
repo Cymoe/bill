@@ -263,6 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
+
             {/* Work Packs */}
             <NavLink
               to="/templates"

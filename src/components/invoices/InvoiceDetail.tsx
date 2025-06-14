@@ -130,10 +130,10 @@ export const InvoiceDetail: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header - Matching Project Page Style */}
+      {/* Header - Improved Two-Row Layout */}
       <div className="border-b border-[#333333] px-6 py-4">
-        <div className="flex items-center justify-between">
-          {/* Left side - Back, Title, Status, Client */}
+        {/* Row 1: Navigation + Document Info */}
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-4">
             <button
               onClick={handleBackNavigation}
@@ -144,7 +144,6 @@ export const InvoiceDetail: React.FC = () => {
             
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-semibold text-white">{`INV-${invoice.id.slice(0, 8)}`}</h1>
-              
               <span className={`text-xs px-3 py-1 rounded-[4px] font-medium uppercase ${
                 invoice.status === 'paid' ? 'bg-green-500/20 text-green-300' :
                 invoice.status === 'signed' ? 'bg-purple-500/20 text-purple-300' :
@@ -154,62 +153,66 @@ export const InvoiceDetail: React.FC = () => {
               }`}>
                 {invoice.status}
               </span>
-              
               {fromProject && projectName && (
-                <span className="text-xs text-gray-500">from {projectName}</span>
+                <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-1 rounded-[4px]">
+                  from {projectName}
+                </span>
               )}
-              
-              <span className="text-gray-400">{client.name || client.company_name}</span>
             </div>
           </div>
 
-          {/* Right side - Action Buttons */}
-          <div className="flex items-center gap-4">
+          {/* Action Buttons - Always visible on row 1 */}
+          <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={handleShare}
-              className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-[8px] hover:bg-[#2a2a2a] transition-colors text-sm"
               title="Share Invoice"
             >
               <Share2 className="w-4 h-4" />
-              <span>Share</span>
+              <span className="hidden sm:inline">Share</span>
             </button>
             
             <button 
-              className="flex items-center gap-2 px-4 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-md hover:bg-[#2a2a2a] transition-colors text-sm"
+              className="flex items-center gap-2 px-3 py-2 bg-[#1a1a1a] border border-[#2a2a2a] text-white rounded-[8px] hover:bg-[#2a2a2a] transition-colors text-sm"
               title="Edit Invoice"
             >
               <Edit className="w-4 h-4" />
-              <span>Edit</span>
+              <span className="hidden sm:inline">Edit</span>
             </button>
             
             {invoice.status === 'draft' && (
               <button 
                 onClick={handleMarkAsPaid}
-                className="bg-[#336699] text-white px-4 py-2 rounded-md hover:bg-[#2A5580] transition-colors flex items-center gap-2 text-sm"
+                className="bg-[#336699] text-white px-3 py-2 rounded-[8px] hover:bg-[#2A5580] transition-colors flex items-center gap-2 text-sm font-medium"
               >
                 <Send className="w-4 h-4" />
-                Send
+                <span className="hidden sm:inline">Send</span>
               </button>
             )}
             
             {invoice.status === 'sent' && (
               <button 
                 onClick={handleMarkAsPaid}
-                className="bg-[#388E3C] text-white px-4 py-2 rounded-md hover:bg-[#2E7D32] transition-colors flex items-center gap-2 text-sm"
+                className="bg-[#388E3C] text-white px-3 py-2 rounded-[8px] hover:bg-[#2E7D32] transition-colors flex items-center gap-2 text-sm font-medium"
               >
                 <CheckCircle className="w-4 h-4" />
-                Paid
+                <span className="hidden sm:inline">Mark Paid</span>
               </button>
             )}
+          </div>
+        </div>
 
-            {(invoice.status === 'paid' || invoice.status === 'overdue') && (
-              <button 
-                className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] rounded-md transition-colors"
-                title="More options"
-              >
-                <Activity className="w-4 h-4" />
-              </button>
-            )}
+        {/* Row 2: Client Information */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
+            <div className="text-white font-medium truncate">{client.name || client.company_name}</div>
+            <div className="text-gray-500 text-sm whitespace-nowrap">
+              Due {new Date(invoice.due_date).toLocaleDateString()}
+            </div>
+          </div>
+          
+          <div className="text-right text-sm text-gray-400 whitespace-nowrap ml-4">
+            Total: <span className="text-[#F9D71C] font-semibold text-base">{formatCurrency(total)}</span>
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { X, Save, Star } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 import { VendorService, VendorFormData, VENDOR_CATEGORIES } from '../../services/vendorService';
 
 interface CreateVendorModalProps {
@@ -15,6 +16,7 @@ export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
   onVendorCreated
 }) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState<VendorFormData>({
     name: '',
@@ -36,11 +38,11 @@ export const CreateVendorModal: React.FC<CreateVendorModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !selectedOrg?.id) return;
 
     setLoading(true);
     try {
-      await VendorService.createVendor(user.id, formData);
+      await VendorService.createVendor(selectedOrg.id, formData);
       onVendorCreated();
       onClose();
     } catch (error) {

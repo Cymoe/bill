@@ -42,7 +42,7 @@ export const People: React.FC = () => {
             .from('clients')
             .select('id')
             .eq('organization_id', selectedOrg.id),
-          VendorService.getVendors(user.id),
+          VendorService.getVendors(selectedOrg.id),
           SubcontractorService.getSubcontractors(selectedOrg.id),
           TeamMemberService.getTeamMembers(selectedOrg.id)
         ]);

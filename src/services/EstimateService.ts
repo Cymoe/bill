@@ -9,6 +9,7 @@ export interface EstimateItem {
   unit_price: number;
   total_price: number;
   cost_code?: string;
+  cost_code_name?: string;
   display_order?: number;
 }
 
@@ -32,6 +33,7 @@ export interface Estimate {
   terms?: string;
   client_signature?: string;
   signed_at?: string;
+  converted_to_invoice_id?: string;
   created_at?: string;
   updated_at?: string;
   items?: EstimateItem[];
@@ -93,6 +95,53 @@ export class EstimateService {
 
     if (error) {
       throw error;
+    }
+
+    // If we have items with cost codes, fetch the cost code names
+    if (data.items && data.items.length > 0) {
+      // Get unique cost code IDs
+      const costCodeIds = [...new Set(data.items
+        .map((item: any) => item.cost_code)
+        .filter(Boolean))];
+      
+      if (costCodeIds.length > 0) {
+        const { data: costCodes, error: costCodeError } = await supabase
+          .from('cost_codes')
+          .select('id, name')
+          .in('id', costCodeIds);
+        
+        if (costCodeError) {
+          console.error('Error fetching cost codes:', costCodeError);
+          console.error('Cost code IDs that failed:', costCodeIds);
+          // Don't throw, just use IDs as fallback
+        }
+        
+        if (costCodes && costCodes.length > 0) {
+          // Create a map of ID to name
+          const costCodeMap = costCodes.reduce((acc, cc) => {
+            acc[cc.id] = cc.name;
+            return acc;
+          }, {} as Record<string, string>);
+          
+          // Map cost code names to items
+          data.items = data.items.map((item: any) => ({
+            ...item,
+            cost_code_name: item.cost_code ? (costCodeMap[item.cost_code] || 'Uncategorized') : 'Uncategorized'
+          }));
+        } else {
+          // If no cost codes found, mark all as uncategorized
+          data.items = data.items.map((item: any) => ({
+            ...item,
+            cost_code_name: 'Uncategorized'
+          }));
+        }
+      } else {
+        // No cost codes to fetch
+        data.items = data.items.map((item: any) => ({
+          ...item,
+          cost_code_name: 'Uncategorized'
+        }));
+      }
     }
 
     return data;
@@ -233,6 +282,13 @@ export class EstimateService {
    * Add signature to estimate
    */
   static async addSignature(id: string, signature: string): Promise<Estimate> {
+    // First get the estimate to get organization_id
+    const estimate = await this.getById(id);
+    if (!estimate) {
+      throw new Error('Estimate not found');
+    }
+
+    // Update estimate with signature
     const { error } = await supabase
       .from('estimates')
       .update({
@@ -246,13 +302,31 @@ export class EstimateService {
       throw error;
     }
 
+    // Check if organization has auto-invoice enabled
+    const { data: orgSettings } = await supabase
+      .from('organizations')
+      .select('auto_create_invoice_on_estimate_accept, auto_invoice_deposit_percentage')
+      .eq('id', estimate.organization_id)
+      .single();
+
+    if (orgSettings?.auto_create_invoice_on_estimate_accept && !estimate.converted_to_invoice_id) {
+      try {
+        // Create invoice automatically
+        const depositPercentage = orgSettings.auto_invoice_deposit_percentage || 0;
+        await this.convertToInvoice(id, depositPercentage > 0 ? depositPercentage : undefined);
+      } catch (invoiceError) {
+        console.error('Failed to auto-create invoice:', invoiceError);
+        // Don't throw - estimate was signed successfully
+      }
+    }
+
     return this.getById(id);
   }
 
   /**
-   * Convert estimate to invoice
+   * Convert estimate to invoice (with optional deposit percentage)
    */
-  static async convertToInvoice(estimateId: string): Promise<string> {
+  static async convertToInvoice(estimateId: string, depositPercentage?: number): Promise<string> {
     // Get the estimate with items
     const estimate = await this.getById(estimateId);
 
@@ -264,20 +338,42 @@ export class EstimateService {
       throw new Error('Estimate must be accepted before converting to invoice');
     }
 
-    // Create invoice data
+    // Calculate amounts based on deposit percentage
+    const isDeposit = depositPercentage && depositPercentage > 0 && depositPercentage < 100;
+    const multiplier = isDeposit ? (depositPercentage / 100) : 1;
+    
+    const invoiceSubtotal = estimate.subtotal * multiplier;
+    const invoiceTaxAmount = (estimate.tax_amount || 0) * multiplier;
+    const invoiceTotal = invoiceSubtotal + invoiceTaxAmount;
+    
+    // Prepare notes with deposit information if applicable
+    let invoiceNotes = estimate.notes || '';
+    if (isDeposit) {
+      const depositNote = `\n\nThis is a ${depositPercentage}% deposit invoice for estimate ${estimate.estimate_number}.`;
+      invoiceNotes = invoiceNotes ? invoiceNotes + depositNote : depositNote;
+    }
+
+    // Generate invoice number
+    const year = new Date().getFullYear();
+    const timestamp = Date.now().toString().slice(-6);
+    const invoiceNumber = `INV-${year}-${timestamp}`;
+
+    // Create invoice data with source estimate tracking
     const invoiceData = {
       user_id: estimate.user_id,
       organization_id: estimate.organization_id,
       client_id: estimate.client_id,
       project_id: estimate.project_id,
+      source_estimate_id: estimateId, // Track the source estimate
+      invoice_number: invoiceNumber,
       status: 'draft' as const,
       issue_date: new Date().toISOString().split('T')[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-      amount: estimate.total_amount,
-      subtotal: estimate.subtotal,
+      amount: invoiceTotal,
+      subtotal: invoiceSubtotal,
       tax_rate: estimate.tax_rate || 0,
-      tax_amount: estimate.tax_amount || 0,
-      notes: estimate.notes,
+      tax_amount: invoiceTaxAmount,
+      notes: invoiceNotes,
       terms: estimate.terms
     };
 
@@ -294,13 +390,21 @@ export class EstimateService {
 
     // Create invoice items from estimate items
     if (estimate.items && estimate.items.length > 0) {
-      const invoiceItemsData = estimate.items.map(item => ({
-        invoice_id: invoice.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price
-      }));
+      const invoiceItemsData = isDeposit 
+        ? [{
+            invoice_id: invoice.id,
+            description: `${depositPercentage}% Deposit for: ${estimate.title || estimate.estimate_number}`,
+            quantity: 1,
+            unit_price: invoiceSubtotal,
+            total_price: invoiceSubtotal
+          }]
+        : estimate.items.map(item => ({
+            invoice_id: invoice.id,
+            description: item.description,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price
+          }));
 
       const { error: itemsError } = await supabase
         .from('invoice_items')
@@ -309,6 +413,17 @@ export class EstimateService {
       if (itemsError) {
         throw itemsError;
       }
+    }
+
+    // Update the estimate to track the converted invoice
+    const { error: updateError } = await supabase
+      .from('estimates')
+      .update({ converted_to_invoice_id: invoice.id })
+      .eq('id', estimateId);
+
+    if (updateError) {
+      console.error('Failed to update estimate with invoice ID:', updateError);
+      // Don't throw - invoice was created successfully
     }
 
     return invoice.id;

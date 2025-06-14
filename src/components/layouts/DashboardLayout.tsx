@@ -146,7 +146,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     name: 'Loading...', 
     industry: 'General Construction' 
   });
-  const [loadingOrgs, setLoadingOrgs] = useState(false);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
 
   // Load user's organizations
   useEffect(() => {
@@ -161,24 +161,22 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         setLoadingOrgs(true);
         console.log('Loading organizations for user:', user.id);
         
-        // Test basic Supabase connectivity first
-        console.log('Testing Supabase connectivity...');
-        const { data: testData, error: testError } = await supabase
-          .from('user_organizations')
-          .select('count')
-          .limit(1);
-        
-        console.log('Connectivity test result:', { testData, testError });
-        
-        if (testError) {
-          console.error('Connectivity test failed:', testError);
-          throw new Error(`Supabase connectivity failed: ${testError.message}`);
-        }
-        
-        // First get user-organization relationships
+        // Get user-organization relationships with organization details
         const { data: userOrgs, error: userOrgsError } = await supabase
           .from('user_organizations')
-          .select('*')
+          .select(`
+            organization_id,
+            role,
+            is_default,
+            organizations!inner (
+              id,
+              name,
+              industry_id,
+              industries (
+                name
+              )
+            )
+          `)
           .eq('user_id', user.id)
           .order('is_default', { ascending: false });
           
@@ -190,44 +188,75 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         }
         
         if (!userOrgs || userOrgs.length === 0) {
-          console.log('No organizations found for user');
-          setSelectedOrg({ 
-            id: '', 
-            name: 'No Organization', 
-            industry: 'General Construction' 
-          });
-          setLoadingOrgs(false);
-          return;
+          console.log('No organizations found for user - creating default');
+          
+          try {
+            // Create a default organization for the user
+            const userName = user.email?.split('@')[0] || 'User';
+            const slug = `${userName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${user.id.substring(0, 8)}`;
+            
+            const { data: newOrg, error: createError } = await supabase
+              .from('organizations')
+              .insert({
+                name: `${userName}'s Company`,
+                slug: slug
+              })
+              .select()
+              .single();
+
+            if (createError) throw createError;
+
+            // Add user to the organization
+            const { error: memberError } = await supabase
+              .from('user_organizations')
+              .insert({
+                organization_id: newOrg.id,
+                user_id: user.id,
+                role: 'owner',
+                is_default: true
+              });
+
+            if (memberError) throw memberError;
+
+            setOrganizations([{
+              id: newOrg.id,
+              name: newOrg.name,
+              industry: 'General Construction',
+              industry_id: ''
+            }]);
+            
+            setSelectedOrg({
+              id: newOrg.id,
+              name: newOrg.name,
+              industry: 'General Construction'
+            });
+            
+            setLoadingOrgs(false);
+            return;
+          } catch (createErr) {
+            console.error('Error creating default organization:', createErr);
+            setSelectedOrg({ 
+              id: '', 
+              name: 'Setup Required', 
+              industry: 'General Construction' 
+            });
+            setLoadingOrgs(false);
+            return;
+          }
         }
         
-        // Get organization details
-        const orgIds = userOrgs.map(uo => uo.organization_id);
-        const { data: organizations, error: orgsError } = await supabase
-          .from('organizations')
-          .select(`
-            id,
-            name,
-            industry_id,
-            industries(name)
-          `)
-          .in('id', orgIds);
-          
-        console.log('Organizations details result:', { organizations, orgsError });
-        
-        if (orgsError) throw orgsError;
-        
-        // Combine the data
+        // Map the organizations from the joined query response
         const orgs = userOrgs.map(userOrg => {
-          const org = organizations?.find(o => o.id === userOrg.organization_id);
+          const org = userOrg.organizations as any;
           return {
-            id: org?.id || '',
-            name: org?.name || 'Unknown Organization',
-            industry: org?.industries?.[0]?.name || 'General Construction',
-            industry_id: org?.industry_id || '',
+            id: org.id,
+            name: org.name,
+            industry: org.industries?.name || 'General Construction',
+            industry_id: org.industry_id || '',
             role: userOrg.role,
             is_default: userOrg.is_default
           };
-        }).filter(org => org.id);
+        });
         
         console.log('Processed organizations:', orgs);
         

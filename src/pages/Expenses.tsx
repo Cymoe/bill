@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { Plus, Calendar, ChevronDown, ChevronRight, Receipt, DollarSign, Filter, Building2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../utils/format';
 import { useAuth } from '../contexts/AuthContext';
+import { OrganizationContext } from '../components/layouts/DashboardLayout';
 
 interface CostCode {
   id: string;
@@ -35,6 +36,7 @@ interface Expense {
 
 export const Expenses: React.FC = () => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -61,18 +63,21 @@ export const Expenses: React.FC = () => {
   const [viewMode, setViewMode] = useState<'date' | 'costcode' | 'project'>('date');
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedOrg?.id) {
       loadExpenses();
       loadCostCodes();
       loadProjects();
     }
-  }, [user]);
+  }, [user, selectedOrg?.id]);
 
   const loadProjects = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from('projects')
         .select('id, name')
+        .eq('organization_id', selectedOrg.id)
         .order('name');
 
       if (error) throw error;
@@ -97,6 +102,8 @@ export const Expenses: React.FC = () => {
   };
 
   const loadExpenses = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -106,6 +113,7 @@ export const Expenses: React.FC = () => {
           cost_code:cost_codes(id, name, code, category),
           project:projects(id, name)
         `)
+        .eq('organization_id', selectedOrg.id)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -141,6 +149,7 @@ export const Expenses: React.FC = () => {
 
   const createExpense = async () => {
     if (!newExpense.description.trim() || !newExpense.amount || !newExpense.project_id) return;
+    if (!selectedOrg?.id) return;
 
     try {
       const { data, error } = await supabase
@@ -154,7 +163,8 @@ export const Expenses: React.FC = () => {
           date: newExpense.date,
           status: 'pending',
           project_id: newExpense.project_id,
-          user_id: user?.id
+          user_id: user?.id,
+          organization_id: selectedOrg.id
         })
         .select(`
           *,
