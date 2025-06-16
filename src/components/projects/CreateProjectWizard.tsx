@@ -1139,7 +1139,9 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               >
                 {isCreating ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-black"></div>
+                    <div className="w-4 h-4 border border-black animate-pulse relative">
+                      <div className="absolute inset-0.5 bg-black opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+                    </div>
                     Creating...
                   </>
                 ) : currentStep === 3 ? (

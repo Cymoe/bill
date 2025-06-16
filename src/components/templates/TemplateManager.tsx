@@ -545,7 +545,9 @@ export const TemplateManager: React.FC = () => {
       {/* Templates */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#336699]"></div>
+          <div className="w-12 h-12 border-2 border-[#336699] animate-pulse relative">
+            <div className="absolute inset-1 bg-[#336699] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+          </div>
         </div>
       ) : (
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-4'}>

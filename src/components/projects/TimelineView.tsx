@@ -179,7 +179,9 @@ export const TimelineView: React.FC<TimelineViewProps> = ({ projectId }) => {
       <div className="space-y-6">
         <h2 className="text-sm font-medium uppercase tracking-wider text-gray-400">Project Timeline</h2>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#336699]"></div>
+          <div className="w-8 h-8 border-2 border-[#336699] animate-pulse relative">
+            <div className="absolute inset-1 bg-[#336699] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+          </div>
         </div>
       </div>
     );

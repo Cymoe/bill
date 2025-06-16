@@ -216,10 +216,9 @@ export const StatusTransition: React.FC<StatusTransitionProps> = ({
                   className="flex items-center gap-2 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      Updating...
-                    </>
+                    <div className="w-4 h-4 border border-white/30 animate-pulse relative">
+                      <div className="absolute inset-0.5 bg-white opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+                    </div>
                   ) : (
                     <>
                       <CheckCircle className="w-4 h-4" />

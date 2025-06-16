@@ -433,7 +433,9 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   // Loading indicator component
   const LoadingIndicator = () => (
     <div className="flex flex-col items-center justify-center h-64 w-full">
-      <div className="w-12 h-12 border-4 border-[#336699] border-t-transparent rounded animate-spin mb-4"></div>
+      <div className="w-12 h-12 border-2 border-[#336699] animate-pulse mb-4 relative">
+        <div className="absolute inset-1 bg-[#336699] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+      </div>
       <p className="text-white text-lg font-['Roboto']">Loading products...</p>
     </div>
   );

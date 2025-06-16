@@ -603,8 +603,10 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-indigo-500" />
+      <div className="h-screen bg-[#121212] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500 animate-pulse relative">
+          <div className="absolute inset-1 bg-indigo-500 opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+        </div>
       </div>
     );
   }

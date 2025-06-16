@@ -18,9 +18,12 @@ export const Callback = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-steel-blue mx-auto mb-4"></div>
-        <p className="text-gray-600">Completing sign in...</p>
+      <div className="flex flex-col items-center justify-center p-8">
+        <div className="w-12 h-12 border-2 border-steel-blue animate-pulse mx-auto mb-4 relative">
+          <div className="absolute inset-1 bg-steel-blue opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+        </div>
+        <p className="text-lg text-white mb-2">Completing sign-in...</p>
+        <p className="text-sm text-gray-400">Please wait while we verify your account</p>
       </div>
     </div>
   );

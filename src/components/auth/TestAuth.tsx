@@ -61,13 +61,19 @@ export function TestAuth() {
     }
   };
 
+  const handleCreateAccount = async () => {
+    // Implementation of handleCreateAccount function
+  };
+
   return (
     <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow-md">
       <h2 className="text-xl font-bold mb-4">Auth Diagnostics</h2>
       
       {loading ? (
         <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-steel-blue"></div>
+          <div className="w-8 h-8 border-2 border-steel-blue animate-pulse relative">
+            <div className="absolute inset-1 bg-steel-blue opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -126,6 +132,20 @@ export function TestAuth() {
               </div>
             </div>
           )}
+
+          <button
+            onClick={handleCreateAccount}
+            disabled={loading}
+            className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-steel-blue hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-steel-blue disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? (
+              <div className="w-8 h-8 border-2 border-steel-blue animate-pulse relative">
+                <div className="absolute inset-1 bg-steel-blue opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+              </div>
+            ) : (
+              'Create Test Account'
+            )}
+          </button>
         </div>
       )}
     </div>

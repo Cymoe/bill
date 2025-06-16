@@ -283,7 +283,9 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
     return (
       <div className="min-h-screen bg-[#121212] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-[#336699] animate-pulse mx-auto mb-4 relative">
+            <div className="absolute inset-1 bg-[#336699] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+          </div>
           <p className="text-gray-400">Loading client data...</p>
         </div>
       </div>

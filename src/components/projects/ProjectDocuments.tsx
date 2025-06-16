@@ -174,8 +174,10 @@ export const ProjectDocuments: React.FC<ProjectDocumentsProps> = ({ projectId })
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fbbf24]"></div>
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-2 border-[#fbbf24] animate-pulse relative">
+          <div className="absolute inset-1 bg-[#fbbf24] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+        </div>
       </div>
     );
   }

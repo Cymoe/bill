@@ -166,7 +166,9 @@ export const MapModal: React.FC<MapModalProps> = ({ isOpen, onClose, address, cl
         <div className="relative h-[500px] bg-[#0a0a0a]">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-10">
-              <Loader className="w-8 h-8 text-gray-400 animate-spin" />
+              <div className="w-8 h-8 border-2 border-gray-400 animate-pulse relative">
+                <div className="absolute inset-1 bg-gray-400 opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+              </div>
             </div>
           )}
           

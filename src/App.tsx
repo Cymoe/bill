@@ -54,8 +54,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-indigo-500 animate-pulse relative">
+          <div className="absolute inset-1 bg-indigo-500 opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+        </div>
       </div>
     );
   }

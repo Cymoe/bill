@@ -159,7 +159,9 @@ export const EnhancedInvoiceList: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#336699]"></div>
+        <div className="w-8 h-8 border-2 border-[#336699] animate-pulse relative">
+          <div className="absolute inset-1 bg-[#336699] opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+        </div>
       </div>
     );
   }

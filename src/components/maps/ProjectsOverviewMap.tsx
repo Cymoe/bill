@@ -1025,7 +1025,9 @@ export const ProjectsOverviewMap: React.FC<ProjectsOverviewMapProps> = ({ select
     <div className="relative h-full w-full bg-[#0a0a0a] rounded-lg overflow-hidden">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/50">
-          <Loader className="w-8 h-8 text-gray-400 animate-spin" />
+          <div className="w-8 h-8 border-2 border-gray-400 animate-pulse relative">
+            <div className="absolute inset-1 bg-gray-400 opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+          </div>
         </div>
       )}
 
@@ -1195,7 +1197,9 @@ export const ProjectsOverviewMap: React.FC<ProjectsOverviewMapProps> = ({ select
                       <h3 className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Property Intelligence</h3>
                       {propertyData.loading ? (
                         <div className="flex items-center gap-2 text-gray-400">
-                          <Loader className="w-4 h-4 animate-spin" />
+                          <div className="w-4 h-4 border border-gray-400 animate-pulse relative">
+                            <div className="absolute inset-0.5 bg-gray-400 opacity-30 animate-pulse" style={{ animationDelay: '0.75s' }}></div>
+                          </div>
                           <span className="text-sm">Loading property data...</span>
                         </div>
                       ) : propertyData.building ? (
