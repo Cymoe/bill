@@ -28,6 +28,9 @@ export const EstimateDetail: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
+    // Scroll to top when component mounts
+    window.scrollTo(0, 0);
+    
     if (!id) return;
     
     const fetchEstimate = async () => {

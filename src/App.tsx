@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ScrollRestoration } from './components/ScrollRestoration';
 import Dashboard from './pages/dashboard/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { People } from './pages/People';
@@ -25,6 +26,7 @@ import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
 import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
+import { ProjectNewPage } from './pages/ProjectNewPage';
 import LineItemTestPage from './pages/LineItemTestPage';
 import ProductCardViewDemo from './components/products/ProductCardViewDemo';
 import ProductVariantsDemo from './pages/ProductVariantsDemo';
@@ -81,6 +83,7 @@ function AppRoutes() {
     <ProductDrawerContext.Provider value={{ 
       openProductDrawer: (product) => setEditingProduct(product || 'new') 
     }}>
+      <ScrollRestoration />
       <Routes>
       {/* Public routes */}
       <Route path="/" element={renderLanding()} />
@@ -398,7 +401,7 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <ProjectForm />
+              <ProjectNewPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

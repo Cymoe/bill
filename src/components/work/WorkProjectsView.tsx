@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
+import { CreateProjectWizard } from '../projects/CreateProjectWizard';
 
 interface Project {
   id: string;
@@ -31,6 +32,7 @@ export const WorkProjectsView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Project['status']>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
 
   useEffect(() => {
     if (selectedOrg?.id) {
@@ -108,7 +110,7 @@ export const WorkProjectsView: React.FC = () => {
             className="px-3 py-1.5 bg-[#1E1E1E] border border-[#333] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F9D71C]"
           />
           <button
-            onClick={() => navigate('/projects/new')}
+            onClick={() => setShowProjectWizard(true)}
             className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-100 rounded-lg text-black text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -207,7 +209,7 @@ export const WorkProjectsView: React.FC = () => {
             </p>
             {!searchTerm && statusFilter === 'all' && (
               <button
-                onClick={() => navigate('/projects/new')}
+                onClick={() => setShowProjectWizard(true)}
                 className="px-4 py-2 bg-[#F9D71C] hover:bg-[#E5C61A] rounded-lg text-black font-medium transition-colors"
               >
                 Create Project
@@ -320,6 +322,16 @@ export const WorkProjectsView: React.FC = () => {
           </div>
         )}
       </div>
+      
+      {/* Create Project Wizard */}
+      <CreateProjectWizard 
+        isOpen={showProjectWizard} 
+        onClose={() => {
+          setShowProjectWizard(false);
+          // Refresh the project list when the wizard is closed
+          loadProjects();
+        }} 
+      />
     </div>
   );
 };

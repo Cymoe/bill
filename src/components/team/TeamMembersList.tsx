@@ -404,21 +404,20 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                     {filteredTeamMembers.map((member) => (
                       <div
                         key={member.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors"
+                        className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] p-6 hover:bg-[#252525] transition-colors cursor-pointer group relative overflow-hidden"
+                        onClick={() => navigate(`/team-members/${member.id}`)}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 
-                              className="text-sm font-semibold text-white mb-1 hover:text-blue-400 cursor-pointer"
-                              onClick={() => navigate(`/team-members/${member.id}`)}
-                            >
+                        {/* Header with name and status */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-white truncate mb-1">
                               {member.name}
                             </h3>
-                            <p className="text-xs text-[#F9D71C]">{member.job_title}</p>
-                            <p className="text-xs text-gray-400">{member.department}</p>
+                            <p className="text-sm text-[#F9D71C] font-medium truncate">{member.job_title}</p>
+                            <p className="text-sm text-gray-400">{member.department}</p>
                           </div>
-                          <div className="flex items-start gap-2">
-                            <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium capitalize ${getStatusColor(member.status)}`}>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(member.status)}`}>
                               {member.status}
                             </span>
                             <button
@@ -426,37 +425,49 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                                 e.stopPropagation();
                                 setEditingTeamMember(member);
                               }}
-                              className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                              title="Edit team member"
                             >
-                              Edit
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
                             </button>
                           </div>
                         </div>
 
+                        {/* Contact info */}
                         <div className="space-y-2 mb-4">
-                          <div className="text-xs text-blue-400">{member.email}</div>
-                          <div className="text-xs text-gray-300">{member.phone}</div>
-                          <div className="text-xs text-gray-400 capitalize">{member.employment_type}</div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
-                            <div className="text-sm font-semibold text-blue-400">
-                              {member.projectsAssigned || 0}
+                          {member.email && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-blue-400 truncate">{member.email}</span>
                             </div>
-                          </div>
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Hours</div>
-                            <div className="text-sm font-semibold text-yellow-400">
-                              {member.hoursThisMonth || 0}h
+                          )}
+                          {member.phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-300">{member.phone}</span>
                             </div>
+                          )}
+                          <div className="flex items-center gap-2 text-sm">
+                            <UserCheck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-gray-300 capitalize">{member.employment_type}</span>
                           </div>
                         </div>
 
-                        <div className="mt-3 pt-3 border-t border-[#333333]">
-                          <div className="text-xs text-gray-400">
-                            Hired: {member.hire_date ? new Date(member.hire_date).toLocaleDateString() : 'N/A'}
+                        {/* Stats */}
+                        <div className="border-t border-[#333333] pt-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
+                              <div className="text-lg font-semibold text-blue-400 mt-1">
+                                {member.projectsAssigned || 0}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Hours</div>
+                              <div className="text-lg font-semibold text-yellow-400 mt-1">
+                                {member.hoursThisMonth || 0}h
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>

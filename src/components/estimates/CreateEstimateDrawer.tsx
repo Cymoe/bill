@@ -1089,43 +1089,57 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                     {!sourceType ? 'Select a method to add items' : 'Click items on the left to add them'}
                   </div>
                 ) : (
-                  <div className="space-y-2 pb-4">
+                  <div className="space-y-3 pb-4">
                     {selectedItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 bg-[#1E1E1E] rounded-[4px]">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-white truncate">{item.product_name || 'Unknown Item'}</div>
-                          {item.description && (
-                            <div className="text-xs text-gray-400 truncate">{item.description}</div>
-                          )}
-                          <div className="text-xs text-gray-400">
-                            {formatCurrency(item.price)} × {item.quantity} = {formatCurrency(item.price * item.quantity)}
+                      <div key={index} className="bg-[#1E1E1E] rounded-[4px] p-3">
+                        <div className="flex items-start gap-3">
+                          {/* Product info section - better width management */}
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-white font-medium mb-1">
+                              {item.product_name || 'Unknown Item'}
+                            </div>
+                            {item.description && (
+                              <div className="text-xs text-gray-400 mb-2 line-clamp-2">
+                                {item.description}
+                              </div>
+                            )}
+                            <div className="text-xs text-gray-500">
+                              {formatCurrency(item.price)} × {item.quantity} = 
+                              <span className="text-[#388E3C] font-medium ml-1">
+                                {formatCurrency(item.price * item.quantity)}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button
-                            onClick={() => updateItemQuantity(index, item.quantity - 1)}
-                            className="w-5 h-5 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
-                          >
-                            <Minus className="w-3 h-3" />
-                          </button>
-                          <input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
-                            className="w-10 text-center px-1 py-0.5 bg-[#333333] border border-[#555555] rounded-[2px] text-white text-xs"
-                          />
-                          <button
-                            onClick={() => updateItemQuantity(index, item.quantity + 1)}
-                            className="w-5 h-5 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => removeItem(index)}
-                            className="w-5 h-5 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors ml-1"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          
+                          {/* Quantity controls - stacked vertically for space */}
+                          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => updateItemQuantity(index, item.quantity - 1)}
+                                className="w-6 h-6 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <input
+                                type="number"
+                                value={item.quantity}
+                                onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
+                                className="w-12 text-center px-1 py-1 bg-[#333333] border border-[#555555] rounded-[2px] text-white text-sm font-medium"
+                              />
+                              <button
+                                onClick={() => updateItemQuantity(index, item.quantity + 1)}
+                                className="w-6 h-6 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                            <button
+                              onClick={() => removeItem(index)}
+                              className="w-full py-1 text-xs text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}

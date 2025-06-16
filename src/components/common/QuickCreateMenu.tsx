@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { CreateProjectWizard } from '../projects/CreateProjectWizard';
 
 interface QuickCreateOption {
   id: string;
@@ -19,6 +20,7 @@ interface Props {
 export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceDrawer, setShowInvoiceDrawer }) => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [showProjectWizard, setShowProjectWizard] = useState(false);
 
   const options: QuickCreateOption[] = [
     {
@@ -26,7 +28,10 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
       name: 'Project',
       icon: 'P',
       shortcut: '⌘⇧P',
-      action: () => navigate('/projects/new')
+      action: () => {
+        setShowProjectWizard(true);
+        // Don't close the menu yet - let the wizard handle it
+      }
     },
     {
       id: 'client',
@@ -132,7 +137,10 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
 
   const handleOptionClick = (option: QuickCreateOption) => {
     option.action();
-    onClose();
+    // Only close for non-project options
+    if (option.id !== 'project') {
+      onClose();
+    }
   };
 
   if (!isOpen) return null;
@@ -205,6 +213,15 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
           </div>
         </div>
       </div>
+      
+      {/* Create Project Wizard */}
+      <CreateProjectWizard 
+        isOpen={showProjectWizard} 
+        onClose={() => {
+          setShowProjectWizard(false);
+          onClose(); // Also close the QuickCreateMenu
+        }} 
+      />
     </>
   );
 }; 

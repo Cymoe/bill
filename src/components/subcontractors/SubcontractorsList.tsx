@@ -536,28 +536,31 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                     {filteredSubcontractors.map((subcontractor) => (
                       <div
                         key={subcontractor.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors cursor-pointer"
+                        className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] p-6 hover:bg-[#252525] transition-colors cursor-pointer group relative overflow-hidden"
                         onClick={() => navigate(`/subcontractors/${subcontractor.id}`)}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
+                                                {/* Header with name and status */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               {subcontractor.is_preferred && (
-                                <Heart className="w-4 h-4 text-red-400 fill-current" />
+                                <Heart className="w-4 h-4 text-red-400 fill-current flex-shrink-0" />
                               )}
-                              <h3 className="text-sm font-semibold text-white hover:text-blue-400">
+                              <h3 className="text-lg font-semibold text-white truncate">
                                 {subcontractor.name}
                               </h3>
                             </div>
                             {subcontractor.trade_category && (
-                              <span className="inline-block bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs mt-1">
+                              <span className="inline-block bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full text-xs">
                                 {subcontractor.trade_category}
                               </span>
                             )}
-                            {subcontractor.company_name && <p className="text-xs text-gray-400 mt-1">{subcontractor.company_name}</p>}
+                            {subcontractor.company_name && (
+                              <p className="text-sm text-gray-400 mt-1 truncate">{subcontractor.company_name}</p>
+                            )}
                           </div>
-                          <div className="flex items-start gap-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-400/10 text-green-400">
                               Active
                             </span>
                             <button
@@ -565,51 +568,62 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                                 e.stopPropagation();
                                 setEditingSubcontractor(subcontractor);
                               }}
-                              className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                              title="Edit subcontractor"
                             >
-                              Edit
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
                             </button>
                           </div>
                         </div>
 
+                        {/* Contact info and rating */}
                         <div className="space-y-2 mb-4">
-                          <div className="text-xs text-blue-400">{subcontractor.email}</div>
-                          <div className="text-xs text-gray-300">{subcontractor.phone}</div>
-                          {subcontractor.address && <div className="text-xs text-gray-400">{subcontractor.address}</div>}
+                          {subcontractor.email && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-blue-400 truncate">{subcontractor.email}</span>
+                            </div>
+                          )}
+                          {subcontractor.phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-300">{subcontractor.phone}</span>
+                            </div>
+                          )}
                           {subcontractor.rating && (
-                            <div className="flex items-center gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-3 h-3 ${
-                                    i < subcontractor.rating! 
-                                      ? 'text-yellow-400 fill-current' 
-                                      : 'text-gray-600'
-                                  }`}
-                                />
-                              ))}
+                            <div className="flex items-center gap-2 text-sm">
+                              <Star className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <div className="flex items-center gap-1">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star
+                                    key={i}
+                                    className={`w-3 h-3 ${
+                                      i < subcontractor.rating! 
+                                        ? 'text-yellow-400 fill-current' 
+                                        : 'text-gray-600'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
                             </div>
                           )}
                         </div>
 
-                                                  <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-[#121212] rounded-[4px] p-3">
+                        {/* Stats */}
+                        <div className="border-t border-[#333333] pt-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
                               <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
-                              <div className="text-sm font-semibold text-green-400">
+                              <div className="text-lg font-semibold text-green-400 mt-1">
                                 {formatCurrency(subcontractor.totalValue || 0)}
                               </div>
                             </div>
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
-                            <div className="text-sm font-semibold text-blue-400">
-                              {subcontractor.projectCount || 0}
+                            <div>
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
+                              <div className="text-lg font-semibold text-blue-400 mt-1">
+                                {subcontractor.projectCount || 0}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-[#333333]">
-                          <div className="text-xs text-gray-400">
-                            Added: {subcontractor.created_at ? new Date(subcontractor.created_at).toLocaleDateString() : 'N/A'}
                           </div>
                         </div>
                       </div>

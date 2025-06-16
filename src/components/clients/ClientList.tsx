@@ -215,81 +215,20 @@ export const ClientList: React.FC<ClientListProps> = ({
     setSelectedStatus('all');
   };
 
-  return (
-    <div>
-      {loading ? (
-        <div className="pb-8">
-          <div className="bg-transparent border border-[#333333]">
-            {viewMode === 'list' || viewMode === 'grid' ? (
-              <TableSkeleton rows={5} columns={5} />
-            ) : (
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-                <CardSkeleton />
-              </div>
-            )}
-          </div>
-        </div>
-      ) : clients.length === 0 ? (
-        // Onboarding/Empty State
-        <div className="max-w-4xl mx-auto p-8">
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-[#336699]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-[#336699]" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Client Management</h2>
-            <p className="text-gray-400 max-w-2xl mx-auto mb-8">
-              Your clients are the foundation of your business. Start by adding your first client to track projects and manage relationships.
-            </p>
-            
-            <div className="grid md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#336699]">
-                <h3 className="text-white font-bold mb-2">Track Projects</h3>
-                <p className="text-gray-400 text-sm">
-                  Link projects to clients and track progress
-                </p>
-              </div>
-              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#F9D71C]">
-                <h3 className="text-white font-bold mb-2">Manage Invoices</h3>
-                <p className="text-gray-400 text-sm">
-                  Send invoices and track payments
-                </p>
-              </div>
-              <div className="bg-[#333333] rounded-[4px] p-6 border-l-4 border-[#388E3C]">
-                <h3 className="text-white font-bold mb-2">Build Relationships</h3>
-                <p className="text-gray-400 text-sm">
-                  Maintain contact history and notes
-                </p>
-              </div>
-            </div>
+  if (loading) {
+    return viewMode === 'list' ? <TableSkeleton /> : <CardSkeleton />;
+  }
 
-            <button 
-              onClick={() => {
-                console.log('🔧 ADD FIRST CLIENT button clicked!');
-                console.log('🔧 Current showNewModal state:', showNewModal);
-                setShowNewModal(true);
-                console.log('🔧 Called setShowNewModal(true)');
-              }}
-              className="px-6 py-3 bg-white text-black rounded-[8px] font-medium hover:bg-gray-100 transition-colors"
-            >
-              ADD FIRST CLIENT
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Clients Section */}
-          <div className="pb-8">
-            {/* Unified Container */}
-            <div className="bg-transparent border border-[#333333]">
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] flex flex-col h-full">
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="flex-1 flex flex-col">
               {/* Stats Section */}
               <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-4 gap-3 text-center">
                     <div className="text-center">
                       <div className="text-xs text-gray-400 uppercase tracking-wider">CLIENTS</div>
                       <div className="text-base font-semibold mt-1">{clients.length}</div>
@@ -406,12 +345,7 @@ export const ClientList: React.FC<ClientListProps> = ({
                     
                     {!hideAddButton && (
                       <button
-                        onClick={() => {
-                          console.log('🔧 Add Client button clicked!');
-                          console.log('🔧 Current showNewModal state:', showNewModal);
-                          setShowNewModal(true);
-                          console.log('🔧 Called setShowNewModal(true)');
-                        }}
+                        onClick={() => setShowNewModal(true)}
                         className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2"
                       >
                         <Plus className="w-4 h-4" />
@@ -492,19 +426,23 @@ export const ClientList: React.FC<ClientListProps> = ({
                     {filteredClients.map((client) => (
                       <div
                         key={client.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors cursor-pointer"
+                        className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] p-6 hover:bg-[#252525] transition-colors cursor-pointer group relative overflow-hidden"
                         onClick={() => navigate(`/clients/${client.id}`)}
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex-1">
-                            <h3 className="text-sm font-semibold text-white mb-1 hover:text-blue-400">
+                        {/* Header with name and status */}
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-semibold text-white truncate mb-1">
                               {client.name}
                             </h3>
-                            {client.company_name && <p className="text-xs text-gray-400">{client.company_name}</p>}
-                            {client.city && client.state && <p className="text-xs text-gray-400">{client.city}, {client.state}</p>}
+                            {client.company_name && (
+                              <p className="text-sm text-gray-400 truncate">
+                                {client.company_name}
+                              </p>
+                            )}
                           </div>
-                          <div className="flex items-start gap-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-400/10 text-green-400">
                               Active
                             </span>
                             <button
@@ -512,41 +450,51 @@ export const ClientList: React.FC<ClientListProps> = ({
                                 e.stopPropagation();
                                 setEditingClient(client);
                               }}
-                              className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
+                              className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                              title="Edit client"
                             >
-                              Edit
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
                             </button>
                           </div>
                         </div>
 
+                        {/* Contact info */}
                         <div className="space-y-2 mb-4">
-                          <div className="text-xs text-blue-400">{client.email}</div>
-                          <div className="text-xs text-gray-300">{client.phone}</div>
+                          {client.email && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-blue-400 truncate">{client.email}</span>
+                            </div>
+                          )}
+                          {client.phone && (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-300">{client.phone}</span>
+                            </div>
+                          )}
                           {client.city && client.state && (
-                            <div className="text-xs text-gray-400">
-                              {client.city}, {client.state}
+                            <div className="flex items-center gap-2 text-sm">
+                              <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                              <span className="text-gray-300 truncate">{client.city}, {client.state}</span>
                             </div>
                           )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
-                            <div className="text-sm font-semibold text-green-400">
-                              {formatCurrency(client.totalValue || 0)}
+                        {/* Stats */}
+                        <div className="border-t border-[#333333] pt-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
+                              <div className="text-lg font-semibold text-green-400 mt-1">
+                                {formatCurrency(client.totalValue || 0)}
+                              </div>
                             </div>
-                          </div>
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
-                            <div className="text-sm font-semibold text-blue-400">
-                              {client.projectCount || 0}
+                            <div>
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
+                              <div className="text-lg font-semibold text-yellow-400 mt-1">
+                                {client.projectCount || 0}
+                              </div>
                             </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-[#333333]">
-                          <div className="text-xs text-gray-400">
-                            Added: {client.created_at ? new Date(client.created_at).toLocaleDateString() : 'N/A'}
                           </div>
                         </div>
                       </div>
@@ -561,57 +509,56 @@ export const ClientList: React.FC<ClientListProps> = ({
               </div>
             </div>
           </div>
-        </>
+        </div>
+      </div>
+
+      {/* Modals */}
+      {showNewModal && (
+        <Modal
+          isOpen={showNewModal}
+          onClose={() => setShowNewModal(false)}
+          title="Add New Client"
+          size="lg"
+        >
+          <ClientFormSimple
+            onSubmit={async (data) => {
+              try {
+                const { error } = await supabase
+                  .from('clients')
+                  .insert({
+                    ...data,
+                    user_id: user?.id,
+                    organization_id: selectedOrg?.id
+                  });
+
+                if (error) throw error;
+                
+                setShowNewModal(false);
+                loadClients();
+              } catch (error) {
+                console.error('Error creating client:', error);
+              }
+            }}
+            onCancel={() => setShowNewModal(false)}
+            submitLabel="Add Client"
+          />
+        </Modal>
       )}
 
-      {/* Add Client Modal */}
-      <Modal
-        isOpen={showNewModal}
-        onClose={() => {
-          console.log('🔧 Modal onClose called');
-          setShowNewModal(false);
-        }}
-        title="Add New Client"
-        size="lg"
-      >
-        <ClientFormSimple
-          onSubmit={async (data) => {
-            try {
-              const { error } = await supabase
-                .from('clients')
-                .insert({
-                  ...data,
-                  user_id: user?.id,
-                  organization_id: selectedOrg?.id
-                });
-
-              if (error) throw error;
-              
-              setShowNewModal(false);
-              // Refresh the client list
-              loadClients();
-            } catch (error) {
-              console.error('Error creating client:', error);
-            }
+      {editingClient && (
+        <EditClientDrawer
+          client={editingClient}
+          onClose={() => setEditingClient(null)}
+          onSuccess={() => {
+            loadClients();
+            setEditingClient(null);
           }}
-          onCancel={() => setShowNewModal(false)}
-          submitLabel="Add Client"
+          onDelete={(clientId) => {
+            setClients(clients.filter(c => c.id !== clientId));
+            setEditingClient(null);
+          }}
         />
-      </Modal>
-
-      {/* Edit Client Drawer */}
-      <EditClientDrawer
-        client={editingClient}
-        onClose={() => setEditingClient(null)}
-        onSuccess={() => {
-          loadClients();
-          setEditingClient(null);
-        }}
-        onDelete={(clientId) => {
-          setClients(clients.filter(c => c.id !== clientId));
-          setEditingClient(null);
-        }}
-      />
+      )}
     </div>
   );
 };

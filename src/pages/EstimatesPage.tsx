@@ -9,10 +9,14 @@ export const EstimatesPage: React.FC = () => {
   const { user } = useAuth();
   const { selectedOrg } = useContext(OrganizationContext);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   return (
     <>
-      <EstimatesList onCreateEstimate={() => setShowCreateDrawer(true)} />
+      <EstimatesList 
+        onCreateEstimate={() => setShowCreateDrawer(true)} 
+        refreshTrigger={refreshTrigger}
+      />
       
       <CreateEstimateDrawer
         isOpen={showCreateDrawer}
@@ -55,8 +59,11 @@ export const EstimatesPage: React.FC = () => {
               }))
             });
 
-            // Refresh the page to show the new estimate
-            window.location.reload();
+            // Close drawer immediately for better UX
+            setShowCreateDrawer(false);
+            
+            // Trigger a refresh of the estimates list
+            setRefreshTrigger(prev => prev + 1);
           } catch (error) {
             console.error('Error creating estimate:', error);
             alert('Failed to create estimate. Please try again.');

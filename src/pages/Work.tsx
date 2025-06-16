@@ -39,6 +39,7 @@ export const Work: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateEstimate, setShowCreateEstimate] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Debounce search input
   useEffect(() => {
@@ -208,7 +209,11 @@ export const Work: React.FC = () => {
       <div className="-mt-[1px]">
         {activeTab === 'estimates' && (
           <div className="[&>div]:border-t-0">
-            <EstimatesList onCreateEstimate={handleCreateEstimate} searchTerm={searchTerm} />
+            <EstimatesList 
+              onCreateEstimate={handleCreateEstimate} 
+              searchTerm={searchTerm}
+              refreshTrigger={refreshTrigger}
+            />
           </div>
         )}
         {activeTab === 'projects' && (
@@ -266,8 +271,9 @@ export const Work: React.FC = () => {
             });
 
             setShowCreateEstimate(false);
-            // Refresh the estimates list
-            window.location.reload();
+            // Trigger refresh of estimates list and stats
+            setRefreshTrigger(prev => prev + 1);
+            loadStats();
           } catch (error) {
             console.error('Error creating estimate:', error);
           }

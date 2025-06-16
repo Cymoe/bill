@@ -11,15 +11,17 @@ import { OrganizationContext, LayoutContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
+import { supabase } from '../../lib/supabase';
 
 interface EstimatesListProps {
   onCreateEstimate?: () => void;
   searchTerm?: string;
+  refreshTrigger?: number;
 }
 
 import { CreateEstimateDrawer } from './CreateEstimateDrawer';
 
-export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, searchTerm = '' }) => {
+export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, searchTerm = '', refreshTrigger }) => {
   const navigate = useNavigate();
   const { selectedOrg } = useContext(OrganizationContext);
   const { isConstrained } = React.useContext(LayoutContext);
@@ -44,7 +46,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     if (selectedOrg?.id) {
       loadEstimates();
     }
-  }, [selectedOrg?.id]);
+  }, [selectedOrg?.id, refreshTrigger]);
 
   const loadEstimates = async () => {
     if (!selectedOrg?.id) return;
@@ -497,7 +499,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
                           DATE
                         </th>
-                        <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
+                        <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12`}>
                           
                         </th>
                       </>
@@ -512,7 +514,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/5">
                           CLIENT
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/5">
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12">
                           
                         </th>
                       </>
@@ -545,8 +547,8 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                           <td className="px-3 py-1.5">
                             <div className="text-sm text-white">{estimate.created_at ? new Date(estimate.created_at).toLocaleDateString() : 'No date'}</div>
                           </td>
-                          <td className="px-3 py-1.5 text-right">
-                            <div className="relative" ref={(el) => estimateDropdownRefs.current[estimate.id] = el}>
+                          <td className="px-3 py-1.5 text-right w-12">
+                            <div className="relative flex justify-end" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -554,7 +556,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                                 }}
                                 className="p-1 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100"
                               >
-                                <MoreVertical className="w-3 h-3" />
+                                <MoreVertical className="w-4 h-4" />
                               </button>
 
                               {dropdownOpen === estimate.id && (
@@ -666,8 +668,8 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="relative" ref={(el) => estimateDropdownRefs.current[estimate.id] = el}>
+                          <td className="px-6 py-4 text-right w-12">
+                            <div className="relative flex justify-end" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
