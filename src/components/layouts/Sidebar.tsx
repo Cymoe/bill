@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate, useLocation, NavLink } from 'react-router-dom';
 import {
   ChevronDown,
@@ -66,6 +66,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const { user, signOut } = useAuth();
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const orgDropdownRef = useRef<HTMLDivElement>(null);
+  const orgButtonRef = useRef<HTMLButtonElement>(null);
+  const [orgDropdownPosition, setOrgDropdownPosition] = useState({ top: 0, left: 0 });
 
   // Handle click outside for profile dropdown
   useEffect(() => {
@@ -73,16 +76,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
       }
+      if (orgDropdownRef.current && !orgDropdownRef.current.contains(event.target as Node) && 
+          orgButtonRef.current && !orgButtonRef.current.contains(event.target as Node)) {
+        setOrgDropdownOpen(false);
+      }
     };
 
-    if (isProfileMenuOpen) {
+    if (isProfileMenuOpen || orgDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isProfileMenuOpen, setIsProfileMenuOpen]);
+  }, [isProfileMenuOpen, setIsProfileMenuOpen, orgDropdownOpen, setOrgDropdownOpen]);
+
+  // Calculate organization dropdown position
+  useEffect(() => {
+    if (orgDropdownOpen && orgButtonRef.current) {
+      const rect = orgButtonRef.current.getBoundingClientRect();
+      const windowWidth = window.innerWidth;
+      const dropdownWidth = 240; // Increase from 192px to accommodate longer names
+      
+      // Calculate left position to ensure dropdown stays within viewport
+      let leftPos = rect.left;
+      if (leftPos + dropdownWidth > windowWidth) {
+        leftPos = windowWidth - dropdownWidth - 8; // Keep 8px margin from right edge
+      }
+      if (leftPos < 8) { // Keep 8px margin from left edge
+        leftPos = 8;
+      }
+      
+      setOrgDropdownPosition({
+        top: rect.bottom + window.scrollY + 4, // 4px gap below button
+        left: leftPos + window.scrollX,
+      });
+    }
+  }, [orgDropdownOpen]);
 
   return (
     <>
@@ -99,6 +129,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
           {!isSidebarCollapsed && (
             <button 
+              ref={orgButtonRef}
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
               className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-between ml-1 h-8 px-2 hover:bg-[#2A2A2A] transition-all duration-150"
             >
@@ -111,7 +142,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           
           {/* Organization Dropdown */}
           {orgDropdownOpen && !isSidebarCollapsed && (
-            <div className="absolute left-2 right-2 top-[calc(100%-8px)] mt-1 bg-[#1A1A1A] border border-[#2A2A2A] shadow-lg z-50 py-1 overflow-hidden">
+            <div 
+              ref={orgDropdownRef}
+              className="fixed bg-[#1A1A1A] border border-[#2A2A2A] shadow-lg z-[11000] py-1 overflow-hidden rounded-[4px]"
+              style={{ 
+                top: `${orgDropdownPosition.top}px`, 
+                left: `${orgDropdownPosition.left}px`,
+                width: '240px'
+              }}
+            >
               {organizations.map((org) => (
                 <button
                   key={org.id}
@@ -121,10 +160,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     setOrgDropdownOpen(false);
                   }}
                 >
-                  <div className={`text-white w-7 h-7 flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
+                  <div className={`text-white w-7 h-7 flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'} rounded-[2px]`}>
                     {org.name.charAt(0)}
                   </div>
-                  <div className="flex flex-col overflow-hidden max-w-[120px]">
+                  <div className="flex flex-col overflow-hidden flex-1 min-w-0">
                     <span className="text-white text-sm font-medium truncate">{org.name}</span>
                     <span className="text-gray-400 text-xs truncate">{org.industry}</span>
                   </div>
