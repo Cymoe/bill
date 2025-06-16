@@ -1001,15 +1001,29 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             try {
               console.log('Invoice save started with data:', data);
               
+              // Generate invoice number if not provided
+              const invoiceNumber = data.invoice_number || `INV-${Date.now().toString().slice(-6)}`;
+              
+              // Calculate tax (default 0 for now)
+              const subtotal = data.total_amount || 0;
+              const taxRate = 0;
+              const taxAmount = subtotal * (taxRate / 100);
+              const totalWithTax = subtotal + taxAmount;
+              
               const invoiceData = {
                 user_id: user?.id,
+                organization_id: selectedOrg?.id,
+                invoice_number: invoiceNumber,
                 client_id: data.client_id,
-                amount: data.total_amount,
-                status: data.status,
-                issue_date: data.issue_date,
+                status: data.status || 'draft',
                 due_date: data.due_date,
-                description: data.description,
-                project_id: data.project_id || null
+                total_amount: totalWithTax,
+                subtotal: subtotal,
+                tax_rate: taxRate,
+                tax_amount: taxAmount,
+                issue_date: data.issue_date || new Date().toISOString().split('T')[0],
+                notes: data.description || '',
+                terms: data.payment_terms || 'Net 30'
               };
               
               console.log('Invoice data to insert:', invoiceData);
@@ -1029,25 +1043,27 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               console.log('Invoice created successfully:', invoice);
 
               // Create invoice items
-              const itemsToInsert = data.items.map(item => ({
-                invoice_id: invoice.id,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                unit_price: item.price,
-                total_price: item.price * item.quantity,
-                description: item.description
-              }));
+              if (data.items && data.items.length > 0) {
+                const itemsToInsert = data.items.map((item) => ({
+                  invoice_id: invoice.id,
+                  product_id: item.product_id || null,
+                  description: item.product_name || item.description || 'Item',
+                  quantity: item.quantity || 1,
+                  unit_price: item.price || 0,
+                  total_price: (item.price || 0) * (item.quantity || 1)
+                }));
 
-              console.log('Inserting invoice items:', itemsToInsert);
+                console.log('Inserting invoice items:', itemsToInsert);
 
-              const { error: itemsError } = await supabase
-                .from('invoice_items')
-                .insert(itemsToInsert);
+                const { error: itemsError } = await supabase
+                  .from('invoice_items')
+                  .insert(itemsToInsert);
 
-              if (itemsError) {
-                console.error('Error inserting invoice items:', itemsError);
-                alert(`Error inserting invoice items: ${itemsError.message}`);
-                throw itemsError;
+                if (itemsError) {
+                  console.error('Error inserting invoice items:', itemsError);
+                  alert(`Error inserting invoice items: ${itemsError.message}`);
+                  throw itemsError;
+                }
               }
               
               console.log('Invoice and items created successfully!');
@@ -1058,10 +1074,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               // Show success message
               alert('Invoice created successfully!');
               
-              // Navigate to the invoices page  
-              navigate('/invoices');
+              // Navigate to the work/invoices page  
+              navigate('/work/invoices');
             } catch (error) {
               console.error('Error saving invoice:', error);
+              alert('Failed to save invoice. Please check the console for details.');
             }
           }}
         />

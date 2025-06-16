@@ -180,7 +180,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
 
   // Auto-calculate due date based on payment terms
   useEffect(() => {
-    if (issueDate && paymentTerms) {
+    if (issueDate && paymentTerms && !editingInvoice) {
       const issue = new Date(issueDate);
       let daysToAdd = 30; // Default
       
@@ -193,7 +193,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       due.setDate(due.getDate() + daysToAdd);
       setDueDate(due.toISOString().split('T')[0]);
     }
-  }, [issueDate, paymentTerms]);
+  }, [issueDate, paymentTerms, editingInvoice]);
 
   // Generate invoice number when opening
   useEffect(() => {
@@ -201,6 +201,17 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       generateInvoiceNumber();
     }
   }, [isOpen, editingInvoice]);
+
+  // Calculate initial due date when drawer opens
+  useEffect(() => {
+    if (isOpen && !editingInvoice && !dueDate) {
+      // Calculate due date based on default payment terms (Net 30)
+      const issue = new Date(issueDate);
+      const due = new Date(issue);
+      due.setDate(due.getDate() + 30);
+      setDueDate(due.toISOString().split('T')[0]);
+    }
+  }, [isOpen]);
 
   const generateInvoiceNumber = async () => {
     try {
@@ -485,9 +496,20 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       return;
     }
 
-    if (!dueDate) {
-      alert('Please set a due date for the invoice.');
-      return;
+    // Due date should be auto-calculated, but ensure it's set
+    let finalDueDate = dueDate;
+    if (!finalDueDate) {
+      // Auto-calculate if missing
+      const issue = new Date(issueDate);
+      let daysToAdd = 30;
+      if (paymentTerms === 'Net 15') daysToAdd = 15;
+      if (paymentTerms === 'Net 60') daysToAdd = 60;
+      if (paymentTerms === 'Due on Receipt') daysToAdd = 0;
+      
+      const due = new Date(issue);
+      due.setDate(due.getDate() + daysToAdd);
+      finalDueDate = due.toISOString().split('T')[0];
+      setDueDate(finalDueDate);
     }
 
     // Calculate total amount based on source type
@@ -501,7 +523,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       description: sourceType === 'progress' 
         ? `${selectedMilestone} - ${milestonePercentage}% Progress Payment` 
         : invoiceDescription,
-      due_date: dueDate,
+      due_date: finalDueDate,
       status: 'draft',
       issue_date: issueDate
     };
@@ -547,14 +569,12 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     setSelectedItems([]);
     setSearchTerm('');
     setActiveTab('products');
-    setActiveType('all');
-    setAddedTemplateId(null);
     setPaymentTerms('Net 30');
     setInvoiceNumber('');
-    
-    // Reset progress billing fields
     setSelectedMilestone('');
     setMilestonePercentage(25);
+    setActiveType('all');
+    setAddedTemplateId(null);
     
     onClose();
   };
@@ -1489,43 +1509,59 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
                       {selectedItems.length > 0 ? (
                         <>
                           {/* Selected Items for this Milestone */}
-                          <div className="space-y-2 mb-3">
+                          <div className="space-y-3 mb-3">
                             {selectedItems.map((item, index) => (
-                              <div key={index} className="flex items-center gap-3 p-2 bg-[#333333] rounded-[4px]">
-                                <div className="flex-1 min-w-0">
-                                  <div className="text-sm text-white truncate">{item.product_name || 'Unknown Item'}</div>
-                                  {item.description && (
-                                    <div className="text-xs text-gray-400 truncate">{item.description}</div>
-                                  )}
-                                  <div className="text-xs text-gray-400">
-                                    {formatCurrency(item.price)} × {item.quantity} = {formatCurrency(item.price * item.quantity)}
+                              <div key={index} className="bg-[#333333] rounded-[4px] p-3">
+                                <div className="flex items-start justify-between gap-3 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm text-white font-medium">{item.product_name || 'Unknown Item'}</div>
+                                    {item.description && (
+                                      <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>
+                                    )}
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => updateItemQuantity(index, item.quantity - 1)}
-                                    className="w-6 h-6 flex items-center justify-center bg-[#555555] hover:bg-[#666666] rounded-[2px] transition-colors"
-                                  >
-                                    <Minus className="w-3 h-3" />
-                                  </button>
-                                  <input
-                                    type="number"
-                                    value={item.quantity}
-                                    onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
-                                    className="w-12 text-center px-1 py-1 bg-[#555555] border border-[#666666] rounded-[2px] text-white text-sm"
-                                  />
-                                  <button
-                                    onClick={() => updateItemQuantity(index, item.quantity + 1)}
-                                    className="w-6 h-6 flex items-center justify-center bg-[#555555] hover:bg-[#666666] rounded-[2px] transition-colors"
-                                  >
-                                    <Plus className="w-3 h-3" />
-                                  </button>
                                   <button
                                     onClick={() => removeItem(index)}
-                                    className="w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors ml-1"
+                                    className="w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors flex-shrink-0"
                                   >
                                     <X className="w-3 h-3" />
                                   </button>
+                                </div>
+                                
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-sm text-gray-400">
+                                    <span className="font-mono">{formatCurrency(item.price)}</span>
+                                    <span className="mx-1">×</span>
+                                    <span>{item.quantity}</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => updateItemQuantity(index, item.quantity - 1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-[#555555] hover:bg-[#666666] rounded-[2px] transition-colors"
+                                      >
+                                        <Minus className="w-3 h-3" />
+                                      </button>
+                                      <input
+                                        type="number"
+                                        value={item.quantity}
+                                        onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
+                                        className="w-14 text-center px-1 py-1 bg-[#555555] border border-[#666666] rounded-[2px] text-white text-sm"
+                                      />
+                                      <button
+                                        onClick={() => updateItemQuantity(index, item.quantity + 1)}
+                                        className="w-7 h-7 flex items-center justify-center bg-[#555555] hover:bg-[#666666] rounded-[2px] transition-colors"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    
+                                    <div className="text-right">
+                                      <div className="text-sm font-mono font-medium text-white">
+                                        {formatCurrency(item.price * item.quantity)}
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -1569,43 +1605,59 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
                       {!sourceType ? 'Select a method to add items' : 'Click items on the left to add them'}
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {selectedItems.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3 p-2 bg-[#1E1E1E] rounded-[4px]">
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm text-white truncate">{item.product_name || 'Unknown Item'}</div>
-                            {item.description && (
-                              <div className="text-xs text-gray-400 truncate">{item.description}</div>
-                            )}
-                            <div className="text-xs text-gray-400">
-                              {formatCurrency(item.price)} × {item.quantity} = {formatCurrency(item.price * item.quantity)}
+                        <div key={index} className="bg-[#1E1E1E] rounded-[4px] p-3">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-white font-medium">{item.product_name || 'Unknown Item'}</div>
+                              {item.description && (
+                                <div className="text-xs text-gray-400 mt-1 line-clamp-2">{item.description}</div>
+                              )}
                             </div>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={() => updateItemQuantity(index, item.quantity - 1)}
-                              className="w-6 h-6 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <input
-                              type="number"
-                              value={item.quantity}
-                              onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
-                              className="w-12 text-center px-1 py-1 bg-[#333333] border border-[#555555] rounded-[2px] text-white text-sm"
-                            />
-                            <button
-                              onClick={() => updateItemQuantity(index, item.quantity + 1)}
-                              className="w-6 h-6 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
                             <button
                               onClick={() => removeItem(index)}
-                              className="w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors ml-1"
+                              className="w-6 h-6 flex items-center justify-center text-red-400 hover:bg-red-400/20 rounded-[2px] transition-colors flex-shrink-0"
                             >
                               <X className="w-3 h-3" />
                             </button>
+                          </div>
+                          
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-sm text-gray-400">
+                              <span className="font-mono">{formatCurrency(item.price)}</span>
+                              <span className="mx-1">×</span>
+                              <span>{item.quantity}</span>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => updateItemQuantity(index, item.quantity - 1)}
+                                  className="w-7 h-7 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  value={item.quantity}
+                                  onChange={(e) => updateItemQuantity(index, Number(e.target.value))}
+                                  className="w-14 text-center px-1 py-1 bg-[#333333] border border-[#555555] rounded-[2px] text-white text-sm"
+                                />
+                                <button
+                                  onClick={() => updateItemQuantity(index, item.quantity + 1)}
+                                  className="w-7 h-7 flex items-center justify-center bg-[#333333] hover:bg-[#404040] rounded-[2px] transition-colors"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                              
+                              <div className="text-right">
+                                <div className="text-sm font-mono font-medium text-white">
+                                  {formatCurrency(item.price * item.quantity)}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}

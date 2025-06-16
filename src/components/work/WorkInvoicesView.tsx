@@ -401,6 +401,57 @@ export const WorkInvoicesView: React.FC = () => {
           setShowInvoiceDrawer(false);
           loadInvoices(); // Refresh invoices after creation
         }}
+        onSave={async (formData: any) => {
+          try {
+            console.log('Creating invoice with form data:', formData);
+            
+            // Get current user
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('No user found');
+            
+            // Prepare invoice data with organization_id
+            const invoiceData = {
+              user_id: user.id,
+              organization_id: selectedOrg?.id,
+              client_id: formData.client_id,
+              project_id: formData.project_id || null,
+              amount: formData.total_amount,
+              subtotal: formData.total_amount,
+              tax_rate: 0,
+              tax_amount: 0,
+              status: formData.status || 'draft',
+              issue_date: formData.issue_date,
+              due_date: formData.due_date,
+              invoice_date: formData.issue_date, // Add invoice_date field
+              notes: formData.description,
+              terms: formData.payment_terms || 'Net 30',
+              balance_due: formData.total_amount,
+              total_paid: 0
+            };
+            
+            console.log('Invoice data to be inserted:', invoiceData);
+            
+            // Use InvoiceService to create the invoice
+            const { InvoiceService } = await import('../../services/InvoiceService');
+            const newInvoice = await InvoiceService.create({
+              ...invoiceData,
+              invoice_items: formData.items?.map((item: any) => ({
+                description: item.product_name || item.description,
+                quantity: item.quantity,
+                unit_price: item.price,
+                total_price: item.price * item.quantity,
+                product_id: item.product_id
+              })) || []
+            });
+            
+            console.log('Invoice created successfully:', newInvoice);
+            await loadInvoices();
+          } catch (error) {
+            console.error('Error creating invoice:', error);
+            alert('Failed to create invoice. Please try again.');
+            throw error;
+          }
+        }}
       />
     </div>
   );
