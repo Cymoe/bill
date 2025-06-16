@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { EmailService } from './EmailService';
+import { ActivityLogService } from './ActivityLogService';
 
 export interface InvoiceItem {
   id?: string;
@@ -22,7 +23,7 @@ export interface Invoice {
   status: 'draft' | 'sent' | 'opened' | 'paid' | 'overdue' | 'signed';
   issue_date: string;
   due_date: string;
-  amount: number;
+  amount: number; // Match database schema
   subtotal: number;
   tax_rate?: number;
   tax_amount?: number;
@@ -120,13 +121,32 @@ export class InvoiceService {
     const timestamp = Date.now().toString().slice(-6);
     const invoiceNumber = `INV-${year}-${timestamp}`;
 
-    // Create the invoice
+    // Create the invoice - map fields to match database schema
+    // Ensure due_date is a proper timestamp
+    const dueDateTimestamp = new Date(invoiceData.due_date + 'T00:00:00Z').toISOString();
+    
+    const invoiceToInsert = {
+      user_id: invoiceData.user_id,
+      organization_id: invoiceData.organization_id,
+      client_id: invoiceData.client_id,
+      project_id: invoiceData.project_id || null,
+      invoice_number: invoiceNumber,
+      status: invoiceData.status || 'draft',
+      issue_date: invoiceData.issue_date,
+      due_date: dueDateTimestamp,
+      amount: invoiceData.amount || 0,
+      subtotal: invoiceData.subtotal || invoiceData.amount || 0,
+      tax_rate: invoiceData.tax_rate || 0,
+      tax_amount: invoiceData.tax_amount || 0,
+      notes: invoiceData.notes || '',
+      terms: invoiceData.terms || 'Net 30'
+    };
+    
+    console.log('Inserting invoice with data:', invoiceToInsert);
+    
     const { data: newInvoice, error: invoiceError } = await supabase
       .from('invoices')
-      .insert({
-        ...invoiceData,
-        invoice_number: invoiceNumber
-      })
+      .insert(invoiceToInsert)
       .select()
       .single();
 
@@ -149,6 +169,25 @@ export class InvoiceService {
         throw itemsError;
       }
     }
+
+    // Log the activity
+    await ActivityLogService.log({
+      organizationId: invoice.organization_id,
+      entityType: 'invoice',
+      entityId: newInvoice.id,
+      action: 'created',
+      description: ActivityLogService.buildDescription(
+        'created',
+        'invoice',
+        newInvoice.invoice_number,
+        `for ${invoice.amount}`
+      ),
+      metadata: {
+        clientId: invoice.client_id,
+        amount: invoice.amount,
+        status: invoice.status
+      }
+    });
 
     // Return the complete invoice
     return this.getById(newInvoice.id);
@@ -199,14 +238,34 @@ export class InvoiceService {
       }
     }
 
+    // Log the activity
+    const updatedInvoice = await this.getById(id);
+    await ActivityLogService.log({
+      organizationId: updatedInvoice.organization_id!,
+      entityType: 'invoice',
+      entityId: id,
+      action: 'updated',
+      description: ActivityLogService.buildDescription(
+        'updated',
+        'invoice',
+        updatedInvoice.invoice_number!
+      ),
+      metadata: {
+        changes: invoiceData
+      }
+    });
+
     // Return the updated invoice
-    return this.getById(id);
+    return updatedInvoice;
   }
 
   /**
    * Update invoice status
    */
   static async updateStatus(id: string, status: Invoice['status']): Promise<void> {
+    // Get invoice details for logging
+    const invoice = await this.getById(id);
+    
     const { error } = await supabase
       .from('invoices')
       .update({ status })
@@ -215,6 +274,24 @@ export class InvoiceService {
     if (error) {
       throw error;
     }
+
+    // Log the activity
+    await ActivityLogService.log({
+      organizationId: invoice.organization_id!,
+      entityType: 'invoice',
+      entityId: id,
+      action: 'status_changed',
+      description: ActivityLogService.buildDescription(
+        'status_changed',
+        'invoice',
+        invoice.invoice_number!,
+        `to ${status}`
+      ),
+      metadata: {
+        oldStatus: invoice.status,
+        newStatus: status
+      }
+    });
   }
 
   /**
@@ -294,6 +371,25 @@ export class InvoiceService {
         if (logError) {
           console.error('Failed to log email:', logError);
         }
+
+        // Log the activity
+        await ActivityLogService.log({
+          organizationId: invoice.organization_id!,
+          entityType: 'invoice',
+          entityId: invoiceId,
+          action: 'sent',
+          description: ActivityLogService.buildDescription(
+            'sent',
+            'invoice',
+            invoice.invoice_number!,
+            `to ${recipientEmail}`
+          ),
+          metadata: {
+            recipientEmail,
+            ccEmails: options?.ccEmails,
+            customMessage: options?.message
+          }
+        });
       }
 
       return result;
@@ -389,6 +485,9 @@ export class InvoiceService {
    * Mark invoice as paid
    */
   static async markAsPaid(id: string): Promise<void> {
+    // Get invoice details for logging
+    const invoice = await this.getById(id);
+    
     const { error } = await supabase
       .from('invoices')
       .update({ 
@@ -401,6 +500,24 @@ export class InvoiceService {
     if (error) {
       throw error;
     }
+
+    // Log the activity
+    await ActivityLogService.log({
+      organizationId: invoice.organization_id!,
+      entityType: 'invoice',
+      entityId: id,
+      action: 'paid',
+      description: ActivityLogService.buildDescription(
+        'paid',
+        'invoice',
+        invoice.invoice_number!,
+        `amount: ${invoice.amount}`
+      ),
+      metadata: {
+        amount: invoice.amount,
+        previousStatus: invoice.status
+      }
+    });
   }
 
   /**
@@ -480,6 +597,9 @@ export class InvoiceService {
    * Delete an invoice
    */
   static async delete(id: string): Promise<void> {
+    // Get invoice details for logging
+    const invoice = await this.getById(id);
+    
     const { error } = await supabase
       .from('invoices')
       .delete()
@@ -488,5 +608,23 @@ export class InvoiceService {
     if (error) {
       throw error;
     }
+
+    // Log the activity
+    await ActivityLogService.log({
+      organizationId: invoice.organization_id!,
+      entityType: 'invoice',
+      entityId: id,
+      action: 'deleted',
+      description: ActivityLogService.buildDescription(
+        'deleted',
+        'invoice',
+        invoice.invoice_number!
+      ),
+      metadata: {
+        invoiceNumber: invoice.invoice_number,
+        amount: invoice.amount,
+        clientId: invoice.client_id
+      }
+    });
   }
 }

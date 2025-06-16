@@ -47,6 +47,7 @@ import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
 import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
 import { DebugData } from './pages/DebugData';
 import { Work } from './pages/Work';
+import { ActivityPage } from './components/activity/ActivityPage';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -286,6 +287,18 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <Work />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Activity Log */}
+      <Route
+        path="/activity"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <ActivityPage />
             </DashboardLayout>
           </ProtectedRoute>
         }

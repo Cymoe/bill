@@ -159,7 +159,11 @@ export const WorkInvoicesView: React.FC = () => {
           />
           <button
             onClick={() => {
-              console.log('Add Invoice clicked, setting showInvoiceDrawer to true');
+              if (!selectedOrg?.id) {
+                alert('No organization selected. Please select an organization first.');
+                return;
+              }
+              
               setShowInvoiceDrawer(true);
             }}
             className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-100 rounded-lg text-black text-sm font-medium transition-colors"
@@ -393,9 +397,9 @@ export const WorkInvoicesView: React.FC = () => {
       </div>
       
       {/* Create Invoice Drawer */}
-      {console.log('Rendering CreateInvoiceDrawer with isOpen:', showInvoiceDrawer)}
       <CreateInvoiceDrawer
         isOpen={showInvoiceDrawer}
+        organizationId={selectedOrg?.id}
         onClose={() => {
           console.log('Closing invoice drawer');
           setShowInvoiceDrawer(false);
@@ -409,23 +413,27 @@ export const WorkInvoicesView: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) throw new Error('No user found');
             
+            // Validate organization_id
+            if (!selectedOrg?.id) {
+              throw new Error('No organization selected');
+            }
+            
             // Prepare invoice data with organization_id
             const invoiceData = {
               user_id: user.id,
-              organization_id: selectedOrg?.id,
+              organization_id: selectedOrg.id,
               client_id: formData.client_id,
               project_id: formData.project_id || null,
-              amount: formData.total_amount,
-              subtotal: formData.total_amount,
+              amount: formData.total_amount || 0,
+              subtotal: formData.total_amount || 0,
               tax_rate: 0,
               tax_amount: 0,
               status: formData.status || 'draft',
-              issue_date: formData.issue_date,
-              due_date: formData.due_date,
-              invoice_date: formData.issue_date, // Add invoice_date field
-              notes: formData.description,
+              issue_date: formData.issue_date || new Date().toISOString().split('T')[0],
+              due_date: formData.due_date || formData.issue_date || new Date().toISOString().split('T')[0],
+              notes: formData.description || '',
               terms: formData.payment_terms || 'Net 30',
-              balance_due: formData.total_amount,
+              balance_due: formData.total_amount || 0,
               total_paid: 0
             };
             

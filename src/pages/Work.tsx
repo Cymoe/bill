@@ -226,7 +226,7 @@ export const Work: React.FC = () => {
         )}
         {activeTab === 'invoices' && (
           <div className="[&>div]:border-t-0">
-            <InvoiceList searchTerm={searchTerm} />
+            <InvoiceList searchTerm={searchTerm} refreshTrigger={refreshTrigger} />
           </div>
         )}
       </div>
@@ -286,6 +286,7 @@ export const Work: React.FC = () => {
       {/* Create Invoice Drawer */}
       <CreateInvoiceDrawer
         isOpen={showCreateInvoice}
+        organizationId={selectedOrg?.id}
         onClose={() => {
           setShowCreateInvoice(false);
           // Refresh the invoices list and stats
@@ -310,7 +311,7 @@ export const Work: React.FC = () => {
             }
             
             // Generate invoice number if not provided
-            const invoiceNumber = data.invoice_number || `INV-${Date.now().toString().slice(-6)}`;
+            const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
             
             // Calculate tax (default 0 for now)
             const subtotal = data.total_amount || 0;
@@ -325,13 +326,13 @@ export const Work: React.FC = () => {
               client_id: data.client_id,
               status: data.status || 'draft',
               due_date: data.due_date, // This is already a timestamp
-              total_amount: totalWithTax,
+              amount: totalWithTax, // Use 'amount' to match database schema
               subtotal: subtotal,
               tax_rate: taxRate,
               tax_amount: taxAmount,
               issue_date: data.issue_date || new Date().toISOString().split('T')[0],
               notes: data.description || '',
-              terms: data.payment_terms || 'Net 30'
+              terms: 'Net 30'
             };
             
             console.log('Invoice data to insert:', invoiceData);
@@ -391,9 +392,6 @@ export const Work: React.FC = () => {
             
             // Close the drawer
             setShowCreateInvoice(false);
-            
-            // Show success message
-            alert('Invoice created successfully!');
             
             // Refresh the invoices list and stats
             setRefreshTrigger(prev => prev + 1);

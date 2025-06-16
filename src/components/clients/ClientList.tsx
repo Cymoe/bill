@@ -15,6 +15,7 @@ import { supabase } from '../../lib/supabase';
 import { Modal } from '../common/Modal';
 import { ClientFormSimple } from './ClientFormSimple';
 import { EditClientDrawer } from './EditClientDrawer';
+import { ActivityLogService } from '../../services/ActivityLogService';
 
 type Client = {
   id: string;
@@ -523,15 +524,39 @@ export const ClientList: React.FC<ClientListProps> = ({
           <ClientFormSimple
             onSubmit={async (data) => {
               try {
-                const { error } = await supabase
+                const { data: newClient, error } = await supabase
                   .from('clients')
                   .insert({
                     ...data,
                     user_id: user?.id,
                     organization_id: selectedOrg?.id
-                  });
+                  })
+                  .select()
+                  .single();
 
                 if (error) throw error;
+
+                // Log the activity
+                if (newClient && selectedOrg?.id) {
+                  await ActivityLogService.log({
+                    organizationId: selectedOrg.id,
+                    entityType: 'client',
+                    entityId: newClient.id,
+                    action: 'created',
+                    description: ActivityLogService.buildDescription(
+                      'created',
+                      'client',
+                      newClient.name
+                    ),
+                    metadata: {
+                      company_name: newClient.company_name,
+                      email: newClient.email,
+                      phone: newClient.phone,
+                      city: newClient.city,
+                      state: newClient.state
+                    }
+                  });
+                }
                 
                 setShowNewModal(false);
                 loadClients();

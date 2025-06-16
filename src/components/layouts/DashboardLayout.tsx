@@ -29,7 +29,8 @@ import {
   UserPlus,
   UserCheck,
   UserX,
-  Users
+  Users,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NewClientModal } from '../clients/NewClientModal';
@@ -43,6 +44,7 @@ import { MobileMenu } from './MobileMenu';
 import { MobileCreateMenu } from './MobileCreateMenu';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import { supabase } from '../../lib/supabase';
+import { ActivityPanel } from '../activity/ActivityPanel';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -117,6 +119,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   const [showLineItemDrawer, setShowLineItemDrawer] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [globalSearch, setGlobalSearch] = useState('');
+  const [showActivityPanel, setShowActivityPanel] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -915,6 +918,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             isProfileMenuOpen={isProfileMenuOpen}
             setIsProfileMenuOpen={setIsProfileMenuOpen}
             setShowHelpModal={setShowHelpModal}
+            onActivityClick={() => setShowActivityPanel(true)}
           />
         </div>
 
@@ -1372,6 +1376,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
             </div>
           </div>
         )}
+
+      {/* Activity Panel */}
+      <ActivityPanel 
+        isOpen={showActivityPanel} 
+        onClose={() => setShowActivityPanel(false)} 
+      />
       </div>
     </LayoutContext.Provider>
     </OrganizationContext.Provider>

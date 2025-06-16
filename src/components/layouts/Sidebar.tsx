@@ -11,7 +11,8 @@ import {
   LogOut,
   Building2,
   Book,
-  Briefcase
+  Briefcase,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -37,6 +38,7 @@ interface SidebarProps {
   isProfileMenuOpen: boolean;
   setIsProfileMenuOpen: (value: boolean) => void;
   setShowHelpModal: (value: boolean) => void;
+  onActivityClick?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -60,7 +62,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   liveRevenueButtonRef,
   isProfileMenuOpen,
   setIsProfileMenuOpen,
-  setShowHelpModal
+  setShowHelpModal,
+  onActivityClick
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -377,6 +380,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
           )}
+
+          {/* Activity Button */}
+          <div className="px-2 mt-4">
+            <button
+              onClick={onActivityClick}
+              className="w-full flex items-center justify-center h-12 bg-[#1A1A1A] border border-[#2A2A2A] rounded-[4px] hover:bg-[#2A2A2A] transition-all duration-150 group"
+            >
+              <Activity className={`w-4 h-4 ${isSidebarCollapsed ? '' : 'mr-2'} text-gray-400 group-hover:text-white transition-colors`} />
+              {!isSidebarCollapsed && (
+                <span className="text-xs font-medium text-gray-400 group-hover:text-white transition-colors">
+                  Activity Log
+                </span>
+              )}
+            </button>
+          </div>
         </div>
         
         <div className="mt-auto flex-shrink-0">

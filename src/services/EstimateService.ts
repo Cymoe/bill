@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { EmailService } from './EmailService';
+import { ActivityLogService } from './ActivityLogService';
 
 export interface EstimateItem {
   id?: string;
@@ -222,6 +223,34 @@ export class EstimateService {
       }
     }
 
+    // Log the activity
+    if (newEstimate.organization_id) {
+      try {
+        const fullEstimate = await this.getById(newEstimate.id);
+        await ActivityLogService.log({
+          organizationId: newEstimate.organization_id,
+          entityType: 'estimate',
+          entityId: newEstimate.id,
+          action: 'created',
+          description: ActivityLogService.buildDescription(
+            'created',
+            'estimate',
+            newEstimate.estimate_number || newEstimate.title || 'New Estimate'
+          ),
+          metadata: {
+            estimate_number: newEstimate.estimate_number,
+            client_id: newEstimate.client_id,
+            total_amount: newEstimate.total_amount,
+            status: newEstimate.status,
+            item_count: items?.length || 0,
+            client_name: fullEstimate.client?.name
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
+    }
+
     // Return the complete estimate
     return this.getById(newEstimate.id);
   }
@@ -272,6 +301,32 @@ export class EstimateService {
       }
     }
 
+    // Log the activity
+    try {
+      const updatedEstimate = await this.getById(id);
+      if (updatedEstimate.organization_id) {
+        await ActivityLogService.log({
+          organizationId: updatedEstimate.organization_id,
+          entityType: 'estimate',
+          entityId: id,
+          action: 'updated',
+          description: ActivityLogService.buildDescription(
+            'updated',
+            'estimate',
+            updatedEstimate.estimate_number || updatedEstimate.title || 'Estimate'
+          ),
+          metadata: {
+            estimate_number: updatedEstimate.estimate_number,
+            updated_fields: Object.keys(estimateData),
+            items_updated: items !== undefined,
+            item_count: items?.length
+          }
+        });
+      }
+    } catch (logError) {
+      console.error('Failed to log activity:', logError);
+    }
+
     // Return the updated estimate
     return this.getById(id);
   }
@@ -280,6 +335,9 @@ export class EstimateService {
    * Delete an estimate
    */
   static async delete(id: string): Promise<void> {
+    // Get the estimate before deletion for logging
+    const estimate = await this.getById(id);
+
     const { error } = await supabase
       .from('estimates')
       .delete()
@@ -287,6 +345,31 @@ export class EstimateService {
 
     if (error) {
       throw error;
+    }
+
+    // Log the activity
+    if (estimate.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: estimate.organization_id,
+          entityType: 'estimate',
+          entityId: id,
+          action: 'deleted',
+          description: ActivityLogService.buildDescription(
+            'deleted',
+            'estimate',
+            estimate.estimate_number || estimate.title || 'Estimate'
+          ),
+          metadata: {
+            estimate_number: estimate.estimate_number,
+            client_name: estimate.client?.name,
+            total_amount: estimate.total_amount,
+            status: estimate.status
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
     }
   }
 
@@ -312,6 +395,30 @@ export class EstimateService {
 
     if (error) {
       throw error;
+    }
+
+    // Log the activity
+    if (estimate.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: estimate.organization_id,
+          entityType: 'estimate',
+          entityId: id,
+          action: 'signed',
+          description: ActivityLogService.buildDescription(
+            'signed',
+            'estimate',
+            estimate.estimate_number || estimate.title || 'Estimate'
+          ),
+          metadata: {
+            estimate_number: estimate.estimate_number,
+            client_name: estimate.client?.name,
+            signed_at: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
     }
 
     // Check if organization has auto-invoice enabled
@@ -381,7 +488,7 @@ export class EstimateService {
       status: 'draft' as const,
       issue_date: new Date().toISOString().split('T')[0],
       due_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-      amount: invoiceTotal,
+      amount: invoiceTotal, // Use total_amount to match database schema
       subtotal: invoiceSubtotal,
       tax_rate: estimate.tax_rate || 0,
       tax_amount: invoiceTaxAmount,
@@ -438,6 +545,34 @@ export class EstimateService {
       // Don't throw - invoice was created successfully
     }
 
+    // Log the activity
+    if (estimate.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: estimate.organization_id,
+          entityType: 'estimate',
+          entityId: estimateId,
+          action: 'converted',
+          description: ActivityLogService.buildDescription(
+            'converted',
+            'estimate',
+            estimate.estimate_number || 'Estimate'
+          ),
+          metadata: {
+            estimate_number: estimate.estimate_number,
+            invoice_id: invoice.id,
+            invoice_number: invoice.invoice_number,
+            is_deposit: isDeposit,
+            deposit_percentage: depositPercentage,
+            invoice_amount: invoiceTotal,
+            client_name: estimate.client?.name
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
+    }
+
     return invoice.id;
   }
 
@@ -489,68 +624,16 @@ export class EstimateService {
     return data || [];
   }
 
-  /**
-   * Send estimate via email
-   */
-  static async sendEstimate(
-    estimateId: string, 
-    recipientEmail: string,
-    options?: {
-      message?: string;
-      ccEmails?: string[];
-    }
-  ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Get the estimate with client details
-      const estimate = await this.getById(estimateId);
-      if (!estimate) {
-        throw new Error('Estimate not found');
-      }
 
-      if (!estimate.client) {
-        throw new Error('Estimate has no client assigned');
-      }
-
-      // Send the email
-      const result = await EmailService.sendEstimate(
-        estimate,
-        estimate.client,
-        recipientEmail,
-        options
-      );
-
-      if (result.success) {
-        // Update estimate status and tracking fields
-        const now = new Date().toISOString();
-        const { error: updateError } = await supabase
-          .from('estimates')
-          .update({
-            status: 'sent',
-            sent_at: estimate.sent_at || now, // Only set first time
-            last_sent_at: now,
-            send_count: (estimate.send_count || 0) + 1
-          })
-          .eq('id', estimateId);
-
-        if (updateError) {
-          console.error('Failed to update estimate status:', updateError);
-        }
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error sending estimate:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to send estimate'
-      };
-    }
-  }
 
   /**
    * Update estimate status
    */
   static async updateStatus(id: string, status: Estimate['status']): Promise<void> {
+    // Get the estimate before update for logging
+    const estimate = await this.getById(id);
+    const oldStatus = estimate.status;
+
     const { error } = await supabase
       .from('estimates')
       .update({ status })
@@ -558,6 +641,27 @@ export class EstimateService {
 
     if (error) {
       throw error;
+    }
+
+    // Log the activity
+    if (estimate.organization_id && oldStatus !== status) {
+      try {
+        await ActivityLogService.log({
+          organizationId: estimate.organization_id,
+          entityType: 'estimate',
+          entityId: id,
+          action: 'status_changed',
+          description: `Changed estimate status from ${oldStatus} to ${status}`,
+          metadata: {
+            estimate_number: estimate.estimate_number,
+            old_status: oldStatus,
+            new_status: status,
+            client_name: estimate.client?.name
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
     }
   }
 
@@ -688,6 +792,32 @@ export class EstimateService {
 
         if (updateError) {
           console.error('Failed to update estimate status:', updateError);
+        }
+
+        // Log the activity
+        if (estimate.organization_id) {
+          try {
+            await ActivityLogService.log({
+              organizationId: estimate.organization_id,
+              entityType: 'estimate',
+              entityId: estimateId,
+              action: 'sent',
+              description: ActivityLogService.buildDescription(
+                'sent',
+                'estimate',
+                estimate.estimate_number || 'Estimate'
+              ),
+              metadata: {
+                estimate_number: estimate.estimate_number,
+                recipient_email: recipientEmail,
+                cc_emails: options?.ccEmails,
+                send_count: (estimate.send_count || 0) + 1,
+                client_name: estimate.client?.name
+              }
+            });
+          } catch (logError) {
+            console.error('Failed to log activity:', logError);
+          }
         }
 
         // Log the email in email_logs table

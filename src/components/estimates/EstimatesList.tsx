@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { 
   FileText, Filter, MoreVertical, 
   Eye, Edit, Trash2, Send, Clock, CheckCircle, 
-  XCircle, AlertTriangle, Calendar, ChevronDown, LayoutGrid, Share2, Copy 
+  XCircle, AlertTriangle, Calendar, ChevronDown, ChevronUp, LayoutGrid, Share2, Copy 
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EstimateService, Estimate } from '../../services/EstimateService';
@@ -36,6 +36,10 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharingEstimate, setSharingEstimate] = useState<Estimate | null>(null);
+  
+  // Sort state
+  const [sortField, setSortField] = useState<'amount' | 'date' | 'estimate_number' | 'client'>('amount');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -167,6 +171,37 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     const matchesStatus = statusFilter === 'all' || estimate.status === statusFilter;
     
     return matchesSearch && matchesStatus;
+  }).sort((a, b) => {
+    // Sort by selected field and direction
+    let aValue: any, bValue: any;
+    
+    switch (sortField) {
+      case 'amount':
+        aValue = a.total_amount;
+        bValue = b.total_amount;
+        break;
+      case 'date':
+        aValue = new Date(a.created_at || '').getTime();
+        bValue = new Date(b.created_at || '').getTime();
+        break;
+      case 'estimate_number':
+        aValue = a.estimate_number || '';
+        bValue = b.estimate_number || '';
+        break;
+      case 'client':
+        aValue = a.client?.name || '';
+        bValue = b.client?.name || '';
+        break;
+      default:
+        aValue = a.total_amount;
+        bValue = b.total_amount;
+    }
+    
+    if (sortDirection === 'asc') {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+    }
   });
 
   // Functions for the options menu
@@ -187,8 +222,21 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     return acc;
   }, {} as Record<string, number>);
 
+  const handleSort = (field: 'amount' | 'date' | 'estimate_number' | 'client') => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field with default direction
+      setSortField(field);
+      setSortDirection(field === 'amount' ? 'desc' : 'asc'); // Amount defaults to desc (highest first)
+    }
+  };
+
   const resetFilters = () => {
     setStatusFilter('all');
+    setSortField('amount');
+    setSortDirection('desc');
   };
 
   // Close menus when clicking outside
@@ -485,19 +533,59 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                     {isCompactTable ? (
                       <>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
-                          ESTIMATE
+                          <button 
+                            onClick={() => handleSort('estimate_number')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'estimate_number' ? 'text-white' : ''
+                            }`}
+                          >
+                            ESTIMATE
+                            {sortField === 'estimate_number' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
-                          AMOUNT
+                          <button 
+                            onClick={() => handleSort('amount')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'amount' ? 'text-white' : ''
+                            }`}
+                          >
+                            AMOUNT
+                            {sortField === 'amount' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
-                          CLIENT
+                          <button 
+                            onClick={() => handleSort('client')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'client' ? 'text-white' : ''
+                            }`}
+                          >
+                            CLIENT
+                            {sortField === 'client' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
                           STATUS
                         </th>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-left text-xs font-medium text-gray-400 uppercase tracking-wider`}>
-                          DATE
+                          <button 
+                            onClick={() => handleSort('date')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'date' ? 'text-white' : ''
+                            }`}
+                          >
+                            DATE
+                            {sortField === 'date' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12`}>
                           
@@ -506,13 +594,43 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                     ) : (
                       <>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-2/5">
-                          ESTIMATE
+                          <button 
+                            onClick={() => handleSort('estimate_number')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'estimate_number' ? 'text-white' : ''
+                            }`}
+                          >
+                            ESTIMATE
+                            {sortField === 'estimate_number' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/5">
-                          AMOUNT
+                          <button 
+                            onClick={() => handleSort('amount')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'amount' ? 'text-white' : ''
+                            }`}
+                          >
+                            AMOUNT
+                            {sortField === 'amount' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/5">
-                          CLIENT
+                          <button 
+                            onClick={() => handleSort('client')}
+                            className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
+                              sortField === 'client' ? 'text-white' : ''
+                            }`}
+                          >
+                            CLIENT
+                            {sortField === 'client' && (
+                              sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                            )}
+                          </button>
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12">
                           

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { ActivityLogService } from './ActivityLogService';
 
 export interface TeamMember {
   id: string;
@@ -100,6 +101,31 @@ export class TeamMemberService {
       throw error;
     }
 
+    // Log the activity
+    if (teamMemberData.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: teamMemberData.organization_id,
+          entityType: 'team_member',
+          entityId: data.id,
+          action: 'created',
+          description: ActivityLogService.buildDescription(
+            'created',
+            'team_member',
+            data.name
+          ),
+          metadata: {
+            job_title: data.job_title,
+            department: data.department,
+            employment_type: data.employment_type,
+            status: data.status
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
+    }
+
     return data;
   }
 
@@ -116,10 +142,40 @@ export class TeamMemberService {
       throw error;
     }
 
+    // Log the activity
+    if (data.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: data.organization_id,
+          entityType: 'team_member',
+          entityId: id,
+          action: 'updated',
+          description: ActivityLogService.buildDescription(
+            'updated',
+            'team_member',
+            data.name
+          ),
+          metadata: {
+            updated_fields: Object.keys(updates),
+            ...updates
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
+    }
+
     return data;
   }
 
   static async deleteTeamMember(id: string): Promise<void> {
+    // Get the team member before deletion for logging
+    const { data: teamMember } = await supabase
+      .from('team_members')
+      .select('*')
+      .eq('id', id)
+      .single();
+
     const { error } = await supabase
       .from('team_members')
       .delete()
@@ -128,6 +184,31 @@ export class TeamMemberService {
     if (error) {
       console.error('Error deleting team member:', error);
       throw error;
+    }
+
+    // Log the activity
+    if (teamMember?.organization_id) {
+      try {
+        await ActivityLogService.log({
+          organizationId: teamMember.organization_id,
+          entityType: 'team_member',
+          entityId: id,
+          action: 'deleted',
+          description: ActivityLogService.buildDescription(
+            'deleted',
+            'team_member',
+            teamMember.name
+          ),
+          metadata: {
+            name: teamMember.name,
+            job_title: teamMember.job_title,
+            department: teamMember.department,
+            employment_type: teamMember.employment_type
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log activity:', logError);
+      }
     }
   }
 

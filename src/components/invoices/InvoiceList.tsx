@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { Modal } from '../common/Modal';
@@ -51,9 +51,10 @@ type InvoiceStatus = 'all' | 'draft' | 'sent' | 'paid' | 'overdue';
 
 interface InvoiceListProps {
   searchTerm?: string;
+  refreshTrigger?: number;
 }
 
-export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => {
+export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refreshTrigger }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -78,6 +79,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
   const [selectedClientType, setSelectedClientType] = useState('all');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<'amount' | 'date' | 'invoice_number' | 'client'>('amount');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Add state for invoice dropdown menus
   const [openInvoiceDropdown, setOpenInvoiceDropdown] = useState<string | null>(null);
@@ -126,6 +129,17 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
     };
   }, [openInvoiceDropdown]);
 
+  // Debounce search to improve performance
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(searchTerm);
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   useEffect(() => {
     if (user && selectedOrg?.id) {
       fetchData();
@@ -135,7 +149,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
       setProducts([]);
       setIsLoading(false);
     }
-  }, [user, selectedOrg?.id]);
+  }, [user, selectedOrg?.id, refreshTrigger]);
 
   // Handle navigation from project page
   useEffect(() => {
@@ -156,29 +170,36 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
       return;
     }
 
+    console.log('InvoiceList: Starting fetchData for org:', selectedOrg.id);
+    setIsLoading(true);
+
     try {
-      // Load invoices with enhanced payment information
+      // Load invoices with only essential fields for better performance
       const [invoicesRes, clientsRes, productsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select(`
-            *,
-            payments:invoice_payments(
-              id,
-              amount,
-              payment_date,
-              payment_method
-            )
+            id,
+            invoice_number,
+            client_id,
+            amount,
+            status,
+            issue_date,
+            due_date,
+            created_at,
+            organization_id,
+            payments:invoice_payments(amount)
           `)
           .eq('organization_id', selectedOrg.id)
-          .order('created_at', { ascending: false }),
+          .order('created_at', { ascending: false })
+          .limit(500), // Limit to prevent excessive data loading
         supabase
           .from('clients')
-          .select('*')
+          .select('id, name, organization_id')
           .eq('organization_id', selectedOrg.id),
         supabase
           .from('products')
-          .select('*')
+          .select('id, name, price, organization_id')
           .eq('organization_id', selectedOrg.id)
       ]);
 
@@ -186,139 +207,199 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
       if (clientsRes.error) throw clientsRes.error;
       if (productsRes.error) throw productsRes.error;
 
-      // Calculate payment totals for each invoice
+      // Calculate payment totals for each invoice (optimized)
       const processedInvoices = (invoicesRes.data || []).map(invoice => {
-        const totalPaid = invoice.payments?.reduce((sum: number, payment: any) => sum + payment.amount, 0) || 0;
+        const totalPaid = invoice.payments?.reduce((sum: number, payment: any) => sum + (payment.amount || 0), 0) || 0;
         return {
           ...invoice,
+          number: invoice.invoice_number || `INV-${invoice.id.slice(0, 8)}`,
+          date: invoice.issue_date,
+          items: [], // Will be loaded separately if needed
+          user_id: '', // Not needed for list view
+          payments: [], // Simplified for list view
           total_paid: totalPaid,
           balance_due: invoice.amount - totalPaid
-        };
+        } as Invoice;
+      });
+
+      console.log('InvoiceList: Data loaded successfully', {
+        invoices: processedInvoices.length,
+        clients: clientsRes.data?.length || 0,
+        products: productsRes.data?.length || 0
       });
 
       setInvoices(processedInvoices);
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
     } catch (err) {
-      console.error('Error fetching data:', err);
+      console.error('InvoiceList: Error fetching data:', err);
+      // Set empty arrays on error to prevent infinite loading
+      setInvoices([]);
+      setClients([]);
+      setProducts([]);
     } finally {
+      console.log('InvoiceList: Setting loading to false');
       setIsLoading(false);
     }
   };
 
+  // Create a client lookup map for better performance
+  const clientMap = useMemo(() => {
+    const map = new Map();
+    clients.forEach(client => map.set(client.id, client));
+    return map;
+  }, [clients]);
+
   const filteredInvoices = useMemo(() => {
-    let filtered = [...invoices];
+    if (invoices.length === 0) return [];
+    
+    console.log('InvoiceList: Filtering invoices', { 
+      total: invoices.length, 
+      searchTerm: debouncedSearchTerm,
+      filters: { selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedDateRange }
+    });
+    
+    const now = new Date().getTime();
+    
+    // Single pass filtering for better performance
+    let filtered = invoices.filter(invoice => {
+      // Status filter
+      if (selectedStatus !== 'all' && invoice.status !== selectedStatus) {
+        return false;
+      }
 
-    // Advanced search filter
-    if (searchTerm) {
-      const searchableFields: SearchableField[] = [
-        { 
-          key: 'invoice_number', 
-          weight: 2.0, // Higher weight for invoice numbers
-          transform: (invoice) => `INV-${invoice.id.slice(0, 8)}`
-        },
-        { 
-          key: 'client_name', 
-          weight: 1.5, // High weight for client names
-          transform: (invoice) => {
-            const client = clients.find(c => c.id === invoice.client_id);
-            return client?.name || '';
-          }
-        },
-        { 
-          key: 'amount', 
-          weight: 1.0,
-          transform: (invoice) => formatCurrency(invoice.amount)
-        },
-        { 
-          key: 'status', 
-          weight: 0.8,
-          transform: (invoice) => invoice.status
-        },
-        { 
-          key: 'project_name', 
-          weight: 1.2,
-          transform: (invoice) => invoice.project?.name || ''
-        }
-      ];
-
-      const searchResults = advancedSearch(filtered, searchTerm, searchableFields, {
-        minScore: 0.2, // Lower threshold for more inclusive results
-        requireAllTerms: false // Allow partial matches
-      });
-
-      filtered = searchResults.map(result => result.item);
-    }
-
-    // Status filter
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(invoice => invoice.status === selectedStatus);
-    }
-
-    // Cash flow status filter (most important for revenue)
-    if (selectedCashFlowStatus !== 'all') {
-      filtered = filtered.filter(invoice => {
-        const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+      // Cash flow status filter
+      if (selectedCashFlowStatus !== 'all') {
+        const daysPastDue = Math.floor((now - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
         
         switch (selectedCashFlowStatus) {
-          case 'critical': return invoice.status === 'overdue' && daysPastDue > 30;
-          case 'overdue': return invoice.status === 'overdue';
-          case 'due-soon': return invoice.status === 'sent' && daysPastDue >= -7 && daysPastDue <= 0;
-          case 'paid': return invoice.status === 'paid';
-          case 'draft': return invoice.status === 'draft';
-          default: return true;
+          case 'critical': 
+            if (!(invoice.status === 'overdue' && daysPastDue > 30)) return false;
+            break;
+          case 'overdue': 
+            if (invoice.status !== 'overdue') return false;
+            break;
+          case 'due-soon': 
+            if (!(invoice.status === 'sent' && daysPastDue >= -7 && daysPastDue <= 0)) return false;
+            break;
+          case 'paid': 
+            if (invoice.status !== 'paid') return false;
+            break;
+          case 'draft': 
+            if (invoice.status !== 'draft') return false;
+            break;
         }
-      });
-    }
+      }
 
-    // Value tier filter (revenue impact)
-    if (selectedValueTier !== 'all') {
-      filtered = filtered.filter(invoice => {
+      // Value tier filter
+      if (selectedValueTier !== 'all') {
         const amount = invoice.amount;
         switch (selectedValueTier) {
-          case 'large': return amount >= 10000;
-          case 'medium': return amount >= 5000 && amount < 10000;
-          case 'small': return amount >= 1000 && amount < 5000;
-          case 'minimal': return amount < 1000;
-          default: return true;
+          case 'large': if (amount < 10000) return false; break;
+          case 'medium': if (amount < 5000 || amount >= 10000) return false; break;
+          case 'small': if (amount < 1000 || amount >= 5000) return false; break;
+          case 'minimal': if (amount >= 1000) return false; break;
         }
-      });
-    }
+      }
 
-    // Urgency filter (cash flow priority)
-    if (selectedUrgency !== 'all') {
-      filtered = filtered.filter(invoice => {
-        const daysPastDue = Math.floor((new Date().getTime() - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
+      // Urgency filter
+      if (selectedUrgency !== 'all') {
+        const daysPastDue = Math.floor((now - new Date(invoice.due_date).getTime()) / (1000 * 60 * 60 * 24));
         const isHighValue = invoice.amount >= 5000;
         
         switch (selectedUrgency) {
-          case 'urgent': return (daysPastDue > 0 && isHighValue) || daysPastDue > 30;
-          case 'important': return daysPastDue > 0 || (daysPastDue >= -7 && isHighValue);
-          case 'routine': return daysPastDue <= 0 && !isHighValue;
-          default: return true;
+          case 'urgent': 
+            if (!((daysPastDue > 0 && isHighValue) || daysPastDue > 30)) return false;
+            break;
+          case 'important': 
+            if (!(daysPastDue > 0 || (daysPastDue >= -7 && isHighValue))) return false;
+            break;
+          case 'routine': 
+            if (!(daysPastDue <= 0 && !isHighValue)) return false;
+            break;
         }
+      }
+
+      // Date range filter
+      if (selectedDateRange !== 'all') {
+        const cutoffTime = now - (
+          selectedDateRange === '7d' ? 7 * 24 * 60 * 60 * 1000 :
+          selectedDateRange === '30d' ? 30 * 24 * 60 * 60 * 1000 :
+          selectedDateRange === '90d' ? 90 * 24 * 60 * 60 * 1000 : 0
+        );
+        if (new Date(invoice.issue_date).getTime() < cutoffTime) return false;
+      }
+
+      return true;
+    });
+
+    // Apply search filter if needed (more expensive operation)
+    if (debouncedSearchTerm) {
+      const searchLower = debouncedSearchTerm.toLowerCase();
+      filtered = filtered.filter(invoice => {
+        const client = clientMap.get(invoice.client_id);
+        const invoiceNumber = invoice.invoice_number || `INV-${invoice.id.slice(0, 8)}`;
+        
+        return (
+          invoiceNumber.toLowerCase().includes(searchLower) ||
+          (client?.name || '').toLowerCase().includes(searchLower) ||
+          invoice.status.toLowerCase().includes(searchLower) ||
+          formatCurrency(invoice.amount).toLowerCase().includes(searchLower)
+        );
       });
     }
 
-    // Quick date range filter
-    if (selectedDateRange !== 'all') {
-      const now = new Date();
-      let cutoff = new Date();
-      if (selectedDateRange === '7d') cutoff.setDate(now.getDate() - 7);
-      if (selectedDateRange === '30d') cutoff.setDate(now.getDate() - 30);
-      if (selectedDateRange === '90d') cutoff.setDate(now.getDate() - 90);
-      filtered = filtered.filter(invoice => new Date(invoice.issue_date) >= cutoff);
-    }
-
-    // Sort by amount
+    // Sort the results
+    console.log('InvoiceList: Filtered to', filtered.length, 'invoices');
+    
     return filtered.sort((a, b) => {
-      if (amountSort === 'asc') {
-        return a.amount - b.amount;
+      let aValue: any, bValue: any;
+      
+      switch (sortField) {
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        case 'date':
+          aValue = new Date(a.due_date).getTime();
+          bValue = new Date(b.due_date).getTime();
+          break;
+        case 'invoice_number':
+          aValue = a.invoice_number || '';
+          bValue = b.invoice_number || '';
+          break;
+        case 'client':
+          aValue = clientMap.get(a.client_id)?.name || '';
+          bValue = clientMap.get(b.client_id)?.name || '';
+          break;
+        default:
+          aValue = a.amount;
+          bValue = b.amount;
+      }
+      
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
       } else {
-        return b.amount - a.amount;
+        return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
       }
     });
-  }, [invoices, searchTerm, selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedClientType, selectedDateRange, amountSort, clients]);
+  }, [invoices, debouncedSearchTerm, selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedDateRange, sortField, sortDirection, clientMap]);
+
+  const handleSort = (field: 'amount' | 'date' | 'invoice_number' | 'client') => {
+    if (sortField === field) {
+      // Toggle direction if same field
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Set new field with default direction
+      setSortField(field);
+      setSortDirection(field === 'amount' ? 'desc' : 'asc'); // Amount defaults to desc (highest first)
+    }
+    
+    // Update legacy amountSort for backward compatibility
+    if (field === 'amount') {
+      setAmountSort(sortDirection === 'asc' ? 'desc' : 'asc');
+    }
+  };
 
   const resetFilters = () => {
     setSelectedCashFlowStatus('all');
@@ -327,6 +408,9 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
     setSelectedClientType('all');
     setSelectedDateRange('all');
     setSelectedStatus('all');
+    setSortField('amount');
+    setSortDirection('desc');
+    setAmountSort('desc');
   };
 
   // Functions for the options menu
@@ -986,17 +1070,49 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => 
               ? 'grid-cols-6' 
               : isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'
           } gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
-            <div className={`${
-              isCompactTable 
-                ? 'col-span-2' 
-                : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
-            }`}>INVOICE</div>
-            <div className={`${
-              isCompactTable 
-                ? 'col-span-2 text-center' 
-                : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
-            } text-center`}>AMOUNT</div>
-            {!isCompactTable && !isMinimal && !isConstrained && <div className="col-span-2">CLIENT</div>}
+            <button 
+              onClick={() => handleSort('invoice_number')}
+              className={`${
+                isCompactTable 
+                  ? 'col-span-2' 
+                  : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
+              } text-left hover:text-white transition-colors flex items-center gap-1 ${
+                sortField === 'invoice_number' ? 'text-white' : ''
+              }`}
+            >
+              INVOICE
+              {sortField === 'invoice_number' && (
+                sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+              )}
+            </button>
+            <button 
+              onClick={() => handleSort('amount')}
+              className={`${
+                isCompactTable 
+                  ? 'col-span-2 text-center' 
+                  : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
+              } text-center hover:text-white transition-colors flex items-center justify-center gap-1 ${
+                sortField === 'amount' ? 'text-white' : ''
+              }`}
+            >
+              AMOUNT
+              {sortField === 'amount' && (
+                sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+              )}
+            </button>
+            {!isCompactTable && !isMinimal && !isConstrained && (
+              <button 
+                onClick={() => handleSort('date')}
+                className={`col-span-2 text-left hover:text-white transition-colors flex items-center gap-1 ${
+                  sortField === 'date' ? 'text-white' : ''
+                }`}
+              >
+                DUE DATE
+                {sortField === 'date' && (
+                  sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
+                )}
+              </button>
+            )}
             {isCompactTable && <div className="col-span-1 text-center">STATUS</div>}
             <div className={`${
               isCompactTable 

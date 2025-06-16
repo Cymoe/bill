@@ -83,6 +83,7 @@ interface CreateInvoiceDrawerProps {
   onClose: () => void;
   onSave: (data: InvoiceFormData) => void;
   editingInvoice?: any; // Invoice being edited
+  organizationId?: string; // Add organization context
   projectContext?: {
     projectId: string;
     clientId: string;
@@ -96,6 +97,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
   onClose,
   onSave,
   editingInvoice,
+  organizationId,
   projectContext
 }) => {
   const { user } = useAuth();
@@ -136,7 +138,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     if (isOpen && user) {
       loadData();
     }
-  }, [isOpen, user?.id, projectCategory]);
+  }, [isOpen, user?.id, organizationId, projectCategory]);
 
   // Load invoice data when editing
   useEffect(() => {
@@ -215,8 +217,12 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
 
   const generateInvoiceNumber = async () => {
     try {
+      if (!organizationId) {
+        throw new Error('No organization selected');
+      }
+      
       const { data, error } = await supabase
-        .rpc('generate_invoice_number', { p_user_id: user?.id });
+        .rpc('generate_invoice_number', { org_id: organizationId });
         
       if (error) throw error;
       setInvoiceNumber(data);
@@ -282,10 +288,17 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
     try {
       setIsLoading(true);
       
-      // Build base queries array
+      // Check if we have organization context
+      if (!organizationId) {
+        console.error('No organization selected. Please select an organization and try again.');
+        alert('No organization selected. Please select an organization and try again.');
+        return;
+      }
+      
+      // Build base queries array using organization_id
       const queries = [
-        supabase.from('clients').select('*').eq('user_id', user?.id),
-        supabase.from('projects').select('*').eq('user_id', user?.id).order('name'),
+        supabase.from('clients').select('*').eq('organization_id', organizationId),
+        supabase.from('projects').select('*').eq('organization_id', organizationId).order('name'),
         // Get all products with their line items (where this product is the parent bundle)
         supabase.from('products')
           .select(`
@@ -295,11 +308,11 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
               line_item:products!product_line_items_line_item_id_fkey(*)
             )
           `)
-          .eq('user_id', user?.id),
+          .eq('organization_id', organizationId),
         // Get all products to show as individual line items
         supabase.from('products')
           .select('*')
-          .eq('user_id', user?.id),
+          .eq('organization_id', organizationId),
         supabase.from('trades')
           .select('id, name')
           .order('name')
@@ -308,7 +321,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       // Conditionally add template query with category filter
       let templateQuery = supabase.from('invoice_templates')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('organization_id', organizationId)
         .order('created_at', { ascending: false });
       
       // If we have a project category, filter templates by it
@@ -581,8 +594,8 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
 
   // Debug function to create a test template
   const createTestTemplate = async () => {
-    if (!user || products.length === 0) {
-      console.log('Cannot create test template: No user or no products');
+    if (!user || !organizationId || products.length === 0) {
+      console.log('Cannot create test template: No user, organization, or no products');
       return;
     }
     
@@ -592,6 +605,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
         .from('invoice_templates')
         .insert({
           user_id: user.id,
+          organization_id: organizationId,
           name: 'Test Template',
           content: {
             description: 'This is a test template',

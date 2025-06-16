@@ -3,6 +3,7 @@ import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { Save, Trash2 } from 'lucide-react';
+import { ActivityLogService } from '../../services/ActivityLogService';
 
 interface Client {
   id: string;
@@ -73,6 +74,18 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
     try {
       setIsSaving(true);
 
+      // Keep track of what changed
+      const changes: Record<string, any> = {};
+      Object.keys(formData).forEach(key => {
+        const typedKey = key as keyof typeof formData;
+        if (formData[typedKey] !== client[typedKey]) {
+          changes[key] = {
+            old: client[typedKey],
+            new: formData[typedKey]
+          };
+        }
+      });
+
       const { error } = await supabase
         .from('clients')
         .update({
@@ -82,6 +95,25 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
         .eq('id', client.id);
 
       if (error) throw error;
+
+      // Log the activity
+      if (client.organization_id) {
+        await ActivityLogService.log({
+          organizationId: client.organization_id,
+          entityType: 'client',
+          entityId: client.id,
+          action: 'updated',
+          description: ActivityLogService.buildDescription(
+            'updated',
+            'client',
+            formData.name
+          ),
+          metadata: {
+            changes,
+            updated_fields: Object.keys(changes)
+          }
+        });
+      }
 
       onSuccess();
       handleClose();
@@ -103,6 +135,26 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
         .eq('id', client.id);
 
       if (error) throw error;
+
+      // Log the activity
+      if (client.organization_id) {
+        await ActivityLogService.log({
+          organizationId: client.organization_id,
+          entityType: 'client',
+          entityId: client.id,
+          action: 'deleted',
+          description: ActivityLogService.buildDescription(
+            'deleted',
+            'client',
+            client.name
+          ),
+          metadata: {
+            client_name: client.name,
+            company_name: client.company_name,
+            email: client.email
+          }
+        });
+      }
 
       if (onDelete) {
         onDelete(client.id);
