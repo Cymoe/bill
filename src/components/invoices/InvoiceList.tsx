@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { Modal } from '../common/Modal';
 import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { InvoiceFormSimple } from './InvoiceFormSimple';
@@ -9,7 +10,7 @@ import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { PageHeaderBar } from '../common/PageHeaderBar';
+
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateInvoiceDrawer } from './CreateInvoiceDrawer';
 import { PaymentTracker } from './PaymentTracker';
@@ -28,7 +29,7 @@ type Invoice = {
     quantity: number;
     price: number;
   }>;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'opened' | 'paid' | 'overdue' | 'signed';
   amount: number;
   user_id: string;
   created_at: string;
@@ -48,14 +49,16 @@ type Invoice = {
 };
 type InvoiceStatus = 'all' | 'draft' | 'sent' | 'paid' | 'overdue';
 
-export const InvoiceList: React.FC = () => {
+interface InvoiceListProps {
+  searchTerm?: string;
+}
+
+export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { selectedOrg } = useContext(OrganizationContext);
   const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchInput, setSearchInput] = useState('');
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -85,6 +88,9 @@ export const InvoiceList: React.FC = () => {
   const [showPaymentTracker, setShowPaymentTracker] = useState(false);
   const [showProgressBilling, setShowProgressBilling] = useState(false);
   
+  // Compact table toggle state
+  const [isCompactTable, setIsCompactTable] = useState(false);
+  
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
@@ -93,12 +99,6 @@ export const InvoiceList: React.FC = () => {
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
   const showTutorial = searchParams.get('tutorial') === 'true';
-
-  // Debounce search input
-  useEffect(() => {
-    const handler = setTimeout(() => setSearchTerm(searchInput), 300);
-    return () => clearTimeout(handler);
-  }, [searchInput]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -209,17 +209,45 @@ export const InvoiceList: React.FC = () => {
   const filteredInvoices = useMemo(() => {
     let filtered = [...invoices];
 
-    // Search filter
+    // Advanced search filter
     if (searchTerm) {
-      filtered = filtered.filter((invoice) => {
-    const displayNumber = `INV-${invoice.id.slice(0, 8)}`;
-        const client = clients.find(c => c.id === invoice.client_id);
-        const clientName = client?.name || '';
-        return (
-          displayNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          clientName.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'invoice_number', 
+          weight: 2.0, // Higher weight for invoice numbers
+          transform: (invoice) => `INV-${invoice.id.slice(0, 8)}`
+        },
+        { 
+          key: 'client_name', 
+          weight: 1.5, // High weight for client names
+          transform: (invoice) => {
+            const client = clients.find(c => c.id === invoice.client_id);
+            return client?.name || '';
+          }
+        },
+        { 
+          key: 'amount', 
+          weight: 1.0,
+          transform: (invoice) => formatCurrency(invoice.amount)
+        },
+        { 
+          key: 'status', 
+          weight: 0.8,
+          transform: (invoice) => invoice.status
+        },
+        { 
+          key: 'project_name', 
+          weight: 1.2,
+          transform: (invoice) => invoice.project?.name || ''
+        }
+      ];
+
+      const searchResults = advancedSearch(filtered, searchTerm, searchableFields, {
+        minScore: 0.2, // Lower threshold for more inclusive results
+        requireAllTerms: false // Allow partial matches
       });
+
+      filtered = searchResults.map(result => result.item);
     }
 
     // Status filter
@@ -292,14 +320,12 @@ export const InvoiceList: React.FC = () => {
     });
   }, [invoices, searchTerm, selectedStatus, selectedCashFlowStatus, selectedValueTier, selectedUrgency, selectedClientType, selectedDateRange, amountSort, clients]);
 
-  // Reset filters function
   const resetFilters = () => {
     setSelectedCashFlowStatus('all');
     setSelectedValueTier('all');
     setSelectedUrgency('all');
     setSelectedClientType('all');
     setSelectedDateRange('all');
-    setSearchInput('');
     setSelectedStatus('all');
   };
 
@@ -689,25 +715,30 @@ export const InvoiceList: React.FC = () => {
       return { text: 'OVERDUE', color: 'bg-[#D32F2F] text-white' };
     }
     
+    // Check for opened status
+    if (invoice.status === 'opened') {
+      return { text: 'OPENED', color: 'bg-[#1976D2] text-white' };
+    }
+    
+    // Check for sent status
+    if (invoice.status === 'sent') {
+      return { text: 'SENT', color: 'bg-[#757575] text-white' };
+    }
+    
+    // Check for draft status
+    if (invoice.status === 'draft') {
+      return { text: 'DRAFT', color: 'bg-[#424242] text-white' };
+    }
+    
     return { text: 'UNPAID', color: 'bg-gray-600 text-white' };
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <PageHeaderBar
-        title="Invoices"
-        searchPlaceholder="Search invoices..."
-        onSearch={(query) => setSearchInput(query)}
-        searchValue={searchInput}
-        addButtonLabel="Add Invoice"
-        onAddClick={() => setShowCreateDrawer(true)}
-      />
-        
-      {/* Unified Stats + Content Container */}
-      <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
+          <div>
+        {/* Unified Stats + Content Container */}
+        <div className="bg-transparent border border-[#333333]">
         {/* Stats Section */}
-        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
           {isMinimal || isConstrained ? (
             // Compact 4-column row for constrained/minimal
             <div className="grid grid-cols-4 gap-4">
@@ -873,17 +904,27 @@ export const InvoiceList: React.FC = () => {
               </div>
             </div>
 
-            {/* Right side - Options menu */}
-            <div className="relative" ref={optionsMenuRef}>
+            {/* Right side - Compact toggle and Options menu */}
+            <div className="flex items-center gap-2">
+              {/* Compact Table Toggle */}
               <button
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
+                onClick={() => setIsCompactTable(!isCompactTable)}
+                className={`p-2 hover:bg-[#333333] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
+                title="Toggle compact view"
               >
-                <MoreVertical className="w-4 h-4 text-gray-400" />
+                <LayoutGrid className="w-4 h-4" />
               </button>
+              
+              <div className="relative" ref={optionsMenuRef}>
+                <button
+                  onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                  className="p-2 hover:bg-[#333333] transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                </button>
 
               {showOptionsMenu && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1">
                   <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
                     Data Management
                   </div>
@@ -933,17 +974,35 @@ export const InvoiceList: React.FC = () => {
                   </button>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Table Column Headers */}
-        <div className={`${isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
-          <div className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
-            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>INVOICE</div>
-            <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>AMOUNT</div>
-            {!isMinimal && !isConstrained && <div className="col-span-2">CLIENT</div>}
-            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right`}></div>
+        <div className={`${isCompactTable ? 'px-3 py-1.5' : isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
+          <div className={`grid ${
+            isCompactTable 
+              ? 'grid-cols-6' 
+              : isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'
+          } gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
+            <div className={`${
+              isCompactTable 
+                ? 'col-span-2' 
+                : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
+            }`}>INVOICE</div>
+            <div className={`${
+              isCompactTable 
+                ? 'col-span-2 text-center' 
+                : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
+            } text-center`}>AMOUNT</div>
+            {!isCompactTable && !isMinimal && !isConstrained && <div className="col-span-2">CLIENT</div>}
+            {isCompactTable && <div className="col-span-1 text-center">STATUS</div>}
+            <div className={`${
+              isCompactTable 
+                ? 'col-span-1' 
+                : isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'
+            } text-right`}></div>
           </div>
         </div>
         
@@ -970,56 +1029,90 @@ export const InvoiceList: React.FC = () => {
                       return (
                         <div
                           key={invoice.id}
-                          className={`grid ${
-                            isMinimal 
-                              ? 'grid-cols-8 gap-4 px-4 py-3' 
-                              : isConstrained 
+                          className={`group grid ${
+                            isCompactTable
+                              ? 'grid-cols-6 gap-2 px-3 py-1.5'
+                              : isMinimal 
                                 ? 'grid-cols-8 gap-4 px-4 py-3' 
-                                : 'grid-cols-12 gap-4 px-6 py-4'
+                                : isConstrained 
+                                  ? 'grid-cols-8 gap-4 px-4 py-3' 
+                                  : 'grid-cols-12 gap-4 px-6 py-4'
                           } items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
                           onClick={() => handleViewInvoice(invoice.id)}
                         >
-                          {/* Invoice Column with Enhanced Status Badge */}
-                          <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
-                            <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
-                              <span className={`text-xs px-2 py-1 rounded-[4px] font-medium min-w-[60px] text-center ${status.color}`}>
-                                {status.text}
-                              </span>
-                              <div className="min-w-0 flex-1">
-                                <div className={`font-medium text-white truncate ${isMinimal ? 'text-sm' : ''}`}>
+                          {/* Invoice Column */}
+                          <div className={`${
+                            isCompactTable 
+                              ? 'col-span-2' 
+                              : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
+                          }`}>
+                            {isCompactTable ? (
+                              // Compact layout - just invoice number and client
+                              <div>
+                                <div className="font-medium text-white text-sm truncate">
                                   {invoice.invoice_number || `INV-${invoice.id.slice(0, 8)}`}
                                 </div>
-                                <div className="text-xs text-gray-400 truncate mt-0.5">
+                                <div className="text-xs text-gray-400 truncate">
                                   {client?.name || 'Unknown Client'}
                                 </div>
-                                {/* Payment Progress Bar */}
-                                {(invoice.total_paid || 0) > 0 && (
-                                  <div className="mt-1">
-                                    <div className="w-full bg-[#333333] rounded-[2px] h-1">
-                                      <div 
-                                        className="bg-[#388E3C] h-1 rounded-[2px] transition-all duration-300"
-                                        style={{ width: `${progress}%` }}
-                                      />
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-0.5">
-                                      {Math.round(progress)}% paid
-                                    </div>
-                                  </div>
-                                )}
                               </div>
-                            </div>
+                            ) : (
+                              // Normal layout with status badge and progress
+                              <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
+                                <span className={`text-xs px-2 py-1 font-medium min-w-[60px] text-center ${status.color}`}>
+                                  {status.text}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className={`font-medium text-white truncate ${isMinimal ? 'text-sm' : ''}`}>
+                                    {invoice.invoice_number || `INV-${invoice.id.slice(0, 8)}`}
+                                  </div>
+                                  <div className="text-xs text-gray-400 truncate mt-0.5">
+                                    {client?.name || 'Unknown Client'}
+                                  </div>
+                                  {/* Payment Progress Bar */}
+                                  {(invoice.total_paid || 0) > 0 && (
+                                    <div className="mt-1">
+                                      <div className="w-full bg-[#333333] rounded-[2px] h-1">
+                                        <div 
+                                          className="bg-[#388E3C] h-1 rounded-[2px] transition-all duration-300"
+                                          style={{ width: `${progress}%` }}
+                                        />
+                                      </div>
+                                      <div className="text-xs text-gray-500 mt-0.5">
+                                        {Math.round(progress)}% paid
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                           
                           {/* Amount Column */}
-                          <div className={`${isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'} text-center`}>
-                            <div className={`font-mono font-semibold text-white ${isMinimal ? 'text-sm' : ''}`}>
+                          <div className={`${
+                            isCompactTable 
+                              ? 'col-span-2 text-center' 
+                              : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
+                          } text-center`}>
+                            <div className={`font-mono font-semibold text-white ${isCompactTable || isMinimal ? 'text-sm' : ''}`}>
                               {formatCurrency(invoice.amount)}
                             </div>
-                            <div className="text-xs text-gray-400 capitalize">Invoice</div>
+                            {!isCompactTable && (
+                              <div className="text-xs text-gray-400 capitalize">Invoice</div>
+                            )}
                           </div>
                           
+                          {/* Status Column - Only in compact mode */}
+                          {isCompactTable && (
+                            <div className="col-span-1 text-center">
+                              <span className={`text-xs px-1.5 py-0.5 font-medium ${status.color}`}>
+                                {status.text}
+                              </span>
+                            </div>
+                          )}
+                          
                           {/* Client Column - Only shown in full mode */}
-                          {!isMinimal && !isConstrained && (
+                          {!isCompactTable && !isMinimal && !isConstrained && (
                             <div className="col-span-2 text-sm text-gray-300">
                               <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
                               {daysPastDue > 0 && (
@@ -1031,7 +1124,11 @@ export const InvoiceList: React.FC = () => {
                           )}
 
                           {/* Actions Column */}
-                          <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                          <div className={`${
+                            isCompactTable 
+                              ? 'col-span-1' 
+                              : isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'
+                          } flex justify-end relative`}>
                             <div
                               ref={(el) => {
                                 invoiceDropdownRefs.current[invoice.id] = el;
@@ -1056,9 +1153,9 @@ export const InvoiceList: React.FC = () => {
                                     setOpenInvoiceDropdown(invoice.id);
                                   }
                                 }}
-                                className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                                className={`${isCompactTable ? 'w-6 h-6' : isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center hover:bg-[#333333] transition-all opacity-0 group-hover:opacity-100`}
                               >
-                                <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                                <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                               </button>
                             </div>
                           </div>
@@ -1214,7 +1311,7 @@ export const InvoiceList: React.FC = () => {
       {/* Fixed positioned invoice dropdown to prevent clipping */}
       {openInvoiceDropdown && (
         <div 
-          className="fixed w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg py-1"
+          className="fixed w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg py-1"
           style={{
             top: dropdownPosition.top,
             right: dropdownPosition.right,

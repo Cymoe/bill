@@ -5,6 +5,7 @@ import { formatCurrency } from '../../utils/format';
 import { DetailSkeleton } from '../skeletons/DetailSkeleton';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { InvoiceService } from '../../services/InvoiceService';
 
 export const InvoiceDetail: React.FC = () => {
   const { id } = useParams();
@@ -101,6 +102,31 @@ export const InvoiceDetail: React.FC = () => {
     }
   };
 
+  const handleSendInvoice = async () => {
+    if (!invoice || !client?.email) {
+      alert('Cannot send invoice: Client email not found');
+      return;
+    }
+
+    const confirmed = confirm(`Send this invoice to ${client.email}?`);
+    if (!confirmed) return;
+
+    try {
+      const result = await InvoiceService.sendInvoice(invoice.id, client.email);
+      
+      if (!result.success) {
+        alert(`Failed to send invoice: ${result.error}`);
+        return;
+      }
+      
+      alert('Invoice sent successfully!');
+      await fetchData(); // Reload to show updated status
+    } catch (err) {
+      console.error('Error sending invoice:', err);
+      alert('Failed to send invoice');
+    }
+  };
+
   const handleShare = () => {
     setShowShareModal(true);
   };
@@ -158,6 +184,11 @@ export const InvoiceDetail: React.FC = () => {
                   from {projectName}
                 </span>
               )}
+              {invoice.last_sent_at && (
+                <span className="text-xs text-gray-500 bg-gray-700/50 px-2 py-1 rounded-[4px]">
+                  Sent {new Date(invoice.last_sent_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
           </div>
 
@@ -182,7 +213,7 @@ export const InvoiceDetail: React.FC = () => {
             
             {invoice.status === 'draft' && (
               <button 
-                onClick={handleMarkAsPaid}
+                onClick={handleSendInvoice}
                 className="bg-[#336699] text-white px-3 py-2 rounded-[8px] hover:bg-[#2A5580] transition-colors flex items-center gap-2 text-sm font-medium"
               >
                 <Send className="w-4 h-4" />
@@ -191,13 +222,22 @@ export const InvoiceDetail: React.FC = () => {
             )}
             
             {invoice.status === 'sent' && (
-              <button 
-                onClick={handleMarkAsPaid}
-                className="bg-[#388E3C] text-white px-3 py-2 rounded-[8px] hover:bg-[#2E7D32] transition-colors flex items-center gap-2 text-sm font-medium"
-              >
-                <CheckCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Mark Paid</span>
-              </button>
+              <>
+                <button 
+                  onClick={handleSendInvoice}
+                  className="bg-[#1a1a1a] border border-[#2a2a2a] text-white px-3 py-2 rounded-[8px] hover:bg-[#2a2a2a] transition-colors flex items-center gap-2 text-sm"
+                >
+                  <Send className="w-4 h-4" />
+                  <span className="hidden sm:inline">Resend</span>
+                </button>
+                <button 
+                  onClick={handleMarkAsPaid}
+                  className="bg-[#388E3C] text-white px-3 py-2 rounded-[8px] hover:bg-[#2E7D32] transition-colors flex items-center gap-2 text-sm font-medium"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="hidden sm:inline">Mark Paid</span>
+                </button>
+              </>
             )}
           </div>
         </div>

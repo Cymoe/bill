@@ -19,6 +19,8 @@ export const People: React.FC = () => {
   const { selectedOrg } = useContext(OrganizationContext);
   const [activeTab, setActiveTab] = useState<PersonType>('clients');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Dynamic counts loaded from database
   const [tabCounts, setTabCounts] = useState({
@@ -27,6 +29,14 @@ export const People: React.FC = () => {
     subcontractors: 0,
     team: 0
   });
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   // Load actual counts from database
   useEffect(() => {
@@ -86,104 +96,115 @@ export const People: React.FC = () => {
 
   return (
     <div className="max-w-[1600px] mx-auto p-8">
-      {/* Header Section */}
-      <div className="mb-8 flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-white">People</h1>
-          <p className="text-gray-400 mt-1">Manage all your business relationships in one place</p>
+      {/* Single Unified Card */}
+      <div className="bg-transparent border border-[#333333]">
+        {/* Header Section */}
+        <div className="px-6 py-5 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-white">People</h1>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder={`Search ${activeTab}...`}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+              />
+            </div>
+            <button
+              onClick={handleAddClick}
+              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{getAddButtonText()}</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-4">
-          <button className="p-2 text-gray-400 hover:text-white transition-colors">
-            <Search className="w-5 h-5" />
+
+        {/* Tabs Navigation */}
+        <div className="border-t border-[#333333] flex">
+          <button
+            onClick={() => setActiveTab('clients')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+              activeTab === 'clients'
+                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+            }`}
+          >
+            Clients
+            <span className="text-xs opacity-70">({tabCounts.clients})</span>
           </button>
           <button
-            onClick={handleAddClick}
-            className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2 w-[140px] justify-center"
+            onClick={() => setActiveTab('vendors')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+              activeTab === 'vendors'
+                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+            }`}
           >
-            <Plus className="w-4 h-4" />
-            <span>{getAddButtonText()}</span>
+            Vendors
+            <span className="text-xs opacity-70">({tabCounts.vendors})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('subcontractors')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+              activeTab === 'subcontractors'
+                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+            }`}
+          >
+            Subs
+            <span className="text-xs opacity-70">({tabCounts.subcontractors})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('team')}
+            className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+              activeTab === 'team'
+                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+            }`}
+          >
+            Team
+            <span className="text-xs opacity-70">({tabCounts.team})</span>
           </button>
         </div>
-      </div>
 
-      {/* Tabs Navigation - Matching ProjectDetails */}
-      <div className="flex justify-between mb-0 border-b border-[#2a2a2a]">
-        <button
-          onClick={() => setActiveTab('clients')}
-          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-            activeTab === 'clients'
-              ? 'text-white after:bg-[#336699]'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
-          }`}
-        >
-          Clients
-          <span className="text-xs text-gray-500">{tabCounts.clients}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('vendors')}
-          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-            activeTab === 'vendors'
-              ? 'text-white after:bg-[#336699]'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
-          }`}
-        >
-          Vendors
-          <span className="text-xs text-gray-500">{tabCounts.vendors}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('subcontractors')}
-          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-            activeTab === 'subcontractors'
-              ? 'text-white after:bg-[#336699]'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
-          }`}
-        >
-          Subs
-          <span className="text-xs text-gray-500">{tabCounts.subcontractors}</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('team')}
-          className={`flex-1 pb-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-[-1px] after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-            activeTab === 'team'
-              ? 'text-white after:bg-[#336699]'
-              : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]'
-          }`}
-        >
-          Team
-          <span className="text-xs text-gray-500">{tabCounts.team}</span>
-        </button>
-      </div>
-
-      {/* Content Area */}
-      <div>
-        {activeTab === 'clients' && (
-          <ClientList 
-            showAddModal={showAddModal}
-            setShowAddModal={setShowAddModal}
-            hideAddButton={true}
-          />
-        )}
-        {activeTab === 'vendors' && (
-          <VendorsList 
-            showAddModal={showAddModal}
-            setShowAddModal={setShowAddModal}
-            hideAddButton={true}
-          />
-        )}
-        {activeTab === 'subcontractors' && (
-          <SubcontractorsList 
-            showAddModal={showAddModal}
-            setShowAddModal={setShowAddModal}
-            hideAddButton={true}
-          />
-        )}
-        {activeTab === 'team' && (
-          <TeamMembersList 
-            showAddModal={showAddModal}
-            setShowAddModal={setShowAddModal}
-            hideAddButton={true}
-          />
-        )}
+        {/* Content Area */}
+        <div className="border-t border-[#333333]">
+          {activeTab === 'clients' && (
+            <ClientList 
+              showAddModal={showAddModal}
+              setShowAddModal={setShowAddModal}
+              hideAddButton={true}
+              searchTerm={searchTerm}
+            />
+          )}
+          {activeTab === 'vendors' && (
+            <VendorsList 
+              showAddModal={showAddModal}
+              setShowAddModal={setShowAddModal}
+              hideAddButton={true}
+              searchTerm={searchTerm}
+            />
+          )}
+          {activeTab === 'subcontractors' && (
+            <SubcontractorsList 
+              showAddModal={showAddModal}
+              setShowAddModal={setShowAddModal}
+              hideAddButton={true}
+              searchTerm={searchTerm}
+            />
+          )}
+          {activeTab === 'team' && (
+            <TeamMembersList 
+              showAddModal={showAddModal}
+              setShowAddModal={setShowAddModal}
+              hideAddButton={true}
+              searchTerm={searchTerm}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

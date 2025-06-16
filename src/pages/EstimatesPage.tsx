@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { EstimatesList } from '../components/estimates/EstimatesList';
 import { CreateEstimateDrawer } from '../components/estimates/CreateEstimateDrawer';
 import { EstimateService } from '../services/EstimateService';
 import { useAuth } from '../contexts/AuthContext';
+import { OrganizationContext } from '../components/layouts/DashboardLayout';
 
 export const EstimatesPage: React.FC = () => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
 
   return (
@@ -30,7 +32,7 @@ export const EstimatesPage: React.FC = () => {
             // Create the estimate with items
             const estimate = await EstimateService.create({
               user_id: user.id,
-              organization_id: user.id, // Using user_id as org_id for now
+              organization_id: selectedOrg.id, // Use the selected organization ID
               client_id: data.client_id,
               project_id: data.project_id,
               title: data.title || '',

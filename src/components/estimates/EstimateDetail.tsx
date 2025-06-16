@@ -67,12 +67,30 @@ export const EstimateDetail: React.FC = () => {
     if (!estimate?.id) return;
 
     try {
-      await EstimateService.updateStatus(estimate.id, status);
+      // If changing to 'sent', actually send the email
+      if (status === 'sent' && estimate.client?.email) {
+        const confirmed = confirm(`Send this estimate to ${estimate.client.email}?`);
+        if (!confirmed) return;
+
+        const result = await EstimateService.sendEstimate(estimate.id, estimate.client.email);
+        
+        if (!result.success) {
+          alert(`Failed to send estimate: ${result.error}`);
+          return;
+        }
+        
+        alert('Estimate sent successfully!');
+      } else {
+        // Just update status without sending email
+        await EstimateService.updateStatus(estimate.id, status);
+      }
+      
       // Reload estimate data
       const result = await EstimateService.getById(estimate.id);
       setEstimate(result);
     } catch (error) {
       console.error('Error updating status:', error);
+      alert('Failed to update estimate status');
     }
   };
 
@@ -432,6 +450,11 @@ export const EstimateDetail: React.FC = () => {
               }`}>
                 {estimate.status}
               </span>
+              {estimate.last_sent_at && (
+                <span className="text-xs text-gray-500">
+                  Sent {new Date(estimate.last_sent_at).toLocaleDateString()}
+                </span>
+              )}
             </div>
           </div>
 
@@ -493,6 +516,17 @@ export const EstimateDetail: React.FC = () => {
               >
                 <Send className="w-4 h-4" />
                 Send
+              </button>
+            )}
+            
+            {/* Resend - for already sent estimates */}
+            {estimate.status === 'sent' && estimate.client?.email && (
+              <button 
+                onClick={() => handleStatusUpdate('sent')}
+                className="flex items-center gap-2 px-4 py-2 bg-[#2a2a2a] border border-[#404040] text-white rounded-lg hover:bg-[#333333] transition-colors text-sm"
+              >
+                <Send className="w-4 h-4" />
+                Resend
               </button>
             )}
             

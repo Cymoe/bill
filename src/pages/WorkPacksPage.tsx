@@ -3,9 +3,9 @@ import { Plus, Search, MoreVertical, Edit, Copy, BarChart, Upload, Archive, Tras
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../utils/format';
+import { advancedSearch, SearchableField } from '../utils/searchUtils';
 import { CreateWorkPackModal } from '../components/templates/CreateWorkPackModal';
 import { useAuth } from '../contexts/AuthContext';
-import { PageHeaderBar } from '../components/common/PageHeaderBar';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
 
 interface WorkPack {
@@ -40,6 +40,7 @@ export default function WorkPacksPage() {
   const [workPacks, setWorkPacks] = useState<WorkPack[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedWorkPackId, setSelectedWorkPackId] = useState<string | null>(null);
@@ -67,6 +68,14 @@ export default function WorkPacksPage() {
 
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setSearchTerm(searchInput);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchInput]);
 
   useEffect(() => {
     loadWorkPacks();
@@ -231,27 +240,77 @@ export default function WorkPacksPage() {
     });
   };
 
-  const filteredWorkPacks = workPacks
-    .filter(pack => {
-      const matchesSearch = pack.name.toLowerCase().includes(searchInput.toLowerCase()) ||
-                          pack.description?.toLowerCase().includes(searchInput.toLowerCase());
-      const matchesCategory = selectedCategory === 'all' || pack.category?.name === selectedCategory;
-      const matchesTier = selectedTier === 'all' || pack.tier === selectedTier;
-      const matchesStatus = selectedStatus === 'all' || 
-                           (selectedStatus === 'active' && pack.is_active) ||
-                           (selectedStatus === 'inactive' && !pack.is_active);
-      
-      // Price filter
-      let matchesPrice = true;
-      if (minPrice !== '') {
-        matchesPrice = matchesPrice && pack.base_price >= parseFloat(minPrice);
-      }
-      if (maxPrice !== '') {
-        matchesPrice = matchesPrice && pack.base_price <= parseFloat(maxPrice);
-      }
-      
-      return matchesSearch && matchesCategory && matchesTier && matchesStatus && matchesPrice;
-    });
+  const filteredWorkPacks = workPacks.filter(pack => {
+    // Advanced search filter
+    let matchesSearch = true;
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for work pack names
+          transform: (pack) => pack.name || ''
+        },
+        { 
+          key: 'description', 
+          weight: 1.5, // High weight for descriptions
+          transform: (pack) => pack.description || ''
+        },
+        { 
+          key: 'category_name', 
+          weight: 1.3,
+          transform: (pack) => pack.category?.name || ''
+        },
+        { 
+          key: 'industry_name', 
+          weight: 1.2,
+          transform: (pack) => pack.industry?.name || ''
+        },
+        { 
+          key: 'project_type_name', 
+          weight: 1.1,
+          transform: (pack) => pack.project_type?.name || ''
+        },
+        { 
+          key: 'tier', 
+          weight: 1.0,
+          transform: (pack) => pack.tier || ''
+        },
+        { 
+          key: 'base_price', 
+          weight: 0.9,
+          transform: (pack) => formatCurrency(pack.base_price || 0)
+        },
+        { 
+          key: 'status', 
+          weight: 0.8,
+          transform: (pack) => pack.is_active ? 'active' : 'inactive'
+        }
+      ];
+
+      const searchResults = advancedSearch([pack], searchTerm, searchableFields, {
+        minScore: 0.2, // Lower threshold for more inclusive results
+        requireAllTerms: false // Allow partial matches
+      });
+
+      matchesSearch = searchResults.length > 0;
+    }
+
+    const matchesCategory = selectedCategory === 'all' || pack.category?.name === selectedCategory;
+    const matchesTier = selectedTier === 'all' || pack.tier === selectedTier;
+    const matchesStatus = selectedStatus === 'all' || 
+      (selectedStatus === 'active' && pack.is_active) ||
+      (selectedStatus === 'inactive' && !pack.is_active);
+    
+    // Price range filter
+    let matchesPrice = true;
+    if (minPrice || maxPrice) {
+      const price = pack.base_price || 0;
+      if (minPrice && price < parseFloat(minPrice)) matchesPrice = false;
+      if (maxPrice && price > parseFloat(maxPrice)) matchesPrice = false;
+    }
+    
+    return matchesSearch && matchesCategory && matchesTier && matchesStatus && matchesPrice;
+  });
 
   const handleView = (id: string) => {
     navigate(`/work-packs/${id}`);
@@ -429,48 +488,63 @@ export default function WorkPacksPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <PageHeaderBar 
-        title="Work Packs"
-        searchPlaceholder="Search work packs..."
-        onSearch={(query) => setSearchInput(query)}
-        searchValue={searchInput}
-        addButtonLabel="Add Work Pack"
-        onAddClick={() => {
-          setSelectedWorkPackId(null);
-          setEditModalOpen(true);
-        }}
-      />
-      
-      {/* Unified Stats + Table Container */}
-      <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
-        {/* Stats Section */}
-        <div className="px-6 py-4 border-b border-[#333333]/50 rounded-t-[4px]">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 uppercase tracking-wider">WORK PACKS</span>
-              {userIndustries.length > 0 && (
-                <>
-                  <span className="text-xs text-gray-400">FOR</span>
-                  <span className="text-sm font-medium text-[#F9D71C]">
-                    {userIndustries.join(', ')}
+    <div className="max-w-[1600px] mx-auto p-8">
+      {/* Single Unified Card */}
+      <div className="bg-transparent border border-[#333333]">
+        {/* Header Section */}
+        <div className="px-6 py-5 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-white">Work Packs</h1>
+          
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search work packs..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+              />
+            </div>
+            
+            <button
+              onClick={() => setEditModalOpen(true)}
+              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Work Pack</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Industry Filter Section */}
+        <div className="border-t border-[#333333] px-6 py-4 bg-[#1A1A1A]/50">
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-gray-400 uppercase tracking-wider font-medium">WORK PACKS FOR</span>
+            <div className="flex flex-wrap gap-1">
+              {userIndustries.length > 0 ? (
+                userIndustries.map((industry, index) => (
+                  <span key={index} className="text-[#EAB308] font-medium">
+                    {industry}{index < userIndustries.length - 1 ? ',' : ''}
                   </span>
-                </>
+                ))
+              ) : (
+                <span className="text-gray-500">All Industries</span>
               )}
             </div>
-            {userIndustries.length > 0 && (
-              <div className="flex items-center gap-2 text-xs text-blue-400">
-                <Filter className="w-3 h-3" />
-                <span>Filtered by organization focus</span>
-              </div>
-            )}
+            <span className="text-blue-400 text-xs ml-2 cursor-pointer hover:text-blue-300">
+              Filtered by organization focus
+            </span>
           </div>
+        </div>
+
+        {/* Stats Section */}
+        <div className="border-t border-[#333333] px-6 py-5">
           <div className="grid grid-cols-4 gap-6">
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL PACKS</div>
               <div className="text-lg font-semibold mt-1">{stats.totalPacks}</div>
-              <div className="text-xs text-gray-500">({categories.length} project types)</div>
+              <div className="text-xs text-gray-500">({workPacks.length} project types)</div>
             </div>
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wider">ACTIVE</div>
@@ -484,44 +558,41 @@ export default function WorkPacksPage() {
             </div>
             <div>
               <div className="text-xs text-gray-400 uppercase tracking-wider">MOST USED</div>
-              <div className="text-lg font-semibold text-[#F9D71C] mt-1">{stats.mostUsed.length > 20 ? stats.mostUsed.substring(0, 20) + '...' : stats.mostUsed}</div>
+              <div className="text-lg font-semibold text-[#EAB308] mt-1">{stats.mostUsed || 'Premium Kitchen Work...'}</div>
               <div className="text-xs text-gray-500">(18 projects)</div>
             </div>
           </div>
         </div>
 
-        {/* Table Controls Header */}
-        <div className="px-6 py-4 border-b border-[#333333]/50">
+        {/* Table Controls */}
+        <div className="border-t border-[#333333] px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             {/* Left side - Filters */}
             <div className="flex items-center gap-3">
               <select
-                className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
               >
-                <option value="all">All Project Types ({filteredWorkPacks.length})</option>
-                {categories.map(cat => {
-                  const count = filteredWorkPacks.filter(p => p.category?.name === cat.name).length;
-                  return (
-                    <option key={cat.id} value={cat.name}>
-                      {cat.name} ({count})
-                    </option>
-                  );
-                })}
+                <option value="all">All Project Types ({workPacks.length})</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} ({getCategoryCount(category.name)})
+                  </option>
+                ))}
               </select>
 
               <div className="relative" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
+                  className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
                 >
                   <Filter className="w-4 h-4" />
                   More Filters
                 </button>
 
                 {showFilterMenu && (
-                  <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-4">
+                  <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] p-4">
                     <div className="space-y-4">
                       {/* Tier Filter */}
                       <div>
@@ -529,7 +600,7 @@ export default function WorkPacksPage() {
                           Tier
                         </label>
                         <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={selectedTier}
                           onChange={(e) => setSelectedTier(e.target.value)}
                         >
@@ -546,7 +617,7 @@ export default function WorkPacksPage() {
                           Status
                         </label>
                         <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={selectedStatus}
                           onChange={(e) => setSelectedStatus(e.target.value)}
                         >
@@ -565,14 +636,14 @@ export default function WorkPacksPage() {
                           <input
                             type="number"
                             placeholder="Min"
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                             value={minPrice}
                             onChange={(e) => setMinPrice(e.target.value)}
                           />
                           <input
                             type="number"
                             placeholder="Max"
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                             value={maxPrice}
                             onChange={(e) => setMaxPrice(e.target.value)}
                           />
@@ -590,7 +661,7 @@ export default function WorkPacksPage() {
                             setMaxPrice('');
                             setShowFilterMenu(false);
                           }}
-                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 text-sm font-medium transition-colors"
                         >
                           Clear All Filters
                         </button>
@@ -601,222 +672,181 @@ export default function WorkPacksPage() {
               </div>
             </div>
 
-            {/* Right side - Options */}
-            <div className="relative" ref={optionsMenuRef}>
-              <button
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
-              >
-                <MoreVertical className="w-4 h-4 text-gray-400" />
-              </button>
-
-              {showOptionsMenu && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
-                    Data Management
+            {/* Right side - View options */}
+            <div className="flex items-center gap-3">
+              <div className="relative" ref={optionsMenuRef}>
+                <button
+                  onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                  className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                
+                {showOptionsMenu && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                    <button
+                      onClick={handleImportWorkPacks}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Import Work Packs
+                    </button>
+                    <button
+                      onClick={handleExportWorkPacks}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Export Work Packs
+                    </button>
+                    <button
+                      onClick={handleBulkEdit}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                      Bulk Edit
+                    </button>
+                    <button
+                      onClick={handleAnalytics}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <BarChart className="w-4 h-4" />
+                      Analytics
+                    </button>
                   </div>
-                  <button
-                    onClick={handleImportWorkPacks}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Upload className="w-3 h-3 mr-3 text-gray-400" />
-                    Import Work Packs
-                  </button>
-                  <button
-                    onClick={handleExportWorkPacks}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Archive className="w-3 h-3 mr-3 text-gray-400" />
-                    Export Work Packs
-                  </button>
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
-                    Management
-                  </div>
-                  <button
-                    onClick={handleBulkEdit}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Edit className="w-3 h-3 mr-3 text-gray-400" />
-                    Bulk Edit
-                  </button>
-                  <button
-                    onClick={handleAnalytics}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <BarChart className="w-3 h-3 mr-3 text-gray-400" />
-                    View Analytics
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Table Column Headers */}
-        <div className="px-6 py-3 border-b border-[#333333]/50 bg-[#1E1E1E]/50">
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-            WORK PACKS
-          </div>
+        {/* Work Packs Header */}
+        <div className="border-t border-[#333333] px-6 py-3 bg-[#1E1E1E]/50">
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider">WORK PACKS</div>
         </div>
 
-        {/* Table Content */}
-        <div className="overflow-hidden rounded-b-[4px]">
+        {/* Work Packs Content */}
+        <div className="border-t border-[#333333]">
           {loading ? (
-            <div className="flex items-center justify-center py-32">
-              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-[#336699]"></div>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent animate-spin mb-4"></div>
+              <p className="text-gray-400">Loading work packs...</p>
+            </div>
+          ) : filteredWorkPacks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-16 h-16 bg-[#333333] flex items-center justify-center mb-4">
+                <Plus className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-white mb-2">No work packs yet</h3>
+              <p className="text-gray-400 mb-6 max-w-md">
+                Create your first work pack to start organizing your project templates and pricing.
+              </p>
+              <button
+                onClick={() => setEditModalOpen(true)}
+                className="bg-white hover:bg-gray-100 text-black px-6 py-3 font-medium transition-colors"
+              >
+                Create Your First Work Pack
+              </button>
             </div>
           ) : (
-            <div>
-              {filteredWorkPacks.length === 0 ? (
-                <div className="px-6 py-16 text-center">
-                  <div className="w-16 h-16 bg-[#333333] rounded-full flex items-center justify-center mb-4 mx-auto">
-                    <Plus className="w-8 h-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-white mb-2">No work packs found</h3>
-                  <p className="text-gray-400 mb-6 max-w-md mx-auto">
-                    {userIndustries.length > 0 
-                      ? `No work packs found for this organization's focus (${userIndustries.join(', ')}). Create work packs specific to this organization's services.`
-                      : "Start building your work pack library to streamline project creation and ensure consistent pricing."
-                    }
-                  </p>
-                  <div className="flex flex-col gap-3 items-center">
-                    <button
-                      onClick={() => {
-                        setSelectedWorkPackId(null);
-                        setEditModalOpen(true);
-                      }}
-                      className="bg-white hover:bg-gray-100 text-[#121212] px-6 py-3 rounded-[4px] font-medium transition-colors"
-                    >
-                      Add Your First Work Pack
-                    </button>
-                    {userIndustries.length > 0 && (
-                      <button
-                        onClick={() => navigate('/settings/industries')}
-                        className="text-[#336699] hover:text-white text-sm font-medium transition-colors"
-                      >
-                        Manage Organization Focus
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                filteredWorkPacks.map((pack, index) => (
-                  <div
-                    key={pack.id}
-                    className={`px-6 py-4 cursor-pointer transition-all hover:bg-[#1A1A1A] ${
-                      index !== filteredWorkPacks.length - 1 ? 'border-b border-[#333333]/50' : ''
-                    }`}
-                    onClick={() => handleView(pack.id)}
-                  >
-                    {/* Top Row: Title */}
-                    <div className="mb-3">
-                      <div className="flex items-center gap-3 mb-1 flex-wrap">
-                        <span className="text-lg font-semibold text-white">{pack.name}</span>
-                        <span className={`text-[10px] uppercase tracking-wider px-2.5 py-1 rounded-md border font-medium ${getTierBadgeClass(pack.tier)}`}>
-                          {pack.tier}
+            <div className="divide-y divide-[#333333]">
+              {filteredWorkPacks.map((workPack) => (
+                <div
+                  key={workPack.id}
+                  className="px-6 py-6 hover:bg-[#1A1A1A] transition-colors"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-lg font-semibold text-white">{workPack.name}</h3>
+                        <span className={`px-2 py-1 text-xs font-medium uppercase tracking-wide ${getTierBadgeClass(workPack.tier)}`}>
+                          {workPack.tier}
                         </span>
                       </div>
-                      <div className="text-sm text-gray-500">{pack.description || 'No description'}</div>
-                    </div>
-                    
-                    {/* Bottom Row: Category, Price, Usage, Actions */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-8">
-                        <div className="text-sm text-gray-400">{pack.category?.name}</div>
-                        <div className="text-xl font-bold text-[#fbbf24]">{formatCurrency(pack.base_price)}</div>
-                        <div className="inline-flex items-center gap-1.5 text-xs text-gray-500">
-                          <div className="w-1.5 h-1.5 bg-green-400 rounded-full"></div>
-                          {pack.usage_count} projects
+                      <p className="text-gray-400 text-sm mb-3">{workPack.description}</p>
+                      <div className="flex items-center gap-4 text-sm">
+                        <div className="text-[#EAB308] font-mono font-semibold">
+                          {formatCurrency(workPack.base_price)}
+                        </div>
+                        <div className="flex items-center gap-1 text-green-400">
+                          <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+                          <span>{workPack.usage_count || 0} projects</span>
                         </div>
                       </div>
-                      
-                      <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleView(workPack.id)}
+                        className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] transition-colors"
+                        title="View details"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDuplicate(workPack)}
+                        className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] transition-colors"
+                        title="Duplicate"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <div className="relative">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(pack.id);
-                          }}
-                          className="w-7 h-7 bg-transparent border border-[#2a2a2a] rounded flex items-center justify-center text-gray-600 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
-                          title="Edit"
+                          onClick={() => setActiveDropdown(activeDropdown === workPack.id ? null : workPack.id)}
+                          className="p-2 text-gray-400 hover:text-white hover:bg-[#333333] transition-colors"
                         >
-                          <Edit className="w-3 h-3" />
+                          <MoreVertical className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDuplicate(pack);
-                          }}
-                          className="w-7 h-7 bg-transparent border border-[#2a2a2a] rounded flex items-center justify-center text-gray-600 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
-                          title="Duplicate"
-                        >
-                          <Copy className="w-3 h-3" />
-                        </button>
-                        <div className="relative dropdown-wrapper">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setActiveDropdown(activeDropdown === pack.id ? null : pack.id);
-                            }}
-                            className="w-7 h-7 bg-transparent border border-[#2a2a2a] rounded flex items-center justify-center text-gray-600 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
-                          >
-                            <MoreVertical className="w-3 h-3" />
-                          </button>
-                          
-                          {activeDropdown === pack.id && (
-                            <div className="absolute top-full right-0 mt-2 bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-2 min-w-[180px] shadow-2xl z-50">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  handleAnalytics();
-                                }}
-                                className="w-full px-4 py-3 text-left text-sm rounded-lg hover:bg-[#2a2a2a] transition-all flex items-center gap-3"
-                              >
-                                <BarChart className="w-4 h-4" />
-                                View Analytics
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDropdown(null);
-                                  handleExportWorkPacks();
-                                }}
-                                className="w-full px-4 py-3 text-left text-sm rounded-lg hover:bg-[#2a2a2a] transition-all flex items-center gap-3"
-                              >
-                                <Upload className="w-4 h-4" />
-                                Export
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleArchive(pack.id);
-                                  setActiveDropdown(null);
-                                }}
-                                className="w-full px-4 py-3 text-left text-sm rounded-lg hover:bg-[#2a2a2a] transition-all flex items-center gap-3"
-                              >
-                                <Archive className="w-4 h-4" />
-                                Archive
-                              </button>
-                              <div className="h-px bg-[#2a2a2a] my-2" />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(pack.id);
-                                  setActiveDropdown(null);
-                                }}
-                                className="w-full px-4 py-3 text-left text-sm rounded-lg hover:bg-red-900/20 transition-all flex items-center gap-3 text-red-400"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                Delete
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        
+                        {activeDropdown === workPack.id && (
+                          <div className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1">
+                            <button
+                              onClick={() => {
+                                handleEdit(workPack.id);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleDuplicate(workPack);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                            >
+                              <Copy className="w-4 h-4" />
+                              Duplicate
+                            </button>
+                            <button
+                              onClick={() => {
+                                handleArchive(workPack.id);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                            >
+                              <Archive className="w-4 h-4" />
+                              Archive
+                            </button>
+                            <div className="border-t border-[#333333] my-1" />
+                            <button
+                              onClick={() => {
+                                handleDelete(workPack.id);
+                                setActiveDropdown(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-[#333333] flex items-center gap-2"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))
-              )}
+                </div>
+              ))}
             </div>
           )}
         </div>

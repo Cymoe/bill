@@ -44,7 +44,7 @@ export const PriceBook: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isConstrained, isMinimal, isCompact } = React.useContext(LayoutContext);
+  const { } = React.useContext(LayoutContext);
   const { selectedOrg } = React.useContext(OrganizationContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
   const [showEditLineItemModal, setShowEditLineItemModal] = useState(false);
@@ -446,77 +446,117 @@ export const PriceBook: React.FC = () => {
   }, [condensed]);
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-      {/* Header */}
-      <PageHeaderBar 
-        title="Cost Codes"
-        searchPlaceholder="Search items..."
-        onSearch={(query) => setSearchInput(query)}
-        searchValue={searchInput}
-        addButtonLabel="Add Item"
-        onAddClick={() => setShowNewLineItemModal(true)}
-      />
-      
-      {/* Unified Stats + Table Container */}
-      <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
-        {/* Stats Section */}
-        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
-          {isMinimal || isConstrained ? (
-            // Compact 4-column row for constrained/minimal
-            <div className="grid grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">ITEMS</div>
-                <div className="text-base font-semibold mt-1">{products.length}</div>
+    <div className="max-w-[1600px] mx-auto p-8">
+      {/* Single Unified Card */}
+      <div className="bg-transparent border border-[#333333]">
+        {/* Header Section */}
+        <div className="px-6 py-5 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-white">Cost Codes</h1>
+          
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search cost codes..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+              />
+            </div>
+            
+            <button
+              onClick={() => setShowNewLineItemModal(true)}
+              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Item</span>
+            </button>
           </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED</div>
-                <div className="text-base font-semibold mt-1">127</div>
         </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">UPDATED</div>
-                <div className="text-base font-semibold mt-1">45</div>
-                      </div>
-              <div className="text-center">
-                <div className="text-xs text-gray-400 uppercase tracking-wider">REVIEW</div>
-                <div className="text-base font-semibold text-[#F9D71C] mt-1">12</div>
-              </div>
-            </div>
-          ) : (
-            // Full 4-column layout for desktop
-            <div className="grid grid-cols-4 gap-6">
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL ITEMS</div>
-                <div className="text-lg font-semibold mt-1">{products.length}</div>
-                <div className="text-xs text-gray-500">({formatCurrency(products.reduce((sum, p) => sum + p.price, 0))})</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED LAST 30 DAYS</div>
-                <div className="text-lg font-semibold mt-1">127</div>
-                <div className="text-xs text-gray-500">(items quoted)</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">RECENTLY UPDATED</div>
-                <div className="text-lg font-semibold mt-1">45</div>
-                <div className="text-xs text-gray-500">(last 7 days)</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">NEEDS REVIEW</div>
-                <div className="text-lg font-semibold text-[#F9D71C] mt-1">12</div>
-                <div className="text-xs text-gray-500">(outdated pricing)</div>
-              </div>
-            </div>
-          )}
-                    </div>
 
-        {/* Table Controls Header */}
-        <div className={`${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
-          <div className={`flex items-center justify-between ${isMinimal ? 'gap-2' : 'gap-4'}`}>
+        {/* Stats Section */}
+        <div className="border-t border-[#333333] px-6 py-5">
+          <div className="grid grid-cols-4 gap-6">
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wider">TOTAL ITEMS</div>
+              <div className="text-lg font-semibold mt-1">{products.length}</div>
+              <div className="text-xs text-gray-500">({formatCurrency(products.reduce((sum, p) => sum + p.price, 0))})</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wider">QUOTED LAST 30 DAYS</div>
+              <div className="text-lg font-semibold mt-1">127</div>
+              <div className="text-xs text-gray-500">(items quoted)</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wider">RECENTLY UPDATED</div>
+              <div className="text-lg font-semibold mt-1">45</div>
+              <div className="text-xs text-gray-500">(last 7 days)</div>
+            </div>
+            <div>
+              <div className="text-xs text-gray-400 uppercase tracking-wider">NEEDS REVIEW</div>
+              <div className="text-lg font-semibold text-[#F9D71C] mt-1">12</div>
+              <div className="text-xs text-gray-500">(outdated pricing)</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Filter Buttons */}
+        <div className="border-t border-[#333333] px-6 py-5">
+          <div className="flex flex-wrap gap-2">
+            {['All', 'Material', 'Labor', 'Equipment', 'Service', 'Subcontractor', 'Permits', 'Other'].map((category) => {
+              const getCategoryColor = (cat: string, isActive: boolean) => {
+                if (!isActive) {
+                  return 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]';
+                }
+                
+                switch (cat.toLowerCase()) {
+                  case 'all':
+                    return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+                  case 'material':
+                    return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+                  case 'labor':
+                    return 'bg-green-500/20 text-green-300 border border-green-500/30';
+                  case 'equipment':
+                    return 'bg-orange-500/20 text-orange-300 border border-orange-500/30';
+                  case 'service':
+                    return 'bg-teal-500/20 text-teal-300 border border-teal-500/30';
+                  case 'subcontractor':
+                    return 'bg-purple-500/20 text-purple-300 border border-purple-500/30';
+                  case 'permits':
+                    return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+                  case 'other':
+                    return 'bg-gray-500/20 text-gray-300 border border-gray-500/30';
+                  default:
+                    return 'bg-[#1E1E1E] text-gray-300 border border-[#555555]';
+                }
+              };
+              
+              return (
+                <button
+                  key={category}
+                  onClick={() => setActiveCategory(category.toLowerCase())}
+                  className={`px-3 py-1.5 text-xs rounded-[4px] font-medium transition-colors flex-shrink-0 ${
+                    getCategoryColor(category, activeCategory === category.toLowerCase())
+                  }`}
+                >
+                  <div className="flex flex-col items-center">
+                    <span>{category}</span>
+                    <span className="text-xs opacity-70">({category === 'All' ? products.length : products.filter(p => p.type?.toLowerCase() === category.toLowerCase()).length})</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Table Controls */}
+        <div className="border-t border-[#333333] px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
             {/* Left side - Filters */}
-            <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
+            <div className="flex items-center gap-3">
               <select
-                className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white focus:outline-none focus:border-[#336699] ${
-                  isMinimal ? 'px-2 py-1.5 text-xs min-w-[120px]' : isConstrained ? 'px-2 py-1.5 text-xs min-w-[140px]' : 'px-3 py-2 text-sm'
-                }`}
+                className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                 value={selectedTradeId}
                 onChange={(e) => setSelectedTradeId(e.target.value)}
               >
@@ -531,16 +571,14 @@ export const PriceBook: React.FC = () => {
               <div className="relative" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white hover:bg-[#333333] transition-colors flex items-center gap-2 ${
-                    isMinimal ? 'px-2 py-1.5 text-xs' : isConstrained ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
-                  }`}
+                  className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
                 >
-                  <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                  {!isMinimal && !isConstrained && 'More Filters'}
-                    </button>
+                  <Filter className="w-4 h-4" />
+                  More Filters
+                </button>
 
                 {showFilterMenu && (
-                  <div className={`absolute top-full ${isConstrained ? 'right-0' : 'left-0'} mt-2 ${isConstrained ? 'w-56' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4`}>
+                  <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] p-4">
                     <div className="space-y-4">
                       {/* Status Filter */}
                       <div>
@@ -548,7 +586,7 @@ export const PriceBook: React.FC = () => {
                           Status
                         </label>
                         <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={selectedStatus}
                           onChange={(e) => setSelectedStatus(e.target.value)}
                         >
@@ -557,7 +595,7 @@ export const PriceBook: React.FC = () => {
                           <option value="inactive">Inactive</option>
                           <option value="draft">Draft</option>
                         </select>
-                    </div>
+                      </div>
 
                       {/* Price Range Filter */}
                       <div>
@@ -568,14 +606,14 @@ export const PriceBook: React.FC = () => {
                           <input
                             type="number"
                             placeholder="Min"
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                             value={minPrice}
                             onChange={(e) => setMinPrice(e.target.value)}
                           />
                           <input
                             type="number"
                             placeholder="Max"
-                            className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                            className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                             value={maxPrice}
                             onChange={(e) => setMaxPrice(e.target.value)}
                           />
@@ -588,7 +626,7 @@ export const PriceBook: React.FC = () => {
                           Vendor
                         </label>
                         <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={selectedVendorId}
                           onChange={(e) => setSelectedVendorId(e.target.value)}
                         >
@@ -606,7 +644,7 @@ export const PriceBook: React.FC = () => {
                             type="checkbox"
                             checked={showFavoritesOnly}
                             onChange={(e) => setShowFavoritesOnly(e.target.checked)}
-                            className="form-checkbox h-4 w-4 text-[#336699] bg-[#333333] border-[#555555] rounded focus:ring-[#336699]"
+                            className="form-checkbox h-4 w-4 text-[#336699] bg-[#333333] border-[#555555] focus:ring-[#336699]"
                           />
                           <span className="text-sm text-white">Show favorites only</span>
                         </label>
@@ -626,218 +664,77 @@ export const PriceBook: React.FC = () => {
                             setSelectedDateRange('all');
                             setShowFilterMenu(false);
                           }}
-                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 rounded-[4px] text-sm font-medium transition-colors"
+                          className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 text-sm font-medium transition-colors"
                         >
                           Clear All Filters
-                    </button>
-                  </div>
-                    </div>
-                  </div>
-                )}
+                        </button>
                       </div>
                     </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
-            {/* Right side - Options menu only */}
-            <div className="relative" ref={optionsMenuRef}>
-            <button
-                onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
-            >
-                <MoreVertical className="w-4 h-4 text-gray-400" />
-            </button>
-
-              {showOptionsMenu && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1">
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
-                    Data Management
-                    </div>
-                  <button
-                    onClick={() => {
-                      handleImportItems();
-                      setShowOptionsMenu(false);
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Upload className="w-3 h-3 mr-3 text-gray-400" />
-                    Import Items
+            {/* Right side - View options */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setCondensed(!condensed)}
+                className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                title="Toggle compact view"
+              >
+                <LayoutGrid className="w-4 h-4" />
               </button>
-                  <button
-                    onClick={() => {
-                      handleExportToCSV();
-                      setShowOptionsMenu(false);
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Download className="w-3 h-3 mr-3 text-gray-400" />
-                    Export to CSV
+              
+              <div className="relative" ref={optionsMenuRef}>
+                <button
+                  onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                  className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                
+                {showOptionsMenu && (
+                  <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                    <button
+                      onClick={handleImportItems}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Import Items
                     </button>
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
-                    View Options
-                  </div>
-                  <button
-                    onClick={() => {
-                      handlePrintPriceBook();
-                      setShowOptionsMenu(false);
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <FileText className="w-3 h-3 mr-3 text-gray-400" />
-                    Print Cost Codes
-                  </button>
-                </div>
-              )}
-                  </div>
-                </div>
-        
-          {/* Category Pills */}
-          <div className={`flex items-center ${isMinimal ? 'mt-2 pt-2' : 'mt-3 pt-3'} border-t border-[#333333]/50`}>
-            <span className={`text-xs text-gray-400 uppercase tracking-wider mr-2 flex-shrink-0 ${isMinimal ? 'hidden' : ''}`}>Categories:</span>
-            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide min-w-0 flex-1">
-              <button
-                onClick={() => setActiveCategory('all')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'all'
-                    ? 'bg-[#336699] text-white'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                All ({products.length})
-              </button>
-              <button
-                onClick={() => setActiveCategory('material')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'material'
-                    ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `${isMinimal ? 'Mat' : 'Material'} (${products.filter(p => p.type === 'material').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Material</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'material').length})</span>
+                    <button
+                      onClick={handleExportToCSV}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Export CSV
+                    </button>
+                    <button
+                      onClick={handlePrintPriceBook}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Print Cost Codes
+                    </button>
                   </div>
                 )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('labor')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'labor'
-                    ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `${isMinimal ? 'Lab' : 'Labor'} (${products.filter(p => p.type === 'labor').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Labor</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'labor').length})</span>
-                  </div>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('equipment')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'equipment'
-                    ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `${isMinimal ? 'Eq' : 'Equipment'} (${products.filter(p => p.type === 'equipment').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Equipment</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'equipment').length})</span>
-                  </div>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('service')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'service'
-                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `${isMinimal ? 'Svc' : 'Service'} (${products.filter(p => p.type === 'service').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Service</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'service').length})</span>
-                  </div>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('subcontractor')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'subcontractor'
-                    ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `Sub (${products.filter(p => p.type === 'subcontractor').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Subcontractor</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'subcontractor').length})</span>
-                  </div>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('permits')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'permits'
-                    ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `${isMinimal ? 'Pmt' : 'Permits'} (${products.filter(p => p.type === 'permits').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Permits</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'permits').length})</span>
-                  </div>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveCategory('other')}
-                className={`${isMinimal ? 'px-2 py-1 text-xs' : 'px-3 py-1.5 text-xs'} rounded-[4px] font-medium transition-colors flex-shrink-0 ${
-                  activeCategory === 'other'
-                    ? 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
-                    : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#555555]'
-                }`}
-              >
-                {isMinimal || isConstrained ? (
-                  `Other (${products.filter(p => p.type === 'other').length})`
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <span>Other</span>
-                    <span className="text-xs opacity-70">({products.filter(p => p.type === 'other').length})</span>
-                  </div>
-                )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
-        
+
         {/* Table Column Headers */}
-        <div className={`${isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
-          <div className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
-            {!isMinimal && !isConstrained && <div className="col-span-2">COST CODE</div>}
-            <div className={`${isMinimal ? 'col-span-5' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>ITEM</div>
-            <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-2' : 'col-span-3'} text-right`}>PRICE</div>
-            <div className={`col-span-1 text-right`}></div>
+        <div className="border-t border-[#333333] px-6 py-3 bg-[#1E1E1E]/50">
+          <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center">
+            <div className="col-span-2">COST CODE</div>
+            <div className="col-span-6">ITEM</div>
+            <div className="col-span-3 text-right">PRICE</div>
+            <div className="col-span-1 text-right"></div>
           </div>
         </div>
         
-      {/* Table Content */}
-        <div className="overflow-hidden rounded-b-[4px]">
+        {/* Table Content */}
+        <div className="border-t border-[#333333]">
           {(isLoading || isLoadingCostCodes) ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -886,19 +783,17 @@ export const PriceBook: React.FC = () => {
                   }
                   handleEditProduct(product);
                 }}
-                  className={`grid ${isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'} gap-4 ${isMinimal ? 'px-4 py-3' : isConstrained ? 'px-4 py-3' : 'px-6 py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
+                  className={`grid grid-cols-12 gap-4 px-6 ${condensed ? 'py-2' : 'py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
                 >
-                  {/* Cost Code Column - Hidden in minimal mode */}
-                  {!isMinimal && !isConstrained && (
-                    <div className="col-span-2 text-sm text-gray-300">
-                      {getTrade(product)}
-                    </div>
-                  )}
+                  {/* Cost Code Column */}
+                  <div className={`col-span-2 ${condensed ? 'text-xs' : 'text-sm'} text-gray-300`}>
+                    {getTrade(product)}
+                  </div>
                     
                   {/* Item Column */}
-                  <div className={`${isMinimal ? 'col-span-5' : isConstrained ? 'col-span-5' : 'col-span-6'}`}>
-                    <div className={`flex items-center ${isMinimal ? 'gap-2' : 'gap-3'}`}>
-                      <span className={`text-xs px-2 py-1 rounded-[2px] font-medium min-w-[60px] text-center ${
+                  <div className="col-span-6">
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs px-2 py-1 font-medium min-w-[60px] text-center ${
                         product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
                         product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
                         product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
@@ -911,8 +806,8 @@ export const PriceBook: React.FC = () => {
                         {product.type === 'subcontractor' ? 'sub' : product.type}
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className={`font-medium text-gray-100 truncate ${isMinimal ? 'text-sm' : ''}`}>{product.name}</div>
-                        {product.description && !isMinimal && !isConstrained && (
+                        <div className={`font-medium text-gray-100 truncate ${condensed ? 'text-sm' : ''}`}>{product.name}</div>
+                        {!condensed && product.description && (
                           <div className="text-xs text-gray-400 truncate mt-0.5">{product.description}</div>
                         )}
                       </div>
@@ -920,17 +815,15 @@ export const PriceBook: React.FC = () => {
                   </div>
 
                   {/* Price Column */}
-                  <div className={`${isMinimal ? 'col-span-2' : isConstrained ? 'col-span-2' : 'col-span-3'} text-right`}>
-                    <div className={`font-mono font-semibold text-gray-100 ${isMinimal ? 'text-sm' : ''}`}>
+                  <div className="col-span-3 text-right">
+                    <div className={`font-mono font-semibold text-gray-100 ${condensed ? 'text-sm' : ''}`}>
                       {formatCurrency(product.price)}
                     </div>
-                    {!isMinimal && !isConstrained && (
-                      <div className="text-xs text-gray-400 capitalize">{product.unit}</div>
-                    )}
+                    {!condensed && <div className="text-xs text-gray-400 capitalize">{product.unit}</div>}
                   </div>
 
                   {/* Actions Column */}
-                  <div className={`${isMinimal ? 'col-span-1' : isConstrained ? 'col-span-1' : 'col-span-1'} text-right relative`}>
+                  <div className="col-span-1 text-right relative">
                     <button
                     onClick={(e) => {
                         e.stopPropagation();
@@ -942,16 +835,16 @@ export const PriceBook: React.FC = () => {
                         setActiveDropdown(product.id);
                       }
                     }}
-                      className={`${isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded-[2px] hover:bg-[#333333] transition-colors`}
+                      className={`${condensed ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center hover:bg-[#333333] transition-colors`}
                     >
-                      <MoreVertical className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                      <MoreVertical className={`${condensed ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                     </button>
 
                   {/* Dropdown Menu */}
                   {activeDropdown === product.id && (
                     <div
                       ref={dropdownRef}
-                      className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1"
+                      className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1"
                     >
                     <button
                         onClick={(e) => {
@@ -1018,7 +911,7 @@ export const PriceBook: React.FC = () => {
             </div>
           )}
         </div>
-        </div>
+      </div>
 
       {/* Create Line Item Modal */}
       <Modal

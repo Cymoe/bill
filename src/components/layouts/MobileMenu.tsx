@@ -83,7 +83,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
         {/* Navigation Links */}
         <nav className="p-4 space-y-2">
           <NavLink
-            to="/dashboard"
+            to="/profit-tracker"
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
@@ -93,12 +93,12 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">⠿</span>
-            <span>Dashboard</span>
+            <span className="text-lg">💰</span>
+            <span>Profit Tracker</span>
           </NavLink>
 
           <NavLink
-            to="/clients"
+            to="/people"
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
@@ -108,12 +108,12 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">👤</span>
-            <span>Clients</span>
+            <span className="text-lg">👥</span>
+            <span>People</span>
           </NavLink>
 
           <NavLink
-            to="/projects"
+            to="/work"
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
@@ -123,12 +123,12 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">📁</span>
-            <span>Projects</span>
+            <span className="text-lg">💼</span>
+            <span>Work</span>
           </NavLink>
 
           <NavLink
-            to="/estimates"
+            to="/templates"
             onClick={onClose}
             className={({ isActive }) =>
               `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
@@ -138,23 +138,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">📋</span>
-            <span>Estimates</span>
-          </NavLink>
-
-          <NavLink
-            to="/invoices"
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
-                isActive
-                  ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border border-[#336699]/50 text-white'
-                  : 'hover:bg-[#333333] text-gray-300'
-              }`
-            }
-          >
-            <span className="text-lg">📄</span>
-            <span>Invoices</span>
+            <span className="text-lg">▣</span>
+            <span>Work Packs</span>
           </NavLink>
 
           <NavLink
@@ -168,23 +153,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">📦</span>
+            <span className="text-lg">▢</span>
             <span>Products</span>
-          </NavLink>
-
-          <NavLink
-            to="/analytics"
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
-                isActive
-                  ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border border-[#336699]/50 text-white'
-                  : 'hover:bg-[#333333] text-gray-300'
-              }`
-            }
-          >
-            <span className="text-lg">📊</span>
-            <span>Analytics</span>
           </NavLink>
 
           <NavLink
@@ -198,7 +168,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">📘</span>
+            <span className="text-lg">•</span>
             <span>Cost Codes</span>
           </NavLink>
         </nav>

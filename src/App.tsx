@@ -253,9 +253,7 @@ function AppRoutes() {
         path="/work"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <Work />
-            </DashboardLayout>
+            <Navigate to="/work/estimates" replace />
           </ProtectedRoute>
         }
       />
@@ -289,24 +287,12 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/work/pipeline"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <Work />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
       
       <Route
         path="/invoices"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <InvoicesPage />
-            </DashboardLayout>
+            <Navigate to="/work/invoices" replace />
           </ProtectedRoute>
         }
       />
@@ -331,9 +317,7 @@ function AppRoutes() {
         path="/estimates"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <EstimatesPage />
-            </DashboardLayout>
+            <Navigate to="/work/estimates" replace />
           </ProtectedRoute>
         }
       />
@@ -405,9 +389,7 @@ function AppRoutes() {
         path="/projects"
         element={
           <ProtectedRoute>
-            <DashboardLayout>
-              <ProjectList />
-            </DashboardLayout>
+            <Navigate to="/work/projects" replace />
           </ProtectedRoute>
         }
       />

@@ -4,11 +4,12 @@ import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, Folder
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
-import { PageHeaderBar } from '../common/PageHeaderBar';
+
 import { NewButton } from '../common/NewButton';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { Dropdown } from '../common/Dropdown';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateProjectWizard } from './CreateProjectWizard';
 import { StatusBadge } from './StatusBadge';
@@ -16,7 +17,11 @@ import { ProjectsOverviewMap } from '../maps/ProjectsOverviewMap';
 
 type Project = Tables['projects'];
 
-export const ProjectList: React.FC = () => {
+interface ProjectListProps {
+  searchTerm?: string;
+}
+
+export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isConstrained, availableWidth } = useContext(LayoutContext);
@@ -25,8 +30,6 @@ export const ProjectList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchInput, setSearchInput] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'planned' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   const [showProjectWizard, setShowProjectWizard] = useState(false);
   
@@ -37,6 +40,7 @@ export const ProjectList: React.FC = () => {
   
   // Load view preference from localStorage - default to 'list'
   const [viewType, setViewType] = useState<'list' | 'gantt' | 'map'>('list');
+  const [isCompactTable, setIsCompactTable] = useState(false);
   
   // Dropdown state management
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -165,20 +169,60 @@ export const ProjectList: React.FC = () => {
     { id: 'general', name: 'General' },
   ];
 
-  // Sync search input with search query
-  useEffect(() => {
-    const handler = setTimeout(() => setSearchQuery(searchInput), 300);
-    return () => clearTimeout(handler);
-  }, [searchInput]);
-
   // Filter projects by category, status, search, date, and budget
   const filteredProjects = useMemo(() => {
     let filtered = projects.filter(project => {
       const matchesCategory = selectedCategory === 'all' || project.category === selectedCategory;
       const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
-      const matchesSearch = searchQuery === '' || 
-        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Advanced search filter
+      let matchesSearch = true;
+      if (searchTerm) {
+        const searchableFields: SearchableField[] = [
+          { 
+            key: 'name', 
+            weight: 2.0, // Higher weight for project names
+            transform: (project) => project.name || ''
+          },
+          { 
+            key: 'description', 
+            weight: 1.5, // High weight for descriptions
+            transform: (project) => project.description || ''
+          },
+          { 
+            key: 'category', 
+            weight: 1.2,
+            transform: (project) => project.category || ''
+          },
+          { 
+            key: 'status', 
+            weight: 1.0,
+            transform: (project) => project.status || ''
+          },
+          { 
+            key: 'budget', 
+            weight: 1.0,
+            transform: (project) => formatCurrency(project.budget || 0)
+          },
+          { 
+            key: 'location', 
+            weight: 0.8,
+            transform: (project) => project.location || ''
+          },
+          { 
+            key: 'client_name', 
+            weight: 1.3,
+            transform: (project) => project.client?.name || ''
+          }
+        ];
+
+        const searchResults = advancedSearch([project], searchTerm, searchableFields, {
+          minScore: 0.2, // Lower threshold for more inclusive results
+          requireAllTerms: false // Allow partial matches
+        });
+
+        matchesSearch = searchResults.length > 0;
+      }
       
       // Date range filter
       let matchesDate = true;
@@ -229,7 +273,7 @@ export const ProjectList: React.FC = () => {
     });
 
     return filtered;
-  }, [projects, selectedCategory, selectedStatus, searchQuery, dateRange, budgetRange, sortBy]);
+  }, [projects, selectedCategory, selectedStatus, searchTerm, dateRange, budgetRange, sortBy]);
 
   // Get count for each category
   const getCategoryCount = (categoryId: string) => {
@@ -306,25 +350,30 @@ export const ProjectList: React.FC = () => {
     };
   };
 
+  if (loading) {
+    return (
+      <div>
+        <div className="bg-transparent border border-[#333333]">
+          <div className="p-6">
+            <TableSkeleton rows={5} columns={6} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#121212] text-white">
       <div>
       {/* Header */}
-      <PageHeaderBar
-        title="Projects"
-        searchPlaceholder="Search projects..."
-        onSearch={(query) => setSearchInput(query)}
-        searchValue={searchInput}
-        addButtonLabel="Add Project"
-        onAddClick={() => setShowProjectWizard(true)}
-      />
+
         
         {/* Projects Section */}
-        <div className="pb-8">
+        <div>
           {/* Unified Container with transparent background */}
-          <div className="bg-transparent border border-[#333333] rounded-[4px]">
+          <div className="bg-transparent border border-[#333333]">
             {/* Stats Section */}
-            <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+            <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
               {isConstrained ? (
                 // Compact 4-column row for constrained
                 <div className="grid grid-cols-4 gap-4">
@@ -465,11 +514,9 @@ export const ProjectList: React.FC = () => {
                           setDateRange('all');
                           setBudgetRange('all');
                           setSortBy('date');
-                          setSelectedCategory('all');
-                          setSelectedStatus('all');
-                          setSearchInput('');
-                          setSearchQuery('');
-                                setShowFilters(false);
+                                                      setSelectedCategory('all');
+                            setSelectedStatus('all');
+                            setShowFilters(false);
                         }}
                               className="w-full bg-[#333333] hover:bg-[#404040] text-white py-1.5 md:py-2 px-2 md:px-3 rounded-[4px] text-xs md:text-sm font-medium transition-colors"
                       >
@@ -484,7 +531,16 @@ export const ProjectList: React.FC = () => {
                 
                 {/* Right side - View toggle and options */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
+            {/* Compact Table Toggle */}
+            <button
+              onClick={() => setIsCompactTable(!isCompactTable)}
+              className={`p-2 hover:bg-[#333333] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
+              title="Toggle compact view"
+            >
+              <LayoutGrid className="w-4 h-4" />
+            </button>
+            
+            <div className="flex bg-[#1E1E1E] border border-[#333333] overflow-hidden">
               <button
                       className={`px-3 py-2 text-sm font-medium transition-colors ${
                         viewType === 'list' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
@@ -514,14 +570,14 @@ export const ProjectList: React.FC = () => {
                   <div className="relative" ref={mainOptionsRef}>
                     <button 
                       onClick={() => setShowMainOptions(!showMainOptions)}
-                      className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
+                      className="bg-[#1E1E1E] border border-[#333333] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
                     >
                       <MoreVertical className="w-4 h-4 text-gray-400" />
                     </button>
 
                     {/* Main Options Dropdown */}
                     {showMainOptions && (
-                      <div className={`absolute top-full right-0 mt-1 ${isConstrained ? 'w-[240px]' : 'w-64'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 py-1`}>
+                                              <div className={`absolute top-full right-0 mt-1 ${isConstrained ? 'w-[240px]' : 'w-64'} bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1`}>
                         {/* Export & Import */}
                         <div className="px-3 py-2 border-b border-[#333333]">
                           <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Data Management</div>
@@ -913,7 +969,7 @@ export const ProjectList: React.FC = () => {
           <>
             {viewType === 'list' ? (
               // List View - Mimics the sidebar projects list
-                    <div className="bg-[#121212] border border-[#333333] rounded-[4px] overflow-hidden">
+                    <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
                 <div className="space-y-0">
                   {filteredProjects.map((project, index) => {
                     const progress = getProjectProgress(project.status);
@@ -921,32 +977,34 @@ export const ProjectList: React.FC = () => {
                       <div key={project.id} className="relative">
                         <div
                           onClick={() => navigate(`/projects/${project.id}`)}
-                          className={`w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group cursor-pointer ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
+                          className={`w-full text-left ${isCompactTable ? 'p-2' : 'p-3 md:p-4'} hover:bg-[#333333] transition-colors border-b border-gray-700/30 group cursor-pointer ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-3 mb-1">
-                                      <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 ${
+                                    <div className={`flex items-center gap-3 ${isCompactTable ? 'mb-0.5' : 'mb-1'}`}>
+                                      <div className={`${isCompactTable ? 'w-1 h-1' : 'w-1.5 h-1.5 md:w-2 md:h-2'} rounded-full flex-shrink-0 ${
                                         project.status === 'completed' ? 'bg-[#3b82f6]' :
                                         project.status === 'active' ? 'bg-[#10b981]' :
                                         project.status === 'on-hold' ? 'bg-[#f59e0b]' :
                                         'bg-[#ef4444]'
                                 }`}></div>
-                                      <span className="text-white text-sm md:text-base font-medium truncate">{project.name}</span>
-                                      <StatusBadge status={project.status} className="scale-75" />
+                                      <span className={`text-white ${isCompactTable ? 'text-sm' : 'text-sm md:text-base'} font-medium truncate`}>{project.name}</span>
+                                      <StatusBadge status={project.status} className={isCompactTable ? 'scale-50' : 'scale-75'} />
                               </div>
-                                    <div className="flex items-center gap-3 md:gap-4 text-gray-400 text-xs md:text-sm ml-3.5 md:ml-5">
-                                      <span className="uppercase tracking-wide text-[10px] md:text-xs">Client Name</span>
-                                      {availableWidth === 'full' && (
-                                        <>
-                                          <span className="font-mono">{formatCurrency(project.budget)}</span>
-                                          <span>{new Date(project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                        </>
-                                      )}
-                              </div>
+                                    {!isCompactTable && (
+                                      <div className="flex items-center gap-3 md:gap-4 text-gray-400 text-xs md:text-sm ml-3.5 md:ml-5">
+                                        <span className="uppercase tracking-wide text-[10px] md:text-xs">Client Name</span>
+                                        {availableWidth === 'full' && (
+                                          <>
+                                            <span className="font-mono">{formatCurrency(project.budget)}</span>
+                                            <span>{new Date(project.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                          </>
+                                        )}
+                                      </div>
+                                    )}
                             </div>
                                   <div className="flex items-center gap-3 flex-shrink-0">
-                                    <span className="text-[#6b7280] text-sm md:text-base font-medium font-mono">{progress}%</span>
+                                    {!isCompactTable && <span className="text-[#6b7280] text-sm md:text-base font-medium font-mono">{progress}%</span>}
                               
                                     {/* Three dots menu - always visible */}
                                 <div className="relative">
@@ -956,17 +1014,17 @@ export const ProjectList: React.FC = () => {
                                       const dropdownId = `project-${project.id}`;
                                       setOpenDropdownId(openDropdownId === dropdownId ? null : dropdownId);
                                     }}
-                                        className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#252525] transition-colors"
+                                        className={`${isCompactTable ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded hover:bg-[#252525] transition-all opacity-0 group-hover:opacity-100`}
                                     title="More options"
                                   >
-                                        <MoreVertical className="w-4 h-4 text-gray-400" />
+                                        <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                                   </button>
                                   
                                   {/* Dropdown Menu */}
                                   {openDropdownId === `project-${project.id}` && (
                                     <div 
                                       ref={(el) => dropdownRefs.current[`project-${project.id}`] = el}
-                                      className="absolute right-0 top-full mt-1 w-48 bg-[#2A2A2A] border border-[#404040] rounded-[4px] shadow-lg z-[10001] py-1"
+                                      className="absolute right-0 top-full mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1"
                                     >
                                       <button
                                         onClick={(e) => {
@@ -1122,9 +1180,8 @@ export const ProjectList: React.FC = () => {
                 <p className="text-gray-500 text-sm mb-6">No projects match your search or filters</p>
                 <button 
                   onClick={() => {
-                    setSelectedCategory('all');
-                    setSelectedStatus('all');
-                    setSearchQuery('');
+                                          setSelectedCategory('all');
+                      setSelectedStatus('all');
                   }}
                   className="px-4 py-2 bg-white text-black rounded-[8px] font-medium hover:bg-gray-100 transition-colors"
                 >

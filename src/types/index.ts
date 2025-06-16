@@ -24,8 +24,9 @@ export interface Invoice {
   invoice_number: string;
   issue_date: string;
   due_date: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
+  status: 'draft' | 'sent' | 'opened' | 'paid' | 'overdue' | 'signed';
   total_amount: number;
+  first_opened_at?: string;
   created_at?: string;
 }
 

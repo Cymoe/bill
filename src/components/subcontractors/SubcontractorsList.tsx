@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { 
   HardHat, Phone, Mail, MapPin, Star, Heart,
   Plus, Search, Filter, Edit2, Trash2, 
-  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3
+  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3, MoreVertical, Grid3X3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { SubcontractorService, type Subcontractor as SubcontractorType, TRADE_CATEGORIES as SERVICE_TRADE_CATEGORIES } from '../../services/subcontractorService';
@@ -22,12 +23,14 @@ interface SubcontractorsListProps {
   showAddModal?: boolean;
   setShowAddModal?: (show: boolean) => void;
   hideAddButton?: boolean;
+  searchTerm?: string;
 }
 
 export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({ 
   showAddModal: externalShowAddModal, 
   setShowAddModal: externalSetShowAddModal, 
-  hideAddButton = false 
+  hideAddButton = false,
+  searchTerm = ''
 }) => {
   const { user } = useAuth();
   const { isConstrained } = useContext(LayoutContext);
@@ -35,10 +38,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
   const navigate = useNavigate();
   const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPreferredOnly, setShowPreferredOnly] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'condensed' | 'cards'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<string>('all');
@@ -104,9 +106,60 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
   }, [selectedOrg?.id]);
 
   const filteredSubcontractors = subcontractors.filter(sub => {
-    const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         sub.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         sub.specialty.toLowerCase().includes(searchTerm.toLowerCase());
+    // Advanced search filter
+    let matchesSearch = true;
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for subcontractor names
+          transform: (sub) => sub.name || ''
+        },
+        { 
+          key: 'company_name', 
+          weight: 1.5, // High weight for company names
+          transform: (sub) => sub.company_name || ''
+        },
+        { 
+          key: 'specialty', 
+          weight: 1.3,
+          transform: (sub) => sub.specialty || ''
+        },
+        { 
+          key: 'trade_category', 
+          weight: 1.2,
+          transform: (sub) => sub.trade_category || ''
+        },
+        { 
+          key: 'email', 
+          weight: 0.8,
+          transform: (sub) => sub.email || ''
+        },
+        { 
+          key: 'phone', 
+          weight: 0.7,
+          transform: (sub) => sub.phone || ''
+        },
+        { 
+          key: 'city', 
+          weight: 0.6,
+          transform: (sub) => sub.city || ''
+        },
+        { 
+          key: 'total_value', 
+          weight: 1.0,
+          transform: (sub) => formatCurrency(sub.totalValue || 0)
+        }
+      ];
+
+      const searchResults = advancedSearch([sub], searchTerm, searchableFields, {
+        minScore: 0.2, // Lower threshold for more inclusive results
+        requireAllTerms: false // Allow partial matches
+      });
+
+      matchesSearch = searchResults.length > 0;
+    }
+
     const matchesCategory = selectedCategory === 'all' || sub.trade_category === selectedCategory;
     const matchesPreferred = !showPreferredOnly || sub.is_preferred;
     
@@ -151,7 +204,6 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
     setSelectedCategory('all');
     setShowPreferredOnly(false);
     setSelectedRatingFilter('all');
-    setSearchTerm('');
   };
 
   console.log('🔧 SubcontractorsList render - editingSubcontractor:', editingSubcontractor);
@@ -160,8 +212,8 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
     <div>
       {loading ? (
         <div className="pb-8">
-          <div className="bg-transparent border border-[#333333] rounded-[4px]">
-            {viewMode === 'list' || viewMode === 'condensed' ? (
+          <div className="bg-transparent border border-[#333333]">
+            {viewMode === 'list' || viewMode === 'grid' ? (
               <TableSkeleton rows={5} columns={5} />
             ) : (
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -221,9 +273,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
           {/* Subcontractors Section */}
           <div className="pb-8">
             {/* Unified Container */}
-            <div className="bg-transparent border border-[#333333] rounded-[4px]">
-              {/* Stats Section */}
-              <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+                    <div className="bg-transparent border border-[#333333]">
+          {/* Stats Section */}
+          <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
                   <div className="grid grid-cols-4 gap-4">
                     <div className="text-center">
@@ -359,33 +411,24 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
+                    <div className="flex items-center gap-2">
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'list' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
                         onClick={() => setViewMode('list')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+                        }`}
                         title="List View"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'condensed' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
                         }`}
-                        onClick={() => setViewMode('condensed')}
-                        title="Condensed View"
+                        title="Grid View"
                       >
-                        <Rows3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'cards' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
-                        onClick={() => setViewMode('cards')}
-                        title="Cards View"
-                      >
-                        <LayoutGrid className="w-4 h-4" />
+                        <Grid3X3 className="w-4 h-4" />
                       </button>
                     </div>
                     
@@ -404,152 +447,84 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
 
               {/* Content */}
               <div className="flex-1 overflow-auto">
-                {viewMode === 'list' || viewMode === 'condensed' ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead className="bg-[#1E1E1E]">
-                        <tr>
-                          {viewMode === 'condensed' ? (
-                            <>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Trade</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rate</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rating</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </>
-                          ) : (
-                            <>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Trade Partner</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Specialty & Certs</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rate</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Rating</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#333333]">
-                        {filteredSubcontractors.map((sub) => (
-                          <tr 
-                            key={sub.id} 
-                            className={`hover:bg-[#1E1E1E] transition-colors ${sub.is_preferred ? 'bg-[#D32F2F]/5 border-l-2 border-[#D32F2F]' : ''}`}
-                          >
-                            {viewMode === 'condensed' ? (
-                              <>
-                                <td className="px-3 py-2">
+                {viewMode === 'list' ? (
+                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                    <div className="space-y-0">
+                      {filteredSubcontractors.map((subcontractor, index) => (
+                        <div key={subcontractor.id} className="relative">
+                          <div className="w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-2">
+                                  {subcontractor.is_preferred && (
+                                    <Heart className="w-4 h-4 text-red-400 fill-current flex-shrink-0" />
+                                  )}
                                   <div 
-                                    className="text-xs font-medium text-white hover:text-blue-400 cursor-pointer"
-                                    onClick={() => navigate(`/subcontractors/${sub.id}`)}
+                                    className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
+                                    onClick={() => navigate(`/subcontractors/${subcontractor.id}`)}
                                   >
-                                    {sub.name}
+                                    {subcontractor.name}
                                   </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs text-[#F9D71C] font-medium">{sub.trade_category}</div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-green-400">
-                                    ${sub.hourly_rate}/hr
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="flex items-center gap-0.5">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`w-3 h-3 ${
-                                          i < (sub.rating || 0) 
-                                            ? 'text-[#F9D71C] fill-current' 
-                                            : 'text-gray-600'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-blue-400">
-                                    {sub.projectCount || 0}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      console.log('🔧 Edit button clicked (condensed view) for subcontractor:', sub.name, sub.id);
-                                      setEditingSubcontractor(sub);
-                                      console.log('🔧 editingSubcontractor set to:', sub);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 text-xs font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-2">
-                                    <div>
-                                      <div 
-                                        className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
-                                        onClick={() => navigate(`/subcontractors/${sub.id}`)}
-                                      >
-                                        {sub.name}
-                                      </div>
-                                      <div className="text-xs text-gray-400">{sub.company_name}</div>
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                                    Active
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400 mb-1">
+                                  {subcontractor.trade_category && (
+                                    <span className="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs">
+                                      {subcontractor.trade_category}
+                                    </span>
+                                  )}
+                                  {subcontractor.company_name && <span>{subcontractor.company_name}</span>}
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400">
+                                  {subcontractor.email && <span className="text-blue-400">{subcontractor.email}</span>}
+                                  {subcontractor.phone && <span>{subcontractor.phone}</span>}
+                                  {subcontractor.rating && (
+                                    <div className="flex items-center gap-1">
+                                      {[...Array(5)].map((_, i) => (
+                                        <Star
+                                          key={i}
+                                          className={`w-3 h-3 ${
+                                            i < subcontractor.rating! 
+                                              ? 'text-yellow-400 fill-current' 
+                                              : 'text-gray-600'
+                                          }`}
+                                        />
+                                      ))}
                                     </div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-[#F9D71C] font-medium">{sub.trade_category}</div>
-                                  <div className="text-xs text-gray-400">{sub.specialty}</div>
-                                </td>
-                                <td className="px-6 py-4">
+                                  )}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-right">
                                   <div className="text-sm font-semibold text-green-400">
-                                    ${sub.hourly_rate}/hr
+                                    {formatCurrency(subcontractor.totalValue || 0)}
                                   </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="flex items-center gap-1">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`w-4 h-4 ${
-                                          i < (sub.rating || 0) 
-                                            ? 'text-[#F9D71C] fill-current' 
-                                            : 'text-gray-600'
-                                        }`}
-                                      />
-                                    ))}
-                                    <span className="text-sm text-gray-400 ml-1">({sub.rating || 0})</span>
+                                  <div className="text-xs text-gray-400">
+                                    {subcontractor.projectCount || 0} projects
                                   </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm font-semibold text-blue-400">
-                                    {sub.projectCount || 0}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      console.log('🔧 Edit button clicked for subcontractor:', sub.name, sub.id);
-                                      setEditingSubcontractor(sub);
-                                      console.log('🔧 editingSubcontractor set to:', sub);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                </div>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingSubcontractor(subcontractor);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                  title="Edit subcontractor"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     {filteredSubcontractors.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-gray-400">No subcontractors match your filters</p>
@@ -558,42 +533,37 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                   </div>
                 ) : (
                   <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredSubcontractors.map((sub) => (
+                    {filteredSubcontractors.map((subcontractor) => (
                       <div
-                        key={sub.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors"
+                        key={subcontractor.id}
+                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors cursor-pointer"
+                        onClick={() => navigate(`/subcontractors/${subcontractor.id}`)}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h3 
-                              className="text-sm font-semibold text-white flex items-center gap-2 mb-1 hover:text-blue-400 cursor-pointer"
-                              onClick={() => navigate(`/subcontractors/${sub.id}`)}
-                            >
-                              {sub.name}
-                              {sub.is_preferred && <Heart className="w-4 h-4 text-[#D32F2F] fill-current" />}
-                            </h3>
-                            <p className="text-xs text-gray-400">{sub.company_name}</p>
-                            <p className="text-xs text-[#F9D71C]">{sub.trade_category}</p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-3 h-3 ${
-                                    i < (sub.rating || 0) 
-                                      ? 'text-[#F9D71C] fill-current' 
-                                      : 'text-gray-600'
-                                  }`}
-                                />
-                              ))}
+                            <div className="flex items-center gap-2 mb-1">
+                              {subcontractor.is_preferred && (
+                                <Heart className="w-4 h-4 text-red-400 fill-current" />
+                              )}
+                              <h3 className="text-sm font-semibold text-white hover:text-blue-400">
+                                {subcontractor.name}
+                              </h3>
                             </div>
+                            {subcontractor.trade_category && (
+                              <span className="inline-block bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded text-xs mt-1">
+                                {subcontractor.trade_category}
+                              </span>
+                            )}
+                            {subcontractor.company_name && <p className="text-xs text-gray-400 mt-1">{subcontractor.company_name}</p>}
+                          </div>
+                          <div className="flex items-start gap-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                              Active
+                            </span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                console.log('🔧 Edit button clicked (card view) for subcontractor:', sub.name, sub.id);
-                                setEditingSubcontractor(sub);
-                                console.log('🔧 editingSubcontractor set to:', sub);
+                                setEditingSubcontractor(subcontractor);
                               }}
                               className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
                             >
@@ -603,42 +573,45 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                         </div>
 
                         <div className="space-y-2 mb-4">
-                          <div className="text-xs text-gray-400">{sub.specialty}</div>
-                          <div className="text-xs text-gray-300">{sub.phone}</div>
-                          <div className="text-xs text-blue-400">{sub.email}</div>
+                          <div className="text-xs text-blue-400">{subcontractor.email}</div>
+                          <div className="text-xs text-gray-300">{subcontractor.phone}</div>
+                          {subcontractor.address && <div className="text-xs text-gray-400">{subcontractor.address}</div>}
+                          {subcontractor.rating && (
+                            <div className="flex items-center gap-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-3 h-3 ${
+                                    i < subcontractor.rating! 
+                                      ? 'text-yellow-400 fill-current' 
+                                      : 'text-gray-600'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Rate</div>
-                            <div className="text-sm font-semibold text-green-400">
-                              ${sub.hourly_rate}/hr
+                                                  <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-[#121212] rounded-[4px] p-3">
+                              <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
+                              <div className="text-sm font-semibold text-green-400">
+                                {formatCurrency(subcontractor.totalValue || 0)}
+                              </div>
                             </div>
-                          </div>
                           <div className="bg-[#121212] rounded-[4px] p-3">
                             <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
                             <div className="text-sm font-semibold text-blue-400">
-                              {sub.projectCount || 0}
+                              {subcontractor.projectCount || 0}
                             </div>
                           </div>
                         </div>
 
-                        {(sub.license_number || sub.insurance_info) && (
-                          <div className="flex items-center gap-2 mt-3">
-                            {sub.license_number && (
-                              <div className="flex items-center gap-1 text-xs bg-[#333333] px-2 py-1 rounded">
-                                <Shield className="w-3 h-3" />
-                                <span>Licensed</span>
-                              </div>
-                            )}
-                            {sub.insurance_info && (
-                              <div className="flex items-center gap-1 text-xs bg-[#333333] px-2 py-1 rounded">
-                                <CheckCircle className="w-3 h-3" />
-                                <span>Insured</span>
-                              </div>
-                            )}
+                        <div className="mt-3 pt-3 border-t border-[#333333]">
+                          <div className="text-xs text-gray-400">
+                            Added: {subcontractor.created_at ? new Date(subcontractor.created_at).toLocaleDateString() : 'N/A'}
                           </div>
-                        )}
+                        </div>
                       </div>
                     ))}
                     {filteredSubcontractors.length === 0 && (

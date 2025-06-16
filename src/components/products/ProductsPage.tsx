@@ -4,6 +4,7 @@ import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRi
 import { ProductVariantComparison } from './ProductVariantComparison';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -241,16 +242,66 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
     // Search filter
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for product names
+          transform: (product) => product.name || ''
+        },
+        { 
+          key: 'description', 
+          weight: 1.5, // High weight for descriptions
+          transform: (product) => product.description || ''
+        },
+        { 
+          key: 'cost_code_name', 
+          weight: 1.3,
+          transform: (product) => product.cost_code?.name || ''
+        },
+        { 
+          key: 'cost_code_code', 
+          weight: 1.2,
+          transform: (product) => product.cost_code?.code || ''
+        },
+        { 
+          key: 'vendor_name', 
+          weight: 1.0,
+          transform: (product) => product.vendor?.name || ''
+        },
+        { 
+          key: 'category', 
+          weight: 0.9,
+          transform: (product) => product.category || ''
+        },
+        { 
+          key: 'type', 
+          weight: 0.8,
+          transform: (product) => product.type || ''
+        },
+        { 
+          key: 'unit', 
+          weight: 0.7,
+          transform: (product) => product.unit || ''
+        },
+        { 
+          key: 'price', 
+          weight: 1.0,
+          transform: (product) => formatCurrency(product.price || 0)
+        },
+        { 
+          key: 'status', 
+          weight: 0.6,
+          transform: (product) => product.status || ''
+        }
+      ];
+
       filtered = filtered.filter(product => {
-        const matchesSearch = 
-          product.name.toLowerCase().includes(searchLower) ||
-          product.description?.toLowerCase().includes(searchLower) ||
-          product.cost_code?.name?.toLowerCase().includes(searchLower) ||
-          product.cost_code?.code?.toLowerCase().includes(searchLower) ||
-          product.vendor?.name?.toLowerCase().includes(searchLower);
-        
-        return matchesSearch;
+        const searchResults = advancedSearch([product], searchTerm, searchableFields, {
+          minScore: 0.2, // Lower threshold for more inclusive results
+          requireAllTerms: false // Allow partial matches
+        });
+
+        return searchResults.length > 0;
       });
     }
 
@@ -638,21 +689,36 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-white">
-        {/* Header */}
-        <PageHeaderBar
-          title="Products"
-          searchPlaceholder="Search products..."
-          onSearch={(query) => setSearchInput(query)}
-          searchValue={searchInput}
-          addButtonLabel="Add Product"
-          onAddClick={() => setEditingProduct('new')}
-        />
-        
-        {/* Unified Stats + Content Container */}
-        <div className="bg-[#333333]/30 border border-[#333333] rounded-[4px]">
-          {/* Stats Section */}
-          <div className="px-6 py-4 border-b border-[#333333]/50 rounded-t-[4px]">
+    <div className="max-w-[1600px] mx-auto p-8">
+      {/* Single Unified Card */}
+      <div className="bg-transparent border border-[#333333]">
+        {/* Header Section */}
+        <div className="px-6 py-5 flex items-center justify-between">
+          <h1 className="text-xl font-semibold text-white">Products</h1>
+          
+          <div className="flex items-center gap-5">
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search products..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+              />
+            </div>
+            
+            <button
+              onClick={() => setEditingProduct('new')}
+              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Product</span>
+            </button>
+          </div>
+        </div>
+        {/* Stats Section */}
+        <div className="border-t border-[#333333] px-6 py-5">
             <div className="grid grid-cols-4 gap-6">
               <div>
                 <div className="text-xs text-gray-400 uppercase tracking-wider">CATALOG VALUE</div>
@@ -676,8 +742,8 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
           </div>
         </div>
 
-          {/* Controls Section */}
-          <div className="px-6 py-4 border-b border-[#333333]/50">
+        {/* Controls Section */}
+        <div className="border-t border-[#333333] px-6 py-4">
             <div className="flex items-center justify-between gap-4">
               {/* Left side - Filters */}
             <div className="flex items-center gap-3">
@@ -856,12 +922,12 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
               </div>
             )
           ) : (
-              <div className="bg-[#1A1A1A] overflow-hidden">
+              <div className="border-t border-[#333333] divide-y divide-[#333333]">
               {filteredProducts.map((product, index) => (
-                <div key={product.id} className="border-b border-[#333333] last:border-b-0">
+                <div key={product.id}>
                   {/* Base Product Header - Entire row clickable */}
                   <div
-                    className={`${isConstrained ? 'pl-4 pr-6 py-2' : 'pl-6 pr-8 py-3'} flex justify-between items-center cursor-pointer hover:bg-[#252525] transition-colors`}
+                    className={`${isConstrained ? 'pl-4 pr-6 py-2' : 'pl-6 pr-8 py-3'} flex justify-between items-center cursor-pointer hover:bg-[#1A1A1A] transition-colors`}
                     onClick={() => setExpandedProductId(expandedProductId === product.id ? null : product.id)}
                   >
                     <div className="flex items-center gap-3 flex-1 min-w-0">

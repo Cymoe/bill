@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 
 interface LineItem {
   id: string;
@@ -204,6 +205,42 @@ const ProductBuilder: React.FC<ProductBuilderProps> = ({
     return matchesSearch && matchesTrade;
   });
 
+  const filteredItems = lineItems.filter(item => {
+    // Advanced search filter
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for item names
+          transform: (item) => item.name || ''
+        },
+        { 
+          key: 'description', 
+          weight: 1.5, // High weight for descriptions
+          transform: (item) => item.description || ''
+        },
+        { 
+          key: 'unit', 
+          weight: 0.8,
+          transform: (item) => item.unit || ''
+        },
+        { 
+          key: 'price', 
+          weight: 1.0,
+          transform: (item) => formatCurrency(item.price || 0)
+        }
+      ];
+
+      const searchResults = advancedSearch([item], searchTerm, searchableFields, {
+        minScore: 0.2,
+        requireAllTerms: false
+      });
+
+      return searchResults.length > 0;
+    }
+    return true;
+  });
+
   return (
     <div className="product-builder bg-[#1E2130] rounded-lg p-4">
       <h2 className="text-xl font-medium text-white mb-4">
@@ -340,10 +377,10 @@ const ProductBuilder: React.FC<ProductBuilderProps> = ({
             <div className="line-items-list max-h-60 overflow-y-auto">
               {loading ? (
                 <div className="text-center text-gray-400 py-4">Loading...</div>
-              ) : filteredLineItems.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <div className="text-center text-gray-400 py-4">No items found.</div>
               ) : (
-                filteredLineItems.map(item => (
+                filteredItems.map(item => (
                   <div 
                     key={item.id} 
                     className="line-item p-3 mb-2 bg-[#1E2130] rounded-lg hover:bg-[#2A2F40] cursor-pointer transition-colors"

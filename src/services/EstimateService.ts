@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { EmailService } from './EmailService';
 
 export interface EstimateItem {
   id?: string;
@@ -22,7 +23,7 @@ export interface Estimate {
   estimate_number?: string;
   title?: string;
   description?: string;
-  status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+  status: 'draft' | 'sent' | 'opened' | 'accepted' | 'rejected' | 'expired';
   issue_date: string;
   expiry_date?: string;
   subtotal: number;
@@ -34,6 +35,11 @@ export interface Estimate {
   client_signature?: string;
   signed_at?: string;
   converted_to_invoice_id?: string;
+  first_opened_at?: string;
+  sent_at?: string;
+  last_sent_at?: string;
+  send_count?: number;
+  email_opened_at?: string;
   created_at?: string;
   updated_at?: string;
   items?: EstimateItem[];
@@ -42,6 +48,12 @@ export interface Estimate {
     email: string;
     company_name?: string;
     address?: string;
+    phone?: string;
+  };
+  user?: {
+    id: string;
+    email?: string;
+    company_name?: string;
     phone?: string;
   };
 }
@@ -478,6 +490,64 @@ export class EstimateService {
   }
 
   /**
+   * Send estimate via email
+   */
+  static async sendEstimate(
+    estimateId: string, 
+    recipientEmail: string,
+    options?: {
+      message?: string;
+      ccEmails?: string[];
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get the estimate with client details
+      const estimate = await this.getById(estimateId);
+      if (!estimate) {
+        throw new Error('Estimate not found');
+      }
+
+      if (!estimate.client) {
+        throw new Error('Estimate has no client assigned');
+      }
+
+      // Send the email
+      const result = await EmailService.sendEstimate(
+        estimate,
+        estimate.client,
+        recipientEmail,
+        options
+      );
+
+      if (result.success) {
+        // Update estimate status and tracking fields
+        const now = new Date().toISOString();
+        const { error: updateError } = await supabase
+          .from('estimates')
+          .update({
+            status: 'sent',
+            sent_at: estimate.sent_at || now, // Only set first time
+            last_sent_at: now,
+            send_count: (estimate.send_count || 0) + 1
+          })
+          .eq('id', estimateId);
+
+        if (updateError) {
+          console.error('Failed to update estimate status:', updateError);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error sending estimate:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send estimate'
+      };
+    }
+  }
+
+  /**
    * Update estimate status
    */
   static async updateStatus(id: string, status: Estimate['status']): Promise<void> {
@@ -561,5 +631,95 @@ export class EstimateService {
     });
 
     return estimate;
+  }
+
+  /**
+   * Send estimate via email
+   */
+  static async sendEstimate(
+    estimateId: string, 
+    recipientEmail: string,
+    options?: {
+      message?: string;
+      ccEmails?: string[];
+    }
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get the estimate with client details
+      const estimate = await this.getById(estimateId);
+      if (!estimate) {
+        throw new Error('Estimate not found');
+      }
+
+      if (!estimate.client) {
+        throw new Error('Estimate has no client assigned');
+      }
+
+      // Get user details for the from address
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        estimate.user = {
+          id: userData.user.id,
+          email: userData.user.email,
+          // Get additional user/company details if stored in profile
+        };
+      }
+
+      // Send the email
+      const result = await EmailService.sendEstimate(
+        estimate,
+        estimate.client,
+        recipientEmail,
+        options
+      );
+
+      if (result.success) {
+        // Update estimate status and tracking fields
+        const now = new Date().toISOString();
+        const { error: updateError } = await supabase
+          .from('estimates')
+          .update({
+            status: 'sent',
+            sent_at: estimate.sent_at || now, // Only set first time
+            last_sent_at: now,
+            send_count: (estimate.send_count || 0) + 1
+          })
+          .eq('id', estimateId);
+
+        if (updateError) {
+          console.error('Failed to update estimate status:', updateError);
+        }
+
+        // Log the email in email_logs table
+        const { error: logError } = await supabase
+          .from('email_logs')
+          .insert({
+            entity_type: 'estimate',
+            entity_id: estimateId,
+            user_id: estimate.user_id,
+            organization_id: estimate.organization_id,
+            recipient_email: recipientEmail,
+            cc_emails: options?.ccEmails,
+            subject: `Estimate ${estimate.estimate_number}`,
+            status: 'sent',
+            sent_at: now,
+            metadata: {
+              custom_message: options?.message
+            }
+          });
+
+        if (logError) {
+          console.error('Failed to log email:', logError);
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error sending estimate:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to send estimate'
+      };
+    }
   }
 }

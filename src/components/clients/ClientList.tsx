@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Phone, Mail, Calendar, Building, 
   Plus, Search, Filter, Edit2, Trash2, 
-  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp
+  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical, Grid3X3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { supabase } from '../../lib/supabase';
@@ -38,12 +39,14 @@ interface ClientListProps {
   showAddModal?: boolean;
   setShowAddModal?: (show: boolean) => void;
   hideAddButton?: boolean;
+  searchTerm?: string;
 }
 
 export const ClientList: React.FC<ClientListProps> = ({ 
   showAddModal: externalShowAddModal, 
   setShowAddModal: externalSetShowAddModal, 
-  hideAddButton = false 
+  hideAddButton = false,
+  searchTerm = ''
 }) => {
   const { user } = useAuth();
   const { isConstrained } = useContext(LayoutContext);
@@ -51,9 +54,8 @@ export const ClientList: React.FC<ClientListProps> = ({
   const navigate = useNavigate();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'condensed' | 'cards'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -133,9 +135,49 @@ export const ClientList: React.FC<ClientListProps> = ({
   }, [selectedOrg?.id]);
 
   const filteredClients = clients.filter(client => {
-    const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         client.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    // Advanced search filter
+    let matchesSearch = true;
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for client names
+          transform: (client) => client.name || ''
+        },
+        { 
+          key: 'company_name', 
+          weight: 1.5, // High weight for company names
+          transform: (client) => client.company_name || ''
+        },
+        { 
+          key: 'email', 
+          weight: 1.2,
+          transform: (client) => client.email || ''
+        },
+        { 
+          key: 'phone', 
+          weight: 0.8,
+          transform: (client) => client.phone || ''
+        },
+        { 
+          key: 'city', 
+          weight: 0.6,
+          transform: (client) => client.city || ''
+        },
+        { 
+          key: 'total_value', 
+          weight: 1.0,
+          transform: (client) => formatCurrency(client.totalValue || 0)
+        }
+      ];
+
+      const searchResults = advancedSearch([client], searchTerm, searchableFields, {
+        minScore: 0.2, // Lower threshold for more inclusive results
+        requireAllTerms: false // Allow partial matches
+      });
+
+      matchesSearch = searchResults.length > 0;
+    }
     
     let matchesStatus = true;
     if (selectedStatus !== 'all') {
@@ -171,15 +213,14 @@ export const ClientList: React.FC<ClientListProps> = ({
 
   const resetFilters = () => {
     setSelectedStatus('all');
-    setSearchTerm('');
   };
 
   return (
     <div>
       {loading ? (
         <div className="pb-8">
-          <div className="bg-transparent border border-[#333333] rounded-[4px]">
-            {viewMode === 'list' || viewMode === 'condensed' ? (
+          <div className="bg-transparent border border-[#333333]">
+            {viewMode === 'list' || viewMode === 'grid' ? (
               <TableSkeleton rows={5} columns={5} />
             ) : (
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -244,9 +285,9 @@ export const ClientList: React.FC<ClientListProps> = ({
           {/* Clients Section */}
           <div className="pb-8">
             {/* Unified Container */}
-            <div className="bg-transparent border border-[#333333] rounded-[4px]">
+            <div className="bg-transparent border border-[#333333]">
               {/* Stats Section */}
-              <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+              <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
                   <div className="grid grid-cols-4 gap-4">
                     <div className="text-center">
@@ -342,33 +383,24 @@ export const ClientList: React.FC<ClientListProps> = ({
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
+                    <div className="flex items-center gap-2">
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'list' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
                         onClick={() => setViewMode('list')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+                        }`}
                         title="List View"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'condensed' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
                         }`}
-                        onClick={() => setViewMode('condensed')}
-                        title="Condensed View"
+                        title="Grid View"
                       >
-                        <Rows3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'cards' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
-                        onClick={() => setViewMode('cards')}
-                        title="Cards View"
-                      >
-                        <LayoutGrid className="w-4 h-4" />
+                        <Grid3X3 className="w-4 h-4" />
                       </button>
                     </div>
                     
@@ -392,108 +424,63 @@ export const ClientList: React.FC<ClientListProps> = ({
 
               {/* Content */}
               <div className="flex-1 overflow-auto">
-                {viewMode === 'list' || viewMode === 'condensed' ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead className="bg-[#1E1E1E]">
-                        <tr>
-                          {viewMode === 'condensed' ? (
-                            <>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Contact</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Value</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                            </>
-                          ) : (
-                            <>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Client</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Contact Info</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Value</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#333333]">
-                        {filteredClients.map((client) => (
-                          <tr 
-                            key={client.id} 
-                            className="hover:bg-[#1E1E1E] transition-colors"
-                          >
-                            {viewMode === 'condensed' ? (
-                              <>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-medium text-white">
+                {viewMode === 'list' ? (
+                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                    <div className="space-y-0">
+                      {filteredClients.map((client, index) => (
+                        <div key={client.id} className="relative">
+                          <div className="w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div 
+                                    className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
+                                    onClick={() => navigate(`/clients/${client.id}`)}
+                                  >
                                     {client.name}
                                   </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs text-gray-300">{client.phone}</div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-green-400">
-                                    {formatCurrency(client.totalValue || 0)}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-blue-400">
-                                    {client.projectCount || 0}
-                                  </div>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="px-6 py-4">
-                                  <div>
-                                    <div 
-                                      className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
-                                      onClick={() => navigate(`/clients/${client.id}`)}
-                                    >
-                                      {client.name}
-                                    </div>
-                                    <div className="text-xs text-gray-400">{client.company_name}</div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-gray-300">{client.phone}</div>
-                                  <div className="text-xs text-blue-400">{client.email}</div>
-                                  <div className="text-xs text-gray-400">
-                                    {client.city && client.state ? `${client.city}, ${client.state}` : ''}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                                    Active
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400 mb-1">
+                                  {client.company_name && <span>{client.company_name}</span>}
+                                  {client.city && client.state && <span>{client.city}, {client.state}</span>}
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400">
+                                  {client.email && <span className="text-blue-400">{client.email}</span>}
+                                  {client.phone && <span>{client.phone}</span>}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-right">
                                   <div className="text-sm font-semibold text-green-400">
                                     {formatCurrency(client.totalValue || 0)}
                                   </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm font-semibold text-blue-400">
-                                    {client.projectCount || 0}
+                                  <div className="text-xs text-gray-400">
+                                    {client.projectCount || 0} projects
                                   </div>
-                                  {client.lastProjectDate && (
-                                    <div className="text-xs text-gray-400">
-                                      Last: {new Date(client.lastProjectDate).toLocaleDateString()}
-                                    </div>
-                                  )}
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingClient(client);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                </div>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingClient(client);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                  title="Edit client"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     {filteredClients.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-gray-400">No clients match your filters</p>
@@ -505,40 +492,46 @@ export const ClientList: React.FC<ClientListProps> = ({
                     {filteredClients.map((client) => (
                       <div
                         key={client.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors"
+                        className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] p-4 hover:bg-[#252525] transition-colors cursor-pointer"
+                        onClick={() => navigate(`/clients/${client.id}`)}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex-1">
-                            <h3 
-                              className="text-sm font-semibold text-white mb-1 hover:text-blue-400 cursor-pointer"
-                              onClick={() => navigate(`/clients/${client.id}`)}
-                            >
+                            <h3 className="text-sm font-semibold text-white mb-1 hover:text-blue-400">
                               {client.name}
                             </h3>
-                            <p className="text-xs text-gray-400">{client.company_name}</p>
+                            {client.company_name && <p className="text-xs text-gray-400">{client.company_name}</p>}
+                            {client.city && client.state && <p className="text-xs text-gray-400">{client.city}, {client.state}</p>}
                           </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingClient(client);
-                            }}
-                            className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
-                          >
-                            Edit
-                          </button>
+                          <div className="flex items-start gap-2">
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-400/10 text-green-400">
+                              Active
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingClient(client);
+                              }}
+                              className="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 rounded-md border border-blue-400/30 hover:border-blue-300/50 transition-colors"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </div>
 
                         <div className="space-y-2 mb-4">
                           <div className="text-xs text-blue-400">{client.email}</div>
                           <div className="text-xs text-gray-300">{client.phone}</div>
                           {client.city && client.state && (
-                            <div className="text-xs text-gray-400">{client.city}, {client.state}</div>
+                            <div className="text-xs text-gray-400">
+                              {client.city}, {client.state}
+                            </div>
                           )}
                         </div>
 
                         <div className="grid grid-cols-2 gap-3">
                           <div className="bg-[#121212] rounded-[4px] p-3">
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Value</div>
+                            <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
                             <div className="text-sm font-semibold text-green-400">
                               {formatCurrency(client.totalValue || 0)}
                             </div>
@@ -551,13 +544,11 @@ export const ClientList: React.FC<ClientListProps> = ({
                           </div>
                         </div>
 
-                        {client.lastProjectDate && (
-                          <div className="mt-3 pt-3 border-t border-[#333333]">
-                            <div className="text-xs text-gray-400">
-                              Last Project: {new Date(client.lastProjectDate).toLocaleDateString()}
-                            </div>
+                        <div className="mt-3 pt-3 border-t border-[#333333]">
+                          <div className="text-xs text-gray-400">
+                            Added: {client.created_at ? new Date(client.created_at).toLocaleDateString() : 'N/A'}
                           </div>
-                        )}
+                        </div>
                       </div>
                     ))}
                     {filteredClients.length === 0 && (

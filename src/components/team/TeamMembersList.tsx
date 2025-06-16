@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { 
   UserCheck, Phone, Mail, Calendar, Users, 
   Plus, Search, Filter, Edit2, Trash2, 
-  Shield, CheckCircle, ChevronDown, Settings, List, LayoutGrid, Rows3
+  Shield, CheckCircle, ChevronDown, Settings, List, Grid3X3, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { TeamMemberService, TeamMember, DEPARTMENTS, EMPLOYMENT_TYPES } from '../../services/TeamMemberService';
@@ -18,12 +19,14 @@ interface TeamMembersListProps {
   showAddModal?: boolean;
   setShowAddModal?: (show: boolean) => void;
   hideAddButton?: boolean;
+  searchTerm?: string;
 }
 
 export const TeamMembersList: React.FC<TeamMembersListProps> = ({ 
   showAddModal: externalShowAddModal, 
   setShowAddModal: externalSetShowAddModal, 
-  hideAddButton = false 
+  hideAddButton = false,
+  searchTerm = ''
 }) => {
   const { user } = useAuth();
   const { isConstrained } = useContext(LayoutContext);
@@ -31,10 +34,9 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
   const navigate = useNavigate();
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'condensed' | 'cards'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
   
@@ -70,9 +72,55 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
   };
 
   const filteredTeamMembers = teamMembers.filter(member => {
-    const matchesSearch = member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (member.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         member.job_title.toLowerCase().includes(searchTerm.toLowerCase());
+    // Advanced search filter
+    let matchesSearch = true;
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for member names
+          transform: (member) => member.name || ''
+        },
+        { 
+          key: 'email', 
+          weight: 1.5, // High weight for emails
+          transform: (member) => member.email || ''
+        },
+        { 
+          key: 'job_title', 
+          weight: 1.3,
+          transform: (member) => member.job_title || ''
+        },
+        { 
+          key: 'department', 
+          weight: 1.0,
+          transform: (member) => member.department || ''
+        },
+        { 
+          key: 'phone', 
+          weight: 0.8,
+          transform: (member) => member.phone || ''
+        },
+        { 
+          key: 'employment_type', 
+          weight: 0.7,
+          transform: (member) => member.employment_type || ''
+        },
+        { 
+          key: 'status', 
+          weight: 0.6,
+          transform: (member) => member.status || ''
+        }
+      ];
+
+      const searchResults = advancedSearch([member], searchTerm, searchableFields, {
+        minScore: 0.2, // Lower threshold for more inclusive results
+        requireAllTerms: false // Allow partial matches
+      });
+
+      matchesSearch = searchResults.length > 0;
+    }
+
     const matchesDepartment = selectedDepartment === 'all' || member.department === selectedDepartment;
     const matchesStatus = selectedStatus === 'all' || member.status === selectedStatus;
     
@@ -106,8 +154,8 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
     <div>
       {loading ? (
         <div className="pb-8">
-          <div className="bg-transparent border border-[#333333] rounded-[4px]">
-            {viewMode === 'list' || viewMode === 'condensed' ? (
+          <div className="bg-transparent border border-[#333333]">
+            {viewMode === 'list' || viewMode === 'grid' ? (
               <TableSkeleton rows={5} columns={5} />
             ) : (
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -167,9 +215,9 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
           {/* Team Members Section */}
           <div className="pb-8">
             {/* Unified Container */}
-            <div className="bg-transparent border border-[#333333] rounded-[4px]">
-              {/* Stats Section */}
-              <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50 rounded-t-[4px]`}>
+                    <div className="bg-transparent border border-[#333333]">
+          {/* Stats Section */}
+          <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
                   <div className="grid grid-cols-4 gap-4">
                     <div className="text-center">
@@ -251,33 +299,24 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                   </div>
                   
                   <div className="flex items-center gap-3">
-                    <div className="flex bg-[#1E1E1E] border border-[#333333] rounded-[4px] overflow-hidden">
+                    <div className="flex items-center gap-2">
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'list' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
                         onClick={() => setViewMode('list')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+                        }`}
                         title="List View"
                       >
                         <List className="w-4 h-4" />
                       </button>
                       <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'condensed' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
+                        onClick={() => setViewMode('grid')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
                         }`}
-                        onClick={() => setViewMode('condensed')}
-                        title="Condensed View"
+                        title="Grid View"
                       >
-                        <Rows3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          viewMode === 'cards' ? 'bg-white text-[#121212]' : 'text-gray-400 hover:bg-[#252525]'
-                        }`}
-                        onClick={() => setViewMode('cards')}
-                        title="Cards View"
-                      >
-                        <LayoutGrid className="w-4 h-4" />
+                        <Grid3X3 className="w-4 h-4" />
                       </button>
                     </div>
                     
@@ -296,129 +335,64 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
 
               {/* Content */}
               <div className="flex-1 overflow-auto">
-                {viewMode === 'list' || viewMode === 'condensed' ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full">
-                      <thead className="bg-[#1E1E1E]">
-                        <tr>
-                          {viewMode === 'condensed' ? (
-                            <>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Name</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Role</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Hours</th>
-                              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </>
-                          ) : (
-                            <>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Team Member</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Role</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Projects</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Hours</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">Actions</th>
-                            </>
-                          )}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#333333]">
-                        {filteredTeamMembers.map((member) => (
-                          <tr 
-                            key={member.id} 
-                            className="hover:bg-[#1E1E1E] transition-colors"
-                          >
-                            {viewMode === 'condensed' ? (
-                              <>
-                                <td className="px-3 py-2">
+                {viewMode === 'list' ? (
+                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                    <div className="space-y-0">
+                      {filteredTeamMembers.map((member, index) => (
+                        <div key={member.id} className="relative">
+                          <div className="w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-3 mb-2">
                                   <div 
-                                    className="text-xs font-medium text-white hover:text-blue-400 cursor-pointer"
+                                    className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
                                     onClick={() => navigate(`/team-members/${member.id}`)}
                                   >
                                     {member.name}
                                   </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs text-[#F9D71C] font-medium">{member.job_title}</div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium capitalize ${getStatusColor(member.status)}`}>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium capitalize ${getStatusColor(member.status)}`}>
                                     {member.status}
                                   </span>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-blue-400">
-                                    {member.projectsAssigned || 0}
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <div className="text-xs font-semibold text-yellow-400">
-                                    {member.hoursThisMonth || 0}h
-                                  </div>
-                                </td>
-                                <td className="px-3 py-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingTeamMember(member);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 text-xs font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                </td>
-                              </>
-                            ) : (
-                              <>
-                                <td className="px-6 py-4">
-                                  <div>
-                                    <div 
-                                      className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
-                                      onClick={() => navigate(`/team-members/${member.id}`)}
-                                    >
-                                      {member.name}
-                                    </div>
-                                    <div className="text-xs text-blue-400">{member.email}</div>
-                                    <div className="text-xs text-gray-400">{member.phone}</div>
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm text-[#F9D71C] font-medium">{member.job_title}</div>
-                                  <div className="text-xs text-gray-400">{member.department}</div>
-                                  <div className="text-xs text-gray-400 capitalize">{member.employment_type}</div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(member.status)}`}>
-                                    {member.status}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4">
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400 mb-1">
+                                  <span className="text-[#F9D71C] font-medium">{member.job_title}</span>
+                                  <span>{member.department}</span>
+                                  <span className="capitalize">{member.employment_type}</span>
+                                </div>
+                                
+                                <div className="flex items-center gap-4 text-xs text-gray-400">
+                                  {member.email && <span className="text-blue-400">{member.email}</span>}
+                                  {member.phone && <span>{member.phone}</span>}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 flex-shrink-0">
+                                <div className="text-right">
                                   <div className="text-sm font-semibold text-blue-400">
-                                    {member.projectsAssigned || 0}
+                                    {member.projectsAssigned || 0} projects
                                   </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <div className="text-sm font-semibold text-yellow-400">
-                                    {member.hoursThisMonth || 0}h
+                                  <div className="text-xs text-yellow-400">
+                                    {member.hoursThisMonth || 0}h this month
                                   </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setEditingTeamMember(member);
-                                    }}
-                                    className="text-blue-400 hover:text-blue-300 text-sm font-medium"
-                                  >
-                                    Edit
-                                  </button>
-                                </td>
-                              </>
-                            )}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                                </div>
+                                
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTeamMember(member);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                  title="Edit team member"
+                                >
+                                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                     {filteredTeamMembers.length === 0 && (
                       <div className="text-center py-12">
                         <p className="text-gray-400">No team members match your filters</p>

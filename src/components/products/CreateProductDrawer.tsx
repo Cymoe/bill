@@ -4,6 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { formatCurrency } from '../../utils/format';
 import { Search, Plus, Minus, X, Save } from 'lucide-react';
 import { PRODUCT_COLLECTIONS } from '../../constants/collections';
+import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 
 interface LineItem {
   id: string;
@@ -89,17 +90,44 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
     }
   };
 
-  const filteredLineItems = lineItems.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = activeType === 'all' || item.type === activeType;
-    const notAlreadySelected = !selectedLineItems.find(s => s.id === item.id);
-    
-    return matchesSearch && matchesType && notAlreadySelected;
+  const filteredItems = lineItems.filter(item => {
+    // Advanced search filter
+    if (searchTerm) {
+      const searchableFields: SearchableField[] = [
+        { 
+          key: 'name', 
+          weight: 2.0, // Higher weight for item names
+          transform: (item) => item.name || ''
+        },
+        { 
+          key: 'description', 
+          weight: 1.5, // High weight for descriptions
+          transform: (item) => item.description || ''
+        },
+        { 
+          key: 'unit', 
+          weight: 0.8,
+          transform: (item) => item.unit || ''
+        },
+        { 
+          key: 'price', 
+          weight: 1.0,
+          transform: (item) => formatCurrency(item.price || 0)
+        }
+      ];
+
+      const searchResults = advancedSearch([item], searchTerm, searchableFields, {
+        minScore: 0.2,
+        requireAllTerms: false
+      });
+
+      return searchResults.length > 0;
+    }
+    return true;
   });
 
   // Group filtered items by cost code
-  const groupedLineItems = filteredLineItems.reduce((groups, item) => {
+  const groupedLineItems = filteredItems.reduce((groups, item) => {
     const costCode = costCodes.find(c => c.id === item.cost_code_id);
     const costCodeName = costCode?.name || 'Unassigned';
     
@@ -281,7 +309,7 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
             <div className="flex-1 overflow-y-auto">
               {isLoading ? (
                 <div className="text-center py-8 text-gray-400 text-sm">Loading...</div>
-              ) : filteredLineItems.length === 0 ? (
+              ) : filteredItems.length === 0 ? (
                 <div className="text-center py-8 text-gray-400 text-sm">
                   {searchTerm ? 'No items found' : 'No items available'}
                 </div>

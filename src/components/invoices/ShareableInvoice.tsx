@@ -31,6 +31,17 @@ export const ShareableInvoice: React.FC = () => {
       if (invoiceData) {
         setInvoice(invoiceData);
         
+        // Track that the invoice has been opened if not already
+        if (invoiceData.status === 'sent' && !invoiceData.first_opened_at) {
+          await supabase
+            .from('invoices')
+            .update({ 
+              status: 'opened',
+              first_opened_at: new Date().toISOString()
+            })
+            .eq('id', id);
+        }
+        
         // Fetch client data
         const { data: clientData, error: clientError } = await supabase
           .from('clients')
@@ -200,7 +211,7 @@ export const ShareableInvoice: React.FC = () => {
       </div>
 
       {/* Print Styles */}
-      <style jsx>{`
+      <style>{`
         @media print {
           body {
             print-color-adjust: exact;
