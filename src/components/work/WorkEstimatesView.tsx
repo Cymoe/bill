@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   FileText, Filter, MoreVertical, 
   Eye, Edit, Trash2, Send, CheckCircle, 
-  XCircle, AlertTriangle, Plus, Share2, Copy 
+  XCircle, AlertTriangle, Plus, Share2, Copy, List, Grid3X3
 } from 'lucide-react';
 import { EstimateService, Estimate } from '../../services/EstimateService';
 import { OrganizationContext } from '../layouts/DashboardLayout';
@@ -24,6 +24,7 @@ export const WorkEstimatesView: React.FC = () => {
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharingEstimate, setSharingEstimate] = useState<Estimate | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
   // Debounce search input
   useEffect(() => {
@@ -172,27 +173,47 @@ export const WorkEstimatesView: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="px-6 py-3 border-b border-[#1E1E1E] flex items-center gap-4">
-        <select
-          className="bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#F9D71C]"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as any)}
-        >
-          <option value="all">All Estimates ({estimates.length})</option>
-          <option value="draft">Drafts ({statusCounts.draft || 0})</option>
-          <option value="sent">Sent ({statusCounts.sent || 0})</option>
-          <option value="opened">Opened ({statusCounts.opened || 0})</option>
-          <option value="accepted">Accepted ({statusCounts.accepted || 0})</option>
-          <option value="rejected">Rejected ({statusCounts.rejected || 0})</option>
-          <option value="expired">Expired ({statusCounts.expired || 0})</option>
-        </select>
-        <button className="flex items-center gap-2 px-3 py-1.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] border border-[#333] rounded-lg text-sm text-white transition-colors">
-          <Filter className="w-4 h-4" />
-          More Filters
-        </button>
-        <button className="ml-auto p-1.5 hover:bg-[#1E1E1E] rounded transition-colors">
-          <MoreVertical className="w-4 h-4 text-gray-400" />
-        </button>
+      <div className="px-6 py-3 border-b border-[#1E1E1E] flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <select
+            className="bg-[#1E1E1E] border border-[#333] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#F9D71C]"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as any)}
+          >
+            <option value="all">All Estimates ({estimates.length})</option>
+            <option value="draft">Drafts ({statusCounts.draft || 0})</option>
+            <option value="sent">Sent ({statusCounts.sent || 0})</option>
+            <option value="opened">Opened ({statusCounts.opened || 0})</option>
+            <option value="accepted">Accepted ({statusCounts.accepted || 0})</option>
+            <option value="rejected">Rejected ({statusCounts.rejected || 0})</option>
+            <option value="expired">Expired ({statusCounts.expired || 0})</option>
+          </select>
+          <button className="flex items-center gap-2 px-3 py-1.5 bg-[#1E1E1E] hover:bg-[#2A2A2A] border border-[#333] rounded-lg text-sm text-white transition-colors">
+            <Filter className="w-4 h-4" />
+            More Filters
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-1.5 rounded transition-colors ${
+              viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded transition-colors ${
+              viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Grid3X3 className="w-4 h-4" />
+          </button>
+          <button className="ml-2 p-1.5 hover:bg-[#1E1E1E] rounded transition-colors">
+            <MoreVertical className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
       </div>
 
       {/* Table */}
