@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
+import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
 
 interface Invoice {
   id: string;
@@ -35,6 +36,7 @@ export const WorkInvoicesView: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | Invoice['status']>('all');
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+  const [showInvoiceDrawer, setShowInvoiceDrawer] = useState(false);
 
   useEffect(() => {
     if (selectedOrg?.id) {
@@ -156,7 +158,10 @@ export const WorkInvoicesView: React.FC = () => {
             className="px-3 py-1.5 bg-[#1E1E1E] border border-[#333] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#F9D71C]"
           />
           <button
-            onClick={() => navigate('/invoices/new')}
+            onClick={() => {
+              console.log('Add Invoice clicked, setting showInvoiceDrawer to true');
+              setShowInvoiceDrawer(true);
+            }}
             className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-gray-100 rounded-lg text-black text-sm font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -235,7 +240,7 @@ export const WorkInvoicesView: React.FC = () => {
             </p>
             {!searchTerm && statusFilter === 'all' && (
               <button
-                onClick={() => navigate('/invoices/new')}
+                onClick={() => setShowInvoiceDrawer(true)}
                 className="px-4 py-2 bg-[#F9D71C] hover:bg-[#E5C61A] rounded-lg text-black font-medium transition-colors"
               >
                 Create Invoice
@@ -386,6 +391,17 @@ export const WorkInvoicesView: React.FC = () => {
           </table>
         )}
       </div>
+      
+      {/* Create Invoice Drawer */}
+      {console.log('Rendering CreateInvoiceDrawer with isOpen:', showInvoiceDrawer)}
+      <CreateInvoiceDrawer
+        isOpen={showInvoiceDrawer}
+        onClose={() => {
+          console.log('Closing invoice drawer');
+          setShowInvoiceDrawer(false);
+          loadInvoices(); // Refresh invoices after creation
+        }}
+      />
     </div>
   );
 };

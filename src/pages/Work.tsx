@@ -11,6 +11,7 @@ import { ProjectList } from '../components/projects/ProjectList';
 import { EstimatesList } from '../components/estimates/EstimatesList';
 import { InvoiceList } from '../components/invoices/InvoiceList';
 import { CreateEstimateDrawer } from '../components/estimates/CreateEstimateDrawer';
+import { CreateInvoiceDrawer } from '../components/invoices/CreateInvoiceDrawer';
 import { EstimateService } from '../services/EstimateService';
 import { useAuth } from '../contexts/AuthContext';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
@@ -39,6 +40,7 @@ export const Work: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateEstimate, setShowCreateEstimate] = useState(false);
+  const [showCreateInvoice, setShowCreateInvoice] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Debounce search input
@@ -60,43 +62,44 @@ export const Work: React.FC = () => {
     }
   }, [location]);
 
+  // Function to load stats
+  const loadStats = async () => {
+    if (!selectedOrg?.id) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const [estimatesData, projectsData, invoicesData] = await Promise.all([
+        supabase
+          .from('estimates')
+          .select('id', { count: 'exact' })
+          .eq('organization_id', selectedOrg.id),
+        supabase
+          .from('projects')
+          .select('id', { count: 'exact' })
+          .eq('organization_id', selectedOrg.id),
+        supabase
+          .from('invoices')
+          .select('id', { count: 'exact' })
+          .eq('organization_id', selectedOrg.id)
+      ]);
+
+      setStats({
+        estimatesCount: estimatesData.count || 0,
+        projectsCount: projectsData.count || 0,
+        invoicesCount: invoicesData.count || 0
+      });
+    } catch (error) {
+      console.error('Error fetching work stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Fetch stats for tab badges
   useEffect(() => {
-    const fetchStats = async () => {
-      if (!selectedOrg?.id) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const [estimatesData, projectsData, invoicesData] = await Promise.all([
-          supabase
-            .from('estimates')
-            .select('id', { count: 'exact' })
-            .eq('organization_id', selectedOrg.id),
-          supabase
-            .from('projects')
-            .select('id', { count: 'exact' })
-            .eq('organization_id', selectedOrg.id),
-          supabase
-            .from('invoices')
-            .select('id', { count: 'exact' })
-            .eq('organization_id', selectedOrg.id)
-        ]);
-
-        setStats({
-          estimatesCount: estimatesData.count || 0,
-          projectsCount: projectsData.count || 0,
-          invoicesCount: invoicesData.count || 0
-        });
-      } catch (error) {
-        console.error('Error fetching work stats:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
+    loadStats();
   }, [selectedOrg]);
 
   const handleTabChange = (tab: TabType) => {
@@ -112,7 +115,7 @@ export const Work: React.FC = () => {
   };
 
   const handleCreateInvoice = () => {
-    navigate('/invoices/new');
+    setShowCreateInvoice(true);
   };
 
   const getAddButtonText = () => {
@@ -277,6 +280,17 @@ export const Work: React.FC = () => {
           } catch (error) {
             console.error('Error creating estimate:', error);
           }
+        }}
+      />
+      
+      {/* Create Invoice Drawer */}
+      <CreateInvoiceDrawer
+        isOpen={showCreateInvoice}
+        onClose={() => {
+          setShowCreateInvoice(false);
+          // Refresh the invoices list and stats
+          setRefreshTrigger(prev => prev + 1);
+          loadStats();
         }}
       />
     </div>

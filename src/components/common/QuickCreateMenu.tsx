@@ -46,10 +46,10 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
       icon: '$',
       shortcut: '⌘⇧I',
       action: () => {
-        // Close the menu first
-        onClose();
-        // Open the drawer immediately
+        // Open the drawer
         setShowInvoiceDrawer(true);
+        // Then close the menu after a short delay to ensure state updates
+        setTimeout(() => onClose(), 100);
       }
     },
     {
@@ -137,8 +137,8 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
 
   const handleOptionClick = (option: QuickCreateOption) => {
     option.action();
-    // Only close for non-project options
-    if (option.id !== 'project') {
+    // Only close for non-project and non-invoice options
+    if (option.id !== 'project' && option.id !== 'invoice') {
       onClose();
     }
   };
