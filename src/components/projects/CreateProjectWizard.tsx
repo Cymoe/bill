@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { ExpenseService } from '../../services/expenseService';
+import { ActivityLogService } from '../../services/ActivityLogService';
 import WorkPackSelector from './WorkPackSelector';
 
 // Map category names to IDs from the database
@@ -638,6 +639,26 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
         }
 
         console.log('Project created successfully:', project);
+
+        // Log the activity
+        try {
+          await ActivityLogService.log({
+            organizationId: selectedOrg.id,
+            entityType: 'project',
+            entityId: project.id,
+            action: 'created',
+            description: `created project ${project.name}`,
+            metadata: {
+              client_id: project.client_id,
+              client_name: formData.client_id ? clients.find(c => c.id === formData.client_id)?.name : null,
+              status: project.status,
+              budget: project.budget,
+              category: selectedCategory?.name
+            }
+          });
+        } catch (logError) {
+          console.error('Failed to log project creation activity:', logError);
+        }
 
         // If project status is 'quoted', create an estimate
         if (projectStatus === 'quoted' && project) {

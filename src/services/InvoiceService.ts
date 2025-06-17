@@ -110,19 +110,22 @@ export class InvoiceService {
   /**
    * Create a new invoice
    */
-  static async create(invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'invoice_number'> & { 
+  static async create(invoice: Omit<Invoice, 'id' | 'created_at' | 'updated_at' | 'invoice_number' | 'amount' | 'subtotal'> & { 
     organization_id: string;
-    invoice_items?: InvoiceItem[] 
+    items?: InvoiceItem[] 
   }): Promise<Invoice> {
-    const { invoice_items, ...invoiceData } = invoice;
+    const { items, ...invoiceData } = invoice;
+
+    // Calculate subtotal and total amount from items
+    const subtotal = items ? items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0) : 0;
+    const totalAmount = subtotal; // Assuming tax is handled separately or not at all for now
 
     // Generate invoice number
     const year = new Date().getFullYear();
     const timestamp = Date.now().toString().slice(-6);
     const invoiceNumber = `INV-${year}-${timestamp}`;
 
-    // Create the invoice - map fields to match database schema
-    // Ensure due_date is a proper timestamp
+    // Create the invoice
     const dueDateTimestamp = new Date(invoiceData.due_date + 'T00:00:00Z').toISOString();
     
     const invoiceToInsert = {
@@ -134,15 +137,13 @@ export class InvoiceService {
       status: invoiceData.status || 'draft',
       issue_date: invoiceData.issue_date,
       due_date: dueDateTimestamp,
-      amount: invoiceData.amount || 0,
-      subtotal: invoiceData.subtotal || invoiceData.amount || 0,
+      amount: totalAmount,
+      subtotal: subtotal,
       tax_rate: invoiceData.tax_rate || 0,
       tax_amount: invoiceData.tax_amount || 0,
       notes: invoiceData.notes || '',
       terms: invoiceData.terms || 'Net 30'
     };
-    
-    console.log('Inserting invoice with data:', invoiceToInsert);
     
     const { data: newInvoice, error: invoiceError } = await supabase
       .from('invoices')
@@ -155,8 +156,8 @@ export class InvoiceService {
     }
 
     // Add items if provided
-    if (invoice_items && invoice_items.length > 0) {
-      const itemsData = invoice_items.map(item => ({
+    if (items && items.length > 0) {
+      const itemsData = items.map(item => ({
         ...item,
         invoice_id: newInvoice.id
       }));
@@ -171,25 +172,30 @@ export class InvoiceService {
     }
 
     // Log the activity
-    await ActivityLogService.log({
-      organizationId: invoice.organization_id,
-      entityType: 'invoice',
-      entityId: newInvoice.id,
-      action: 'created',
-      description: ActivityLogService.buildDescription(
-        'created',
-        'invoice',
-        newInvoice.invoice_number,
-        `for ${invoice.amount}`
-      ),
-      metadata: {
-        clientId: invoice.client_id,
-        amount: invoice.amount,
-        status: invoice.status
-      }
-    });
+    try {
+      await ActivityLogService.log({
+        organizationId: invoice.organization_id,
+        entityType: 'invoice',
+        entityId: newInvoice.id.toString(),
+        action: 'created',
+        description: `created invoice ${newInvoice.invoice_number}`,
+        metadata: {
+          clientId: invoice.client_id,
+          amount: totalAmount,
+          status: newInvoice.status,
+          invoice_number: newInvoice.invoice_number
+        }
+      });
+    } catch (error) {
+      console.error('[InvoiceService] Activity logging failed:', error);
+      console.error('[InvoiceService] Invoice details:', {
+        id: newInvoice.id,
+        invoice_number: newInvoice.invoice_number,
+        organization_id: invoice.organization_id
+      });
+      // Do not re-throw. A logging failure should not prevent invoice creation.
+    }
 
-    // Return the complete invoice
     return this.getById(newInvoice.id);
   }
 
@@ -245,11 +251,7 @@ export class InvoiceService {
       entityType: 'invoice',
       entityId: id,
       action: 'updated',
-      description: ActivityLogService.buildDescription(
-        'updated',
-        'invoice',
-        updatedInvoice.invoice_number!
-      ),
+      description: `updated invoice ${updatedInvoice.invoice_number}`,
       metadata: {
         changes: invoiceData
       }
@@ -281,12 +283,7 @@ export class InvoiceService {
       entityType: 'invoice',
       entityId: id,
       action: 'status_changed',
-      description: ActivityLogService.buildDescription(
-        'status_changed',
-        'invoice',
-        invoice.invoice_number!,
-        `to ${status}`
-      ),
+      description: `changed status of invoice ${invoice.invoice_number}`,
       metadata: {
         oldStatus: invoice.status,
         newStatus: status
@@ -378,12 +375,7 @@ export class InvoiceService {
           entityType: 'invoice',
           entityId: invoiceId,
           action: 'sent',
-          description: ActivityLogService.buildDescription(
-            'sent',
-            'invoice',
-            invoice.invoice_number!,
-            `to ${recipientEmail}`
-          ),
+          description: `sent invoice ${invoice.invoice_number}`,
           metadata: {
             recipientEmail,
             ccEmails: options?.ccEmails,
@@ -492,7 +484,7 @@ export class InvoiceService {
       .from('invoices')
       .update({ 
         status: 'paid',
-        total_paid: supabase.raw('amount'),
+        total_paid: invoice.amount,
         balance_due: 0
       })
       .eq('id', id);
@@ -507,12 +499,7 @@ export class InvoiceService {
       entityType: 'invoice',
       entityId: id,
       action: 'paid',
-      description: ActivityLogService.buildDescription(
-        'paid',
-        'invoice',
-        invoice.invoice_number!,
-        `amount: ${invoice.amount}`
-      ),
+      description: `marked invoice ${invoice.invoice_number} as paid`,
       metadata: {
         amount: invoice.amount,
         previousStatus: invoice.status
@@ -615,11 +602,7 @@ export class InvoiceService {
       entityType: 'invoice',
       entityId: id,
       action: 'deleted',
-      description: ActivityLogService.buildDescription(
-        'deleted',
-        'invoice',
-        invoice.invoice_number!
-      ),
+      description: `deleted invoice ${invoice.invoice_number}`,
       metadata: {
         invoiceNumber: invoice.invoice_number,
         amount: invoice.amount,

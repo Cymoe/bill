@@ -109,11 +109,7 @@ export class TeamMemberService {
           entityType: 'team_member',
           entityId: data.id,
           action: 'created',
-          description: ActivityLogService.buildDescription(
-            'created',
-            'team_member',
-            data.name
-          ),
+          description: `created team member ${data.name}`,
           metadata: {
             job_title: data.job_title,
             department: data.department,
@@ -150,11 +146,7 @@ export class TeamMemberService {
           entityType: 'team_member',
           entityId: id,
           action: 'updated',
-          description: ActivityLogService.buildDescription(
-            'updated',
-            'team_member',
-            data.name
-          ),
+          description: `updated team member ${data.name}`,
           metadata: {
             updated_fields: Object.keys(updates),
             ...updates
@@ -194,11 +186,7 @@ export class TeamMemberService {
           entityType: 'team_member',
           entityId: id,
           action: 'deleted',
-          description: ActivityLogService.buildDescription(
-            'deleted',
-            'team_member',
-            teamMember.name
-          ),
+          description: `deleted team member ${teamMember.name}`,
           metadata: {
             name: teamMember.name,
             job_title: teamMember.job_title,

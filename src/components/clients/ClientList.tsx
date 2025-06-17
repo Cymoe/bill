@@ -2,8 +2,8 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, Phone, Mail, Calendar, Building, 
-  Plus, Search, Filter, Edit2, Trash2, 
-  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical, Grid3X3
+  Plus, Search, Filter, Edit2, Trash2, Eye,
+  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -56,11 +56,13 @@ export const ClientList: React.FC<ClientListProps> = ({
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'compact'>('compact');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Use external modal state if provided, otherwise use internal state
   const showNewModal = externalShowAddModal !== undefined ? externalShowAddModal : internalShowNewModal;
@@ -70,16 +72,28 @@ export const ClientList: React.FC<ClientListProps> = ({
   console.log('🔧 ClientList render - externalShowAddModal:', externalShowAddModal);
   console.log('🔧 ClientList render - internalShowNewModal:', internalShowNewModal);
 
-  // Close filter menu on outside click
+  // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      
+      // Check if click is outside filter menu
+      if (filterMenuRef.current && !filterMenuRef.current.contains(target)) {
         setShowFilterMenu(false);
+      }
+      
+      // Check if click is outside all dropdown menus
+      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
+        !ref || !ref.contains(target)
+      );
+      
+      if (isOutsideDropdown && openDropdownId) {
+        setOpenDropdownId(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [openDropdownId]);
 
   // Load clients from database
   const loadClients = async () => {
@@ -217,13 +231,13 @@ export const ClientList: React.FC<ClientListProps> = ({
   };
 
   if (loading) {
-    return viewMode === 'list' ? <TableSkeleton /> : <CardSkeleton />;
+    return <TableSkeleton />;
   }
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex-1 flex flex-col min-h-0">
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] flex flex-col h-full">
+        <div className="bg-transparent border border-[#333333] rounded-[8px] flex flex-col h-full">
           <div className="flex-1 flex flex-col min-h-0">
             <div className="flex-1 flex flex-col">
               {/* Stats Section */}
@@ -325,6 +339,15 @@ export const ClientList: React.FC<ClientListProps> = ({
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => setViewMode('compact')}
+                        className={`p-1.5 rounded transition-colors ${
+                          viewMode === 'compact' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+                        }`}
+                        title="Compact View"
+                      >
+                        <Rows3 className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => setViewMode('list')}
                         className={`p-1.5 rounded transition-colors ${
                           viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
@@ -333,15 +356,7 @@ export const ClientList: React.FC<ClientListProps> = ({
                       >
                         <List className="w-4 h-4" />
                       </button>
-                      <button
-                        onClick={() => setViewMode('grid')}
-                        className={`p-1.5 rounded transition-colors ${
-                          viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
-                        }`}
-                        title="Grid View"
-                      >
-                        <Grid3X3 className="w-4 h-4" />
-                      </button>
+
                     </div>
                     
                     {!hideAddButton && (
@@ -359,18 +374,132 @@ export const ClientList: React.FC<ClientListProps> = ({
 
               {/* Content */}
               <div className="flex-1 overflow-auto">
-                {viewMode === 'list' ? (
+                {viewMode === 'compact' ? (
                   <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
                     <div className="space-y-0">
                       {filteredClients.map((client, index) => (
                         <div key={client.id} className="relative">
-                          <div className="w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer">
+                          <div 
+                            className="w-full text-left p-2 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer"
+                            onClick={() => navigate(`/clients/${client.id}`)}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <div 
+                                    className="text-sm font-medium text-white hover:text-blue-400 truncate"
+                                  >
+                                    {client.name}
+                                  </div>
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400 flex-shrink-0">
+                                    Active
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center gap-3 text-xs text-gray-400">
+                                  {client.company_name && <span className="truncate">{client.company_name}</span>}
+                                  {client.city && client.state && <span className="flex-shrink-0">{client.city}, {client.state}</span>}
+                                  {client.email && <span className="text-blue-400 truncate">{client.email}</span>}
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="text-sm font-semibold text-green-400">
+                                    {formatCurrency(client.totalValue || 0)}
+                                  </div>
+                                  <div className="text-xs text-gray-400">
+                                    {client.projectCount || 0} projects
+                                  </div>
+                                </div>
+                                
+                                <div className="relative" ref={(el) => dropdownRefs.current[client.id] = el}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(openDropdownId === client.id ? null : client.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-3 h-3 text-gray-400" />
+                                  </button>
+                                  
+                                  {openDropdownId === client.id && (
+                                    <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/clients/${client.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Eye className="w-3 h-3 mr-2" />
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingClient(client);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Edit2 className="w-3 h-3 mr-2" />
+                                        Edit
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (confirm(`Delete client "${client.name}"? This action cannot be undone.`)) {
+                                            try {
+                                              await supabase
+                                                .from('clients')
+                                                .delete()
+                                                .eq('id', client.id);
+                                              await loadClients();
+                                            } catch (error) {
+                                              console.error('Error deleting client:', error);
+                                            }
+                                          }
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {filteredClients.length === 0 && (
+                      <div className="text-center py-12">
+                        <p className="text-gray-400">No clients match your filters</p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                    <div className="space-y-0">
+                      {filteredClients.map((client, index) => (
+                        <div key={client.id} className="relative">
+                          <div 
+                            className="w-full text-left p-3 md:p-4 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer"
+                            onClick={() => navigate(`/clients/${client.id}`)}
+                          >
                             <div className="flex items-center justify-between">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-3 mb-2">
                                   <div 
-                                    className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer"
-                                    onClick={() => navigate(`/clients/${client.id}`)}
+                                    className="text-sm font-medium text-white hover:text-blue-400"
                                   >
                                     {client.name}
                                   </div>
@@ -400,16 +529,67 @@ export const ClientList: React.FC<ClientListProps> = ({
                                   </div>
                                 </div>
                                 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingClient(client);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                                  title="Edit client"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-gray-400" />
-                                </button>
+                                <div className="relative" ref={(el) => dropdownRefs.current[client.id] = el}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(openDropdownId === client.id ? null : client.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                  
+                                  {openDropdownId === client.id && (
+                                    <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/clients/${client.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Eye className="w-3 h-3 mr-2" />
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingClient(client);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Edit2 className="w-3 h-3 mr-2" />
+                                        Edit
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (confirm(`Delete client "${client.name}"? This action cannot be undone.`)) {
+                                            try {
+                                              await supabase
+                                                .from('clients')
+                                                .delete()
+                                                .eq('id', client.id);
+                                              await loadClients();
+                                            } catch (error) {
+                                              console.error('Error deleting client:', error);
+                                            }
+                                          }
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -418,90 +598,6 @@ export const ClientList: React.FC<ClientListProps> = ({
                     </div>
                     {filteredClients.length === 0 && (
                       <div className="text-center py-12">
-                        <p className="text-gray-400">No clients match your filters</p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredClients.map((client) => (
-                      <div
-                        key={client.id}
-                        className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] p-6 hover:bg-[#252525] transition-colors cursor-pointer group relative overflow-hidden"
-                        onClick={() => navigate(`/clients/${client.id}`)}
-                      >
-                        {/* Header with name and status */}
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-lg font-semibold text-white truncate mb-1">
-                              {client.name}
-                            </h3>
-                            {client.company_name && (
-                              <p className="text-sm text-gray-400 truncate">
-                                {client.company_name}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-400/10 text-green-400">
-                              Active
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingClient(client);
-                              }}
-                              className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                              title="Edit client"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-400" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Contact info */}
-                        <div className="space-y-2 mb-4">
-                          {client.email && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-blue-400 truncate">{client.email}</span>
-                            </div>
-                          )}
-                          {client.phone && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-gray-300">{client.phone}</span>
-                            </div>
-                          )}
-                          {client.city && client.state && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                              <span className="text-gray-300 truncate">{client.city}, {client.state}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Stats */}
-                        <div className="border-t border-[#333333] pt-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <div className="text-xs text-gray-400 uppercase tracking-wider">Total Value</div>
-                              <div className="text-lg font-semibold text-green-400 mt-1">
-                                {formatCurrency(client.totalValue || 0)}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400 uppercase tracking-wider">Projects</div>
-                              <div className="text-lg font-semibold text-yellow-400 mt-1">
-                                {client.projectCount || 0}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {filteredClients.length === 0 && (
-                      <div className="col-span-full text-center py-12">
                         <p className="text-gray-400">No clients match your filters</p>
                       </div>
                     )}
@@ -543,11 +639,7 @@ export const ClientList: React.FC<ClientListProps> = ({
                     entityType: 'client',
                     entityId: newClient.id,
                     action: 'created',
-                    description: ActivityLogService.buildDescription(
-                      'created',
-                      'client',
-                      newClient.name
-                    ),
+                    description: `created client ${newClient.name}`,
                     metadata: {
                       company_name: newClient.company_name,
                       email: newClient.email,

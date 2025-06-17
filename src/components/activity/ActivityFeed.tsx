@@ -4,9 +4,11 @@ import {
   Plus, Edit, Trash2, Send, DollarSign, AlertCircle, 
   RefreshCw, PenTool, Eye, Download, Share2, Archive, 
   RotateCcw, UserPlus, UserMinus, CheckCircle, XCircle, 
-  ThumbsUp, ThumbsDown, Activity, Clock, RefreshCcw as Refresh
+  ThumbsUp, ThumbsDown, Activity, Clock, RefreshCcw as Refresh,
+  Package, Building, User, Users, UserX, FileStack, FileText,
+  Briefcase
 } from 'lucide-react';
-import { ActivityLog, ActivityLogService, ActivityFilter } from '@/services/ActivityLogService';
+import { ActivityLog, ActivityLogService, ActivityFilter } from '../../services/ActivityLogService';
 import { Link } from 'react-router-dom';
 
 interface ActivityFeedProps {
@@ -16,10 +18,11 @@ interface ActivityFeedProps {
 }
 
 const iconComponents = {
-  Plus, Edit, Trash2: Trash2, Send, DollarSign, AlertCircle, 
+  Plus, Edit, Trash2, Send, DollarSign, AlertCircle, 
   RefreshCw, PenTool, Eye, Download, Share2, Archive, 
   RotateCcw, UserPlus, UserMinus, CheckCircle, XCircle, 
-  ThumbsUp, ThumbsDown, Activity
+  ThumbsUp, ThumbsDown, Activity, Package, Building, User, 
+  Users, UserX, FileStack, FileText, Briefcase
 };
 
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({ 
@@ -38,7 +41,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       setLoading(true);
     }
     
-    const data = await ActivityLogService.getActivities(filter);
+    const finalFilter = {
+      ...filter,
+      ...(organizationId && { organization_id: organizationId })
+    };
+    
+    const data = await ActivityLogService.getActivities(finalFilter);
     setActivities(data);
     
     if (showRefreshing) {
@@ -46,13 +54,34 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     } else {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, organizationId]);
 
   useEffect(() => {
     loadActivities();
   }, [loadActivities, organizationId]);
 
-  // Removed real-time functionality - not worth the complexity for this use case
+  // Subscribe to real-time activity updates
+  useEffect(() => {
+    if (!organizationId) return;
+
+    const channel = ActivityLogService.subscribeToActivities(
+      organizationId,
+      (newActivity) => {
+        setActivities(prev => {
+          // Check if this activity already exists to prevent duplicates
+          const exists = prev.some(activity => activity.id === newActivity.id);
+          if (exists) {
+            return prev;
+          }
+          return [newActivity, ...prev];
+        });
+      }
+    );
+
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [organizationId]);
 
   const handleRefresh = () => {
     loadActivities(true);
@@ -71,7 +100,11 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
       client: (id) => `/clients/${id}`,
       project: (id) => `/projects/${id}`,
       expense: (id) => `/expenses/${id}`,
-      work_pack: (id) => `/work/${id}`
+      work_pack: (id) => `/work/${id}`,
+      product: (id) => `/products?id=${id}`,
+      vendor: (id) => `/vendors/${id}`,
+      subcontractor: (id) => `/subcontractors/${id}`,
+      team_member: (id) => `/team/${id}`
     };
 
     if (activity.entity_id && linkMap[activity.entity_type]) {
@@ -131,8 +164,12 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
             
             <div className="flex-1 min-w-0">
               <div className={`${compact ? 'text-sm' : ''}`}>
+                {/* User/Actor name */}
+                <span className="text-white font-medium">
+                  Agent
+                </span>
                 <span className="text-gray-300">
-                  {description.split(' ').slice(0, -1).join(' ')}{' '}
+                  {' '}{description.split(' ').slice(0, -1).join(' ')}{' '}
                 </span>
                 {entityLink ? (
                   <Link 
@@ -148,13 +185,20 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 )}
               </div>
               
-              {!compact && activity.metadata && Object.keys(activity.metadata).length > 0 && (
+              {!compact && activity.metadata && Object.keys(activity.metadata).length > 0 && !activity.metadata.historical && (
                 <div className="mt-1 text-sm text-gray-500">
-                  {Object.entries(activity.metadata).map(([key, value]) => (
-                    <span key={key} className="mr-3">
-                      <span className="capitalize">{key.replace(/_/g, ' ')}:</span> {value}
-                    </span>
-                  ))}
+                  {Object.entries(activity.metadata)
+                    .filter(([key, value]) => {
+                      // Filter out system/internal metadata
+                      return !['historical', 'created_at', 'updated_at'].includes(key) && 
+                             typeof value === 'string' && 
+                             !key.match(/^\d+$/); // Filter out numeric keys
+                    })
+                    .map(([key, value]) => (
+                      <span key={key} className="mr-3">
+                        <span className="capitalize">{key.replace(/_/g, ' ')}:</span> {value}
+                      </span>
+                    ))}
                 </div>
               )}
               

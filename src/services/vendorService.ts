@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { ActivityLogService } from './ActivityLogService';
 
 export interface Vendor {
   id: string;
@@ -138,13 +139,38 @@ export class VendorService {
       .single();
 
     if (error) throw error;
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId,
+      entityType: 'vendor',
+      entityId: data.id,
+      action: 'created',
+      description: `created vendor ${data.name}`,
+      metadata: {
+        category: data.category,
+        is_preferred: data.is_preferred,
+        contact_name: data.contact_name || 'No contact',
+        email: data.email || 'No email'
+      }
+    });
+
     return data;
   }
 
   /**
    * Update a vendor
    */
-  static async updateVendor(vendorId: string, vendorData: Partial<VendorFormData>): Promise<Vendor> {
+  static async updateVendor(vendorId: string, vendorData: Partial<VendorFormData>, organizationId: string): Promise<Vendor> {
+    // Get current vendor for comparison
+    const { data: currentVendor, error: fetchError } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const { data, error } = await supabase
       .from('vendors')
       .update({
@@ -156,19 +182,68 @@ export class VendorService {
       .single();
 
     if (error) throw error;
+
+    // Build metadata for what changed
+    const metadata: Record<string, any> = {};
+    if (vendorData.name && vendorData.name !== currentVendor.name) {
+      metadata.old_name = currentVendor.name;
+      metadata.new_name = vendorData.name;
+    }
+    if (vendorData.category && vendorData.category !== currentVendor.category) {
+      metadata.old_category = currentVendor.category;
+      metadata.new_category = vendorData.category;
+    }
+    if (vendorData.is_preferred !== undefined && vendorData.is_preferred !== currentVendor.is_preferred) {
+      metadata.old_preferred = currentVendor.is_preferred;
+      metadata.new_preferred = vendorData.is_preferred;
+    }
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId,
+      entityType: 'vendor',
+      entityId: vendorId,
+      action: 'updated',
+      description: `updated vendor ${data.name}`,
+      metadata
+    });
+
     return data;
   }
 
   /**
    * Delete a vendor
    */
-  static async deleteVendor(vendorId: string): Promise<void> {
+  static async deleteVendor(vendorId: string, organizationId: string): Promise<void> {
+    // Get vendor info before deletion
+    const { data: vendor, error: fetchError } = await supabase
+      .from('vendors')
+      .select('name, category, contact_name')
+      .eq('id', vendorId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const { error } = await supabase
       .from('vendors')
       .delete()
       .eq('id', vendorId);
 
     if (error) throw error;
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId,
+      entityType: 'vendor',
+      entityId: vendorId,
+      action: 'deleted',
+      description: `deleted vendor ${vendor.name}`,
+      metadata: {
+        name: vendor.name,
+        category: vendor.category,
+        contact_name: vendor.contact_name || 'No contact'
+      }
+    });
   }
 
   /**

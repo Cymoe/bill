@@ -2,10 +2,10 @@ import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Building, Phone, Mail, Globe, Star, 
-  Plus, Search, Filter, Edit2, Trash2, 
+  Plus, Search, Filter, Edit2, Trash2, Eye,
   MapPin, Shield, CreditCard, ChevronRight,
   CheckCircle, Info, ChevronDown, List, LayoutGrid, Rows3,
-  ExternalLink, MoreVertical, Grid3X3
+  ExternalLink, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -47,21 +47,35 @@ export const VendorsList: React.FC<VendorsListProps> = ({
   const [vendorStats, setVendorStats] = useState<Record<string, any>>({});
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [hasLoadedData, setHasLoadedData] = useState(false);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'compact'>('compact');
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<string>('all');
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  // Close filter menu on outside click
+  // Close menus on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (filterMenuRef.current && !filterMenuRef.current.contains(event.target as Node) && showFilterMenu) {
+      const target = event.target as Node;
+      
+      // Check if click is outside filter menu
+      if (filterMenuRef.current && !filterMenuRef.current.contains(target) && showFilterMenu) {
         setShowFilterMenu(false);
+      }
+      
+      // Check if click is outside all dropdown menus
+      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
+        !ref || !ref.contains(target)
+      );
+      
+      if (isOutsideDropdown && openDropdownId) {
+        setOpenDropdownId(null);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilterMenu]);
+  }, [showFilterMenu, openDropdownId]);
 
   // Only reload when user.id or organization changes
   useEffect(() => {
@@ -394,6 +408,15 @@ export const VendorsList: React.FC<VendorsListProps> = ({
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <button
+                    onClick={() => setViewMode('compact')}
+                    className={`p-1.5 rounded transition-colors ${
+                      viewMode === 'compact' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
+                    }`}
+                    title="Compact View"
+                  >
+                    <Rows3 className="w-4 h-4" />
+                  </button>
+                  <button
                     onClick={() => setViewMode('list')}
                     className={`p-1.5 rounded transition-colors ${
                       viewMode === 'list' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
@@ -401,15 +424,6 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                     title="List View"
                   >
                     <List className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'grid' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'
-                    }`}
-                    title="Grid View"
-                  >
-                    <Grid3X3 className="w-4 h-4" />
                   </button>
                 </div>
                 
@@ -430,25 +444,136 @@ export const VendorsList: React.FC<VendorsListProps> = ({
           <div className="flex-1 overflow-auto">
             {loading ? (
               <div className="bg-transparent border border-[#333333]">
-                {viewMode === 'list' || viewMode === 'grid' ? (
-                  <TableSkeleton rows={5} columns={5} />
-                ) : (
-                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <CardSkeleton />
-                    <CardSkeleton />
-                    <CardSkeleton />
-                    <CardSkeleton />
-                    <CardSkeleton />
-                    <CardSkeleton />
-                  </div>
-                )}
+                <TableSkeleton rows={5} columns={5} />
               </div>
             ) : filteredVendors.length === 0 ? (
               <div className="text-center py-12">
                 <Building className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-400">No vendors found</p>
               </div>
-            ) : viewMode === 'list' ? (
+            ) : viewMode === 'compact' ? (
+              <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                <div className="space-y-0">
+                  {filteredVendors.map((vendor, index) => {
+                    const stats = vendorStats[vendor.id];
+                    return (
+                      <div key={vendor.id} className="relative">
+                        <div
+                          onClick={() => navigate(`/vendors/${vendor.id}`)}
+                          className="w-full text-left p-2 hover:bg-[#333333] transition-all border-b border-gray-700/30 group cursor-pointer"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                {vendor.is_preferred && (
+                                  <Star className="w-3 h-3 text-yellow-400 fill-current flex-shrink-0" />
+                                )}
+                                <div 
+                                  className="text-sm font-medium text-white hover:text-blue-400 cursor-pointer truncate"
+                                  onClick={() => navigate(`/vendors/${vendor.id}`)}
+                                >
+                                  {vendor.name}
+                                </div>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400 flex-shrink-0">
+                                  Active
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-3 text-xs text-gray-400">
+                                {vendor.category && (
+                                  <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-xs flex-shrink-0">
+                                    {vendor.category}
+                                  </span>
+                                )}
+                                {vendor.contact_name && <span className="truncate">{vendor.contact_name}</span>}
+                                {vendor.email && <span className="text-blue-400 truncate">{vendor.email}</span>}
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="text-right">
+                                <div className="text-sm font-semibold text-green-400">
+                                  {formatCurrency(stats?.totalSpent || 0)}
+                                </div>
+                                <div className="text-xs text-gray-400">
+                                  total spent
+                                </div>
+                              </div>
+                              
+                              <div className="relative" ref={(el) => dropdownRefs.current[vendor.id] = el}>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setOpenDropdownId(openDropdownId === vendor.id ? null : vendor.id);
+                                  }}
+                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                  title="More options"
+                                >
+                                  <MoreVertical className="w-3 h-3 text-gray-400" />
+                                </button>
+                                
+                                {openDropdownId === vendor.id && (
+                                  <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(`/vendors/${vendor.id}`);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <Eye className="w-3 h-3 mr-2" />
+                                      View Details
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingVendor(vendor);
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                    >
+                                      <Edit2 className="w-3 h-3 mr-2" />
+                                      Edit
+                                    </button>
+                                    <div className="border-t border-[#404040] my-1"></div>
+                                    <button
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (confirm(`Delete vendor "${vendor.name}"? This action cannot be undone.`)) {
+                                          try {
+                                            await VendorService.deleteVendor(vendor.id, selectedOrg?.id || '');
+                                            await loadVendors();
+                                          } catch (error) {
+                                            console.error('Error deleting vendor:', error);
+                                          }
+                                        }
+                                        setOpenDropdownId(null);
+                                      }}
+                                      className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                    >
+                                      <Trash2 className="w-3 h-3 mr-2" />
+                                      Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {filteredVendors.length === 0 && (
+                    <div className="text-center py-8">
+                      <div className="text-gray-400 text-sm">No vendors found</div>
+                      <div className="text-gray-500 text-xs mt-1">Try adjusting your search or filters</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
               <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
                 <div className="space-y-0">
                   {filteredVendors.map((vendor, index) => {
@@ -500,16 +625,64 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                                   </div>
                                 </div>
                                 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingVendor(vendor);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                                  title="Edit vendor"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-gray-400" />
-                                </button>
+                                <div className="relative" ref={(el) => dropdownRefs.current[vendor.id] = el}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(openDropdownId === vendor.id ? null : vendor.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                  
+                                  {openDropdownId === vendor.id && (
+                                    <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/vendors/${vendor.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Eye className="w-3 h-3 mr-2" />
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingVendor(vendor);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Edit2 className="w-3 h-3 mr-2" />
+                                        Edit
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (confirm(`Delete vendor "${vendor.name}"? This action cannot be undone.`)) {
+                                            try {
+                                              await VendorService.deleteVendor(vendor.id, selectedOrg?.id || '');
+                                              await loadVendors();
+                                            } catch (error) {
+                                              console.error('Error deleting vendor:', error);
+                                            }
+                                          }
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                           </div>
                         </div>
@@ -524,98 +697,6 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
-                        ) : (
-              <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredVendors.map(vendor => {
-                  const stats = vendorStats[vendor.id];
-                  return (
-                    <div
-                      key={vendor.id}
-                      className="bg-[#1E1E1E] border border-[#333333] rounded-[8px] p-6 hover:bg-[#252525] transition-colors cursor-pointer group relative overflow-hidden"
-                      onClick={() => navigate(`/vendors/${vendor.id}`)}
-                    >
-                      {/* Header with name and status */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            {vendor.is_preferred && (
-                              <Star className="w-4 h-4 text-yellow-400 fill-current flex-shrink-0" />
-                            )}
-                            <h3 className="text-lg font-semibold text-white truncate">
-                              {vendor.name}
-                            </h3>
-                          </div>
-                          {vendor.category && (
-                            <span className="inline-block bg-blue-500/20 text-blue-400 px-2 py-1 rounded-full text-xs">
-                              {vendor.category}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-400/10 text-green-400">
-                            Active
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingVendor(vendor);
-                            }}
-                            className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                            title="Edit vendor"
-                          >
-                            <MoreVertical className="w-4 h-4 text-gray-400" />
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Contact info */}
-                      <div className="space-y-2 mb-4">
-                        {vendor.contact_name && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Building className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-300 truncate">{vendor.contact_name}</span>
-                          </div>
-                        )}
-                        {vendor.email && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Mail className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-blue-400 truncate">{vendor.email}</span>
-                          </div>
-                        )}
-                        {vendor.phone && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                            <span className="text-gray-300">{vendor.phone}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Stats */}
-                      <div className="border-t border-[#333333] pt-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Total Spent</div>
-                            <div className="text-lg font-semibold text-green-400 mt-1">
-                              {formatCurrency(stats?.totalSpent || 0)}
-                            </div>
-                          </div>
-                          <div>
-                            <div className="text-xs text-gray-400 uppercase tracking-wider">Specialty</div>
-                            <div className="text-lg font-semibold text-blue-400 mt-1 truncate">
-                              {vendor.specialty || 'General'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                {filteredVendors.length === 0 && (
-                  <div className="col-span-full text-center py-12">
-                    <p className="text-gray-400">No vendors match your filters</p>
-                  </div>
-                )}
               </div>
             )}
           </div>

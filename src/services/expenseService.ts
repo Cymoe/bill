@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { ActivityLogService } from './ActivityLogService';
 
 interface ExpenseTemplate {
   id: string;
@@ -23,7 +24,157 @@ interface ProjectExpense {
   category_id: string;
 }
 
+export interface Expense {
+  id: string;
+  user_id: string;
+  organization_id: string;
+  project_id?: string;
+  description: string;
+  amount: number;
+  category: string;
+  vendor?: string;
+  date: string;
+  status: 'pending' | 'approved' | 'paid' | 'rejected';
+  category_id?: string;
+  receipt_url?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  project?: {
+    id: string;
+    name: string;
+  };
+}
+
 export class ExpenseService {
+  /**
+   * Create a new expense
+   */
+  static async create(expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>): Promise<Expense> {
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert(expense)
+      .select(`
+        *,
+        project:projects(id, name)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId: expense.organization_id,
+      entityType: 'expense',
+      entityId: data.id,
+      action: 'created',
+      description: `created expense ${data.description}`,
+      metadata: {
+        amount: data.amount,
+        category: data.category,
+        vendor: data.vendor || 'Unknown',
+        project_name: data.project?.name || 'No project',
+        status: data.status
+      }
+    });
+
+    return data;
+  }
+
+  /**
+   * Update an expense
+   */
+  static async update(id: string, updates: Partial<Expense> & { organization_id: string }): Promise<Expense> {
+    // Get current expense for comparison
+    const { data: currentExpense, error: fetchError } = await supabase
+      .from('expenses')
+      .select('*, project:projects(id, name)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Update the expense
+    const { data, error } = await supabase
+      .from('expenses')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select(`
+        *,
+        project:projects(id, name)
+      `)
+      .single();
+
+    if (error) throw error;
+
+    // Build metadata for what changed
+    const metadata: Record<string, any> = {};
+    if (updates.amount !== undefined && updates.amount !== currentExpense.amount) {
+      metadata.old_amount = currentExpense.amount;
+      metadata.new_amount = updates.amount;
+    }
+    if (updates.status && updates.status !== currentExpense.status) {
+      metadata.old_status = currentExpense.status;
+      metadata.new_status = updates.status;
+    }
+    if (updates.description && updates.description !== currentExpense.description) {
+      metadata.old_description = currentExpense.description;
+      metadata.new_description = updates.description;
+    }
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId: updates.organization_id,
+      entityType: 'expense',
+      entityId: id,
+      action: 'updated',
+      description: `updated expense ${data.description}`,
+      metadata
+    });
+
+    return data;
+  }
+
+  /**
+   * Delete an expense
+   */
+  static async delete(id: string, organizationId: string): Promise<void> {
+    // Get expense info before deletion
+    const { data: expense, error: fetchError } = await supabase
+      .from('expenses')
+      .select('description, amount, category, vendor')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Delete the expense
+    const { error } = await supabase
+      .from('expenses')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId,
+      entityType: 'expense',
+      entityId: id,
+      action: 'deleted',
+      description: `deleted expense ${expense.description}`,
+      metadata: {
+        description: expense.description,
+        amount: expense.amount,
+        category: expense.category,
+        vendor: expense.vendor || 'Unknown'
+      }
+    });
+  }
+
   /**
    * Generate expenses for a project based on its category templates
    */
@@ -46,6 +197,13 @@ export class ExpenseService {
       if (templatesError) throw templatesError;
       if (!templates || templates.length === 0) return;
 
+      // Get project info for logging
+      const { data: project } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('id', projectId)
+        .single();
+
       // Generate expenses from templates
       const expenses: ProjectExpense[] = templates.map((template, index) => {
         // Stagger expense dates based on typical project timeline
@@ -66,11 +224,26 @@ export class ExpenseService {
       });
 
       // Insert all expenses
-      const { error: insertError } = await supabase
+      const { data: createdExpenses, error: insertError } = await supabase
         .from('expenses')
-        .insert(expenses);
+        .insert(expenses)
+        .select();
 
       if (insertError) throw insertError;
+
+      // Log activity for batch creation
+      await ActivityLogService.log({
+        organizationId,
+        entityType: 'expense',
+        entityId: projectId,
+        action: 'created',
+        description: `generated ${expenses.length} expenses for project ${project?.name || projectId}`,
+        metadata: {
+          count: expenses.length,
+          project_name: project?.name || 'Unknown',
+          total_amount: expenses.reduce((sum, e) => sum + e.amount, 0)
+        }
+      });
 
       console.log(`Generated ${expenses.length} expenses for project ${projectId}`);
     } catch (error) {
@@ -109,14 +282,37 @@ export class ExpenseService {
    */
   static async updateExpenseStatus(
     expenseId: string,
-    status: 'pending' | 'approved' | 'paid' | 'rejected'
+    status: 'pending' | 'approved' | 'paid' | 'rejected',
+    organizationId: string
   ) {
+    // Get expense info for logging
+    const { data: expense, error: fetchError } = await supabase
+      .from('expenses')
+      .select('description, status')
+      .eq('id', expenseId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     const { error } = await supabase
       .from('expenses')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', expenseId);
 
     if (error) throw error;
+
+    // Log activity
+    await ActivityLogService.log({
+      organizationId,
+      entityType: 'expense',
+      entityId: expenseId,
+      action: 'status_changed',
+      description: `changed expense ${expense.description} status from ${expense.status} to ${status}`,
+      metadata: {
+        old_status: expense.status,
+        new_status: status
+      }
+    });
   }
 
   /**

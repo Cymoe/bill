@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map } from 'lucide-react';
+import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map, FileSpreadsheet } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
@@ -14,6 +14,7 @@ import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateProjectWizard } from './CreateProjectWizard';
 import { StatusBadge } from './StatusBadge';
 import { ProjectsOverviewMap } from '../maps/ProjectsOverviewMap';
+import { ProjectExportService } from '../../services/ProjectExportService';
 
 type Project = Tables['projects'];
 
@@ -569,102 +570,54 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                   
                   <div className="relative" ref={mainOptionsRef}>
                     <button 
-                      onClick={() => setShowMainOptions(!showMainOptions)}
-                      className="bg-[#1E1E1E] border border-[#333333] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowMainOptions(!showMainOptions);
+                      }}
+                      className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors relative"
                     >
                       <MoreVertical className="w-4 h-4 text-gray-400" />
                     </button>
 
                     {/* Main Options Dropdown */}
                     {showMainOptions && (
-                                              <div className={`absolute top-full right-0 mt-1 ${isConstrained ? 'w-[240px]' : 'w-64'} bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1`}>
-                        {/* Export & Import */}
-                        <div className="px-3 py-2 border-b border-[#333333]">
-                          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Data Management</div>
-                          <button
-                            onClick={() => {
-                              console.log('Export projects to CSV');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <Download className="w-3 h-3 mr-2" />
-                            Export Projects (CSV)
-                          </button>
-                          <button
-                            onClick={() => {
-                              console.log('Import projects');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <Upload className="w-3 h-3 mr-2" />
-                            Import Projects
-            </button>
-          </div>
-
-                        {/* View Options */}
-                        <div className="px-3 py-2 border-b border-[#333333]">
-                          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">View Options</div>
-                          <button
-                            onClick={() => {
-                              console.log('Column settings');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <Columns className="w-3 h-3 mr-2" />
-                            Column Settings
-                          </button>
-                          <button
-                            onClick={() => {
-                              console.log('Bulk actions');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <CheckCircle className="w-3 h-3 mr-2" />
-                            Bulk Actions
-                          </button>
-        </div>
-
-                        {/* Reports */}
-                        <div className="px-3 py-2 border-b border-[#333333]">
-                          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Reports</div>
-                          <button
-                            onClick={() => {
-                              console.log('Generate report');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <BarChart3 className="w-3 h-3 mr-2" />
-                            Generate Report
-                          </button>
-                          <button
-                            onClick={() => {
-                              console.log('Project analytics');
-                              setShowMainOptions(false);
-                            }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
-                          >
-                            <FileText className="w-3 h-3 mr-2" />
-                            Project Analytics
-                          </button>
-                        </div>
-
-                        {/* Settings */}
+                      <div className={`absolute top-full right-0 mt-1 ${isConstrained ? 'w-[200px]' : 'w-56'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[10001] py-1`}>
+                        {/* Export Options - Simplified for MVP */}
                         <div className="px-3 py-2">
-                          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Settings</div>
+                          <div className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Export Options</div>
                           <button
-                            onClick={() => {
-                              console.log('View preferences');
+                            onClick={async () => {
+                              try {
+                                await ProjectExportService.export(filteredProjects, {
+                                  format: 'csv',
+                                  organizationId: selectedOrg?.id || ''
+                                });
+                              } catch (error) {
+                                console.error('Export failed:', error);
+                              }
                               setShowMainOptions(false);
                             }}
-                            className="w-full text-left px-2 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
+                            className="w-full text-left px-2 py-2 text-white text-sm hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
                           >
-                            <Settings className="w-3 h-3 mr-2" />
-                            View Preferences
+                            <Download className="w-4 h-4 mr-2" />
+                            Export to CSV
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await ProjectExportService.export(filteredProjects, {
+                                  format: 'excel',
+                                  organizationId: selectedOrg?.id || ''
+                                });
+                              } catch (error) {
+                                console.error('Export failed:', error);
+                              }
+                              setShowMainOptions(false);
+                            }}
+                            className="w-full text-left px-2 py-2 text-white text-sm hover:bg-[#336699] transition-colors flex items-center rounded-[2px]"
+                          >
+                            <FileSpreadsheet className="w-4 h-4 mr-2" />
+                            Export to Excel
                           </button>
                         </div>
                       </div>
@@ -1020,7 +973,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                         <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                                   </button>
                                   
-                                  {/* Dropdown Menu */}
+                                  {/* Dropdown Menu - Simplified for MVP */}
                                   {openDropdownId === `project-${project.id}` && (
                                     <div 
                                       ref={(el) => dropdownRefs.current[`project-${project.id}`] = el}
@@ -1029,7 +982,21 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                              navigate(`/projects/${project.id}`);
+                                          navigate(`/projects/${project.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/projects/${project.id}/edit`);
                                           setOpenDropdownId(null);
                                         }}
                                         className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
@@ -1037,100 +1004,50 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
-                                        Edit Project
+                                        Edit
                                       </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`Add note to ${project.name}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-                                        </svg>
-                                        Add Note
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`View timeline for ${project.name}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        View Timeline
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`View photos for ${project.name}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V5a2 2 0 00-2-2H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                        View Photos
-                                      </button>
+                                      {project.status !== 'completed' && (
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Mark "${project.name}" as complete?`)) {
+                                              try {
+                                                await db.projects.update(project.id, { status: 'completed' });
+                                                await fetchProjects(false);
+                                              } catch (error) {
+                                                console.error('Error updating project status:', error);
+                                              }
+                                            }
+                                            setOpenDropdownId(null);
+                                          }}
+                                          className="w-full text-left px-3 py-2 text-green-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                        >
+                                          <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                          </svg>
+                                          Mark Complete
+                                        </button>
+                                      )}
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           e.stopPropagation();
-                                          console.log(`Create invoice for ${project.name}`);
+                                          if (confirm(`Delete project "${project.name}"? This action cannot be undone.`)) {
+                                            try {
+                                              await db.projects.delete(project.id);
+                                              await fetchProjects(false);
+                                            } catch (error) {
+                                              console.error('Error deleting project:', error);
+                                            }
+                                          }
                                           setOpenDropdownId(null);
                                         }}
-                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
                                         <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                         </svg>
-                                        Create Invoice
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`Generate estimate for ${project.name}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                        </svg>
-                                        Generate Estimate
-                                      </button>
-                                      <div className="border-t border-[#404040] my-1"></div>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`Mark ${project.name} as complete`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-green-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                        </svg>
-                                        Mark Complete
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          console.log(`Archive ${project.name}`);
-                                          setOpenDropdownId(null);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-yellow-400 text-xs hover:bg-[#336699] transition-colors flex items-center"
-                                      >
-                                        <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8l6 6 6-6" />
-                                        </svg>
-                                        Archive Project
+                                        Delete
                                       </button>
                                     </div>
                                   )}

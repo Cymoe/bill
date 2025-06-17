@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-import { X, Save, User } from 'lucide-react';
+import { X, User } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { TeamMemberService, CreateTeamMemberData, DEPARTMENTS, EMPLOYMENT_TYPES } from '../../services/TeamMemberService';
@@ -69,236 +69,271 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-800 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-700">
-        <div className="sticky top-0 bg-slate-800 p-6 border-b border-gray-700 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Add New Team Member</h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-white/90 uppercase tracking-wider">Basic Information</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="Enter full name"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email || ''}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  placeholder="name@company.com"
-                />
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9998]" onClick={onClose}>
+      <div className="fixed inset-0 flex items-center justify-center z-[9999] p-4">
+        <div 
+          className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
+          
+          {/* Header */}
+          <div className="px-8 py-6 border-b border-[#1a1a1a] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#1a1a1a] border border-[#2a2a2a] flex items-center justify-center">
+                <User className="w-5 h-5 text-gray-400" />
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone || ''}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  placeholder="(555) 123-4567"
-                />
+                <h2 className="text-xl font-semibold text-white tracking-tight">Add Team Member</h2>
+                <p className="text-sm text-gray-500 mt-1">Create a new team member profile</p>
               </div>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                Job Title *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.job_title}
-                onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="e.g., Project Manager, Site Supervisor"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Department *
-                </label>
-                <select
-                  required
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {DEPARTMENTS.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Employment Type *
-                </label>
-                <select
-                  required
-                  value={formData.employment_type}
-                  onChange={(e) => setFormData({ ...formData, employment_type: e.target.value as 'full-time' | 'part-time' | 'contractor' })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {EMPLOYMENT_TYPES.map(type => (
-                    <option key={type.value} value={type.value}>{type.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Hire Date
-                </label>
-                <input
-                  type="date"
-                  value={formData.hire_date || ''}
-                  onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' | 'on-leave' })}
-                  className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="on-leave">On Leave</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Compensation */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-white/90 uppercase tracking-wider">Compensation</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Annual Salary
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60">$</span>
-                  <input
-                    type="number"
-                    step="1000"
-                    min="0"
-                    value={formData.salary || ''}
-                    onChange={(e) => setFormData({ ...formData, salary: e.target.value ? parseInt(e.target.value) : undefined })}
-                    className="w-full h-10 pl-8 pr-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="65000"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  Hourly Rate
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-white/60">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.hourly_rate || ''}
-                    onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value ? parseFloat(e.target.value) : undefined })}
-                    className="w-full h-10 pl-8 pr-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    placeholder="25.00"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Contact Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-medium text-white/90 uppercase tracking-wider">Additional Information</h3>
-            
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                Address
-              </label>
-              <textarea
-                value={formData.address || ''}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                rows={2}
-                className="w-full px-3 py-2 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none"
-                placeholder="123 Main St, City, State 12345"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                Emergency Contact
-              </label>
-              <input
-                type="text"
-                value={formData.emergency_contact || ''}
-                onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
-                className="w-full h-10 px-3 bg-slate-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                placeholder="Contact name and phone number"
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex justify-end gap-4 pt-6 border-t border-gray-700">
             <button
-              type="button"
               onClick={onClose}
-              className="h-10 px-4 bg-white text-black rounded-lg hover:bg-gray-100 transition-colors font-medium"
+              className="w-9 h-9 rounded-lg bg-transparent border border-[#2a2a2a] text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all duration-200 flex items-center justify-center text-lg"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !formData.name || !formData.job_title}
-              className="h-10 px-4 bg-yellow-500 text-black rounded-lg hover:bg-yellow-600 transition-colors disabled:opacity-50 font-medium flex items-center gap-2"
-            >
-              <Save className="w-4 h-4" />
-              {loading ? 'Creating...' : 'Create Team Member'}
+              ×
             </button>
           </div>
-        </form>
+
+          {/* Content */}
+          <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+            <div className="px-8 py-8 space-y-8">
+              
+              {/* Basic Information */}
+              <div className="space-y-6">
+                <div className="border-b border-[#1a1a1a] pb-4">
+                  <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider">Basic Information</h3>
+                </div>
+                
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                      placeholder="Enter full name"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.email || ''}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                        placeholder="name@company.com"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.phone || ''}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                        placeholder="(555) 123-4567"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Job Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.job_title}
+                      onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                      placeholder="e.g., Project Manager, Site Supervisor"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Department *
+                      </label>
+                      <select
+                        required
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200 appearance-none"
+                      >
+                        {DEPARTMENTS.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Employment Type *
+                      </label>
+                      <select
+                        required
+                        value={formData.employment_type}
+                        onChange={(e) => setFormData({ ...formData, employment_type: e.target.value as 'full-time' | 'part-time' | 'contractor' })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200 appearance-none"
+                      >
+                        {EMPLOYMENT_TYPES.map(type => (
+                          <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Hire Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.hire_date || ''}
+                        onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-3">
+                        Status
+                      </label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' | 'on-leave' })}
+                        className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200 appearance-none"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="on-leave">On Leave</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Compensation */}
+              <div className="space-y-6">
+                <div className="border-b border-[#1a1a1a] pb-4">
+                  <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider">Compensation</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Annual Salary
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                      <input
+                        type="number"
+                        step="1000"
+                        min="0"
+                        value={formData.salary || ''}
+                        onChange={(e) => setFormData({ ...formData, salary: e.target.value ? parseInt(e.target.value) : undefined })}
+                        className="w-full h-12 pl-8 pr-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                        placeholder="65000"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Hourly Rate
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">$</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.hourly_rate || ''}
+                        onChange={(e) => setFormData({ ...formData, hourly_rate: e.target.value ? parseFloat(e.target.value) : undefined })}
+                        className="w-full h-12 pl-8 pr-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                        placeholder="25.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Additional Information */}
+              <div className="space-y-6">
+                <div className="border-b border-[#1a1a1a] pb-4">
+                  <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider">Additional Information</h3>
+                </div>
+                
+                <div className="space-y-5">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Address
+                    </label>
+                    <textarea
+                      value={formData.address || ''}
+                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      rows={3}
+                      className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200 resize-none"
+                      placeholder="123 Main St, City, State 12345"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Emergency Contact
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.emergency_contact || ''}
+                      onChange={(e) => setFormData({ ...formData, emergency_contact: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-[#fbbf24] focus:outline-none focus:ring-1 focus:ring-[#fbbf24]/20 transition-all duration-200"
+                      placeholder="Contact name and phone number"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-8 py-6 border-t border-[#1a1a1a] flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-5 py-2.5 bg-transparent border border-[#2a2a2a] text-gray-400 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-lg text-sm font-medium transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading || !formData.name || !formData.job_title}
+                className="px-5 py-2.5 bg-[#fbbf24] text-black rounded-lg text-sm font-semibold hover:bg-[#f59e0b] hover:-translate-y-px transition-all duration-200 disabled:bg-[#2a2a2a] disabled:text-gray-600 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-black"></div>
+                    Creating...
+                  </>
+                ) : (
+                  'Create Team Member'
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

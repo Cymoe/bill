@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { Modal } from '../common/Modal';
 import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { ProductFormSimple } from './ProductFormSimple';
-import { supabase } from '../../lib/supabase';
+import { ProductService } from '../../services/ProductService';
 import { useAuth } from '../../contexts/AuthContext';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 
 // Define Product interface locally
 interface Product {
@@ -46,6 +47,7 @@ export const GlobalProductDrawer: React.FC<GlobalProductDrawerProps> = ({
   onProductSaved
 }) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
 
   // Don't render anything for 'new' case - it's handled by CreateProductDrawer
   if (!editingProduct || editingProduct === 'new') return null;
@@ -76,20 +78,16 @@ export const GlobalProductDrawer: React.FC<GlobalProductDrawerProps> = ({
         }}
         onSubmit={async (data) => {
           try {
-            const { error } = await supabase
-              .from('products')
-              .update({
-                ...data,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', editingProduct.id);
-
-            if (error) throw error;
+            await ProductService.update(editingProduct.id, {
+              ...data,
+              organization_id: selectedOrg.id
+            });
 
             setEditingProduct(null);
             if (onProductSaved) onProductSaved();
           } catch (error) {
             console.error('Error updating product:', error);
+            alert('Failed to update product. Please try again.');
           }
         }}
         onCancel={() => setEditingProduct(null)}

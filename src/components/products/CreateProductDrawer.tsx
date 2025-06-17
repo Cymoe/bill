@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProductService } from '../../services/ProductService';
 import { formatCurrency } from '../../utils/format';
 import { Search, Plus, Minus, X, Save } from 'lucide-react';
 import { PRODUCT_COLLECTIONS } from '../../constants/collections';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 
 interface LineItem {
   id: string;
@@ -38,6 +40,7 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
   onSuccess
 }) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [productName, setProductName] = useState('');
   const [productDescription, setProductDescription] = useState('');
   const [category, setCategory] = useState('');
@@ -173,39 +176,30 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
     try {
       setIsSaving(true);
 
-      // Create the product bundle
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .insert({
-          user_id: user?.id,
-          name: productName,
-          description: productDescription,
-          price: calculateTotal(),
-          unit: 'project',
-          type: 'service',
-          is_base_product: true,
-          category: category || null,
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (productError) throw productError;
-
-      // Create product_line_items entries
-      const lineItemEntries = selectedLineItems.map(item => ({
-        product_id: product.id,
+      // Prepare line items for the service
+      const lineItems = selectedLineItems.map(item => ({
         line_item_id: item.id,
         quantity: item.quantity,
         unit: item.unit,
         price: item.price
       }));
 
-      const { error: lineItemsError } = await supabase
-        .from('product_line_items')
-        .insert(lineItemEntries);
-
-      if (lineItemsError) throw lineItemsError;
+      // Create the product bundle using ProductService
+      await ProductService.create({
+        user_id: user?.id,
+        organization_id: selectedOrg.id,
+        name: productName,
+        description: productDescription,
+        price: calculateTotal(),
+        unit: 'project',
+        type: 'service',
+        is_base_product: true,
+        category: category || null,
+        status: 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        lineItems
+      });
 
       onSuccess();
       handleClose();

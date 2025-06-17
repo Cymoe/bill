@@ -103,11 +103,7 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
           entityType: 'client',
           entityId: client.id,
           action: 'updated',
-          description: ActivityLogService.buildDescription(
-            'updated',
-            'client',
-            formData.name
-          ),
+          description: `updated client ${formData.name}`,
           metadata: {
             changes,
             updated_fields: Object.keys(changes)
@@ -143,11 +139,7 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
           entityType: 'client',
           entityId: client.id,
           action: 'deleted',
-          description: ActivityLogService.buildDescription(
-            'deleted',
-            'client',
-            client.name
-          ),
+          description: `deleted client ${client.name}`,
           metadata: {
             client_name: client.name,
             company_name: client.company_name,

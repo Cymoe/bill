@@ -15,6 +15,7 @@ import { BudgetAnalysis } from './BudgetAnalysis';
 import { TimelineView } from './TimelineView';
 import { StatusBadge } from './StatusBadge';
 import { StatusTransition } from './StatusTransition';
+import { ActivityLogService } from '../../services/ActivityLogService';
 
 interface ProjectWithDetails {
   id: string;
@@ -580,6 +581,24 @@ export const ProjectDetails: React.FC = () => {
         .eq('id', project.id);
 
       if (error) throw error;
+
+      // Log the activity
+      try {
+        await ActivityLogService.log({
+          organizationId: project.organization_id,
+          entityType: 'project',
+          entityId: project.id,
+          action: 'status_changed',
+          description: `updated project ${project.name} status to ${newStatus}`,
+          metadata: {
+            old_status: project.status,
+            new_status: newStatus,
+            client_name: project.client?.name
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to log project status update:', logError);
+      }
 
       // Update local state
       setProject(prev => prev ? { ...prev, status: newStatus } : null);

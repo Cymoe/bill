@@ -8,6 +8,7 @@ import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { ProductService } from '../../services/ProductService';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { CreateProductDrawer } from './CreateProductDrawer';
 import { EditProductDrawer } from './EditProductDrawer';
@@ -675,16 +676,12 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
 
   const confirmDelete = async (productId: string) => {
     try {
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('id', productId);
-
-      if (error) throw error;
+      await ProductService.delete(productId, selectedOrg.id);
       setDeletingProduct(null);
       fetchProducts(); // Refresh the list
     } catch (err) {
       console.error('Error deleting product:', err);
+      alert('Failed to delete product. Please try again.');
     }
   };
 

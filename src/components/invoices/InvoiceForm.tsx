@@ -3,26 +3,20 @@ import { Plus } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
-interface Template {
-  id: string;
-  items: Array<{
-    product_id: string;
-    quantity: number;
-    price: number;
-  }>;
-}
 
-interface Invoice {
-  id: string;
-  [key: string]: any;
+
+interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unit_price: number;
 }
 
 interface InvoiceFormData {
   invoiceNumber: string;
   client: string;
-  amount: number;
   dueDate: string;
   description: string;
+  items: InvoiceItem[];
 }
 
 interface InvoiceFormProps {
@@ -40,56 +34,48 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 }) => {
   const { user } = useAuth();
   const [clients, setClients] = React.useState<any[]>([]);
-  const [products, setProducts] = React.useState<any[]>([]);
-  const [projects, setProjects] = React.useState<any[]>([]);
-  const [selectedProject, setSelectedProject] = React.useState<string | undefined>(initialData?.projectId);
+  const [items, setItems] = useState<InvoiceItem[]>(initialData?.items || [{ description: '', quantity: 1, unit_price: 0 }]);
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchClients = async () => {
       if (!user) return;
-
-      const [clientsRes, productsRes, projectsRes] = await Promise.all([
-        supabase.from('clients').select('*').eq('user_id', user.id),
-        supabase.from('products').select('*').eq('user_id', user.id),
-        supabase.from('projects').select('*').eq('user_id', user.id)
-      ]);
-
-      if (clientsRes.error) console.error('Error fetching clients:', clientsRes.error);
-      if (productsRes.error) console.error('Error fetching products:', productsRes.error);
-      if (projectsRes.error) console.error('Error fetching projects:', projectsRes.error);
-
-      setClients(clientsRes.data || []);
-      setProducts(productsRes.data || []);
-      
-      // Only set projects if we're not already in a project context
-      if (!initialData?.projectId) {
-        setProjects(projectsRes.data || []);
-      }
-      setProjects(projectsRes.data || []);
+      const { data, error } = await supabase.from('clients').select('*').eq('user_id', user.id);
+      if (error) console.error('Error fetching clients:', error);
+      else setClients(data || []);
     };
+    fetchClients();
+  }, [user]);
 
-    fetchData();
-
-    // If projectId is provided, update form data
-    if (initialData?.projectId) {
-      setSelectedProject(initialData.projectId);
-    }
-  }, [user, initialData?.projectId]);
-
-  const [formData, setFormData] = useState<InvoiceFormData>({
+  const [formData, setFormData] = useState<Omit<InvoiceFormData, 'items'>>({
     invoiceNumber: initialData?.invoiceNumber || 'INV-001',
     client: initialData?.client || '',
-    amount: initialData?.amount || 0,
     dueDate: initialData?.dueDate || new Date().toISOString().split('T')[0],
     description: initialData?.description || ''
   });
   const [loading, setLoading] = useState(false);
 
+  const handleItemChange = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    const newItems = [...items];
+    (newItems[index] as any)[field] = value;
+    setItems(newItems);
+  };
+
+  const addItem = () => {
+    setItems([...items, { description: '', quantity: 1, unit_price: 0 }]);
+  };
+
+  const removeItem = (index: number) => {
+    const newItems = items.filter((_, i) => i !== index);
+    setItems(newItems);
+  };
+
+  const totalAmount = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await onSubmit(formData);
+      await onSubmit({ ...formData, items });
     } catch (error) {
       console.error('Form submission error:', error);
     } finally {
@@ -135,24 +121,47 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         </select>
       </div>
 
-      {/* Amount */}
+      {/* Line Items */}
       <div>
-        <label htmlFor="amount" className="block text-sm font-medium text-gray-300 mb-1">
-          Amount
-        </label>
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
-          <input
-            type="number"
-            id="amount"
-            value={formData.amount}
-            onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-            className="w-full pl-8 pr-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
-            required
-            min="0"
-            step="0.01"
-          />
+        <label className="block text-sm font-medium text-gray-300 mb-1">Line Items</label>
+        <div className="space-y-2">
+          {items.map((item, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Description"
+                value={item.description}
+                onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+              />
+              <input
+                type="number"
+                placeholder="Qty"
+                value={item.quantity}
+                onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value, 10) || 1)}
+                className="w-20 px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+              />
+              <input
+                type="number"
+                placeholder="Price"
+                value={item.unit_price}
+                onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                className="w-24 px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+              />
+              <button type="button" onClick={() => removeItem(index)} className="text-red-500">X</button>
+            </div>
+          ))}
         </div>
+        <button type="button" onClick={addItem} className="mt-2 px-3 py-1 bg-[#336699] text-white rounded-[4px]">
+          <Plus className="w-4 h-4 inline-block mr-1" />
+          Add Item
+        </button>
+      </div>
+
+      {/* Total Amount */}
+      <div className="text-right">
+        <span className="text-gray-300">Total: </span>
+        <span className="font-bold text-white">${totalAmount.toFixed(2)}</span>
       </div>
 
       {/* Due Date */}

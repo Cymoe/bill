@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { SubcontractorService, TRADE_CATEGORIES } from '../../services/subcontractorService';
-import { Save, Trash2, Star, Heart } from 'lucide-react';
+import { Save, Trash2, Star, Heart, Wrench } from 'lucide-react';
 
 interface Subcontractor {
   id: string;
@@ -167,347 +167,291 @@ export const EditSubcontractorDrawer: React.FC<EditSubcontractorDrawerProps> = (
       title="Edit Subcontractor"
       width="xl"
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full bg-[#0a0a0a]">
         {/* Header with Actions */}
-        <div className="px-6 py-4 border-b border-[#333333] bg-[#1E1E1E]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-                {subcontractor?.name}
-                {subcontractor?.is_preferred && <Heart className="w-5 h-5 text-[#D32F2F] fill-current" />}
-              </h2>
-              <p className="text-sm text-gray-400">{subcontractor?.company_name}</p>
-              <p className="text-sm text-[#F9D71C]">{subcontractor?.trade_category}</p>
+        <div className="p-8 pb-6 border-b border-white/10">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-orange-500/20 to-orange-600/20 rounded-xl flex items-center justify-center border border-orange-500/20">
+              <Wrench className="w-6 h-6 text-orange-400" />
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-transparent border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors text-sm flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!formData.name.trim() || isSaving}
-                className="px-4 py-2 bg-[#EAB308] hover:bg-[#D97706] text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-1">
+                <h2 className="text-2xl font-bold text-white">
+                  {subcontractor?.name}
+                </h2>
+                {subcontractor?.is_preferred && (
+                  <div className="flex items-center gap-1 px-2 py-1 bg-red-500/20 border border-red-500/30 rounded-lg">
+                    <Heart className="w-4 h-4 text-red-400 fill-current" />
+                    <span className="text-xs text-red-400 font-medium">Preferred</span>
+                  </div>
+                )}
+              </div>
+              {subcontractor?.company_name && (
+                <p className="text-white/60 text-sm mb-1">{subcontractor.company_name}</p>
+              )}
+              <p className="text-orange-400 text-sm font-medium">{subcontractor?.trade_category}</p>
             </div>
+          </div>
+          
+          <div className="flex items-center justify-end gap-4">
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="h-12 px-6 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-3"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!formData.name.trim() || isSaving}
+              className="h-12 px-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black rounded-xl hover:from-yellow-400 hover:to-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-3 shadow-lg"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-4xl mx-auto space-y-8">
             {/* Basic Information */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Basic Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Full Name *
+            <div className="space-y-6">
+              <div className="border-b border-white/10 pb-4">
+                <h3 className="text-lg font-semibold text-white mb-1">Basic Information</h3>
+                <p className="text-white/60 text-sm">Essential details about the subcontractor</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Name *
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter full name"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="Enter contractor name"
                   />
                 </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
                     Company Name
                   </label>
                   <input
                     type="text"
                     value={formData.company_name}
                     onChange={(e) => handleInputChange('company_name', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
                     placeholder="Enter company name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter email address"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter phone number"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Trade Information */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Trade Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-white/90 mb-3">
                     Trade Category *
                   </label>
                   <select
                     value={formData.trade_category}
                     onChange={(e) => handleInputChange('trade_category', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
                   >
-                    <option value="">Select trade category</option>
-                    {TRADE_CATEGORIES.map(category => (
-                      <option key={category} value={category}>{category}</option>
+                    {TRADE_CATEGORIES.map(cat => (
+                      <option key={cat} value={cat} className="bg-[#0a0a0a] text-white">{cat}</option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Hourly Rate
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">$</span>
-                    <input
-                      type="number"
-                      value={formData.hourly_rate}
-                      onChange={(e) => handleInputChange('hourly_rate', parseFloat(e.target.value) || 0)}
-                      className="w-full pl-8 pr-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-white/90 mb-3">
                     Specialty
                   </label>
                   <input
                     type="text"
                     value={formData.specialty}
                     onChange={(e) => handleInputChange('specialty', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Specific skills or specializations"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="e.g., Kitchen electrical"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="contractor@example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Hourly Rate
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.hourly_rate || ''}
+                    onChange={(e) => handleInputChange('hourly_rate', parseFloat(e.target.value) || 0)}
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="0.00"
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Rating
+                  </label>
+                  <div className="flex items-center gap-2 h-12">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => handleInputChange('rating', star)}
+                        className="p-1 hover:scale-110 transition-transform"
+                      >
+                        <Star
+                          className={`w-6 h-6 ${
+                            formData.rating && star <= formData.rating
+                              ? 'text-yellow-500 fill-current'
+                              : 'text-white/20'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_preferred}
+                    onChange={(e) => handleInputChange('is_preferred', e.target.checked)}
+                    className="w-5 h-5 text-red-500 bg-white/5 border border-white/10 rounded focus:ring-red-500/20"
+                  />
+                  <span className="text-white flex items-center gap-2 font-medium">
+                    <Heart className="w-5 h-5 text-red-400" />
+                    Preferred Subcontractor
+                  </span>
+                </label>
               </div>
             </div>
 
-            {/* Address Information */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Address Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Address
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter street address"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter city"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange('state', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter state"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.zip}
-                    onChange={(e) => handleInputChange('zip', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter ZIP code"
-                  />
-                </div>
+            {/* Additional Information */}
+            <div className="space-y-6">
+              <div className="border-b border-white/10 pb-4">
+                <h3 className="text-lg font-semibold text-white mb-1">Additional Information</h3>
+                <p className="text-white/60 text-sm">Professional credentials and notes</p>
               </div>
-            </div>
-
-            {/* Credentials & Certifications */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Credentials & Certifications</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-white/90 mb-3">
                     License Number
                   </label>
                   <input
                     type="text"
                     value={formData.license_number}
                     onChange={(e) => handleInputChange('license_number', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter license number"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="License #"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Insurance Information
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Certification Info
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.certification_info}
+                    onChange={(e) => handleInputChange('certification_info', e.target.value)}
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="Certifications"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Insurance Info
                   </label>
                   <input
                     type="text"
                     value={formData.insurance_info}
                     onChange={(e) => handleInputChange('insurance_info', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Insurance details"
+                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    placeholder="Insurance provider & policy"
                   />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Certifications
+                  <label className="block text-sm font-medium text-white/90 mb-3">
+                    Notes
                   </label>
                   <textarea
-                    value={formData.certification_info}
-                    onChange={(e) => handleInputChange('certification_info', e.target.value)}
-                    rows={3}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent resize-none"
-                    placeholder="List certifications, training, or qualifications"
+                    value={formData.notes}
+                    onChange={(e) => handleInputChange('notes', e.target.value)}
+                    rows={4}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all resize-none"
+                    placeholder="Additional notes about this subcontractor..."
                   />
                 </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Rating & Preferences */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Rating & Preferences</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Rating
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-1">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          onClick={() => handleInputChange('rating', star)}
-                          className="focus:outline-none"
-                        >
-                          <Star
-                            className={`w-6 h-6 transition-colors ${
-                              star <= formData.rating
-                                ? 'text-[#F9D71C] fill-current'
-                                : 'text-gray-600 hover:text-[#F9D71C]'
-                            }`}
-                          />
-                        </button>
-                      ))}
-                    </div>
-                    <span className="text-sm text-gray-400">({formData.rating}/5)</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Preferred Contractor
-                  </label>
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-white mb-2">Delete Subcontractor</h3>
+                <p className="text-white/60 mb-6">
+                  Are you sure you want to delete "{subcontractor?.name}"? This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-4">
                   <button
-                    type="button"
-                    onClick={() => handleInputChange('is_preferred', !formData.is_preferred)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                      formData.is_preferred
-                        ? 'bg-[#D32F2F] border-[#D32F2F] text-white'
-                        : 'bg-transparent border-gray-600 text-gray-400 hover:border-[#D32F2F] hover:text-[#D32F2F]'
-                    }`}
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
                   >
-                    <Heart className={`w-4 h-4 ${formData.is_preferred ? 'fill-current' : ''}`} />
-                    {formData.is_preferred ? 'Preferred' : 'Mark as Preferred'}
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
                   </button>
                 </div>
               </div>
             </div>
-
-            {/* Notes */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Notes</h3>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => handleInputChange('notes', e.target.value)}
-                rows={4}
-                className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent resize-none"
-                placeholder="Additional notes about this subcontractor..."
-              />
-            </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-[#1E1E1E] rounded-lg border border-[#333333] p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-white mb-2">Delete Subcontractor</h3>
-            <p className="text-gray-400 mb-6">
-              Are you sure you want to delete this subcontractor? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </SlideOutDrawer>
   );
 }; 

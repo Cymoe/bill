@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, Upload, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown, FileSpreadsheet, FileDown } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { Modal } from '../common/Modal';
@@ -10,6 +10,8 @@ import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { exportInvoicesToCSV } from '../../utils/exportData';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { InvoiceExportService } from '../../services/InvoiceExportService';
+
 
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { CreateInvoiceDrawer } from './CreateInvoiceDrawer';
@@ -143,13 +145,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   useEffect(() => {
     if (user && selectedOrg?.id) {
       fetchData();
+    } else if (user && selectedOrg?.name === 'Loading...') {
+      // Still loading organization, keep loading state
+      setIsLoading(true);
     } else {
       setInvoices([]);
       setClients([]);
       setProducts([]);
       setIsLoading(false);
     }
-  }, [user, selectedOrg?.id, refreshTrigger]);
+  }, [user, selectedOrg?.id, selectedOrg?.name, refreshTrigger]);
 
   // Handle navigation from project page
   useEffect(() => {
@@ -413,18 +418,54 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
     setAmountSort('desc');
   };
 
-  // Functions for the options menu
-  const handleImportInvoices = () => {
-    console.log('Import invoices clicked');
+
+  const handleExportToCSV = async () => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      const invoiceIds = filteredInvoices.map(inv => inv.id);
+      await InvoiceExportService.export({
+        format: 'csv',
+        invoiceIds,
+        includeLineItems: true,
+        includePayments: true,
+        organizationId: selectedOrg.id
+      });
+    } catch (error) {
+      console.error('Error exporting invoices:', error);
+      alert('Failed to export invoices. Please try again.');
+    }
   };
 
-  const handleExportToCSV = () => {
-    exportInvoicesToCSV(filteredInvoices, clients, products);
+  const handleExportToExcel = async () => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      const invoiceIds = filteredInvoices.map(inv => inv.id);
+      await InvoiceExportService.export({
+        format: 'excel',
+        invoiceIds,
+        includeLineItems: true,
+        includePayments: true,
+        organizationId: selectedOrg.id
+      });
+    } catch (error) {
+      console.error('Error exporting invoices:', error);
+      alert('Failed to export invoices. Please try again.');
+    }
   };
 
-  const handlePrintInvoices = () => {
-    console.log('Print invoices clicked');
+  const handleExportToPDF = async (invoiceId: string) => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      await InvoiceExportService.exportInvoiceToPDF(invoiceId, selectedOrg.id);
+    } catch (error) {
+      console.error('Error exporting invoice to PDF:', error);
+      alert('Failed to export invoice. Please try again.');
+    }
   };
+
 
   // Invoice action handlers
   const handleViewInvoice = (invoiceId: string) => {
@@ -905,12 +946,10 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
               <div className="relative" ref={filterMenuRef}>
                 <button
                   onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className={`bg-[#1E1E1E] border border-[#555555] rounded-[4px] text-white hover:bg-[#333333] transition-colors flex items-center gap-2 ${
-                    isMinimal ? 'px-2 py-1.5 text-xs' : isConstrained ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'
-                  }`}
+                  className={`px-3 py-2 bg-[#1E1E1E] hover:bg-[#252525] text-white border border-[#333333] rounded-[4px] text-sm font-medium transition-colors flex items-center gap-2 ${showFilterMenu ? 'bg-[#252525]' : ''}`}
                 >
-                  <Filter className={`${isMinimal ? 'w-3 h-3' : 'w-4 h-4'}`} />
-                  {!isMinimal && !isConstrained && 'More Filters'}
+                  <Filter className="w-4 h-4" />
+                  <span>{isConstrained ? '' : 'More Filters'}</span>
                 </button>
 
                 {showFilterMenu && (
@@ -989,11 +1028,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
             </div>
 
             {/* Right side - Compact toggle and Options menu */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {/* Compact Table Toggle */}
               <button
                 onClick={() => setIsCompactTable(!isCompactTable)}
-                className={`p-2 hover:bg-[#333333] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
+                className={`p-2 bg-[#1E1E1E] border border-[#333333] hover:bg-[#333333] rounded-[4px] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
                 title="Toggle compact view"
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -1002,16 +1041,13 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
               <div className="relative" ref={optionsMenuRef}>
                 <button
                   onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                  className="p-2 hover:bg-[#333333] transition-colors"
+                  className="p-2 bg-[#1E1E1E] border border-[#333333] hover:bg-[#333333] rounded-[4px] transition-colors text-gray-400"
                 >
-                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                  <MoreVertical className="w-4 h-4" />
                 </button>
 
               {showOptionsMenu && (
                 <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1">
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
-                    Data Management
-                  </div>
                   <button
                     onClick={() => {
                       handleCreateProgressInvoice();
@@ -1022,17 +1058,9 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                     <FileText className="w-3 h-3 mr-3 text-gray-400" />
                     Progress Invoice
                   </button>
-                  <div className="border-t border-[#333333] my-1"></div>
-                  <button
-                    onClick={() => {
-                      handleImportInvoices();
-                      setShowOptionsMenu(false);
-                    }}
-                    className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                  >
-                    <Upload className="w-3 h-3 mr-3 text-gray-400" />
-                    Import Invoices
-                  </button>
+                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
+                    Export Options
+                  </div>
                   <button
                     onClick={() => {
                       handleExportToCSV();
@@ -1043,18 +1071,15 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                     <Download className="w-3 h-3 mr-3 text-gray-400" />
                     Export to CSV
                   </button>
-                  <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
-                    View Options
-                  </div>
                   <button
                     onClick={() => {
-                      handlePrintInvoices();
+                      handleExportToExcel();
                       setShowOptionsMenu(false);
                     }}
                     className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
                   >
-                    <FileText className="w-3 h-3 mr-3 text-gray-400" />
-                    Print Invoices
+                    <FileSpreadsheet className="w-3 h-3 mr-3 text-gray-400" />
+                    Export to Excel
                   </button>
                 </div>
               )}
@@ -1131,9 +1156,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
               {/* Table Rows */}
               <div>
                 {isLoading ? (
-                  <div className="p-6">
-                    <TableSkeleton rows={5} columns={7} />
-                  </div>
+                  <TableSkeleton rows={5} variant="invoice" />
                 ) : (
                   <>
                     {filteredInvoices.map((invoice) => {
@@ -1269,7 +1292,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                                     setOpenInvoiceDropdown(invoice.id);
                                   }
                                 }}
-                                className={`${isCompactTable ? 'w-6 h-6' : isMinimal ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center hover:bg-[#333333] transition-all opacity-0 group-hover:opacity-100`}
+                                className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
                               >
                                 <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                               </button>
@@ -1358,59 +1381,49 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                 throw itemsError;
               }
             } else {
-              // Create new invoice
+              // Create new invoice using InvoiceService
               console.log('Creating new invoice with user_id:', user?.id);
+              
+              if (!selectedOrg?.id) {
+                // If still loading, wait a moment and retry
+                if (selectedOrg?.name === 'Loading...') {
+                  alert('Organization is still loading. Please wait a moment and try again.');
+                  return;
+                }
+                console.error('No organization selected. Current selectedOrg:', selectedOrg);
+                console.error('Available localStorage:', localStorage.getItem('selectedOrgId'));
+                alert('No organization selected. Please select an organization and try again.');
+                return;
+              }
+              
+              const { InvoiceService } = await import('../../services/InvoiceService');
               
               const invoiceData = {
                 user_id: user?.id,
+                organization_id: selectedOrg.id,
                 client_id: data.client_id,
+                project_id: data.project_id || undefined,
                 amount: data.total_amount,
-                status: data.status,
+                subtotal: data.total_amount,
+                status: data.status as 'draft' | 'sent' | 'opened' | 'paid' | 'overdue' | 'signed',
                 issue_date: data.issue_date,
                 due_date: data.due_date,
-                description: data.description, // Re-enabled - column now exists
-                project_id: data.project_id || null
+                notes: data.description,
+                terms: 'Net 30',
+                invoice_items: data.items?.map(item => ({
+                  description: item.description || '',
+                  quantity: item.quantity,
+                  unit_price: item.price,
+                  total_price: item.price * item.quantity,
+                  product_id: item.product_id
+                })) || []
               };
               
-              console.log('Invoice data to insert:', invoiceData);
+              console.log('Invoice data to create:', invoiceData);
               
-              const { data: invoice, error: invoiceError } = await supabase
-                .from('invoices')
-                .insert(invoiceData)
-                .select()
-                .single();
-
-              if (invoiceError) {
-                console.error('Error creating invoice:', invoiceError);
-                alert(`Error creating invoice: ${invoiceError.message}`);
-                throw invoiceError;
-              }
-
-              console.log('Invoice created successfully:', invoice);
-
-              // Create invoice items
-              const itemsToInsert = data.items.map(item => ({
-                invoice_id: invoice.id,
-                product_id: item.product_id,
-                quantity: item.quantity,
-                unit_price: item.price, // Changed back to unit_price
-                total_price: item.price * item.quantity, // Add total_price calculation
-                description: item.description
-              }));
-
-              console.log('Inserting invoice items:', itemsToInsert);
-
-              const { error: itemsError } = await supabase
-                .from('invoice_items')
-                .insert(itemsToInsert);
-
-              if (itemsError) {
-                console.error('Error inserting invoice items:', itemsError);
-                alert(`Error inserting invoice items: ${itemsError.message}`);
-                throw itemsError;
-              }
+              const newInvoice = await InvoiceService.create(invoiceData);
               
-              console.log('Invoice and items created successfully!');
+              console.log('Invoice created successfully:', newInvoice);
             }
 
             // Refresh the data
@@ -1485,6 +1498,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
           >
             <Share2 className="w-4 h-4 mr-3 text-gray-400" />
             Share Invoice
+          </button>
+          <button
+            onClick={() => {
+              handleExportToPDF(openInvoiceDropdown);
+              setOpenInvoiceDropdown(null);
+            }}
+            className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+          >
+            <FileDown className="w-4 h-4 mr-3 text-gray-400" />
+            Export as PDF
           </button>
           <div className="border-t border-[#333333] my-1"></div>
           <button

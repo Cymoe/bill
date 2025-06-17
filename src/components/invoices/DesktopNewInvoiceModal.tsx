@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Plus, FileText } from 'lucide-react';
-import { useQuery, useMutation } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import type { Doc, Id } from "../../../convex/_generated/dataModel";
+import React, { useState, useEffect, useContext } from 'react';
+import { InvoiceService } from '../../services/InvoiceService';
+import { OrganizationContext } from '../layouts/DashboardLayout';
+import { useAuth } from '../../contexts/AuthContext';
 import { InvoiceForm } from './InvoiceForm';
 
 interface DesktopNewInvoiceModalProps {
@@ -11,10 +10,9 @@ interface DesktopNewInvoiceModalProps {
 }
 
 export const DesktopNewInvoiceModal: React.FC<DesktopNewInvoiceModalProps> = ({ onClose, onSave }) => {
-  const [step, setStep] = useState<'select' | 'template' | 'create'>('select');
+  const { selectedOrg } = useContext(OrganizationContext);
+  const { user } = useAuth();
   const [isClosing, setIsClosing] = useState(false);
-  const createInvoice = useMutation(api.invoices.createInvoice);
-  const templates = useQuery(api.templates.getTemplates) || [];
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -29,8 +27,22 @@ export const DesktopNewInvoiceModal: React.FC<DesktopNewInvoiceModalProps> = ({ 
   };
 
   const handleSubmit = async (formData: any) => {
+    if (!selectedOrg?.id || !user?.id) {
+      console.error("Organization or user not available. Cannot create invoice.");
+      return;
+    }
     try {
-      await createInvoice(formData);
+      const invoicePayload = { 
+        organization_id: selectedOrg.id,
+        user_id: user.id,
+        client_id: formData.client,
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: formData.dueDate,
+        notes: formData.description,
+        status: 'draft' as const, // Default status
+        items: formData.items || []
+      };
+      await InvoiceService.create(invoicePayload);
       setIsClosing(true);
       setTimeout(onSave, 300);
     } catch (err) {
@@ -61,11 +73,12 @@ export const DesktopNewInvoiceModal: React.FC<DesktopNewInvoiceModalProps> = ({ 
         `}
       >
         <InvoiceForm
-          step={step}
-          setStep={setStep}
-          templates={templates}
-          onClose={handleClose}
           onSubmit={handleSubmit}
+          onCancel={handleClose}
+          // The props below were removed as they are not part of InvoiceFormProps
+          // step={step}
+          // setStep={setStep}
+          // templates={templates}
         />
       </div>
     </div>

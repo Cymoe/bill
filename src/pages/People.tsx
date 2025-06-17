@@ -97,9 +97,9 @@ export const People: React.FC = () => {
   return (
     <div className="max-w-[1600px] mx-auto p-8">
       {/* Single Unified Card */}
-      <div className="bg-transparent border border-[#333333]">
+      <div className="border border-[#333333]">
         {/* Header Section */}
-        <div className="px-6 py-5 flex items-center justify-between">
+        <div className="px-6 py-5 flex items-center justify-between bg-transparent">
           <h1 className="text-xl font-semibold text-white">People</h1>
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -109,7 +109,7 @@ export const People: React.FC = () => {
                 placeholder={`Search ${activeTab}...`}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+                className="bg-transparent border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
               />
             </div>
             <button
@@ -128,8 +128,8 @@ export const People: React.FC = () => {
             onClick={() => setActiveTab('clients')}
             className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
               activeTab === 'clients'
-                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+                ? 'text-white after:bg-[#336699] bg-transparent'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-transparent'
             }`}
           >
             Clients
@@ -139,8 +139,8 @@ export const People: React.FC = () => {
             onClick={() => setActiveTab('vendors')}
             className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
               activeTab === 'vendors'
-                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+                ? 'text-white after:bg-[#336699] bg-transparent'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-transparent'
             }`}
           >
             Vendors
@@ -150,8 +150,8 @@ export const People: React.FC = () => {
             onClick={() => setActiveTab('subcontractors')}
             className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
               activeTab === 'subcontractors'
-                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+                ? 'text-white after:bg-[#336699] bg-transparent'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-transparent'
             }`}
           >
             Subs
@@ -161,8 +161,8 @@ export const People: React.FC = () => {
             onClick={() => setActiveTab('team')}
             className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
               activeTab === 'team'
-                ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
+                ? 'text-white after:bg-[#336699] bg-transparent'
+                : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-transparent'
             }`}
           >
             Team

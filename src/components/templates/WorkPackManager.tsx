@@ -1,42 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Search, Grid, List, Eye, Edit2, MoreVertical,
-  Package, DollarSign, CheckSquare, Copy, Download, Archive, Trash2
+  Package, DollarSign, CheckSquare, Copy, Download, Archive, Trash2, LayoutGrid
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
 import { CreateWorkPackModal } from './CreateWorkPackModal';
 import { useNavigate } from 'react-router-dom';
-
-interface WorkPack {
-  id: string;
-  name: string;
-  description: string;
-  industry_id: string;
-  project_type_id: string;
-  tier: 'budget' | 'standard' | 'premium';
-  base_price: number;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  usage_count?: number;
-  display_order?: number;
-  industry?: {
-    id: string;
-    name: string;
-    slug: string;
-    icon?: string;
-  };
-  project_type?: {
-    id: string;
-    name: string;
-    slug: string;
-  };
-  tasks?: any[];
-  expenses?: any[];
-  items?: any[];
-}
+import { WorkPackService, type WorkPack } from '../../services/WorkPackService';
 
 interface WorkPackTask {
   id: string;
@@ -85,6 +57,7 @@ export const WorkPackManager: React.FC = () => {
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedWorkPackId, setSelectedWorkPackId] = useState<string | null>(null);
+  const [isCompactTable, setIsCompactTable] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -110,6 +83,12 @@ export const WorkPackManager: React.FC = () => {
     try {
       setLoading(true);
       
+      const organizationId = localStorage.getItem('selectedOrgId');
+      if (!organizationId) {
+        console.error('No organization ID found');
+        return;
+      }
+      
       // Load industries
       const { data: industriesData, error: industriesError } = await supabase
         .from('industries')
@@ -118,72 +97,19 @@ export const WorkPackManager: React.FC = () => {
         .order('display_order');
         
       if (!industriesError && industriesData) {
-        setCategories(industriesData); // For now, use same state variable
+        setCategories(industriesData);
       }
       
-      // Load work packs with industry and project type data
-      const { data: workPacksData, error: workPacksError } = await supabase
-        .from('work_packs')
-        .select(`
-          *,
-          industry:industries(id, name, slug, icon),
-          project_type:project_categories!project_type_id(id, name, slug)
-        `)
-        .order('industry_id')
-        .order('base_price');
-
-      if (!workPacksError && workPacksData) {
-        // Load tasks, expenses, and items for each work pack
-        const enrichedWorkPacks = await Promise.all(
-          workPacksData.map(async (pack) => {
-            // Load tasks
-            const { data: tasks } = await supabase
-              .from('work_pack_tasks')
-              .select('*')
-              .eq('work_pack_id', pack.id)
-              .order('display_order');
-
-            // Load expenses
-            const { data: expenses } = await supabase
-              .from('work_pack_expenses')
-              .select('*')
-              .eq('work_pack_id', pack.id)
-              .order('display_order');
-
-            // Load items
-            const { data: items } = await supabase
-              .from('work_pack_items')
-              .select(`
-                *,
-                line_item:line_items(*),
-                product:products(*)
-              `)
-              .eq('work_pack_id', pack.id)
-              .order('display_order');
-
-            // Load documents
-            const { data: documents } = await supabase
-              .from('work_pack_document_templates')
-              .select('*')
-              .eq('work_pack_id', pack.id)
-              .order('display_order');
-
-            // Mock usage count for now
-            const usageCount = Math.floor(Math.random() * 20) + 1;
-
-            return {
-              ...pack,
-              tasks: tasks || [],
-              expenses: expenses || [],
-              items: items || [],
-              documents: documents || [],
-              usage_count: usageCount
-            };
-          })
-        );
-
-        setWorkPacks(enrichedWorkPacks);
-      }
+      // Load work packs using the service
+      const workPacksData = await WorkPackService.list(organizationId);
+      
+      // Add mock usage count for now
+      const enrichedWorkPacks = workPacksData.map(pack => ({
+        ...pack,
+        usage_count: Math.floor(Math.random() * 20) + 1
+      }));
+      
+      setWorkPacks(enrichedWorkPacks);
     } catch (error) {
       console.error('Error loading work packs:', error);
     } finally {
@@ -249,75 +175,16 @@ export const WorkPackManager: React.FC = () => {
 
   const handleDuplicateWorkPack = async (packId: string) => {
     try {
-      // Get the work pack to duplicate
-      const packToDuplicate = workPacks.find(p => p.id === packId);
-      if (!packToDuplicate) return;
-      
-      // Create a new work pack with copied data
-      const { data: newPack, error: createError } = await supabase
-        .from('work_packs')
-        .insert({
-          name: `${packToDuplicate.name} (Copy)`,
-          description: packToDuplicate.description,
-          industry_id: packToDuplicate.industry_id,
-          project_type_id: packToDuplicate.project_type_id,
-          tier: packToDuplicate.tier,
-          base_price: packToDuplicate.base_price,
-          is_active: true,
-          user_id: user?.id,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-        
-      if (createError) throw createError;
-      
-      if (newPack) {
-        // Duplicate items
-        if (packToDuplicate.items && packToDuplicate.items.length > 0) {
-          const itemsData = packToDuplicate.items.map((item: any, index: number) => ({
-            work_pack_id: newPack.id,
-            item_type: item.item_type,
-            line_item_id: item.line_item_id || null,
-            product_id: item.product_id || null,
-            quantity: item.quantity,
-            price: item.price,
-            display_order: index
-          }));
-          
-          await supabase.from('work_pack_items').insert(itemsData);
-        }
-        
-        // Duplicate tasks
-        if (packToDuplicate.tasks && packToDuplicate.tasks.length > 0) {
-          const tasksData = packToDuplicate.tasks.map((task: any, index: number) => ({
-            work_pack_id: newPack.id,
-            title: task.title,
-            description: task.description,
-            estimated_hours: task.estimated_hours,
-            display_order: index
-          }));
-          
-          await supabase.from('work_pack_tasks').insert(tasksData);
-        }
-        
-        // Duplicate expenses
-        if (packToDuplicate.expenses && packToDuplicate.expenses.length > 0) {
-          const expensesData = packToDuplicate.expenses.map((expense: any, index: number) => ({
-            work_pack_id: newPack.id,
-            description: expense.description,
-            category: expense.category,
-            amount: expense.amount,
-            vendor: expense.vendor,
-            display_order: index
-          }));
-          
-          await supabase.from('work_pack_expenses').insert(expensesData);
-        }
-        
-        // Reload data to show the new pack
-        loadData();
+      const organizationId = localStorage.getItem('selectedOrgId');
+      if (!organizationId) {
+        console.error('No organization ID found');
+        return;
       }
+      
+      await WorkPackService.duplicate(packId, organizationId);
+      
+      // Reload data to show the new pack
+      loadData();
     } catch (error) {
       console.error('Error duplicating work pack:', error);
       alert('Failed to duplicate work pack');
@@ -326,19 +193,17 @@ export const WorkPackManager: React.FC = () => {
 
   const handleArchiveWorkPack = async (packId: string) => {
     try {
-      const pack = workPacks.find(p => p.id === packId);
-      if (!pack) return;
+      const organizationId = localStorage.getItem('selectedOrgId');
+      if (!organizationId) {
+        console.error('No organization ID found');
+        return;
+      }
       
-      const { error } = await supabase
-        .from('work_packs')
-        .update({ is_active: !pack.is_active })
-        .eq('id', packId);
-        
-      if (error) throw error;
+      const updatedPack = await WorkPackService.archive(packId, organizationId);
       
       // Update local state
       setWorkPacks(workPacks.map(p => 
-        p.id === packId ? { ...p, is_active: !p.is_active } : p
+        p.id === packId ? { ...p, is_active: updatedPack.is_active } : p
       ));
     } catch (error) {
       console.error('Error archiving work pack:', error);
@@ -352,19 +217,13 @@ export const WorkPackManager: React.FC = () => {
     }
     
     try {
-      // Delete related data first
-      await supabase.from('work_pack_items').delete().eq('work_pack_id', packId);
-      await supabase.from('work_pack_tasks').delete().eq('work_pack_id', packId);
-      await supabase.from('work_pack_expenses').delete().eq('work_pack_id', packId);
-      await supabase.from('work_pack_document_templates').delete().eq('work_pack_id', packId);
+      const organizationId = localStorage.getItem('selectedOrgId');
+      if (!organizationId) {
+        console.error('No organization ID found');
+        return;
+      }
       
-      // Delete the work pack
-      const { error } = await supabase
-        .from('work_packs')
-        .delete()
-        .eq('id', packId);
-        
-      if (error) throw error;
+      await WorkPackService.delete(packId, organizationId);
       
       // Update local state
       setWorkPacks(workPacks.filter(p => p.id !== packId));
@@ -449,6 +308,17 @@ export const WorkPackManager: React.FC = () => {
           <option value="standard">Standard</option>
           <option value="premium">Premium</option>
         </select>
+
+        {/* Compact Table Toggle - Only show for table view */}
+        {viewMode === 'table' && (
+          <button
+            onClick={() => setIsCompactTable(!isCompactTable)}
+            className={`p-2 bg-[#111] border border-[#2a2a2a] hover:bg-[#1a1a1a] rounded-lg transition-colors ${isCompactTable ? 'bg-[#1a1a1a] text-[#3B82F6]' : 'text-gray-400'}`}
+            title="Toggle compact view"
+          >
+            <LayoutGrid className="w-4 h-4" />
+          </button>
+        )}
 
         {/* View Toggle */}
         <div className="flex bg-[#111] border border-[#2a2a2a] rounded-lg overflow-hidden">
@@ -583,13 +453,13 @@ export const WorkPackManager: React.FC = () => {
                   {/* Actions */}
                   <div className="flex gap-3">
                     <button
-                      onClick={() => handleViewWorkPack(pack.id)}
+                      onClick={() => handleViewWorkPack(pack.id!)}
                       className="flex-1 px-4 py-2 bg-[#1a1a1a] text-white rounded-lg text-sm font-medium hover:bg-[#2a2a2a] transition-all"
                     >
                       View
                     </button>
                     <button
-                      onClick={() => handleEditWorkPack(pack.id)}
+                      onClick={() => handleEditWorkPack(pack.id!)}
                       className="flex-1 px-4 py-2 bg-transparent border border-[#2a2a2a] text-gray-400 rounded-lg text-sm font-medium hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
                     >
                       Edit
@@ -624,18 +494,20 @@ export const WorkPackManager: React.FC = () => {
           ) : (
             filteredWorkPacks.map(pack => (
               <div key={pack.id} 
-                   className="grid grid-cols-[2.5fr,1fr,0.8fr,0.8fr,0.8fr,1fr,0.8fr,100px] gap-4 px-6 py-5 
-                            border-b border-[#1a1a1a] items-center hover:bg-[#151515] transition-colors"
+                   className={`grid grid-cols-[2.5fr,1fr,0.8fr,0.8fr,0.8fr,1fr,0.8fr,100px] gap-4 px-6 
+                            border-b border-[#1a1a1a] items-center hover:bg-[#151515] transition-colors group ${isCompactTable ? 'py-2' : 'py-3'}`}
                    >
                 {/* Pack Info */}
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-[15px] font-semibold text-white tracking-tight">{pack.name}</span>
+                    <span className={`font-semibold text-white tracking-tight ${isCompactTable ? 'text-sm' : 'text-[15px]'}`}>{pack.name}</span>
                     <span className={`text-[10px] uppercase tracking-[0.5px] px-2 py-0.5 rounded ${getTierStyle(pack.tier)}`}>
                       {pack.tier}
                     </span>
                   </div>
-                  <span className="text-[13px] text-gray-500">{pack.description}</span>
+                  {!isCompactTable && (
+                    <span className="text-[13px] text-gray-500">{pack.description}</span>
+                  )}
                 </div>
 
                 {/* Category */}
@@ -657,35 +529,34 @@ export const WorkPackManager: React.FC = () => {
                 <div className="text-[13px] text-gray-500 text-center">{pack.usage_count || 0}</div>
 
                 {/* Actions */}
-                <div className="flex gap-1 justify-end">
-                  <button 
-                    onClick={() => handleViewWorkPack(pack.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-md border border-[#2a2a2a] 
-                             text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
-                  <button 
-                    onClick={() => handleEditWorkPack(pack.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-md border border-[#2a2a2a] 
-                             text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
-                  >
-                    <Edit2 className="w-3.5 h-3.5" />
-                  </button>
-                  <div className="relative">
+                <div className="flex items-center justify-center">
+                  <div className="relative dropdown-trigger">
                     <button 
-                      onClick={() => toggleDropdown(pack.id)}
-                      className="dropdown-trigger w-8 h-8 flex items-center justify-center rounded-md border border-[#2a2a2a] 
-                               text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all"
+                      onClick={() => toggleDropdown(pack.id!)}
+                      className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
                     >
-                      <MoreVertical className="w-3.5 h-3.5" />
+                      <MoreVertical className="w-4 h-4" />
                     </button>
                     
                     {dropdownOpen === pack.id && (
                       <div className="absolute top-full right-0 mt-1 bg-[#1a1a1a] border border-[#2a2a2a] 
                                     rounded-lg p-1 min-w-[160px] z-50 shadow-xl">
                         <button 
-                          onClick={() => handleDuplicateWorkPack(pack.id)}
+                          onClick={() => handleViewWorkPack(pack.id!)}
+                          className="w-full px-3 py-2 text-left text-[13px] text-gray-300 
+                                         hover:bg-[#2a2a2a] rounded transition-colors flex items-center gap-2">
+                          <Eye className="w-3.5 h-3.5" />
+                          View
+                        </button>
+                        <button 
+                          onClick={() => handleEditWorkPack(pack.id!)}
+                          className="w-full px-3 py-2 text-left text-[13px] text-gray-300 
+                                         hover:bg-[#2a2a2a] rounded transition-colors flex items-center gap-2">
+                          <Edit2 className="w-3.5 h-3.5" />
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDuplicateWorkPack(pack.id!)}
                           className="w-full px-3 py-2 text-left text-[13px] text-gray-300 
                                          hover:bg-[#2a2a2a] rounded transition-colors flex items-center gap-2">
                           <Copy className="w-3.5 h-3.5" />
@@ -697,7 +568,7 @@ export const WorkPackManager: React.FC = () => {
                           Export
                         </button>
                         <button 
-                          onClick={() => handleArchiveWorkPack(pack.id)}
+                          onClick={() => handleArchiveWorkPack(pack.id!)}
                           className="w-full px-3 py-2 text-left text-[13px] text-gray-300 
                                          hover:bg-[#2a2a2a] rounded transition-colors flex items-center gap-2">
                           <Archive className="w-3.5 h-3.5" />
@@ -705,7 +576,7 @@ export const WorkPackManager: React.FC = () => {
                         </button>
                         <div className="h-px bg-[#2a2a2a] my-1" />
                         <button 
-                          onClick={() => handleDeleteWorkPack(pack.id)}
+                          onClick={() => handleDeleteWorkPack(pack.id!)}
                           className="w-full px-3 py-2 text-left text-[13px] text-red-400 
                                          hover:bg-[#2a2a2a] rounded transition-colors flex items-center gap-2">
                           <Trash2 className="w-3.5 h-3.5" />

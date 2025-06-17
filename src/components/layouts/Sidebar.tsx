@@ -11,7 +11,6 @@ import {
   LogOut,
   Building2,
   Book,
-  Briefcase,
   Activity
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -90,9 +89,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Sidebar - part of grid layout, not fixed */}
-      <div className={`hidden md:flex ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-screen bg-[#121212] border-l border-gray-700 flex-col transition-all duration-300 overflow-hidden`}>
+      <div className={`hidden md:flex ${isSidebarCollapsed ? 'w-14' : 'w-48'} h-screen bg-[#121212] border-l border-gray-700 flex-col transition-all duration-300`}>
         {/* Organization header and sidebar toggle */}
-        <div className="p-2 border-b border-[#333333] relative flex items-center justify-between flex-shrink-0">
+        <div className="p-2 border-b border-[#333333] relative flex items-center justify-between flex-shrink-0 overflow-visible">
           <button
             onClick={() => setSidebarCollapsedWithLogging(!isSidebarCollapsed)}
             className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-[4px] bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
@@ -103,12 +102,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {!isSidebarCollapsed && (
             <button 
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
-              className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-between ml-1 h-8 px-2 hover:bg-[#2A2A2A] transition-all duration-150"
+              className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-between ml-1 h-8 px-2 hover:bg-[#2A2A2A] transition-all duration-150 max-w-[140px]"
             >
-              <div className="flex items-center min-w-0">
+              <div className="flex items-center min-w-0 flex-1 overflow-hidden">
                 <span className="text-white text-sm font-medium leading-tight truncate">{selectedOrg.name}</span>
               </div>
-              <ChevronDown className={`text-[#336699] w-3 h-3 transition-transform duration-200 flex-shrink-0 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
+              <ChevronDown className={`text-[#336699] w-3 h-3 transition-transform duration-200 flex-shrink-0 ml-1 ${orgDropdownOpen ? 'transform rotate-180' : ''}`} />
             </button>
           )}
           
@@ -127,7 +126,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <div className={`text-white w-7 h-7 flex items-center justify-center text-sm font-bold ${selectedOrg.id === org.id ? 'bg-[#336699]' : 'bg-[#333333]'}`}>
                     {org.name.charAt(0)}
                   </div>
-                  <div className="flex flex-col overflow-hidden max-w-[120px]">
+                  <div className="flex flex-col overflow-hidden flex-1">
                     <span className="text-white text-sm font-medium truncate">{org.name}</span>
                     <span className="text-gray-400 text-xs truncate">{org.industry}</span>
                   </div>
@@ -154,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">💰</span>
+                      <span className="text-base">◆</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -180,7 +179,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-base">👥</span>
+                      <span className="text-base">◯</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -205,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive || location.pathname.startsWith('/work') || location.pathname.startsWith('/estimates') || location.pathname.startsWith('/projects') || location.pathname.startsWith('/invoices') ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <Briefcase className="w-5 h-5" />
+                      <span className="text-base">▲</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive || location.pathname.startsWith('/work') || location.pathname.startsWith('/estimates') || location.pathname.startsWith('/projects') || location.pathname.startsWith('/invoices') ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
@@ -328,19 +327,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   </button>
 
-                  {/* Office Buildout Row */}
-                  <button 
-                    onClick={() => navigate('/projects/3')}
-                    className={`w-full flex items-center justify-between px-1.5 py-2 transition-colors group border-b border-[#333333] last:border-b-0 hover:bg-[#2A2A2A] first:rounded-t-[4px] last:rounded-b-[4px] ${location.pathname === '/projects/3' ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border-l border-[#336699]/50' : ''}`}
-                  >
-                    <div className="flex items-center flex-1 min-w-0">
-                      <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full mr-2 flex-shrink-0"></div>
-                      <span className={`text-white text-xs font-medium truncate ${location.pathname === '/projects/3' ? 'text-[#336699]' : 'group-hover:text-[#336699]'} transition-colors leading-tight`}>Office Buildout</span>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="text-[#6b7280] text-xs font-medium leading-tight">65%</span>
-                    </div>
-                  </button>
+
                 </div>
               </div>
               

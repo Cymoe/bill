@@ -120,32 +120,32 @@ export const WorkProjectsView: React.FC = () => {
       </div>
 
       {/* Stats bar */}
-      <div className="px-6 py-4 bg-[#1E1E1E]/50 grid grid-cols-4 gap-6">
-        <div>
+      <div className="px-6 py-4 bg-[#1E1E1E]/50 grid grid-cols-4 gap-6 min-h-[88px]">
+        <div className="flex flex-col">
           <div className="text-xs text-gray-400 uppercase">Total</div>
           <div className="text-xl font-semibold text-white mt-1">{projects.length}</div>
-          <div className="text-xs text-gray-500">projects</div>
+          <div className="text-xs text-gray-500 mt-auto">projects</div>
         </div>
-        <div>
+        <div className="flex flex-col">
           <div className="text-xs text-gray-400 uppercase">Total Budget</div>
           <div className="text-xl font-semibold text-[#F9D71C] mt-1">
             {formatCurrency(totalBudget)}
           </div>
-          <div className="text-xs text-gray-500">all projects</div>
+          <div className="text-xs text-gray-500 mt-auto">all projects</div>
         </div>
-        <div>
+        <div className="flex flex-col">
           <div className="text-xs text-gray-400 uppercase">Active</div>
           <div className="text-xl font-semibold text-green-400 mt-1">{activeProjects}</div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 mt-auto">
             {Math.round((activeProjects / Math.max(projects.length, 1)) * 100)}%
           </div>
         </div>
-        <div>
+        <div className="flex flex-col">
           <div className="text-xs text-gray-400 uppercase">Avg Budget</div>
           <div className="text-xl font-semibold text-white mt-1">
             {formatCurrency(averageBudget)}
           </div>
-          <div className="text-xs text-gray-500">per project</div>
+          <div className="text-xs text-gray-500 mt-auto">per project</div>
         </div>
       </div>
 
@@ -186,7 +186,7 @@ export const WorkProjectsView: React.FC = () => {
           >
             <Grid3X3 className="w-4 h-4" />
           </button>
-          <button className="ml-2 p-1.5 hover:bg-[#1E1E1E] rounded transition-colors">
+          <button className="ml-2 p-1.5 rounded hover:bg-[#2A2A2A] transition-colors">
             <MoreVertical className="w-4 h-4 text-gray-400" />
           </button>
         </div>
@@ -195,9 +195,7 @@ export const WorkProjectsView: React.FC = () => {
       {/* Content */}
       <div className="flex-1 overflow-auto">
         {loading ? (
-          <div className="p-6">
-            <TableSkeleton rows={5} columns={5} />
-          </div>
+          <TableSkeleton rows={5} variant="project" />
         ) : filteredProjects.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8">
             <FolderOpen className="w-12 h-12 text-gray-600 mb-4" />

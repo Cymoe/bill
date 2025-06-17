@@ -232,11 +232,7 @@ export class EstimateService {
           entityType: 'estimate',
           entityId: newEstimate.id,
           action: 'created',
-          description: ActivityLogService.buildDescription(
-            'created',
-            'estimate',
-            newEstimate.estimate_number || newEstimate.title || 'New Estimate'
-          ),
+          description: `created estimate ${newEstimate.estimate_number || newEstimate.title || 'New Estimate'}`,
           metadata: {
             estimate_number: newEstimate.estimate_number,
             client_id: newEstimate.client_id,
@@ -310,11 +306,7 @@ export class EstimateService {
           entityType: 'estimate',
           entityId: id,
           action: 'updated',
-          description: ActivityLogService.buildDescription(
-            'updated',
-            'estimate',
-            updatedEstimate.estimate_number || updatedEstimate.title || 'Estimate'
-          ),
+          description: `updated estimate ${updatedEstimate.estimate_number || updatedEstimate.title || 'Estimate'}`,
           metadata: {
             estimate_number: updatedEstimate.estimate_number,
             updated_fields: Object.keys(estimateData),
@@ -355,11 +347,7 @@ export class EstimateService {
           entityType: 'estimate',
           entityId: id,
           action: 'deleted',
-          description: ActivityLogService.buildDescription(
-            'deleted',
-            'estimate',
-            estimate.estimate_number || estimate.title || 'Estimate'
-          ),
+          description: `deleted estimate ${estimate.estimate_number || estimate.title || 'Estimate'}`,
           metadata: {
             estimate_number: estimate.estimate_number,
             client_name: estimate.client?.name,
@@ -405,11 +393,7 @@ export class EstimateService {
           entityType: 'estimate',
           entityId: id,
           action: 'signed',
-          description: ActivityLogService.buildDescription(
-            'signed',
-            'estimate',
-            estimate.estimate_number || estimate.title || 'Estimate'
-          ),
+          description: `signed estimate ${estimate.estimate_number || estimate.title || 'Estimate'}`,
           metadata: {
             estimate_number: estimate.estimate_number,
             client_name: estimate.client?.name,
@@ -553,11 +537,7 @@ export class EstimateService {
           entityType: 'estimate',
           entityId: estimateId,
           action: 'converted',
-          description: ActivityLogService.buildDescription(
-            'converted',
-            'estimate',
-            estimate.estimate_number || 'Estimate'
-          ),
+          description: `converted estimate ${estimate.estimate_number || 'Estimate'} to invoice`,
           metadata: {
             estimate_number: estimate.estimate_number,
             invoice_id: invoice.id,
@@ -802,11 +782,7 @@ export class EstimateService {
               entityType: 'estimate',
               entityId: estimateId,
               action: 'sent',
-              description: ActivityLogService.buildDescription(
-                'sent',
-                'estimate',
-                estimate.estimate_number || 'Estimate'
-              ),
+              description: `sent estimate ${estimate.estimate_number || 'Estimate'}`,
               metadata: {
                 estimate_number: estimate.estimate_number,
                 recipient_email: recipientEmail,
