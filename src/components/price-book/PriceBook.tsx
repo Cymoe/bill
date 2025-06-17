@@ -821,18 +821,19 @@ export const PriceBook: React.FC = () => {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-3">
                           <div className={`font-medium text-gray-100 truncate ${condensed ? 'text-sm' : ''}`}>{product.name}</div>
-                          <span className={`text-xs px-2 py-1 font-medium min-w-[60px] text-center ${
-                            product.type === 'material' ? 'bg-blue-500/20 text-blue-300' :
-                            product.type === 'labor' ? 'bg-green-500/20 text-green-300' :
-                            product.type === 'equipment' ? 'bg-orange-500/20 text-orange-300' :
-                            product.type === 'service' ? 'bg-cyan-500/20 text-cyan-300' :
-                            product.type === 'subcontractor' ? 'bg-purple-500/20 text-purple-300' :
-                            product.type === 'permits' ? 'bg-yellow-500/20 text-yellow-300' :
-                            product.type === 'other' ? 'bg-gray-500/20 text-gray-300' :
-                            'bg-gray-500/20 text-gray-300'
-                          }`}>
-                            {product.type === 'subcontractor' ? 'sub' : product.type}
-                          </span>
+                          <div 
+                            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                              product.type === 'material' ? 'bg-blue-400' :
+                              product.type === 'labor' ? 'bg-green-400' :
+                              product.type === 'equipment' ? 'bg-orange-400' :
+                              product.type === 'service' ? 'bg-cyan-400' :
+                              product.type === 'subcontractor' ? 'bg-purple-400' :
+                              product.type === 'permits' ? 'bg-yellow-400' :
+                              product.type === 'other' ? 'bg-gray-400' :
+                              'bg-gray-400'
+                            }`}
+                            title={product.type === 'subcontractor' ? 'subcontractor' : product.type}
+                          />
                         </div>
                         {!condensed && product.description && (
                           <div className="text-xs text-gray-400 truncate mt-0.5">{product.description}</div>
