@@ -587,7 +587,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                             )}
                           </button>
                         </th>
-                        <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12`}>
+                        <th className={`${isCompactTable ? 'px-3 py-1.5' : 'px-6 py-3'} text-center text-xs font-medium text-gray-400 uppercase tracking-wider w-12`}>
                           
                         </th>
                       </>
@@ -621,18 +621,18 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/5">
                           <button 
-                            onClick={() => handleSort('client')}
+                            onClick={() => handleSort('date')}
                             className={`text-left hover:text-white transition-colors flex items-center gap-1 ${
-                              sortField === 'client' ? 'text-white' : ''
+                              sortField === 'date' ? 'text-white' : ''
                             }`}
                           >
-                            CLIENT
-                            {sortField === 'client' && (
+                            DATE
+                            {sortField === 'date' && (
                               sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
                             )}
                           </button>
                         </th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase tracking-wider w-12">
+                        <th className="px-6 py-3 text-center text-xs font-medium text-gray-400 uppercase tracking-wider w-12">
                           
                         </th>
                       </>
@@ -665,16 +665,16 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                           <td className="px-3 py-1.5">
                             <div className="text-sm text-white">{estimate.created_at ? new Date(estimate.created_at).toLocaleDateString() : 'No date'}</div>
                           </td>
-                          <td className="px-3 py-1.5 text-right w-12">
-                            <div className="relative flex justify-end" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
+                          <td className="px-3 py-1.5 text-center w-12">
+                            <div className="relative flex justify-center" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDropdownOpen(dropdownOpen === estimate.id ? null : estimate.id);
                                 }}
-                                className="p-1 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                className="w-6 h-6 flex items-center justify-center hover:bg-[#333333] transition-all opacity-0 group-hover:opacity-100"
                               >
-                                <MoreVertical className="w-4 h-4" />
+                                <MoreVertical className="w-3 h-3 text-gray-400" />
                               </button>
 
                               {dropdownOpen === estimate.id && (
@@ -786,16 +786,16 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                               )}
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-right w-12">
-                            <div className="relative flex justify-end" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
+                          <td className="px-6 py-4 text-center w-12">
+                            <div className="relative flex justify-center" ref={(el) => estimateDropdownRefs.current[estimate.id!] = el}>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDropdownOpen(dropdownOpen === estimate.id ? null : estimate.id);
                                 }}
-                                className="p-1 text-gray-400 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                                className="w-8 h-8 flex items-center justify-center hover:bg-[#333333] transition-all opacity-0 group-hover:opacity-100"
                               >
-                                <MoreVertical className="w-4 h-4" />
+                                <MoreVertical className="w-4 h-4 text-gray-400" />
                               </button>
 
                               {dropdownOpen === estimate.id && (

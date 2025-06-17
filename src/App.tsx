@@ -47,7 +47,7 @@ import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
 import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
 import { DebugData } from './pages/DebugData';
 import { Work } from './pages/Work';
-import { ActivityPage } from './components/activity/ActivityPage';
+import { ActivityPage } from './pages/ActivityPage';
 
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

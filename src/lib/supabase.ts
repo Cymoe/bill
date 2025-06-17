@@ -17,6 +17,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: window.localStorage,
     storageKey: 'billbreeze-auth',
     debug: true
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  },
+  global: {
+    headers: {
+      'x-client-info': 'billbreeze-web'
+    }
   }
 });
 

@@ -75,12 +75,6 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
     }
   ];
 
-  const recentItems = [
-    'Kitchen Remodel Project',
-    'Invoice #1247',
-    'New Client: Johnson'
-  ];
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -180,21 +174,6 @@ export const QuickCreateMenu: React.FC<Props> = ({ isOpen, onClose, showInvoiceD
               <div className="text-xs text-gray-600">{option.shortcut}</div>
             </button>
           ))}
-        </div>
-
-        {/* Recent Section */}
-        <div className="px-6 pb-6">
-          <div className="text-xs uppercase text-gray-600 tracking-wider mb-3">Recent</div>
-          <div className="flex gap-2">
-            {recentItems.map((item, index) => (
-              <button
-                key={index}
-                className="bg-[#2a2a2a] border border-[#333] px-4 py-2 rounded-full text-xs hover:bg-[#333] hover:border-[#444] transition-all"
-              >
-                {item}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Footer */}
