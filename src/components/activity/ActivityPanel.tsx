@@ -15,16 +15,6 @@ export const ActivityPanel: React.FC<ActivityPanelProps> = ({ isOpen, onClose })
   
   // Get organization from context
   const { selectedOrg } = React.useContext(OrganizationContext);
-  
-  // Force refresh when panel opens
-  const [refreshKey, setRefreshKey] = React.useState(0);
-  
-  React.useEffect(() => {
-    if (isOpen) {
-      // Force ActivityFeed to reload when panel opens
-      setRefreshKey(prev => prev + 1);
-    }
-  }, [isOpen]);
 
   return (
     <>
@@ -38,12 +28,12 @@ export const ActivityPanel: React.FC<ActivityPanelProps> = ({ isOpen, onClose })
 
       {/* Panel */}
       <div
-        className={`fixed top-0 right-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-800 shadow-xl z-[10000] transform transition-transform duration-300 ${
+        className={`fixed top-0 right-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-800 shadow-xl z-[10000] transform transition-transform duration-300 flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-800">
+        <div className="flex items-center justify-between p-6 border-b border-gray-800 flex-shrink-0">
           <div className="flex items-center gap-3">
             <Activity className="w-6 h-6 text-blue-500" />
             <h2 className="text-xl font-semibold">Recent Activity</h2>
@@ -57,18 +47,16 @@ export const ActivityPanel: React.FC<ActivityPanelProps> = ({ isOpen, onClose })
         </div>
 
         {/* Activity Feed */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 min-h-0">
           <ActivityFeed 
-            key={refreshKey}
             filter={{ limit: 50 }}
             compact={true}
             organizationId={selectedOrg?.id}
-            realTime={true}
           />
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-800">
+        <div className="p-6 border-t border-gray-800 flex-shrink-0">
           <Link
             to="/activity"
             onClick={onClose}

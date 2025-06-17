@@ -49,6 +49,28 @@ import { DebugData } from './pages/DebugData';
 import { Work } from './pages/Work';
 import { ActivityPage } from './pages/ActivityPage';
 
+// Import debugging tools in development
+if (import.meta.env.DEV) {
+  Promise.all([
+    import('./utils/checkRealtimeTables'),
+    import('./utils/debugRealtime'),
+    import('./utils/testActivityLogging'),
+    import('./utils/simpleRealtimeTest'),
+    import('./utils/testSupabaseConnection'),
+    import('./utils/testWebSocket'),
+    import('./utils/quickWebSocketTest')
+  ]).then(() => {
+    console.log('🔧 Real-time debugging tools loaded:');
+    console.log('  - debugRealtime() - Comprehensive connection test');
+    console.log('  - testActivityLogging() - Test activity creation and real-time');
+    console.log('  - checkRealtimeTables() - List real-time tables');
+    console.log('  - simpleRealtimeTest() - Simple isolated real-time test');
+    console.log('  - testSupabaseConnection() - Test basic Supabase connection');
+    console.log('  - testWebSocket() - Test WebSocket connectivity');
+    console.log('  - quickWebSocketTest() - Quick WebSocket diagnostic');
+  });
+}
+
 // Protected route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, session, isLoading } = useAuth();

@@ -20,7 +20,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 2
+    },
+    timeout: 10000,
+    heartbeatIntervalMs: 30000,
+    reconnectAfterMs: (tries: number) => {
+      // Exponential backoff with jitter
+      return [1000, 2000, 5000, 10000, 30000][tries - 1] || 30000;
     }
   },
   global: {

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { 
   Plus, Edit, Trash2, Send, DollarSign, AlertCircle, 
   RefreshCw, PenTool, Eye, Download, Share2, Archive, 
   RotateCcw, UserPlus, UserMinus, CheckCircle, XCircle, 
-  ThumbsUp, ThumbsDown, Activity, Clock, Wifi, WifiOff, RefreshCcw as Refresh
+  ThumbsUp, ThumbsDown, Activity, Clock, RefreshCcw as Refresh
 } from 'lucide-react';
 import { ActivityLog, ActivityLogService, ActivityFilter } from '@/services/ActivityLogService';
 import { Link } from 'react-router-dom';
@@ -12,7 +12,6 @@ import { Link } from 'react-router-dom';
 interface ActivityFeedProps {
   filter?: ActivityFilter;
   compact?: boolean;
-  realTime?: boolean;
   organizationId?: string;
 }
 
@@ -25,65 +24,14 @@ const iconComponents = {
 
 export const ActivityFeed: React.FC<ActivityFeedProps> = ({ 
   filter = {}, 
-  compact = false, 
-  realTime = true,
+  compact = false,
   organizationId 
 }) => {
   const [activities, setActivities] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
-  const [connectionError, setConnectionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadActivities();
-  }, [filter]);
-  
-  // Reload activities when organizationId changes
-  useEffect(() => {
-    if (organizationId) {
-      loadActivities();
-    }
-  }, [organizationId]);
-
-  useEffect(() => {
-    if (!realTime || !organizationId) return;
-
-    // Check real-time configuration first
-    ActivityLogService.checkRealtimeConfiguration().then(({ enabled, error }) => {
-      if (!enabled) {
-        console.error('Real-time not properly configured:', error);
-        setConnectionStatus('error');
-        setConnectionError(error || 'Real-time not configured');
-      }
-    });
-
-    console.log('Setting up real-time subscription for org:', organizationId);
-    const { unsubscribe } = ActivityLogService.subscribeToActivities(
-      (newActivity) => {
-        console.log('New activity received:', newActivity);
-        setActivities(prev => [newActivity, ...prev]);
-        
-        // Show a subtle notification for new activities
-        if (!compact && document.visibilityState === 'visible') {
-          const description = ActivityLogService.getActivityDescription(newActivity);
-          console.log(`🔔 New Activity: ${description}`);
-        }
-      },
-      { organization_id: organizationId },
-      {
-        onStatusChange: (status, error) => {
-          console.log('Connection status changed:', status, error);
-          setConnectionStatus(status);
-          setConnectionError(error?.message || null);
-        }
-      }
-    );
-
-    return unsubscribe;
-  }, [realTime, organizationId]);
-
-  const loadActivities = async (showRefreshing = false) => {
+  const loadActivities = useCallback(async (showRefreshing = false) => {
     if (showRefreshing) {
       setRefreshing(true);
     } else {
@@ -98,7 +46,13 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     } else {
       setLoading(false);
     }
-  };
+  }, [filter]);
+
+  useEffect(() => {
+    loadActivities();
+  }, [loadActivities, organizationId]);
+
+  // Removed real-time functionality - not worth the complexity for this use case
 
   const handleRefresh = () => {
     loadActivities(true);
@@ -143,97 +97,19 @@ export const ActivityFeed: React.FC<ActivityFeedProps> = ({
     );
   }
 
-  const handleTestConnection = async () => {
-    if (import.meta.env.DEV) {
-      const { testRealtimeConnection } = await import('@/utils/testRealtimeConnection');
-      await testRealtimeConnection();
-    }
-  };
-  
-  const handleTestInsertion = async () => {
-    if (import.meta.env.DEV) {
-      const { testActivityInsertion } = await import('@/utils/testActivityInsertion');
-      await testActivityInsertion();
-    }
-  };
-  
-  const handleVerifySetup = async () => {
-    if (import.meta.env.DEV) {
-      const { verifyRealtimeSetup } = await import('@/utils/verifyRealtimeSetup');
-      const results = await verifyRealtimeSetup();
-      
-      if (!results.realtimeEnabled) {
-        setConnectionStatus('error');
-        setConnectionError('Real-time not enabled for activity_logs table');
-      }
-    }
-  };
 
   return (
     <div className={`space-y-${compact ? '2' : '4'}`}>
-      {realTime && !compact && (
-        <div className="flex items-center justify-between mb-4 px-2">
-          <div className="flex items-center gap-2 text-sm">
-            {connectionStatus === 'connected' ? (
-              <>
-                <Wifi className="w-4 h-4 text-green-500" />
-                <span className="text-green-500">Real-time updates active</span>
-              </>
-            ) : connectionStatus === 'connecting' ? (
-              <>
-                <RefreshCw className="w-4 h-4 text-yellow-500 animate-spin" />
-                <span className="text-yellow-500">Connecting...</span>
-              </>
-            ) : connectionStatus === 'error' ? (
-              <>
-                <AlertCircle className="w-4 h-4 text-red-500" />
-                <span className="text-red-500">Connection error{connectionError ? `: ${connectionError}` : ''}</span>
-              </>
-            ) : (
-              <>
-                <WifiOff className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-500">Real-time updates inactive</span>
-              </>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {import.meta.env.DEV && (
-              <>
-                {connectionStatus === 'error' && (
-                  <>
-                    <button
-                      onClick={handleTestConnection}
-                      className="text-xs text-blue-400 hover:text-blue-300 underline"
-                    >
-                      Debug Connection
-                    </button>
-                    <button
-                      onClick={handleVerifySetup}
-                      className="text-xs text-yellow-400 hover:text-yellow-300 underline"
-                    >
-                      Verify Setup
-                    </button>
-                  </>
-                )}
-                {connectionStatus === 'connected' && (
-                  <button
-                    onClick={handleTestInsertion}
-                    className="text-xs text-green-400 hover:text-green-300 underline"
-                  >
-                    Test Real-time
-                  </button>
-                )}
-              </>
-            )}
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="p-1 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
-              title="Refresh activities"
-            >
-              <Refresh className={`w-4 h-4 text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
-            </button>
-          </div>
+      {!compact && (
+        <div className="flex items-center justify-end mb-4 px-2">
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-1 rounded hover:bg-gray-800 transition-colors disabled:opacity-50"
+            title="Refresh activities"
+          >
+            <Refresh className={`w-4 h-4 text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       )}
       {activities.map((activity) => {

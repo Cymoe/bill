@@ -68,53 +68,6 @@ export interface ActivityFilter {
 }
 
 export class ActivityLogService {
-  private static channel: RealtimeChannel | null = null;
-  
-  static async checkRealtimeConfiguration(): Promise<{ enabled: boolean; error?: string }> {
-    try {
-      // Check if the activity_logs table is part of the realtime publication
-      const { data, error } = await supabase
-        .from('activity_logs')
-        .select('id')
-        .limit(1);
-      
-      if (error) {
-        return { enabled: false, error: 'Cannot query activity_logs table' };
-      }
-      
-      // Try to create a test subscription
-      const testChannel = supabase
-        .channel('test-realtime-' + Date.now())
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'activity_logs'
-        }, () => {})
-        .subscribe();
-      
-      // Wait a bit and check status
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          const state = testChannel.state;
-          supabase.removeChannel(testChannel);
-          
-          if (state === 'subscribed') {
-            resolve({ enabled: true });
-          } else {
-            resolve({ 
-              enabled: false, 
-              error: `Real-time not enabled for activity_logs table. State: ${state}` 
-            });
-          }
-        }, 2000);
-      });
-    } catch (error) {
-      return { 
-        enabled: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
   
   /**
    * Check if real-time is properly configured for the activity_logs table
@@ -173,7 +126,8 @@ export class ActivityLogService {
     entityType: EntityType,
     entityId?: string,
     entityName?: string,
-    metadata: Record<string, any> = {}
+    metadata: Record<string, any> = {},
+    organizationId?: string
   ): Promise<string | null> {
     try {
       const { data, error } = await supabase.rpc('log_activity', {
@@ -181,7 +135,8 @@ export class ActivityLogService {
         p_entity_type: entityType,
         p_entity_id: entityId,
         p_entity_name: entityName,
-        p_metadata: metadata
+        p_metadata: metadata,
+        p_organization_id: organizationId
       });
 
       if (error) {
@@ -213,7 +168,8 @@ export class ActivityLogService {
       params.entityType,
       params.entityId,
       entityName,
-      params.metadata
+      params.metadata,
+      params.organizationId
     );
   }
 
@@ -317,13 +273,6 @@ export class ActivityLogService {
       onStatusChange?: (status: 'connecting' | 'connected' | 'disconnected' | 'error', error?: any) => void;
     }
   ): { unsubscribe: () => void; channel: RealtimeChannel } {
-    // Unsubscribe from existing channel
-    if (this.channel) {
-      console.log('Removing existing channel...');
-      supabase.removeChannel(this.channel);
-      this.channel = null;
-    }
-
     console.log('Creating real-time subscription with filter:', filter);
 
     // Create new channel with unique name
@@ -332,7 +281,7 @@ export class ActivityLogService {
     // Report connecting status
     options?.onStatusChange?.('connecting');
     
-    this.channel = supabase
+    const channel = supabase
       .channel(channelName, {
         config: {
           presence: { key: 'activity-feed' },
@@ -407,8 +356,8 @@ export class ActivityLogService {
 
     // Monitor connection state
     const checkConnection = setInterval(() => {
-      if (this.channel) {
-        const state = this.channel.state;
+      if (channel) {
+        const state = channel.state;
         console.log('Channel state:', state);
         
         if (state === 'closed' || state === 'errored') {
@@ -423,12 +372,16 @@ export class ActivityLogService {
         console.log('Unsubscribing from activity logs...');
         clearInterval(checkConnection);
         
-        if (this.channel) {
-          supabase.removeChannel(this.channel);
-          this.channel = null;
+        if (channel) {
+          try {
+            supabase.removeChannel(channel);
+            console.log('Channel removed successfully');
+          } catch (error) {
+            console.error('Error removing channel:', error);
+          }
         }
       },
-      channel: this.channel!
+      channel: channel!
     };
   }
 

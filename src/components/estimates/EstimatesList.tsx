@@ -38,7 +38,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
   const [sharingEstimate, setSharingEstimate] = useState<Estimate | null>(null);
   
   // Sort state
-  const [sortField, setSortField] = useState<'amount' | 'date' | 'estimate_number' | 'client'>('amount');
+  const [sortField, setSortField] = useState<'amount' | 'date' | 'estimate_number' | 'client'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Refs for click outside
@@ -235,7 +235,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
 
   const resetFilters = () => {
     setStatusFilter('all');
-    setSortField('amount');
+    setSortField('date');
     setSortDirection('desc');
   };
 

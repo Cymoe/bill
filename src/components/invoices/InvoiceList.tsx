@@ -79,7 +79,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   const [selectedClientType, setSelectedClientType] = useState('all');
   const [selectedDateRange, setSelectedDateRange] = useState('all');
   const [amountSort, setAmountSort] = useState<'asc' | 'desc'>('desc');
-  const [sortField, setSortField] = useState<'amount' | 'date' | 'invoice_number' | 'client'>('amount');
+  const [sortField, setSortField] = useState<'amount' | 'date' | 'invoice_number' | 'client'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Add state for invoice dropdown menus
@@ -361,8 +361,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
           bValue = b.amount;
           break;
         case 'date':
-          aValue = new Date(a.due_date).getTime();
-          bValue = new Date(b.due_date).getTime();
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
           break;
         case 'invoice_number':
           aValue = a.invoice_number || '';
@@ -408,7 +408,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
     setSelectedClientType('all');
     setSelectedDateRange('all');
     setSelectedStatus('all');
-    setSortField('amount');
+    setSortField('date');
     setSortDirection('desc');
     setAmountSort('desc');
   };
