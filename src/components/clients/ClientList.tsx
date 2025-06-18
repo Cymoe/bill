@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Users, Phone, Mail, Calendar, Building, 
   Plus, Search, Filter, Edit2, Trash2, Eye,
-  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical
+  ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical,
+  Download, FileText, FileSpreadsheet, Upload
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -16,6 +17,7 @@ import { Modal } from '../common/Modal';
 import { ClientFormSimple } from './ClientFormSimple';
 import { EditClientDrawer } from './EditClientDrawer';
 import { ActivityLogService } from '../../services/ActivityLogService';
+import { ClientExportService } from '../../services/ClientExportService';
 
 type Client = {
   id: string;
@@ -61,7 +63,11 @@ export const ClientList: React.FC<ClientListProps> = ({
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deletingClient, setDeletingClient] = useState<Client | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Use external modal state if provided, otherwise use internal state
@@ -80,6 +86,11 @@ export const ClientList: React.FC<ClientListProps> = ({
       // Check if click is outside filter menu
       if (filterMenuRef.current && !filterMenuRef.current.contains(target)) {
         setShowFilterMenu(false);
+      }
+      
+      // Check if click is outside options menu
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(target)) {
+        setShowOptionsMenu(false);
       }
       
       // Check if click is outside all dropdown menus
@@ -230,6 +241,100 @@ export const ClientList: React.FC<ClientListProps> = ({
     setSelectedStatus('all');
   };
 
+  const handleDeleteClick = (client: Client) => {
+    setDeletingClient(client);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingClient) return;
+    
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .delete()
+        .eq('id', deletingClient.id);
+
+      if (error) throw error;
+
+      // Log the activity
+      if (deletingClient.organization_id) {
+        await ActivityLogService.log({
+          organizationId: deletingClient.organization_id,
+          entityType: 'client',
+          entityId: deletingClient.id,
+          action: 'deleted',
+          description: `deleted client ${deletingClient.name}`,
+          metadata: {
+            client_name: deletingClient.name,
+            company_name: deletingClient.company_name,
+            email: deletingClient.email
+          }
+        });
+      }
+
+      await loadClients();
+      setShowDeleteConfirm(false);
+      setDeletingClient(null);
+    } catch (error) {
+      console.error('Error deleting client:', error);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingClient(null);
+  };
+
+  const handleExportToCSV = async () => {
+    try {
+      await ClientExportService.exportToCSV(filteredClients);
+      console.log('CSV export completed');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export to CSV');
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      await ClientExportService.exportToExcel(filteredClients);
+      console.log('Excel export completed');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel');
+    }
+  };
+
+  const handleImportClients = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id) return;
+      
+      try {
+        const result = await ClientExportService.importFromFile(file, selectedOrg.id);
+        
+        if (result.errors.length > 0) {
+          console.error('Import errors:', result.errors);
+          alert(`Import completed with errors:\n- ${result.success} clients imported successfully\n- ${result.errors.length} errors\n\nCheck console for details.`);
+        } else {
+          alert(`Successfully imported ${result.success} clients!`);
+        }
+        
+        // Refresh the clients list
+        await loadClients();
+      } catch (error) {
+        console.error('Error importing file:', error);
+        alert('Failed to import file. Please check the format and try again.');
+      }
+    };
+    input.click();
+  };
+
   if (loading) {
     return <TableSkeleton />;
   }
@@ -356,7 +461,42 @@ export const ClientList: React.FC<ClientListProps> = ({
                       >
                         <List className="w-4 h-4" />
                       </button>
-
+                    </div>
+                    
+                    <div className="relative" ref={optionsMenuRef}>
+                      <button
+                        onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                        className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {showOptionsMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                          <button
+                            onClick={handleImportClients}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Import Clients
+                          </button>
+                          <div className="border-t border-[#333333] my-1" />
+                          <button
+                            onClick={handleExportToCSV}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Export to CSV
+                          </button>
+                          <button
+                            onClick={handleExportToExcel}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export to Excel
+                          </button>
+                        </div>
+                      )}
                     </div>
                     
                     {!hideAddButton && (
@@ -451,20 +591,9 @@ export const ClientList: React.FC<ClientListProps> = ({
                                       </button>
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete client "${client.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await supabase
-                                                .from('clients')
-                                                .delete()
-                                                .eq('id', client.id);
-                                              await loadClients();
-                                            } catch (error) {
-                                              console.error('Error deleting client:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(client);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -567,20 +696,9 @@ export const ClientList: React.FC<ClientListProps> = ({
                                       </button>
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete client "${client.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await supabase
-                                                .from('clients')
-                                                .delete()
-                                                .eq('id', client.id);
-                                              await loadClients();
-                                            } catch (error) {
-                                              console.error('Error deleting client:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(client);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -675,6 +793,35 @@ export const ClientList: React.FC<ClientListProps> = ({
             setEditingClient(null);
           }}
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Client</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete "{deletingClient?.name}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

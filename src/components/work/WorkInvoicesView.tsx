@@ -38,6 +38,8 @@ export const WorkInvoicesView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | Invoice['status']>('all');
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [showInvoiceDrawer, setShowInvoiceDrawer] = useState(false);
+  const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     if (selectedOrg?.id) {
@@ -83,20 +85,33 @@ export const WorkInvoicesView: React.FC = () => {
     }
   };
 
-  const handleDeleteInvoice = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this invoice?')) return;
+  const handleDeleteClick = (invoice: Invoice) => {
+    setDeletingInvoice(invoice);
+    setShowDeleteConfirm(true);
+    setDropdownOpen(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingInvoice?.id) return;
     
     try {
       const { error } = await supabase
         .from('invoices')
         .delete()
-        .eq('id', id);
+        .eq('id', deletingInvoice.id);
 
       if (error) throw error;
       await loadInvoices();
+      setShowDeleteConfirm(false);
+      setDeletingInvoice(null);
     } catch (error) {
       console.error('Error deleting invoice:', error);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingInvoice(null);
   };
 
   const getStatusIcon = (status: Invoice['status']) => {
@@ -376,8 +391,7 @@ export const WorkInvoicesView: React.FC = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDeleteInvoice(invoice.id);
-                              setDropdownOpen(null);
+                              handleDeleteClick(invoice);
                             }}
                             className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#2A2A2A] transition-colors"
                           >
@@ -526,8 +540,7 @@ export const WorkInvoicesView: React.FC = () => {
                                   <button
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeleteInvoice(invoice.id);
-                                      setDropdownOpen(null);
+                                      handleDeleteClick(invoice);
                                     }}
                                     className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#2A2A2A] transition-colors"
                                   >
@@ -614,6 +627,35 @@ export const WorkInvoicesView: React.FC = () => {
           }
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Invoice</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete invoice "#{deletingInvoice?.invoice_number}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

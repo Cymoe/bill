@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   HardHat, Phone, Mail, MapPin, Star, Heart,
   Plus, Search, Filter, Edit2, Trash2, Eye,
-  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3, MoreVertical
+  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3, MoreVertical,
+  Upload, FileText, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -14,6 +15,7 @@ import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { SubcontractorService, type Subcontractor as SubcontractorType, TRADE_CATEGORIES as SERVICE_TRADE_CATEGORIES } from '../../services/subcontractorService';
 import { EditSubcontractorDrawer } from './EditSubcontractorDrawer';
 import { CreateSubcontractorModal } from './CreateSubcontractorModal';
+import { SubcontractorExportService } from '../../services/SubcontractorExportService';
 
 // Use the service types and constants
 type Subcontractor = SubcontractorType;
@@ -46,7 +48,11 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<string>('all');
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deletingSubcontractor, setDeletingSubcontractor] = useState<Subcontractor | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Use external modal state if provided, otherwise use internal state
@@ -61,6 +67,11 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
       // Check if click is outside filter menu
       if (filterMenuRef.current && !filterMenuRef.current.contains(target) && showFilterMenu) {
         setShowFilterMenu(false);
+      }
+      
+      // Check if click is outside options menu
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(target)) {
+        setShowOptionsMenu(false);
       }
       
       // Check if click is outside all dropdown menus
@@ -218,6 +229,78 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
     setSelectedCategory('all');
     setShowPreferredOnly(false);
     setSelectedRatingFilter('all');
+  };
+
+  const handleDeleteClick = (subcontractor: Subcontractor) => {
+    setDeletingSubcontractor(subcontractor);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingSubcontractor) return;
+    
+    try {
+      await SubcontractorService.deleteSubcontractor(deletingSubcontractor.id, selectedOrg?.id || '');
+      await loadSubcontractors();
+      setShowDeleteConfirm(false);
+      setDeletingSubcontractor(null);
+    } catch (error) {
+      console.error('Error deleting subcontractor:', error);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingSubcontractor(null);
+  };
+
+  const handleExportToCSV = async () => {
+    try {
+      await SubcontractorExportService.exportToCSV(filteredSubcontractors);
+      console.log('CSV export completed');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export to CSV');
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      await SubcontractorExportService.exportToExcel(filteredSubcontractors);
+      console.log('Excel export completed');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel');
+    }
+  };
+
+  const handleImportSubcontractors = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id) return;
+      
+      try {
+        const result = await SubcontractorExportService.importFromFile(file, selectedOrg.id);
+        
+        if (result.errors.length > 0) {
+          console.error('Import errors:', result.errors);
+          alert(`Import completed with errors:\n- ${result.success} subcontractors imported successfully\n- ${result.errors.length} errors\n\nCheck console for details.`);
+        } else {
+          alert(`Successfully imported ${result.success} subcontractors!`);
+        }
+        
+        // Refresh the subcontractors list
+        await loadSubcontractors();
+      } catch (error) {
+        console.error('Error importing file:', error);
+        alert('Failed to import file. Please check the format and try again.');
+      }
+    };
+    input.click();
   };
 
   console.log('🔧 SubcontractorsList render - editingSubcontractor:', editingSubcontractor);
@@ -435,6 +518,42 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                       </button>
                     </div>
                     
+                    <div className="relative" ref={optionsMenuRef}>
+                      <button
+                        onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                        className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {showOptionsMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                          <button
+                            onClick={handleImportSubcontractors}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Import Subcontractors
+                          </button>
+                          <div className="border-t border-[#333333] my-1" />
+                          <button
+                            onClick={handleExportToCSV}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Export to CSV
+                          </button>
+                          <button
+                            onClick={handleExportToExcel}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export to Excel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
                                           {!hideAddButton && (
                         <button
                           onClick={() => setShowNewModal(true)}
@@ -542,17 +661,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                                       </button>
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete subcontractor "${subcontractor.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await SubcontractorService.deleteSubcontractor(subcontractor.id, selectedOrg?.id || '');
-                                              await loadSubcontractors();
-                                            } catch (error) {
-                                              console.error('Error deleting subcontractor:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(subcontractor);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -674,17 +785,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                                       </button>
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete subcontractor "${subcontractor.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await SubcontractorService.deleteSubcontractor(subcontractor.id, selectedOrg?.id || '');
-                                              await loadSubcontractors();
-                                            } catch (error) {
-                                              console.error('Error deleting subcontractor:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(subcontractor);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -741,6 +844,35 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
           setShowNewModal(false);
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Subcontractor</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete "{deletingSubcontractor?.name}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

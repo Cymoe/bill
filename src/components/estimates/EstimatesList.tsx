@@ -3,7 +3,7 @@ import {
   FileText, Filter, MoreVertical, 
   Eye, Edit, Trash2, Send, Clock, CheckCircle, 
   XCircle, AlertTriangle, Calendar, ChevronDown, ChevronUp, LayoutGrid, Share2, Copy,
-  Download, FileSpreadsheet, FileDown
+  Download, FileSpreadsheet, FileDown, Check
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EstimateService, Estimate } from '../../services/EstimateService';
@@ -38,6 +38,10 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharingEstimate, setSharingEstimate] = useState<Estimate | null>(null);
+  const [deletingEstimate, setDeletingEstimate] = useState<Estimate | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedEstimateName, setDeletedEstimateName] = useState<string>('');
   
   // Sort state
   const [sortField, setSortField] = useState<'amount' | 'date' | 'estimate_number' | 'client'>('date');
@@ -81,15 +85,42 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     setShowEditDrawer(true);
   };
 
-  const handleDeleteEstimate = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this estimate?')) return;
+  const handleDeleteClick = (estimate: Estimate) => {
+    setDeletingEstimate(estimate);
+    setShowDeleteConfirm(true);
+    setDropdownOpen(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingEstimate?.id) return;
     
     try {
-      await EstimateService.delete(id);
+      const estimateName = deletingEstimate.title || deletingEstimate.estimate_number || 'Estimate';
+      const clientName = deletingEstimate.client?.name || 'Unknown Client';
+      const successMessage = `${estimateName} for ${clientName}`;
+      
+      await EstimateService.delete(deletingEstimate.id);
       await loadEstimates();
+      setShowDeleteConfirm(false);
+      setDeletingEstimate(null);
+      
+      // Show success message with full context
+      setDeletedEstimateName(successMessage);
+      setShowDeleteSuccess(true);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setShowDeleteSuccess(false);
+        setDeletedEstimateName('');
+      }, 3000);
     } catch (error) {
       console.error('Error deleting estimate:', error);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingEstimate(null);
   };
 
   const handleStatusUpdate = async (id: string, status: Estimate['status']) => {
@@ -738,8 +769,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleDeleteEstimate(estimate.id);
-                                    setDropdownOpen(null);
+                                    handleDeleteClick(estimate);
                                   }}
                                   className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
                                 >
@@ -850,6 +880,61 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
               >
                 <Eye className="w-4 h-4" />
                 Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Estimate</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete estimate <strong>"{deletingEstimate?.title || deletingEstimate?.estimate_number}"</strong> for <strong>{deletingEstimate?.client?.name}</strong>? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showDeleteSuccess && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-green-500/20 shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Estimate Deleted</h3>
+              <p className="text-white/60 mb-6">
+                <strong>"{deletedEstimateName}"</strong> has been successfully deleted.
+              </p>
+              <button
+                onClick={() => {
+                  setShowDeleteSuccess(false);
+                  setDeletedEstimateName('');
+                }}
+                className="h-10 px-6 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all font-medium"
+              >
+                OK
               </button>
             </div>
           </div>

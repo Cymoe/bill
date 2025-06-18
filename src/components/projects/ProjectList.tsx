@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map, FileSpreadsheet } from 'lucide-react';
+import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map, FileSpreadsheet, Trash2, Check } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
@@ -47,6 +47,12 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [showMainOptions, setShowMainOptions] = useState(false);
+  
+  // Delete confirmation modal state
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedProjectName, setDeletedProjectName] = useState<string>('');
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const moreFiltersRef = useRef<HTMLDivElement>(null);
   const mainOptionsRef = useRef<HTMLDivElement>(null);
@@ -95,6 +101,44 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
       setSelectedStatus(statusParam as any);
     }
   }, [location.search]);
+
+  // Delete confirmation handlers
+  const handleDeleteClick = (project: Project) => {
+    setDeletingProject(project);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingProject?.id) return;
+    
+    try {
+      const projectName = deletingProject.name || 'Project';
+      const successMessage = `${projectName} and all associated data`;
+      
+      await db.projects.delete(deletingProject.id);
+      await fetchProjects(false);
+      setShowDeleteConfirm(false);
+      setDeletingProject(null);
+      
+      // Show success message with full context
+      setDeletedProjectName(successMessage);
+      setShowDeleteSuccess(true);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setShowDeleteSuccess(false);
+        setDeletedProjectName('');
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting project:', error);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingProject(null);
+  };
 
   // Function to fetch projects
   const fetchProjects = async (showLoading = true) => {
@@ -1030,17 +1074,9 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                       )}
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete project "${project.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await db.projects.delete(project.id);
-                                              await fetchProjects(false);
-                                            } catch (error) {
-                                              console.error('Error deleting project:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(project);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -1130,6 +1166,61 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
           fetchProjects();
         }} 
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Project</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete project <strong>"{deletingProject?.name}"</strong>? This action cannot be undone and will remove all associated data.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showDeleteSuccess && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-green-500/20 shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Project Deleted</h3>
+              <p className="text-white/60 mb-6">
+                <strong>"{deletedProjectName}"</strong> has been successfully deleted.
+              </p>
+              <button
+                onClick={() => {
+                  setShowDeleteSuccess(false);
+                  setDeletedProjectName('');
+                }}
+                className="h-10 px-6 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all font-medium"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -7,12 +7,13 @@ import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { LineItemForm } from './LineItemForm';
 import { LineItemModal } from '../modals/LineItemModal';
 import { EditLineItemModal } from '../modals/EditLineItemModal';
-import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns } from 'lucide-react';
+import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns, FileSpreadsheet } from 'lucide-react';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import React from 'react';
+import { CostCodeExportService } from '../../services/CostCodeExportService';
 
 interface Product {
   id: string;
@@ -228,18 +229,125 @@ export const PriceBook: React.FC = () => {
 
   // Functions for the new menu options
   const handleImportItems = () => {
-    // TODO: Implement import functionality
-    console.log('Import items clicked');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id || !user?.id) return;
+      
+      try {
+        const result = await CostCodeExportService.importFromFile(file, selectedOrg.id, user.id);
+        
+        if (result.errors.length > 0) {
+          console.error('Import errors:', result.errors);
+          alert(`Import completed with errors:\n- ${result.success} items imported successfully\n- ${result.errors.length} errors\n\nCheck console for details.`);
+        } else {
+          alert(`Successfully imported ${result.success} items!`);
+        }
+        
+        // Refresh the products list
+        await fetchProducts();
+      } catch (error) {
+        console.error('Error importing file:', error);
+        alert('Failed to import file. Please check the format and try again.');
+      }
+    };
+    input.click();
   };
 
-  const handleExportToCSV = () => {
-    // TODO: Implement export to CSV functionality
-    console.log('Export to CSV clicked');
+  const handleExportToCSV = async () => {
+    try {
+      await CostCodeExportService.exportToCSV(filteredProducts, trades);
+      console.log('CSV export completed');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export to CSV');
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      await CostCodeExportService.exportToExcel(filteredProducts, trades);
+      console.log('Excel export completed');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel');
+    }
   };
 
   const handlePrintPriceBook = () => {
-    // TODO: Implement print cost codes functionality
-    console.log('Print cost codes clicked');
+    // Create a print-friendly version
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Cost Codes - ${new Date().toLocaleDateString()}</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 20px; }
+          h1 { color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background-color: #f2f2f2; font-weight: bold; }
+          .type-material { color: #3b82f6; }
+          .type-labor { color: #10b981; }
+          .type-equipment { color: #f97316; }
+          .type-service { color: #06b6d4; }
+          .type-subcontractor { color: #a855f7; }
+          .type-permits { color: #eab308; }
+          .type-other { color: #6b7280; }
+          @media print {
+            body { margin: 0; }
+            .no-print { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Cost Codes</h1>
+        <p>Generated: ${new Date().toLocaleString()}</p>
+        <p>Total Items: ${filteredProducts.length}</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Cost Code</th>
+              <th>Item Name</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Price</th>
+              <th>Unit</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filteredProducts.map(product => {
+              const trade = trades.find(t => t.id === product.cost_code_id);
+              const costCodeDisplay = trade ? `${trade.code} ${trade.name}` : '—';
+              return `
+                <tr>
+                  <td>${costCodeDisplay}</td>
+                  <td>${product.name}</td>
+                  <td>${product.description || ''}</td>
+                  <td class="type-${product.type}">${product.type}</td>
+                  <td>${formatCurrency(product.price)}</td>
+                  <td>${product.unit}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+        
+        <button class="no-print" onclick="window.print()" style="margin-top: 20px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer;">
+          Print
+        </button>
+      </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
   };
 
   // Close menus when clicking outside
@@ -702,13 +810,22 @@ export const PriceBook: React.FC = () => {
                       <Upload className="w-4 h-4" />
                       Import Items
                     </button>
+                    <div className="border-t border-[#333333] my-1" />
                     <button
                       onClick={handleExportToCSV}
                       className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
                     >
-                      <Download className="w-4 h-4" />
-                      Export CSV
+                      <FileText className="w-4 h-4" />
+                      Export to CSV
                     </button>
+                    <button
+                      onClick={handleExportToExcel}
+                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                    >
+                      <FileSpreadsheet className="w-4 h-4" />
+                      Export to Excel
+                    </button>
+                    <div className="border-t border-[#333333] my-1" />
                     <button
                       onClick={handlePrintPriceBook}
                       className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"

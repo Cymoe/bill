@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Download, Share2, Copy, Filter, MoreVertical, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown, FileSpreadsheet, FileDown } from 'lucide-react';
+import { Download, Share2, Copy, Filter, MoreVertical, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown, FileSpreadsheet, FileDown, Check } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { Modal } from '../common/Modal';
@@ -23,6 +23,7 @@ type Invoice = {
   number: string;
   invoice_number?: string;
   client_id: string;
+  project_id?: string;
   date: string;
   issue_date: string;
   due_date: string;
@@ -62,11 +63,22 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   const { user } = useAuth();
   const { selectedOrg } = useContext(OrganizationContext);
   const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
+  
+  // Add debugging for organization context
+  useEffect(() => {
+    console.log('[InvoiceList] Organization context updated:', {
+      id: selectedOrg?.id,
+      name: selectedOrg?.name,
+      industry: selectedOrg?.industry,
+      isLoading: selectedOrg?.name === 'Loading...'
+    });
+  }, [selectedOrg]);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<InvoiceStatus>('all');
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -95,6 +107,12 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   
   // Compact table toggle state
   const [isCompactTable, setIsCompactTable] = useState(false);
+  
+  // Delete confirmation modal state
+  const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [deletedInvoiceName, setDeletedInvoiceName] = useState<string>('');
   
   // Refs for click outside
   const filterMenuRef = useRef<HTMLDivElement>(null);
@@ -144,14 +162,34 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
 
   useEffect(() => {
     if (user && selectedOrg?.id) {
+      console.log('[InvoiceList] Fetching data for org:', selectedOrg.id);
       fetchData();
     } else if (user && selectedOrg?.name === 'Loading...') {
       // Still loading organization, keep loading state
+      console.log('[InvoiceList] Organization still loading...');
       setIsLoading(true);
+    } else if (user && !selectedOrg?.id) {
+      // User exists but no org - try to get from localStorage
+      const savedOrgId = localStorage.getItem('selectedOrgId');
+      console.log('[InvoiceList] No org in context, checking localStorage:', savedOrgId);
+      
+      if (savedOrgId) {
+        // We have an org ID in localStorage but context is not set yet
+        // Keep loading state until context updates
+        setIsLoading(true);
+      } else {
+        // No org at all
+        setInvoices([]);
+        setClients([]);
+        setProducts([]);
+        setProjects([]);
+        setIsLoading(false);
+      }
     } else {
       setInvoices([]);
       setClients([]);
       setProducts([]);
+      setProjects([]);
       setIsLoading(false);
     }
   }, [user, selectedOrg?.id, selectedOrg?.name, refreshTrigger]);
@@ -171,6 +209,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
       setInvoices([]);
       setClients([]);
       setProducts([]);
+      setProjects([]);
       setIsLoading(false);
       return;
     }
@@ -180,13 +219,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
 
     try {
       // Load invoices with only essential fields for better performance
-      const [invoicesRes, clientsRes, productsRes] = await Promise.all([
+      const [invoicesRes, clientsRes, productsRes, projectsRes] = await Promise.all([
         supabase
           .from('invoices')
           .select(`
             id,
             invoice_number,
             client_id,
+            project_id,
             amount,
             status,
             issue_date,
@@ -205,12 +245,17 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
         supabase
           .from('products')
           .select('id, name, price, organization_id')
+          .eq('organization_id', selectedOrg.id),
+        supabase
+          .from('projects')
+          .select('id, name, organization_id')
           .eq('organization_id', selectedOrg.id)
       ]);
 
       if (invoicesRes.error) throw invoicesRes.error;
       if (clientsRes.error) throw clientsRes.error;
       if (productsRes.error) throw productsRes.error;
+      if (projectsRes.error) throw projectsRes.error;
 
       // Calculate payment totals for each invoice (optimized)
       const processedInvoices = (invoicesRes.data || []).map(invoice => {
@@ -230,30 +275,39 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
       console.log('InvoiceList: Data loaded successfully', {
         invoices: processedInvoices.length,
         clients: clientsRes.data?.length || 0,
-        products: productsRes.data?.length || 0
+        products: productsRes.data?.length || 0,
+        projects: projectsRes.data?.length || 0
       });
 
       setInvoices(processedInvoices);
       setClients(clientsRes.data || []);
       setProducts(productsRes.data || []);
+      setProjects(projectsRes.data || []);
     } catch (err) {
       console.error('InvoiceList: Error fetching data:', err);
       // Set empty arrays on error to prevent infinite loading
       setInvoices([]);
       setClients([]);
       setProducts([]);
+      setProjects([]);
     } finally {
       console.log('InvoiceList: Setting loading to false');
       setIsLoading(false);
     }
   };
 
-  // Create a client lookup map for better performance
+  // Create lookup maps for better performance
   const clientMap = useMemo(() => {
     const map = new Map();
     clients.forEach(client => map.set(client.id, client));
     return map;
   }, [clients]);
+
+  const projectMap = useMemo(() => {
+    const map = new Map();
+    projects.forEach(project => map.set(project.id, project));
+    return map;
+  }, [projects]);
 
   const filteredInvoices = useMemo(() => {
     if (invoices.length === 0) return [];
@@ -537,33 +591,64 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
     }
   };
 
-  const handleDeleteInvoice = async (invoiceId: string) => {
-    if (window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
-      try {
-        // Delete invoice items first
-        const { error: itemsError } = await supabase
-          .from('invoice_items')
-          .delete()
-          .eq('invoice_id', invoiceId);
+  const handleDeleteClick = (invoice: Invoice) => {
+    setDeletingInvoice(invoice);
+    setShowDeleteConfirm(true);
+    setOpenInvoiceDropdown(null);
+  };
 
-        if (itemsError) throw itemsError;
+  const handleDeleteConfirm = async () => {
+    if (!deletingInvoice?.id) return;
+    
+    try {
+      const invoiceName = deletingInvoice.invoice_number || `Invoice #${deletingInvoice.id}`;
+      const clientName = clientMap.get(deletingInvoice.client_id)?.name || 'Unknown Client';
+      const projectName = deletingInvoice.project_id && projectMap.get(deletingInvoice.project_id) 
+        ? ` - ${projectMap.get(deletingInvoice.project_id)?.name}` 
+        : '';
+      const invoiceAmount = formatCurrency(deletingInvoice.amount || 0);
+      const successMessage = `${invoiceName} for ${clientName}${projectName} (${invoiceAmount})`;
+      
+      // Delete invoice items first
+      const { error: itemsError } = await supabase
+        .from('invoice_items')
+        .delete()
+        .eq('invoice_id', deletingInvoice.id);
 
-        // Then delete the invoice
-        const { error: invoiceError } = await supabase
-          .from('invoices')
-          .delete()
-          .eq('id', invoiceId)
-          .eq('user_id', user?.id);
+      if (itemsError) throw itemsError;
 
-        if (invoiceError) throw invoiceError;
+      // Then delete the invoice
+      const { error: invoiceError } = await supabase
+        .from('invoices')
+        .delete()
+        .eq('id', deletingInvoice.id)
+        .eq('user_id', user?.id);
 
-        // Refresh the data
-        await fetchData();
-      } catch (error) {
-        console.error('Error deleting invoice:', error);
-        alert('Failed to delete invoice. Please try again.');
-      }
+      if (invoiceError) throw invoiceError;
+
+      // Refresh the data
+      await fetchData();
+      setShowDeleteConfirm(false);
+      setDeletingInvoice(null);
+      
+      // Show success message with full context
+      setDeletedInvoiceName(successMessage);
+      setShowDeleteSuccess(true);
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setShowDeleteSuccess(false);
+        setDeletedInvoiceName('');
+      }, 3000);
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      alert('Failed to delete invoice. Please try again.');
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingInvoice(null);
   };
 
   const handleShareInvoice = async (invoiceId: string) => {
@@ -1383,24 +1468,60 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
             } else {
               // Create new invoice using InvoiceService
               console.log('Creating new invoice with user_id:', user?.id);
+              console.log('Current selectedOrg state:', selectedOrg);
               
-              if (!selectedOrg?.id) {
-                // If still loading, wait a moment and retry
-                if (selectedOrg?.name === 'Loading...') {
-                  alert('Organization is still loading. Please wait a moment and try again.');
-                  return;
+              // Get organization ID - fallback to localStorage if context not available
+              let organizationId = selectedOrg?.id;
+              
+              if (!organizationId) {
+                // Try to get from localStorage as fallback
+                const savedOrgId = localStorage.getItem('selectedOrgId');
+                console.log('Attempting localStorage fallback, savedOrgId:', savedOrgId);
+                
+                if (savedOrgId) {
+                  console.log('Using organization ID from localStorage:', savedOrgId);
+                  organizationId = savedOrgId;
+                  
+                  // Also query the organization to ensure it exists
+                  const { data: orgCheck } = await supabase
+                    .from('organizations')
+                    .select('id')
+                    .eq('id', savedOrgId)
+                    .single();
+                    
+                  if (!orgCheck) {
+                    console.error('Organization ID from localStorage is invalid');
+                    alert('Your organization session has expired. Please refresh the page.');
+                    return;
+                  }
+                } else {
+                  console.error('No organization selected. Current selectedOrg:', selectedOrg);
+                  console.error('Available localStorage:', localStorage.getItem('selectedOrgId'));
+                  
+                  // Try one more time - get the user's default organization
+                  const { data: userOrg } = await supabase
+                    .from('user_organizations')
+                    .select('organization_id')
+                    .eq('user_id', user?.id)
+                    .eq('is_default', true)
+                    .single();
+                    
+                  if (userOrg?.organization_id) {
+                    console.log('Using default organization:', userOrg.organization_id);
+                    organizationId = userOrg.organization_id;
+                    localStorage.setItem('selectedOrgId', organizationId);
+                  } else {
+                    alert('Unable to determine your organization. Please refresh the page and try again.');
+                    return;
+                  }
                 }
-                console.error('No organization selected. Current selectedOrg:', selectedOrg);
-                console.error('Available localStorage:', localStorage.getItem('selectedOrgId'));
-                alert('No organization selected. Please select an organization and try again.');
-                return;
               }
               
               const { InvoiceService } = await import('../../services/InvoiceService');
               
               const invoiceData = {
                 user_id: user?.id,
-                organization_id: selectedOrg.id,
+                organization_id: organizationId,
                 client_id: data.client_id,
                 project_id: data.project_id || undefined,
                 amount: data.total_amount,
@@ -1512,8 +1633,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
           <div className="border-t border-[#333333] my-1"></div>
           <button
             onClick={() => {
-              handleDeleteInvoice(openInvoiceDropdown);
-              setOpenInvoiceDropdown(null);
+              const invoice = invoices.find(inv => inv.id === openInvoiceDropdown);
+              if (invoice) handleDeleteClick(invoice);
             }}
             className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
           >
@@ -1562,6 +1683,61 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
           fetchData(); // Refresh your existing data
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Invoice</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete invoice <strong>"#{deletingInvoice?.invoice_number || deletingInvoice?.number}"</strong> for <strong>{clientMap.get(deletingInvoice?.client_id)?.name || 'Unknown Client'}</strong>{deletingInvoice?.project_id && projectMap.get(deletingInvoice.project_id) ? ` - ${projectMap.get(deletingInvoice.project_id)?.name}` : ''} ({formatCurrency(deletingInvoice?.amount || 0)})? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showDeleteSuccess && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-green-500/20 shadow-2xl">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Check className="w-6 h-6 text-green-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Invoice Deleted</h3>
+              <p className="text-white/60 mb-6">
+                <strong>"{deletedInvoiceName}"</strong> has been successfully deleted.
+              </p>
+              <button
+                onClick={() => {
+                  setShowDeleteSuccess(false);
+                  setDeletedInvoiceName('');
+                }}
+                className="h-10 px-6 bg-green-500 hover:bg-green-600 text-white rounded-xl transition-all font-medium"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

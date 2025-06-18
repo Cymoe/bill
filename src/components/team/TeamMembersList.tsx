@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   UserCheck, Phone, Mail, Calendar, Users, 
-  Plus, Search, Filter, Edit2, Trash2, 
-  Shield, CheckCircle, ChevronDown, Settings, List, MoreVertical, Rows3
+  Plus, Search, Filter, Edit2, Trash2, Eye,
+  Shield, CheckCircle, ChevronDown, Settings, List, MoreVertical, Rows3,
+  Download, FileText, FileSpreadsheet, Upload
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -14,6 +15,7 @@ import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { TeamMemberService, TeamMember, DEPARTMENTS, EMPLOYMENT_TYPES } from '../../services/TeamMemberService';
 import { CreateTeamMemberModal } from './CreateTeamMemberModal';
 import { EditTeamMemberDrawer } from './EditTeamMemberDrawer';
+import { TeamMemberExportService } from '../../services/TeamMemberExportService';
 
 interface TeamMembersListProps {
   showAddModal?: boolean;
@@ -39,6 +41,12 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
   const [viewMode, setViewMode] = useState<'list' | 'compact'>('compact');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [editingTeamMember, setEditingTeamMember] = useState<TeamMember | null>(null);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deletingTeamMember, setDeletingTeamMember] = useState<TeamMember | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   
   // Use external modal state if provided, otherwise use internal state
   const showNewModal = externalShowAddModal !== undefined ? externalShowAddModal : internalShowNewModal;
@@ -53,6 +61,29 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
       setLoading(false);
     }
   }, [selectedOrg?.id]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      
+      // Check if click is outside options menu
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(target)) {
+        setShowOptionsMenu(false);
+      }
+      
+      // Check if click is outside all dropdown menus
+      const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
+        !ref || !ref.contains(target)
+      );
+      
+      if (isOutsideDropdown && openDropdownId) {
+        setOpenDropdownId(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdownId]);
 
   const loadTeamMembers = async () => {
     if (!selectedOrg?.id) return;
@@ -69,6 +100,78 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClick = (member: TeamMember) => {
+    setDeletingTeamMember(member);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingTeamMember) return;
+    
+    try {
+      await TeamMemberService.deleteTeamMember(deletingTeamMember.id, selectedOrg?.id || '');
+      await loadTeamMembers();
+      setShowDeleteConfirm(false);
+      setDeletingTeamMember(null);
+    } catch (error) {
+      console.error('Error deleting team member:', error);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingTeamMember(null);
+  };
+
+  const handleExportToCSV = async () => {
+    try {
+      await TeamMemberExportService.exportToCSV(filteredTeamMembers);
+      console.log('CSV export completed');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export to CSV');
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      await TeamMemberExportService.exportToExcel(filteredTeamMembers);
+      console.log('Excel export completed');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel');
+    }
+  };
+
+  const handleImportTeamMembers = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id) return;
+      
+      try {
+        const result = await TeamMemberExportService.importFromFile(file, selectedOrg.id);
+        
+        if (result.errors.length > 0) {
+          console.error('Import errors:', result.errors);
+          alert(`Import completed with errors:\n- ${result.success} team members imported successfully\n- ${result.errors.length} errors\n\nCheck console for details.`);
+        } else {
+          alert(`Successfully imported ${result.success} team members!`);
+        }
+        
+        // Refresh the team members list
+        await loadTeamMembers();
+      } catch (error) {
+        console.error('Error importing file:', error);
+        alert('Failed to import file. Please check the format and try again.');
+      }
+    };
+    input.click();
   };
 
   const filteredTeamMembers = teamMembers.filter(member => {
@@ -309,6 +412,42 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                       </button>
                     </div>
                     
+                    <div className="relative" ref={optionsMenuRef}>
+                      <button
+                        onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                        className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {showOptionsMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                          <button
+                            onClick={handleImportTeamMembers}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Import Team Members
+                          </button>
+                          <div className="border-t border-[#333333] my-1" />
+                          <button
+                            onClick={handleExportToCSV}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileText className="w-4 h-4" />
+                            Export to CSV
+                          </button>
+                          <button
+                            onClick={handleExportToExcel}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export to Excel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    
                                           {!hideAddButton && (
                         <button
                           onClick={() => setShowNewModal(true)}
@@ -362,16 +501,56 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                                   </div>
                                 </div>
                                 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTeamMember(member);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                                  title="Edit team member"
-                                >
-                                  <MoreVertical className="w-3 h-3 text-gray-400" />
-                                </button>
+                                <div className="relative" ref={(el) => dropdownRefs.current[member.id] = el}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(openDropdownId === member.id ? null : member.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-3 h-3 text-gray-400" />
+                                  </button>
+                                  
+                                  {openDropdownId === member.id && (
+                                    <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/team-members/${member.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Eye className="w-3 h-3 mr-2" />
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingTeamMember(member);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Edit2 className="w-3 h-3 mr-2" />
+                                        Edit
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteClick(member);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -426,16 +605,56 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                                   </div>
                                 </div>
                                 
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setEditingTeamMember(member);
-                                  }}
-                                  className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
-                                  title="Edit team member"
-                                >
-                                  <MoreVertical className="w-4 h-4 text-gray-400" />
-                                </button>
+                                <div className="relative" ref={(el) => dropdownRefs.current[member.id] = el}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenDropdownId(openDropdownId === member.id ? null : member.id);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
+                                    title="More options"
+                                  >
+                                    <MoreVertical className="w-4 h-4 text-gray-400" />
+                                  </button>
+                                  
+                                  {openDropdownId === member.id && (
+                                    <div className="absolute top-full right-0 mt-1 w-48 bg-[#2A2A2A] border border-[#404040] shadow-lg z-[10001] py-1 rounded-[4px]">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/team-members/${member.id}`);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Eye className="w-3 h-3 mr-2" />
+                                        View Details
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setEditingTeamMember(member);
+                                          setOpenDropdownId(null);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-white text-xs hover:bg-[#336699] transition-colors flex items-center"
+                                      >
+                                        <Edit2 className="w-3 h-3 mr-2" />
+                                        Edit
+                                      </button>
+                                      <div className="border-t border-[#404040] my-1"></div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteClick(member);
+                                        }}
+                                        className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" />
+                                        Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -478,6 +697,35 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
           setEditingTeamMember(null);
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Team Member</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete "{deletingTeamMember?.name}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }; 

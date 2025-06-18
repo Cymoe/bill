@@ -275,6 +275,17 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
           const orgToSet = savedOrg || defaultOrg;
           console.log('Final organization being set:', orgToSet);
           setSelectedOrg(orgToSet);
+          // Also ensure localStorage is updated with the current org
+          if (orgToSet.id) {
+            localStorage.setItem('selectedOrgId', orgToSet.id);
+          }
+        } else {
+          console.error('No organizations found for user');
+          setSelectedOrg({ 
+            id: '', 
+            name: 'No Organization', 
+            industry: 'General Construction' 
+          });
         }
       } catch (error) {
         console.error('Error loading organizations:', error);

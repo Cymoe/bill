@@ -5,7 +5,7 @@ import {
   Plus, Search, Filter, Edit2, Trash2, Eye,
   MapPin, Shield, CreditCard, ChevronRight,
   CheckCircle, Info, ChevronDown, List, LayoutGrid, Rows3,
-  ExternalLink, MoreVertical
+  ExternalLink, MoreVertical, Upload, FileText, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -16,6 +16,7 @@ import { CreateVendorModal } from './CreateVendorModal';
 import { EditVendorDrawer } from './EditVendorDrawer';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
+import { VendorExportService } from '../../services/VendorExportService';
 
 interface VendorsListProps {
   showAddModal?: boolean;
@@ -51,7 +52,11 @@ export const VendorsList: React.FC<VendorsListProps> = ({
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<string>('all');
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deletingVendor, setDeletingVendor] = useState<Vendor | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   // Close menus on outside click
@@ -62,6 +67,11 @@ export const VendorsList: React.FC<VendorsListProps> = ({
       // Check if click is outside filter menu
       if (filterMenuRef.current && !filterMenuRef.current.contains(target) && showFilterMenu) {
         setShowFilterMenu(false);
+      }
+      
+      // Check if click is outside options menu
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(target)) {
+        setShowOptionsMenu(false);
       }
       
       // Check if click is outside all dropdown menus
@@ -129,30 +139,81 @@ export const VendorsList: React.FC<VendorsListProps> = ({
     }
   };
 
-  const handleDeleteVendor = async (vendorId: string) => {
-    if (!confirm('Are you sure you want to delete this vendor?')) return;
-    
-    if (!selectedOrg?.id) {
-      console.error('No organization selected');
-      return;
-    }
+  const handleDeleteClick = (vendor: Vendor) => {
+    setDeletingVendor(vendor);
+    setShowDeleteConfirm(true);
+    setOpenDropdownId(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingVendor) return;
     
     try {
-      await VendorService.deleteVendor(vendorId);
-      // Just reload vendors instead of resetting cache
-      setLoading(true);
-      const data = await VendorService.getVendors(selectedOrg.id);
-      setVendors(data);
-      setLoading(false);
+      await VendorService.deleteVendor(deletingVendor.id, selectedOrg?.id || '');
+      await loadVendors();
+      setShowDeleteConfirm(false);
+      setDeletingVendor(null);
     } catch (error) {
       console.error('Error deleting vendor:', error);
-      setLoading(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeletingVendor(null);
   };
 
   const forceReloadVendors = async () => {
     setHasLoadedData(false);
     await loadVendors();
+  };
+
+  const handleExportToCSV = async () => {
+    try {
+      await VendorExportService.exportToCSV(filteredVendors);
+      console.log('CSV export completed');
+    } catch (error) {
+      console.error('Error exporting to CSV:', error);
+      alert('Failed to export to CSV');
+    }
+  };
+
+  const handleExportToExcel = async () => {
+    try {
+      await VendorExportService.exportToExcel(filteredVendors);
+      console.log('Excel export completed');
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel');
+    }
+  };
+
+  const handleImportVendors = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id) return;
+      
+      try {
+        const result = await VendorExportService.importFromFile(file, selectedOrg.id);
+        
+        if (result.errors.length > 0) {
+          console.error('Import errors:', result.errors);
+          alert(`Import completed with errors:\n- ${result.success} vendors imported successfully\n- ${result.errors.length} errors\n\nCheck console for details.`);
+        } else {
+          alert(`Successfully imported ${result.success} vendors!`);
+        }
+        
+        // Refresh the vendors list
+        await forceReloadVendors();
+      } catch (error) {
+        console.error('Error importing file:', error);
+        alert('Failed to import file. Please check the format and try again.');
+      }
+    };
+    input.click();
   };
 
   const filteredVendors = vendors.filter(vendor => {
@@ -427,6 +488,42 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                   </button>
                 </div>
                 
+                <div className="relative" ref={optionsMenuRef}>
+                  <button
+                    onClick={() => setShowOptionsMenu(!showOptionsMenu)}
+                    className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  
+                  {showOptionsMenu && (
+                    <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
+                      <button
+                        onClick={handleImportVendors}
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Import Vendors
+                      </button>
+                      <div className="border-t border-[#333333] my-1" />
+                      <button
+                        onClick={handleExportToCSV}
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Export to CSV
+                      </button>
+                      <button
+                        onClick={handleExportToExcel}
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                      >
+                        <FileSpreadsheet className="w-4 h-4" />
+                        Export to Excel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
                                   {!hideAddButton && (
                     <button
                       onClick={() => setIsCreateModalOpen(true)}
@@ -538,17 +635,9 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                                     </button>
                                     <div className="border-t border-[#404040] my-1"></div>
                                     <button
-                                      onClick={async (e) => {
+                                      onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Delete vendor "${vendor.name}"? This action cannot be undone.`)) {
-                                          try {
-                                            await VendorService.deleteVendor(vendor.id, selectedOrg?.id || '');
-                                            await loadVendors();
-                                          } catch (error) {
-                                            console.error('Error deleting vendor:', error);
-                                          }
-                                        }
-                                        setOpenDropdownId(null);
+                                        handleDeleteClick(vendor);
                                       }}
                                       className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                     >
@@ -663,17 +752,9 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                                       </button>
                                       <div className="border-t border-[#404040] my-1"></div>
                                       <button
-                                        onClick={async (e) => {
+                                        onClick={(e) => {
                                           e.stopPropagation();
-                                          if (confirm(`Delete vendor "${vendor.name}"? This action cannot be undone.`)) {
-                                            try {
-                                              await VendorService.deleteVendor(vendor.id, selectedOrg?.id || '');
-                                              await loadVendors();
-                                            } catch (error) {
-                                              console.error('Error deleting vendor:', error);
-                                            }
-                                          }
-                                          setOpenDropdownId(null);
+                                          handleDeleteClick(vendor);
                                         }}
                                         className="w-full text-left px-3 py-2 text-red-400 text-xs hover:bg-red-600/20 transition-colors flex items-center"
                                       >
@@ -725,6 +806,35 @@ export const VendorsList: React.FC<VendorsListProps> = ({
           setEditingVendor(null);
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Delete Vendor</h3>
+              <p className="text-white/60 mb-6">
+                Are you sure you want to delete "{deletingVendor?.name}"? This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={handleDeleteCancel}
+                  className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
         </div>
   );
