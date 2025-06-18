@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   HardHat, Phone, Mail, MapPin, Star, Heart,
   Plus, Search, Filter, Edit2, Trash2, Eye,
-  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3, MoreVertical
+  Shield, CheckCircle, ChevronDown, Award, List, LayoutGrid, Rows3, MoreVertical,
+  Upload, Download, FileSpreadsheet
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -12,6 +13,7 @@ import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { SubcontractorService, type Subcontractor as SubcontractorType, TRADE_CATEGORIES as SERVICE_TRADE_CATEGORIES } from '../../services/subcontractorService';
+import { SubcontractorExportService } from '../../services/SubcontractorExportService';
 import { EditSubcontractorDrawer } from './EditSubcontractorDrawer';
 import { CreateSubcontractorModal } from './CreateSubcontractorModal';
 
@@ -46,7 +48,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
   const [selectedRatingFilter, setSelectedRatingFilter] = useState<string>('all');
   const [editingSubcontractor, setEditingSubcontractor] = useState<Subcontractor | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
+  const optionsMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Use external modal state if provided, otherwise use internal state
@@ -63,6 +67,11 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
         setShowFilterMenu(false);
       }
       
+      // Check if click is outside options menu
+      if (optionsMenuRef.current && !optionsMenuRef.current.contains(target) && showOptionsMenu) {
+        setShowOptionsMenu(false);
+      }
+      
       // Check if click is outside all dropdown menus
       const isOutsideDropdown = Object.values(dropdownRefs.current).every(ref => 
         !ref || !ref.contains(target)
@@ -72,9 +81,10 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
         setOpenDropdownId(null);
       }
     };
+    
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFilterMenu, openDropdownId]);
+  }, [showFilterMenu, openDropdownId, showOptionsMenu]);
 
   // Load subcontractors from database
   const loadSubcontractors = async () => {
@@ -218,6 +228,71 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
     setSelectedCategory('all');
     setShowPreferredOnly(false);
     setSelectedRatingFilter('all');
+  };
+
+  // Export/Import handlers
+  const handleExportToCSV = async () => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      await SubcontractorExportService.export(filteredSubcontractors, {
+        format: 'csv',
+        organizationId: selectedOrg.id
+      });
+    } catch (error) {
+      console.error('Error exporting subcontractors:', error);
+      alert('Failed to export subcontractors. Please try again.');
+    }
+    setShowOptionsMenu(false);
+  };
+
+  const handleExportToExcel = async () => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      await SubcontractorExportService.export(filteredSubcontractors, {
+        format: 'excel',
+        organizationId: selectedOrg.id
+      });
+    } catch (error) {
+      console.error('Error exporting subcontractors:', error);
+      alert('Failed to export subcontractors. Please try again.');
+    }
+    setShowOptionsMenu(false);
+  };
+
+  const handleImportSubcontractors = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.csv,.xlsx,.xls';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file || !selectedOrg?.id || !user?.id) return;
+      
+      try {
+        const format = file.name.endsWith('.csv') ? 'csv' : 'excel';
+        const result = await SubcontractorExportService.import({
+          format,
+          file,
+          organizationId: selectedOrg.id,
+          userId: user.id
+        });
+        
+        if (result.errors.length > 0) {
+          alert(`Import completed with some errors:\n${result.errors.slice(0, 5).join('\n')}${result.errors.length > 5 ? '\n...' : ''}`);
+        } else {
+          alert(`Successfully imported ${result.success} subcontractors`);
+        }
+        
+        // Reload the subcontractors list
+        loadSubcontractors();
+      } catch (error) {
+        console.error('Error importing subcontractors:', error);
+        alert('Failed to import subcontractors. Please try again.');
+      }
+    };
+    input.click();
+    setShowOptionsMenu(false);
   };
 
   console.log('🔧 SubcontractorsList render - editingSubcontractor:', editingSubcontractor);
@@ -435,15 +510,58 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                       </button>
                     </div>
                     
-                                          {!hideAddButton && (
-                        <button
-                          onClick={() => setShowNewModal(true)}
-                          className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span>Add Subcontractor</span>
-                        </button>
+                    {/* Options Menu */}
+                    <div className="relative" ref={optionsMenuRef}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowOptionsMenu(!showOptionsMenu);
+                        }}
+                        className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors rounded-[4px]"
+                        title="More Options"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
+                      
+                      {showOptionsMenu && (
+                        <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2 rounded-[4px]">
+                          <button
+                            onClick={handleImportSubcontractors}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Import Subcontractors
+                          </button>
+                          <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
+                            Export Options
+                          </div>
+                          <button
+                            onClick={handleExportToCSV}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            Export to CSV
+                          </button>
+                          <button
+                            onClick={handleExportToExcel}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <FileSpreadsheet className="w-4 h-4" />
+                            Export to Excel
+                          </button>
+                        </div>
                       )}
+                    </div>
+                    
+                    {!hideAddButton && (
+                      <button
+                        onClick={() => setShowNewModal(true)}
+                        className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Subcontractor</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
