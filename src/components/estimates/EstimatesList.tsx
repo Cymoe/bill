@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from 'react';
+import React, { useState, useEffect, useContext, useRef, useMemo } from 'react';
 import { 
   FileText, Filter, MoreVertical, 
   Eye, Edit, Trash2, Send, Clock, CheckCircle, 
@@ -28,6 +28,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
   const { selectedOrg } = useContext(OrganizationContext);
   const { isConstrained } = React.useContext(LayoutContext);
   const [estimates, setEstimates] = useState<Estimate[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<'all' | Estimate['status']>('all');
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
@@ -63,8 +64,24 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     
     try {
       setLoading(true);
-      const data = await EstimateService.list(selectedOrg.id);
-      setEstimates(data);
+      
+      // Load both estimates and projects
+      const [estimatesData, projectsData] = await Promise.all([
+        EstimateService.list(selectedOrg.id),
+        supabase
+          .from('projects')
+          .select('id, name, organization_id')
+          .eq('organization_id', selectedOrg.id)
+      ]);
+      
+      setEstimates(estimatesData);
+      
+      if (projectsData.error) {
+        console.warn('Error loading projects:', projectsData.error);
+        setProjects([]);
+      } else {
+        setProjects(projectsData.data || []);
+      }
     } catch (error: any) {
       console.error('Error loading estimates:', error);
       // Check if it's a "table doesn't exist" error
@@ -74,6 +91,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
       } else {
         setEstimates([]);
       }
+      setProjects([]);
     } finally {
       setLoading(false);
     }
@@ -97,7 +115,10 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     try {
       const estimateName = deletingEstimate.title || deletingEstimate.estimate_number || 'Estimate';
       const clientName = deletingEstimate.client?.name || 'Unknown Client';
-      const successMessage = `${estimateName} for ${clientName}`;
+      const projectName = deletingEstimate.project_id && projectMap.get(deletingEstimate.project_id) 
+        ? ` - ${projectMap.get(deletingEstimate.project_id)?.name}` 
+        : '';
+      const successMessage = `${estimateName} for ${clientName}${projectName}`;
       
       await EstimateService.delete(deletingEstimate.id);
       await loadEstimates();
@@ -122,6 +143,13 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     setShowDeleteConfirm(false);
     setDeletingEstimate(null);
   };
+
+  // Create project lookup map for better performance
+  const projectMap = useMemo(() => {
+    const map = new Map();
+    projects.forEach(project => map.set(project.id, project));
+    return map;
+  }, [projects]);
 
   const handleStatusUpdate = async (id: string, status: Estimate['status']) => {
     try {
@@ -893,7 +921,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
             <div className="p-6">
               <h3 className="text-lg font-semibold text-white mb-2">Delete Estimate</h3>
               <p className="text-white/60 mb-6">
-                Are you sure you want to delete estimate <strong>"{deletingEstimate?.title || deletingEstimate?.estimate_number}"</strong> for <strong>{deletingEstimate?.client?.name}</strong>? This action cannot be undone.
+                Are you sure you want to delete estimate <strong>"{deletingEstimate?.title || deletingEstimate?.estimate_number}"</strong> for <strong>{deletingEstimate?.client?.name}</strong>{deletingEstimate?.project_id && projectMap.get(deletingEstimate.project_id) ? ` - ${projectMap.get(deletingEstimate.project_id)?.name}` : ''}? This action cannot be undone.
               </p>
               <div className="flex justify-end gap-4">
                 <button

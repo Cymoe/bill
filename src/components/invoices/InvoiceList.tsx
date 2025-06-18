@@ -1402,6 +1402,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
           setEditingInvoice(null);
         }}
         editingInvoice={editingInvoice}
+        organizationId={selectedOrg?.id || localStorage.getItem('selectedOrgId') || ''}
         projectContext={location.state?.projectId ? {
           projectId: location.state.projectId,
           clientId: location.state.clientId,
