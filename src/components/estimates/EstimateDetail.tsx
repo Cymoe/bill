@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Edit, Send, Download, Share2, Trash2,
@@ -11,10 +11,12 @@ import { ProjectSelectionModal } from './ProjectSelectionModal';
 import { ProjectCreationModal } from '../ProjectCreationModal';
 import { CreateEstimateDrawer } from './CreateEstimateDrawer';
 import { MapModal } from '../common/MapModal';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 
 export const EstimateDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [estimate, setEstimate] = useState<Estimate | null>(null);
   const [loading, setLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);

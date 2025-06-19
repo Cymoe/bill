@@ -789,7 +789,17 @@ export const VendorsList: React.FC<VendorsListProps> = ({
         <CreateVendorModal
           isOpen={isCreateModalOpen}
           onClose={() => setIsCreateModalOpen(false)}
-          onVendorCreated={forceReloadVendors}
+          onVendorCreated={(newVendor) => {
+            if (newVendor) {
+              // Add the new vendor to the list immediately (optimistic update)
+              setVendors(prevVendors => [newVendor, ...prevVendors]);
+              // Initialize empty stats for the new vendor
+              setVendorStats(prev => ({ ...prev, [newVendor.id]: { totalSpent: 0, projectCount: 0 } }));
+            } else {
+              // Fallback to full reload if no vendor data returned
+              forceReloadVendors();
+            }
+          }}
         />
       )}
 

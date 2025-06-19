@@ -135,14 +135,28 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
   const [addedTemplateId, setAddedTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && user) {
+    console.log('CreateInvoiceDrawer useEffect triggered:', {
+      isOpen,
+      userId: user?.id,
+      organizationId: organizationId,
+      projectCategory,
+      editingInvoice: !!editingInvoice
+    });
+    
+    if (isOpen && user && organizationId) {
       loadData();
     }
-  }, [isOpen, user?.id, organizationId, projectCategory]);
+  }, [isOpen, user?.id, organizationId, projectCategory, editingInvoice]);
 
-  // Load invoice data when editing
+  // Load invoice data when editing - but only after data is loaded
   useEffect(() => {
-    if (isOpen && editingInvoice) {
+    if (isOpen && editingInvoice && projects.length > 0) {
+      console.log('Setting form data from editing invoice:', {
+        invoiceId: editingInvoice.id,
+        projectId: editingInvoice.project_id,
+        availableProjects: projects.length
+      });
+      
       // Set form data from existing invoice
       setSelectedClient(editingInvoice.client_id || '');
       setSelectedProject(editingInvoice.project_id || '');
@@ -153,7 +167,7 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       // Load invoice items
       loadInvoiceItems();
     }
-  }, [isOpen, editingInvoice]);
+  }, [isOpen, editingInvoice, projects.length]);
 
   // Handle project context
   useEffect(() => {
@@ -394,6 +408,16 @@ export const CreateInvoiceDrawer: React.FC<CreateInvoiceDrawerProps> = ({
       setLineItems(allLineItems as Product[]);
       setTemplates(processedTemplates);
       setTrades(tradesRes.data || []);
+      
+      // Debug logging
+      console.log('CreateInvoiceDrawer - Data loaded:', {
+        organizationId: organizationId,
+        clients: clientsRes.data?.length || 0,
+        projects: projectsRes.data?.length || 0,
+        projectsData: projectsRes.data,
+        products: allProducts.length,
+        templates: processedTemplates.length
+      });
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

@@ -13,9 +13,10 @@ export const MobileNewClientModal: React.FC<MobileNewClientModalProps> = ({ onCl
   const { user } = useAuth();
 
   useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = originalOverflow || 'unset';
     };
   }, []);
 
@@ -44,7 +45,7 @@ export const MobileNewClientModal: React.FC<MobileNewClientModalProps> = ({ onCl
   };
 
   return (
-    <div className="fixed inset-0 z-[10000]">
+    <div className="fixed inset-0 z-50">
       <div 
         className={`absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300 ${
           isClosing ? 'opacity-0' : 'opacity-100'

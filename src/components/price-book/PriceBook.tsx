@@ -491,7 +491,7 @@ export const PriceBook: React.FC = () => {
     // Date added/updated filter
     if (selectedDateRange !== 'all') {
       const now = new Date();
-      let cutoff = new Date();
+      const cutoff = new Date();
       if (selectedDateRange === '7d') cutoff.setDate(now.getDate() - 7);
       if (selectedDateRange === '30d') cutoff.setDate(now.getDate() - 30);
       filtered = filtered.filter(product =>

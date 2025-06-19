@@ -68,11 +68,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const location = useLocation();
   const { user, signOut } = useAuth();
   const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
 
   // Handle click outside for profile dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (profileDropdownRef.current && !profileDropdownRef.current.contains(event.target as Node)) {
+      if (
+        profileDropdownRef.current && 
+        !profileDropdownRef.current.contains(event.target as Node) &&
+        profileButtonRef.current &&
+        !profileButtonRef.current.contains(event.target as Node)
+      ) {
         setIsProfileMenuOpen(false);
       }
     };
@@ -465,11 +471,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* User Profile Section */}
           <div className="relative border-t border-gray-700">
-            {/* Profile Dropdown Menu - positioned absolutely above user info */}
+            {/* Profile Dropdown Menu - positioned with fixed to escape overflow constraints */}
             {isProfileMenuOpen && (
               <div 
                 ref={profileDropdownRef}
-                className={`absolute bottom-full ${isSidebarCollapsed ? 'right-0 w-48' : 'left-0 right-0'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-50`}
+                className={`fixed ${isSidebarCollapsed ? 'w-48' : 'w-48'} mb-1 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg overflow-hidden z-[100]`}
+                style={{
+                  bottom: '80px',
+                  right: isSidebarCollapsed ? '16px' : '16px'
+                }}
               >
                 <button
                   onClick={() => {
@@ -560,6 +570,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {/* Profile Menu Button */}
               <button
+                ref={profileButtonRef}
                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
                 className={`${isSidebarCollapsed ? 'w-full' : 'ml-3'} flex items-center justify-center w-8 h-8 rounded-full bg-[#336699] text-white hover:bg-[#2A5580] transition-colors`}
               >

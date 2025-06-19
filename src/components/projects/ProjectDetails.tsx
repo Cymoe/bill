@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Edit, MoreVertical, Share2, FileText, Camera, 
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { TaskList } from '../tasks/TaskList';
 import { ExpensesList } from '../expenses/ExpensesList';
@@ -82,6 +83,7 @@ export const ProjectDetails: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [project, setProject] = useState<ProjectWithDetails | null>(null);
   const [taskCount, setTaskCount] = useState(0);
@@ -585,7 +587,7 @@ export const ProjectDetails: React.FC = () => {
       // Log the activity
       try {
         await ActivityLogService.log({
-          organizationId: project.organization_id,
+          organizationId: selectedOrg.id,
           entityType: 'project',
           entityId: project.id,
           action: 'status_changed',
@@ -1563,6 +1565,7 @@ export const ProjectDetails: React.FC = () => {
       <CreateInvoiceDrawer
         isOpen={showInvoiceDrawer}
         onClose={() => setShowInvoiceDrawer(false)}
+        organizationId={selectedOrg?.id}
         projectContext={project ? {
           projectId: project.id,
           clientId: project.client_id,
@@ -1575,6 +1578,7 @@ export const ProjectDetails: React.FC = () => {
             
             const invoiceData = {
               user_id: user?.id,
+              organization_id: selectedOrg?.id,
               client_id: data.client_id,
               amount: data.total_amount,
               status: data.status,

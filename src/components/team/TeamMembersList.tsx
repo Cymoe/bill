@@ -427,7 +427,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                             className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
                           >
                             <Upload className="w-4 h-4" />
-                            Import Team Members
+                            Import Team
                           </button>
                           <div className="border-t border-[#333333] my-1" />
                           <button
@@ -678,9 +678,15 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
       <CreateTeamMemberModal
         isOpen={showNewModal}
         onClose={() => setShowNewModal(false)}
-        onTeamMemberCreated={() => {
-          loadTeamMembers();
-          setShowNewModal(false);
+        onTeamMemberCreated={(newTeamMember) => {
+          if (newTeamMember) {
+            // Add the new team member to the list immediately (optimistic update)
+            setTeamMembers(prevMembers => [newTeamMember, ...prevMembers]);
+          } else {
+            // Fallback to full reload if no team member data returned
+            loadTeamMembers();
+          }
+          // Don't close the modal here - let the modal handle it
         }}
       />
 

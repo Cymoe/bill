@@ -533,7 +533,7 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                             className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
                           >
                             <Upload className="w-4 h-4" />
-                            Import Subcontractors
+                            Import Subs
                           </button>
                           <div className="border-t border-[#333333] my-1" />
                           <button
@@ -839,9 +839,21 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
       <CreateSubcontractorModal
         isOpen={showNewModal}
         onClose={() => setShowNewModal(false)}
-        onSubcontractorCreated={() => {
-          loadSubcontractors();
-          setShowNewModal(false);
+        onSubcontractorCreated={(newSubcontractor) => {
+          if (newSubcontractor) {
+            // Add the new subcontractor to the list immediately (optimistic update)
+            const enrichedSubcontractor = {
+              ...newSubcontractor,
+              totalValue: 0,
+              projectCount: 0,
+              lastProjectDate: null
+            };
+            setSubcontractors(prevSubs => [enrichedSubcontractor, ...prevSubs]);
+          } else {
+            // Fallback to full reload if no subcontractor data returned
+            loadSubcontractors();
+          }
+          // Don't close the modal here - let the modal handle it
         }}
       />
 

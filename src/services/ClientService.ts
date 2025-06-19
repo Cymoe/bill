@@ -9,6 +9,9 @@ export interface Client {
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   company_name?: string;
   website?: string;
   notes?: string;
@@ -69,7 +72,7 @@ export class ClientService {
     return data;
   }
 
-  static async update(id: string, updates: Partial<Client>): Promise<Client> {
+  static async update(id: string, updates: Partial<Omit<Client, 'id' | 'created_at' | 'updated_at'>>): Promise<Client> {
     const { data, error } = await supabase
       .from('clients')
       .update(updates)

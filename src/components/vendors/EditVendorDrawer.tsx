@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { VendorService, VENDOR_CATEGORIES } from '../../services/vendorService';
-import { Save, Trash2, Star, Building2 } from 'lucide-react';
+import { Save, Trash2, Star, Building2, X, MapPin } from 'lucide-react';
 
 interface Vendor {
   id: string;
@@ -97,9 +96,7 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
 
     try {
       setIsSaving(true);
-
       await VendorService.updateVendor(vendor.id, formData);
-
       onSuccess();
       handleClose();
     } catch (error) {
@@ -112,10 +109,9 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
 
   const handleDelete = async () => {
     if (!vendor) return;
-    
+
     try {
       await VendorService.deleteVendor(vendor.id);
-
       if (onDelete) {
         onDelete(vendor.id);
       }
@@ -150,90 +146,76 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <SlideOutDrawer
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Edit Vendor"
-      width="xl"
-    >
-      <div className="flex flex-col h-full bg-[#0a0a0a]">
-        {/* Header with Actions */}
-        <div className="p-8 pb-6 border-b border-white/10">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500/20 to-blue-600/20 rounded-xl flex items-center justify-center border border-blue-500/20">
-              <Building2 className="w-6 h-6 text-blue-400" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-2xl font-bold text-white">
-                  {vendor?.name}
-                </h2>
-                {vendor?.is_preferred && (
-                  <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
-                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                    <span className="text-xs text-yellow-400 font-medium">Preferred</span>
-                  </div>
-                )}
+    <div className="fixed inset-0 z-[11000] flex justify-end">
+      {/* Backdrop with blur */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+      
+      {/* Drawer Panel */}
+      <div className="relative w-full max-w-2xl bg-[#0a0a0a] border-l border-[#1a1a1a] overflow-hidden flex flex-col shadow-2xl">
+        {/* Header with Gradient Accent */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/10 to-orange-600/10" />
+          <div className="relative px-8 py-6 border-b border-[#1a1a1a]/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500/20 to-orange-600/20 border border-yellow-500/30 flex items-center justify-center">
+                  <Building2 className="w-6 h-6 text-yellow-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white tracking-tight">Edit Vendor</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Update vendor information</p>
+                </div>
               </div>
-              <p className="text-blue-400 text-sm font-medium">{vendor?.category}</p>
-              {vendor?.specialty && (
-                <p className="text-white/60 text-sm">{vendor.specialty}</p>
-              )}
+              <button
+                onClick={handleClose}
+                className="w-10 h-10 rounded-xl bg-transparent border border-[#2a2a2a] text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all duration-200 flex items-center justify-center text-xl font-light"
+              >
+                ×
+              </button>
             </div>
-          </div>
-          
-          <div className="flex items-center justify-end gap-4">
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="h-12 px-6 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/20 transition-all text-sm font-medium flex items-center gap-3"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!formData.name.trim() || isSaving}
-              className="h-12 px-6 bg-gradient-to-r from-yellow-500 to-yellow-600 text-black rounded-xl hover:from-yellow-400 hover:to-yellow-500 transition-all disabled:opacity-50 disabled:cursor-not-allowed font-medium flex items-center gap-3 shadow-lg"
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 space-y-6">
             {/* Basic Information */}
-            <div className="space-y-6">
-              <div className="border-b border-white/10 pb-4">
-                <h3 className="text-lg font-semibold text-white mb-1">Basic Information</h3>
-                <p className="text-white/60 text-sm">Essential details about the vendor</p>
+            <div className="space-y-4">
+              <div className="border-b border-[#1a1a1a] pb-3">
+                <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  Vendor Information
+                </h3>
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
-                    Company Name *
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Company Name <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="Enter company name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
-                    Category *
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Category <span className="text-red-400">*</span>
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => handleInputChange('category', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200 appearance-none"
                   >
                     {VENDOR_CATEGORIES.map(cat => (
                       <option key={cat} value={cat} className="bg-[#0a0a0a] text-white">{cat}</option>
@@ -242,75 +224,75 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Specialty
                   </label>
                   <input
                     type="text"
                     value={formData.specialty}
                     onChange={(e) => handleInputChange('specialty', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="e.g., Kitchen remodels"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Contact Name
                   </label>
                   <input
                     type="text"
                     value={formData.contact_name}
                     onChange={(e) => handleInputChange('contact_name', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="Primary contact person"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Phone
                   </label>
                   <input
                     type="tel"
                     value={formData.phone}
                     onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="(555) 123-4567"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Email
                   </label>
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="vendor@example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Website
                   </label>
                   <input
                     type="url"
                     value={formData.website}
                     onChange={(e) => handleInputChange('website', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="https://example.com"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Rating
                   </label>
-                  <div className="flex items-center gap-2 h-12">
+                  <div className="flex items-center gap-2">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <button
                         key={star}
@@ -322,7 +304,7 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
                           className={`w-6 h-6 ${
                             formData.rating && star <= formData.rating
                               ? 'text-yellow-500 fill-current'
-                              : 'text-white/20'
+                              : 'text-gray-600'
                           }`}
                         />
                       </button>
@@ -337,76 +319,135 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
                     type="checkbox"
                     checked={formData.is_preferred}
                     onChange={(e) => handleInputChange('is_preferred', e.target.checked)}
-                    className="w-5 h-5 text-yellow-500 bg-white/5 border border-white/10 rounded focus:ring-yellow-500/20"
+                    className="w-5 h-5 text-yellow-500 bg-[#0f0f0f] border border-[#2a2a2a] rounded focus:ring-yellow-500/20 focus:ring-offset-0"
                   />
-                  <span className="text-white flex items-center gap-2 font-medium">
-                    <Star className="w-5 h-5 text-yellow-400" />
+                  <span className="text-white flex items-center gap-2">
+                    <Star className="w-4 h-4 text-yellow-400" />
                     Preferred Vendor
                   </span>
                 </label>
               </div>
             </div>
 
-            {/* Additional Information */}
-            <div className="space-y-6">
-              <div className="border-b border-white/10 pb-4">
-                <h3 className="text-lg font-semibold text-white mb-1">Additional Information</h3>
-                <p className="text-white/60 text-sm">Business details and notes</p>
+            {/* Location Information */}
+            <div className="space-y-4">
+              <div className="border-b border-[#1a1a1a] pb-3">
+                <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Location & Business Details
+                </h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
-                    License Number
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Address
                   </label>
                   <input
                     type="text"
-                    value={formData.license_number}
-                    onChange={(e) => handleInputChange('license_number', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
-                    placeholder="License #"
+                    value={formData.address}
+                    onChange={(e) => handleInputChange('address', e.target.value)}
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
+                    placeholder="123 Main St"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white/90 mb-3">
-                    Payment Terms
-                  </label>
-                  <select
-                    value={formData.payment_terms}
-                    onChange={(e) => handleInputChange('payment_terms', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
-                  >
-                    <option value="Due on receipt" className="bg-[#0a0a0a] text-white">Due on receipt</option>
-                    <option value="Net 15" className="bg-[#0a0a0a] text-white">Net 15</option>
-                    <option value="Net 30" className="bg-[#0a0a0a] text-white">Net 30</option>
-                    <option value="Net 45" className="bg-[#0a0a0a] text-white">Net 45</option>
-                    <option value="Net 60" className="bg-[#0a0a0a] text-white">Net 60</option>
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
+                      placeholder="City"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => handleInputChange('state', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
+                      placeholder="State"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ZIP
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.zip}
+                      onChange={(e) => handleInputChange('zip', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
+                      placeholder="12345"
+                    />
+                  </div>
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      License Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.license_number}
+                      onChange={(e) => handleInputChange('license_number', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
+                      placeholder="License #"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Payment Terms
+                    </label>
+                    <select
+                      value={formData.payment_terms}
+                      onChange={(e) => handleInputChange('payment_terms', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200 appearance-none"
+                    >
+                      <option value="" className="bg-[#0a0a0a] text-white">Select payment terms</option>
+                      <option value="Due on receipt" className="bg-[#0a0a0a] text-white">Due on receipt</option>
+                      <option value="Net 15" className="bg-[#0a0a0a] text-white">Net 15</option>
+                      <option value="Net 30" className="bg-[#0a0a0a] text-white">Net 30</option>
+                      <option value="Net 45" className="bg-[#0a0a0a] text-white">Net 45</option>
+                      <option value="Net 60" className="bg-[#0a0a0a] text-white">Net 60</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Insurance Info
                   </label>
                   <input
                     type="text"
                     value={formData.insurance_info}
                     onChange={(e) => handleInputChange('insurance_info', e.target.value)}
-                    className="w-full h-12 px-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200"
                     placeholder="Insurance provider & policy"
                   />
                 </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-white/90 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Notes
                   </label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => handleInputChange('notes', e.target.value)}
-                    rows={4}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/20 focus:outline-none transition-all resize-none"
+                    rows={3}
+                    className="w-full px-4 py-3 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-yellow-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/20 transition-all duration-200 resize-none"
                     placeholder="Additional notes about this vendor..."
                   />
                 </div>
@@ -415,9 +456,38 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
           </div>
         </div>
 
+        {/* Footer */}
+        <div className="px-8 py-5 border-t border-[#1a1a1a] flex items-center justify-between bg-[#050505]">
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-5 py-2.5 bg-transparent border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-5 py-2.5 bg-transparent border border-[#2a2a2a] text-gray-400 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-xl text-sm font-medium transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!formData.name.trim() || isSaving}
+              className="px-5 py-2.5 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl text-sm font-semibold hover:from-yellow-600 hover:to-orange-600 transition-all duration-200 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[12000]">
             <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
               <div className="p-6">
                 <h3 className="text-lg font-semibold text-white mb-2">Delete Vendor</h3>
@@ -427,13 +497,13 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
                 <div className="flex justify-end gap-4">
                   <button
                     onClick={() => setShowDeleteConfirm(false)}
-                    className="h-12 px-6 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                    className="h-10 px-5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleDelete}
-                    className="h-12 px-6 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-3 shadow-lg"
+                    className="h-10 px-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-2"
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete
@@ -444,6 +514,6 @@ export const EditVendorDrawer: React.FC<EditVendorDrawerProps> = ({
           </div>
         )}
       </div>
-    </SlideOutDrawer>
+    </div>
   );
 };

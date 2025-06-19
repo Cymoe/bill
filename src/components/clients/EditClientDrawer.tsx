@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { SlideOutDrawer } from '../common/SlideOutDrawer';
+import { Save, Trash2, Users, MapPin, Phone, Mail, Building } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { useAuth } from '../../contexts/AuthContext';
-import { Save, Trash2 } from 'lucide-react';
 import { ActivityLogService } from '../../services/ActivityLogService';
 
 interface Client {
@@ -33,7 +31,6 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
   onSuccess,
   onDelete
 }) => {
-  const { user } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     company_name: '',
@@ -73,19 +70,6 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
 
     try {
       setIsSaving(true);
-
-      // Keep track of what changed
-      const changes: Record<string, any> = {};
-      Object.keys(formData).forEach(key => {
-        const typedKey = key as keyof typeof formData;
-        if (formData[typedKey] !== client[typedKey]) {
-          changes[key] = {
-            old: client[typedKey],
-            new: formData[typedKey]
-          };
-        }
-      });
-
       const { error } = await supabase
         .from('clients')
         .update({
@@ -105,8 +89,22 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
           action: 'updated',
           description: `updated client ${formData.name}`,
           metadata: {
-            changes,
-            updated_fields: Object.keys(changes)
+            client_name: formData.name,
+            company_name: formData.company_name,
+            changes: {
+              old: {
+                name: client.name,
+                company_name: client.company_name,
+                email: client.email,
+                phone: client.phone
+              },
+              new: {
+                name: formData.name,
+                company_name: formData.company_name,
+                email: formData.email,
+                phone: formData.phone
+              }
+            }
           }
         });
       }
@@ -123,7 +121,7 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
 
   const handleDelete = async () => {
     if (!client) return;
-    
+
     try {
       const { error } = await supabase
         .from('clients')
@@ -173,62 +171,69 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
     onClose();
   };
 
+  if (!isOpen) return null;
+
   return (
-    <SlideOutDrawer
-      isOpen={isOpen}
-      onClose={handleClose}
-      title="Edit Client"
-      width="lg"
-    >
-      <div className="flex flex-col h-full">
-        {/* Header with Actions */}
-        <div className="px-6 py-4 border-b border-[#333333] bg-[#1E1E1E]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">{client?.name}</h2>
-              <p className="text-sm text-gray-400">{client?.company_name}</p>
-            </div>
-            <div className="flex items-center gap-3">
+    <div className="fixed inset-0 z-[11000] flex justify-end">
+      {/* Backdrop with blur */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={handleClose}
+      />
+      
+      {/* Drawer Panel */}
+      <div className="relative w-full max-w-2xl bg-[#0a0a0a] border-l border-[#1a1a1a] overflow-hidden flex flex-col shadow-2xl">
+        {/* Header with Gradient Accent */}
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-600/10" />
+          <div className="relative px-8 py-6 border-b border-[#1a1a1a]/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-blue-500/30 flex items-center justify-center">
+                  <Users className="w-6 h-6 text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white tracking-tight">Edit Client</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Update client information</p>
+                </div>
+              </div>
               <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-transparent border border-red-500/50 text-red-400 rounded-lg hover:bg-red-500/10 transition-colors text-sm flex items-center gap-2"
+                onClick={handleClose}
+                className="w-10 h-10 rounded-xl bg-transparent border border-[#2a2a2a] text-gray-500 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] transition-all duration-200 flex items-center justify-center text-xl font-light"
               >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={!formData.name.trim() || isSaving}
-                className="px-4 py-2 bg-[#EAB308] hover:bg-[#D97706] text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center gap-2"
-              >
-                <Save className="w-4 h-4" />
-                {isSaving ? 'Saving...' : 'Save Changes'}
+                ×
               </button>
             </div>
           </div>
         </div>
 
         {/* Form Content */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-2xl mx-auto space-y-6">
-            {/* Contact Information */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Contact Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 space-y-6">
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <div className="border-b border-[#1a1a1a] pb-3">
+                <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Client Information
+                </h3>
+              </div>
+              
+              <div className="space-y-5">
+                <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Full Name *
+                    Contact Name <span className="text-red-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter full name"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                    placeholder="Enter contact name"
                   />
                 </div>
-                
-                <div className="md:col-span-2">
+
+                <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Company Name
                   </label>
@@ -236,44 +241,54 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
                     type="text"
                     value={formData.company_name}
                     onChange={(e) => handleInputChange('company_name', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
                     placeholder="Enter company name"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter email address"
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <Mail className="w-4 h-4 inline mr-1" />
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => handleInputChange('email', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="client@example.com"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Phone
-                  </label>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => handleInputChange('phone', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter phone number"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <Phone className="w-4 h-4 inline mr-1" />
+                      Phone
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange('phone', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Address Information */}
-            <div>
-              <h3 className="text-lg font-medium text-white mb-4">Address Information</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
+            {/* Location Information */}
+            <div className="space-y-4">
+              <div className="border-b border-[#1a1a1a] pb-3">
+                <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  Location Details
+                </h3>
+              </div>
+              
+              <div className="space-y-5">
+                <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">
                     Address
                   </label>
@@ -281,81 +296,115 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
                     type="text"
                     value={formData.address}
                     onChange={(e) => handleInputChange('address', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter street address"
+                    className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                    placeholder="123 Main Street"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    City
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => handleInputChange('city', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter city"
-                  />
-                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="col-span-2 md:col-span-1">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => handleInputChange('city', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="City"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.state}
-                    onChange={(e) => handleInputChange('state', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter state"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      State
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.state}
+                      onChange={(e) => handleInputChange('state', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="State"
+                      maxLength={2}
+                    />
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.zip}
-                    onChange={(e) => handleInputChange('zip', e.target.value)}
-                    className="w-full px-3 py-2 bg-[#1F2937] border border-[#374151] rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                    placeholder="Enter ZIP code"
-                  />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      ZIP
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.zip}
+                      onChange={(e) => handleInputChange('zip', e.target.value)}
+                      className="w-full h-11 px-4 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200"
+                      placeholder="12345"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="relative bg-[#1E1E1E] rounded-lg border border-[#333333] p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-white mb-2">Delete Client</h3>
-            <p className="text-gray-400 mb-6">
-              Are you sure you want to delete this client? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
-              >
-                Delete
-              </button>
-            </div>
+        {/* Footer */}
+        <div className="px-8 py-5 border-t border-[#1a1a1a] flex items-center justify-between bg-[#050505]">
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-5 py-2.5 bg-transparent border border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50 rounded-xl text-sm font-medium transition-all duration-200 flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete
+          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleClose}
+              className="px-5 py-2.5 bg-transparent border border-[#2a2a2a] text-gray-400 hover:bg-[#1a1a1a] hover:text-white hover:border-[#3a3a3a] rounded-xl text-sm font-medium transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!formData.name.trim() || isSaving}
+              className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-purple-600 transition-all duration-200 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <Save className="w-4 h-4" />
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </button>
           </div>
         </div>
-      )}
-    </SlideOutDrawer>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[12000]">
+            <div className="bg-[#0a0a0a] rounded-xl max-w-md w-full border border-white/10 shadow-2xl">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold text-white mb-2">Delete Client</h3>
+                <p className="text-white/60 mb-6">
+                  Are you sure you want to delete "{client?.name}"? This action cannot be undone.
+                </p>
+                <div className="flex justify-end gap-4">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="h-10 px-5 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-all font-medium border border-white/10"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="h-10 px-5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-400 hover:to-red-500 transition-all font-medium flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
-}; 
+};

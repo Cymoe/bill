@@ -12,6 +12,7 @@ import { useContext } from 'react';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
 import { supabase } from '../lib/supabase';
 
+
 type PersonType = 'clients' | 'vendors' | 'subcontractors' | 'team';
 
 export const People: React.FC = () => {
@@ -21,6 +22,26 @@ export const People: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Ensure body overflow is reset when component mounts/unmounts
+  useEffect(() => {
+    // Reset any stuck overflow hidden
+    document.body.style.overflow = 'unset';
+    document.body.classList.remove('modal-open');
+    
+    // Also check for any stuck modal backdrops
+    const stuckBackdrops = document.querySelectorAll('.fixed.inset-0');
+    stuckBackdrops.forEach(backdrop => {
+      if (!backdrop.closest('[data-modal-active="true"]')) {
+        backdrop.remove();
+      }
+    });
+    
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+    };
+  }, []);
   
   // Dynamic counts loaded from database
   const [tabCounts, setTabCounts] = useState({
@@ -109,12 +130,12 @@ export const People: React.FC = () => {
                 placeholder={`Search ${activeTab}...`}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="bg-transparent border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
+                className="bg-transparent border border-[#333333] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
               />
             </div>
             <button
               onClick={handleAddClick}
-              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium rounded-xl transition-colors flex items-center gap-2 w-[150px] justify-center"
             >
               <Plus className="w-4 h-4" />
               <span>{getAddButtonText()}</span>
@@ -206,6 +227,9 @@ export const People: React.FC = () => {
           )}
         </div>
       </div>
+      
+      {/* Test button for development */}
+
     </div>
   );
 }; 

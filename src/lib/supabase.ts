@@ -16,7 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     flowType: 'pkce',
     storage: window.localStorage,
     storageKey: 'billbreeze-auth',
-    debug: true
+    debug: false
   },
   realtime: {
     params: {

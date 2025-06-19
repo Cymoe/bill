@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { Search, Plus, Minus, X, Save, FileText, Package, ArrowRight, CheckCircle, Check } from 'lucide-react';
 import { getCollectionLabel } from '../../constants/collections';
@@ -103,6 +104,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
   projectContext
 }) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const [sourceType, setSourceType] = useState<'scratch' | 'template' | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'products' | 'lineItems'>('products');
@@ -136,14 +138,29 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
   const [addedTemplateId, setAddedTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && user) {
+    console.log('CreateEstimateDrawer useEffect triggered:', {
+      isOpen,
+      userId: user?.id,
+      selectedOrgId: selectedOrg.id,
+      selectedOrg: selectedOrg,
+      projectCategory,
+      editingEstimate: !!editingEstimate
+    });
+    
+    if (isOpen && user && selectedOrg.id && selectedOrg.name !== 'Loading...') {
       loadData();
     }
-  }, [isOpen, user?.id, projectCategory]);
+  }, [isOpen, user?.id, selectedOrg.id, projectCategory, editingEstimate]);
 
-  // Load estimate data when editing
+  // Load estimate data when editing - but only after data is loaded
   useEffect(() => {
-    if (isOpen && editingEstimate) {
+    if (isOpen && editingEstimate && projects.length > 0) {
+      console.log('Setting form data from editing estimate:', {
+        estimateId: editingEstimate.id,
+        projectId: editingEstimate.project_id,
+        availableProjects: projects.length
+      });
+      
       // Set form data from existing estimate
       setSelectedClient(editingEstimate.client_id || '');
       setSelectedProject(editingEstimate.project_id || '');
@@ -157,7 +174,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       // Load estimate items
       loadEstimateItems();
     }
-  }, [isOpen, editingEstimate]);
+  }, [isOpen, editingEstimate, projects.length]);
 
   // Handle project context
   useEffect(() => {
@@ -179,10 +196,10 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
 
   // Load project category when project context is provided
   useEffect(() => {
-    if (isOpen && projectContext?.projectId && user) {
+    if (isOpen && projectContext?.projectId && user && selectedOrg.id) {
       loadProjectCategory();
     }
-  }, [isOpen, projectContext?.projectId, user]);
+  }, [isOpen, projectContext?.projectId, user, selectedOrg.id]);
 
   // Auto-calculate validity date based on days
   useEffect(() => {
@@ -259,10 +276,23 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     try {
       setIsLoading(true);
       
+      // Get organization ID - fallback to localStorage if context not ready
+      let orgId = selectedOrg.id;
+      if (!orgId || selectedOrg.name === 'Loading...') {
+        orgId = localStorage.getItem('selectedOrgId') || '';
+        console.log('Using fallback organization ID from localStorage:', orgId);
+      }
+      
+      if (!orgId) {
+        console.error('No organization ID available');
+        setIsLoading(false);
+        return;
+      }
+      
       // Build base queries array
       const queries = [
-        supabase.from('clients').select('*').eq('user_id', user?.id),
-        supabase.from('projects').select('*').eq('user_id', user?.id).order('name'),
+        supabase.from('clients').select('*').eq('organization_id', orgId),
+        supabase.from('projects').select('*').eq('organization_id', orgId).order('name'),
         // Get all products with their line items
         supabase.from('products')
           .select(`
@@ -272,11 +302,11 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
               line_item:products!product_line_items_line_item_id_fkey(*)
             )
           `)
-          .eq('user_id', user?.id),
+          .eq('organization_id', orgId),
         // Get all products to show as individual line items
         supabase.from('products')
           .select('*')
-          .eq('user_id', user?.id),
+          .eq('organization_id', orgId),
         supabase.from('trades')
           .select('id, name')
           .order('name')
@@ -285,7 +315,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       // Note: We'll use invoice templates for now until estimate templates are created
       let templateQuery = supabase.from('invoice_templates')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('organization_id', orgId)
         .order('created_at', { ascending: false });
       
       // If we have a project category, filter templates by it
@@ -344,6 +374,16 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       setLineItems(allLineItems as Product[]);
       setTemplates(processedTemplates);
       setTrades(tradesRes.data || []);
+      
+      // Debug logging
+      console.log('CreateEstimateDrawer - Data loaded:', {
+        organizationId: orgId,
+        clients: clientsRes.data?.length || 0,
+        projects: projectsRes.data?.length || 0,
+        projectsData: projectsRes.data,
+        products: allProducts.length,
+        templates: processedTemplates.length
+      });
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {

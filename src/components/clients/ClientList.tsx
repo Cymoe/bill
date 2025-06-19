@@ -4,7 +4,7 @@ import {
   Users, Phone, Mail, Calendar, Building, 
   Plus, Search, Filter, Edit2, Trash2, Eye,
   ChevronDown, List, LayoutGrid, Rows3, MapPin, TrendingUp, MoreVertical,
-  Download, FileText, FileSpreadsheet, Upload
+  Download, FileText, FileSpreadsheet, Upload, Sparkles, FileImage, Mic, Link2, Merge
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
@@ -16,8 +16,11 @@ import { supabase } from '../../lib/supabase';
 import { Modal } from '../common/Modal';
 import { ClientFormSimple } from './ClientFormSimple';
 import { EditClientDrawer } from './EditClientDrawer';
+import { CreateClientModal } from './CreateClientModal';
 import { ActivityLogService } from '../../services/ActivityLogService';
 import { ClientExportService } from '../../services/ClientExportService';
+import { ClientImportService } from '../../services/ClientImportService';
+import { DuplicateDetectionModal } from './DuplicateDetectionModal';
 
 type Client = {
   id: string;
@@ -59,6 +62,10 @@ export const ClientList: React.FC<ClientListProps> = ({
   const [loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'compact'>('compact');
+  const [sortBy, setSortBy] = useState<'name' | 'recent' | 'value' | 'projects'>('recent');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [filterByCity, setFilterByCity] = useState<string>('all');
+  const [filterByValue, setFilterByValue] = useState<string>('all');
   const [internalShowNewModal, setInternalShowNewModal] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -66,17 +73,16 @@ export const ClientList: React.FC<ClientListProps> = ({
   const [deletingClient, setDeletingClient] = useState<Client | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
+  const [showQuickImportMenu, setShowQuickImportMenu] = useState(false);
+  const [showDuplicateDetection, setShowDuplicateDetection] = useState(false);
   const filterMenuRef = useRef<HTMLDivElement>(null);
   const optionsMenuRef = useRef<HTMLDivElement>(null);
+  const quickImportMenuRef = useRef<HTMLDivElement>(null);
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   
   // Use external modal state if provided, otherwise use internal state
   const showNewModal = externalShowAddModal !== undefined ? externalShowAddModal : internalShowNewModal;
   const setShowNewModal = externalSetShowAddModal ? externalSetShowAddModal : setInternalShowNewModal;
-  
-  console.log('🔧 ClientList render - showNewModal:', showNewModal);
-  console.log('🔧 ClientList render - externalShowAddModal:', externalShowAddModal);
-  console.log('🔧 ClientList render - internalShowNewModal:', internalShowNewModal);
 
   // Close menus on outside click
   useEffect(() => {
@@ -91,6 +97,11 @@ export const ClientList: React.FC<ClientListProps> = ({
       // Check if click is outside options menu
       if (optionsMenuRef.current && !optionsMenuRef.current.contains(target)) {
         setShowOptionsMenu(false);
+      }
+      
+      // Check if click is outside quick import menu
+      if (quickImportMenuRef.current && !quickImportMenuRef.current.contains(target)) {
+        setShowQuickImportMenu(false);
       }
       
       // Check if click is outside all dropdown menus
@@ -160,6 +171,9 @@ export const ClientList: React.FC<ClientListProps> = ({
     loadClients();
   }, [selectedOrg?.id]);
 
+  // Get unique cities for filter
+  const uniqueCities = [...new Set(clients.map(c => c.city).filter(Boolean))].sort();
+
   const filteredClients = clients.filter(client => {
     // Advanced search filter
     let matchesSearch = true;
@@ -223,7 +237,52 @@ export const ClientList: React.FC<ClientListProps> = ({
       }
     }
     
-    return matchesSearch && matchesStatus;
+    // City filter
+    let matchesCity = true;
+    if (filterByCity !== 'all') {
+      matchesCity = client.city === filterByCity;
+    }
+    
+    // Value filter
+    let matchesValue = true;
+    if (filterByValue !== 'all') {
+      const value = client.totalValue || 0;
+      switch (filterByValue) {
+        case 'high':
+          matchesValue = value >= 100000;
+          break;
+        case 'medium':
+          matchesValue = value >= 10000 && value < 100000;
+          break;
+        case 'low':
+          matchesValue = value < 10000;
+          break;
+        case 'none':
+          matchesValue = value === 0;
+          break;
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesCity && matchesValue;
+  }).sort((a, b) => {
+    // Apply sorting
+    let result = 0;
+    switch (sortBy) {
+      case 'name':
+        result = (a.name || '').localeCompare(b.name || '');
+        break;
+      case 'recent':
+        result = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        break;
+      case 'value':
+        result = (b.totalValue || 0) - (a.totalValue || 0);
+        break;
+      case 'projects':
+        result = (b.projectCount || 0) - (a.projectCount || 0);
+        break;
+    }
+    
+    return sortOrder === 'asc' ? result : -result;
   });
 
   // Calculate metrics
@@ -239,6 +298,10 @@ export const ClientList: React.FC<ClientListProps> = ({
 
   const resetFilters = () => {
     setSelectedStatus('all');
+    setSortBy('recent');
+    setSortOrder('desc');
+    setFilterByCity('all');
+    setFilterByValue('all');
   };
 
   const handleDeleteClick = (client: Client) => {
@@ -417,12 +480,114 @@ export const ClientList: React.FC<ClientListProps> = ({
                       >
                         <Filter className="w-4 h-4" />
                         <span>{isConstrained ? '' : 'More Filters'}</span>
+                        {(selectedStatus !== 'all' || filterByCity !== 'all' || filterByValue !== 'all' || sortBy !== 'recent') && (
+                          <span className="ml-1.5 px-1.5 py-0.5 bg-[#336699] text-white text-xs rounded-full">
+                            {[
+                              selectedStatus !== 'all' && 'Status',
+                              filterByCity !== 'all' && 'City', 
+                              filterByValue !== 'all' && 'Value',
+                              sortBy !== 'recent' && 'Sort'
+                            ].filter(Boolean).length}
+                          </span>
+                        )}
                       </button>
                       
                       {/* Filter Menu Dropdown */}
                       {showFilterMenu && (
                         <div className={`absolute top-full left-0 mt-1 ${isConstrained ? 'right-0 left-auto w-[280px]' : 'w-80'} bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-50 p-3 md:p-4`}>
                           <div className="space-y-3 md:space-y-4">
+                            {/* Sort By */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                Sort By
+                              </label>
+                              <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value as any)}
+                                className="w-full bg-[#2a2a2a] border border-[#404040] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                              >
+                                <option value="recent">Recently Added</option>
+                                <option value="name">Name (A-Z)</option>
+                                <option value="value">Total Value</option>
+                                <option value="projects">Project Count</option>
+                              </select>
+                            </div>
+
+                            {/* Sort Order */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setSortOrder('asc')}
+                                className={`flex-1 px-3 py-2 rounded-[4px] text-sm font-medium transition-colors ${
+                                  sortOrder === 'asc' 
+                                    ? 'bg-[#336699] text-white' 
+                                    : 'bg-[#2a2a2a] text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                Ascending
+                              </button>
+                              <button
+                                onClick={() => setSortOrder('desc')}
+                                className={`flex-1 px-3 py-2 rounded-[4px] text-sm font-medium transition-colors ${
+                                  sortOrder === 'desc' 
+                                    ? 'bg-[#336699] text-white' 
+                                    : 'bg-[#2a2a2a] text-gray-400 hover:text-white'
+                                }`}
+                              >
+                                Descending
+                              </button>
+                            </div>
+
+                            {/* Filter by City */}
+                            {uniqueCities.length > 0 && (
+                              <div>
+                                <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                  City
+                                </label>
+                                <select
+                                  value={filterByCity}
+                                  onChange={(e) => setFilterByCity(e.target.value)}
+                                  className="w-full bg-[#2a2a2a] border border-[#404040] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                                >
+                                  <option value="all">All Cities</option>
+                                  {uniqueCities.map(city => (
+                                    <option key={city} value={city}>{city}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {/* Filter by Value */}
+                            <div>
+                              <label className="block text-xs font-medium text-gray-400 uppercase tracking-wider mb-1.5">
+                                Project Value
+                              </label>
+                              <select
+                                value={filterByValue}
+                                onChange={(e) => setFilterByValue(e.target.value)}
+                                className="w-full bg-[#2a2a2a] border border-[#404040] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                              >
+                                <option value="all">All Values</option>
+                                <option value="high">High ($100k+)</option>
+                                <option value="medium">Medium ($10k-$100k)</option>
+                                <option value="low">Low (&lt; $10k)</option>
+                                <option value="none">No Projects</option>
+                              </select>
+                            </div>
+
+                            {/* Active Filters Count */}
+                            {(selectedStatus !== 'all' || filterByCity !== 'all' || filterByValue !== 'all' || sortBy !== 'recent') && (
+                              <div className="bg-[#336699]/20 border border-[#336699]/30 rounded-[4px] px-3 py-2">
+                                <p className="text-xs text-[#66aaff]">
+                                  {[
+                                    selectedStatus !== 'all' && 'Status',
+                                    filterByCity !== 'all' && 'City',
+                                    filterByValue !== 'all' && 'Value',
+                                    sortBy !== 'recent' && 'Sort'
+                                  ].filter(Boolean).length} active filters
+                                </p>
+                              </div>
+                            )}
+
                             {/* Clear Filters */}
                             <div className="pt-2 md:pt-3 border-t border-[#333333]">
                               <button
@@ -480,6 +645,17 @@ export const ClientList: React.FC<ClientListProps> = ({
                             <Upload className="w-4 h-4" />
                             Import Clients
                           </button>
+                          {/* Duplicate detection removed - needs proper implementation for existing clients */}
+                          {/* <button
+                            onClick={() => {
+                              setShowDuplicateDetection(true);
+                              setShowOptionsMenu(false);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333] flex items-center gap-2"
+                          >
+                            <Merge className="w-4 h-4" />
+                            Find Duplicates
+                          </button> */}
                           <div className="border-t border-[#333333] my-1" />
                           <button
                             onClick={handleExportToCSV}
@@ -500,13 +676,97 @@ export const ClientList: React.FC<ClientListProps> = ({
                     </div>
                     
                     {!hideAddButton && (
-                      <button
-                        onClick={() => setShowNewModal(true)}
-                        className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2"
-                      >
-                        <Plus className="w-4 h-4" />
-                        <span>Add Client</span>
-                      </button>
+                      <>
+                        <div className="relative" ref={quickImportMenuRef}>
+                          <button
+                            onClick={() => setShowQuickImportMenu(!showQuickImportMenu)}
+                            className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white px-3 py-2 rounded-[8px] text-sm font-medium transition-all flex items-center gap-2 shadow-lg shadow-purple-500/20"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                          
+                          {showQuickImportMenu && (
+                            <div className="absolute top-full right-0 mt-2 w-56 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2 rounded-lg">
+                              <button
+                                onClick={() => {
+                                  setShowQuickImportMenu(false);
+                                  // Open modal with voice mode
+                                  setShowNewModal(true);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-600/10 flex items-center gap-3 transition-colors"
+                              >
+                                <Mic className="w-4 h-4 text-yellow-400" />
+                                <div>
+                                  <p className="font-medium">Voice Entry</p>
+                                  <p className="text-xs text-gray-400">Speak to add clients</p>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowQuickImportMenu(false);
+                                  // Open modal with scan mode
+                                  setShowNewModal(true);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-600/10 flex items-center gap-3 transition-colors"
+                              >
+                                <FileImage className="w-4 h-4 text-purple-400" />
+                                <div>
+                                  <p className="font-medium">Scan Cards</p>
+                                  <p className="text-xs text-gray-400">Upload business cards</p>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowQuickImportMenu(false);
+                                  // Open modal with AI mode
+                                  setShowNewModal(true);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-600/10 flex items-center gap-3 transition-colors"
+                              >
+                                <Mail className="w-4 h-4 text-blue-400" />
+                                <div>
+                                  <p className="font-medium">Email Import</p>
+                                  <p className="text-xs text-gray-400">Parse email threads</p>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setShowQuickImportMenu(false);
+                                  // Open modal with integration mode
+                                  setShowNewModal(true);
+                                }}
+                                className="w-full px-4 py-2.5 text-left text-sm text-white hover:bg-gradient-to-r hover:from-purple-500/10 hover:to-blue-600/10 flex items-center gap-3 transition-colors"
+                              >
+                                <Link2 className="w-4 h-4 text-green-400" />
+                                <div>
+                                  <p className="font-medium">Integrations</p>
+                                  <p className="text-xs text-gray-400">QuickBooks, Procore</p>
+                                </div>
+                              </button>
+                              <div className="border-t border-[#333333] my-2" />
+                              <button
+                                onClick={() => {
+                                  setShowQuickImportMenu(false);
+                                  setShowNewModal(true);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-400 hover:text-white hover:bg-[#333333] flex items-center gap-3 transition-colors"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Manual Entry
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <button
+                          onClick={() => setShowNewModal(true)}
+                          className="bg-white hover:bg-gray-100 text-black px-4 py-2 rounded-[8px] text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Add Client</span>
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -728,57 +988,28 @@ export const ClientList: React.FC<ClientListProps> = ({
       </div>
 
       {/* Modals */}
-      {showNewModal && (
-        <Modal
-          isOpen={showNewModal}
-          onClose={() => setShowNewModal(false)}
-          title="Add New Client"
-          size="lg"
-        >
-          <ClientFormSimple
-            onSubmit={async (data) => {
-              try {
-                const { data: newClient, error } = await supabase
-                  .from('clients')
-                  .insert({
-                    ...data,
-                    user_id: user?.id,
-                    organization_id: selectedOrg?.id
-                  })
-                  .select()
-                  .single();
-
-                if (error) throw error;
-
-                // Log the activity
-                if (newClient && selectedOrg?.id) {
-                  await ActivityLogService.log({
-                    organizationId: selectedOrg.id,
-                    entityType: 'client',
-                    entityId: newClient.id,
-                    action: 'created',
-                    description: `created client ${newClient.name}`,
-                    metadata: {
-                      company_name: newClient.company_name,
-                      email: newClient.email,
-                      phone: newClient.phone,
-                      city: newClient.city,
-                      state: newClient.state
-                    }
-                  });
-                }
-                
-                setShowNewModal(false);
-                loadClients();
-              } catch (error) {
-                console.error('Error creating client:', error);
-              }
-            }}
-            onCancel={() => setShowNewModal(false)}
-            submitLabel="Add Client"
-          />
-        </Modal>
-      )}
+      <CreateClientModal
+        isOpen={showNewModal}
+        onClose={() => setShowNewModal(false)}
+        onClientCreated={(newClient) => {
+          if (newClient) {
+            // Add the new client to the list immediately (optimistic update)
+            setClients(prevClients => {
+              // Calculate values for the new client
+              const enrichedClient = {
+                ...newClient,
+                totalValue: 0,
+                projectCount: 0,
+                lastProjectDate: null
+              };
+              return [enrichedClient, ...prevClients];
+            });
+          } else {
+            // Fallback to full reload if no client data returned
+            loadClients();
+          }
+        }}
+      />
 
       {editingClient && (
         <EditClientDrawer
@@ -823,6 +1054,21 @@ export const ClientList: React.FC<ClientListProps> = ({
           </div>
         </div>
       )}
+
+      {/* Duplicate Detection Modal - Commented out until proper implementation for existing clients */}
+      {/* <DuplicateDetectionModal
+        isOpen={showDuplicateDetection}
+        onClose={() => setShowDuplicateDetection(false)}
+        newClients={[]} // No new clients to check - this is for finding duplicates in existing list
+        existingClients={clients}
+        onProceed={(clientsToImport, clientsToMerge) => {
+          // Handle the results
+          console.log('Clients to import:', clientsToImport);
+          console.log('Clients to merge:', clientsToMerge);
+          setShowDuplicateDetection(false);
+          loadClients();
+        }}
+      /> */}
     </div>
   );
 };

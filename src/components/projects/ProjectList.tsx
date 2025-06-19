@@ -216,7 +216,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
 
   // Filter projects by category, status, search, date, and budget
   const filteredProjects = useMemo(() => {
-    let filtered = projects.filter(project => {
+    const filtered = projects.filter(project => {
       const matchesCategory = selectedCategory === 'all' || project.category === selectedCategory;
       const matchesStatus = selectedStatus === 'all' || project.status === selectedStatus;
       

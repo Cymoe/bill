@@ -33,6 +33,16 @@ body {
   color: #f3f4f6; /* Light text color */
 }
 
+/* Prevent body overflow issues from stuck modals */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Ensure no stuck overlays */
+.modal-backdrop-stuck {
+  display: none !important;
+}
+
 /* Override for marketing pages to use light theme */
 body.marketing-page {
   background-color: #f9fafb; /* Light background color */

@@ -748,7 +748,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
               </div>
               
           {/* Projects Sidebar */}
-        {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
+          {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
             <div ref={projectsSidebarRef} className="h-screen bg-[#1A1A1A] border-l border-gray-700 overflow-hidden">
               <div className="h-full flex flex-col">
               <div className="p-3 border-b border-gray-700 flex-shrink-0">
@@ -1012,12 +1012,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
         <CreateInvoiceDrawer
           isOpen={showNewInvoiceDrawer}
           onClose={() => setShowNewInvoiceDrawer(false)}
+          organizationId={selectedOrg?.id}
           onSave={async (data) => {
             try {
               console.log('Invoice save started with data:', data);
               
               // Generate invoice number if not provided
-              const invoiceNumber = data.invoice_number || `INV-${Date.now().toString().slice(-6)}`;
+              const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
               
               // Calculate tax (default 0 for now)
               const subtotal = data.total_amount || 0;
@@ -1038,7 +1039,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                 tax_amount: taxAmount,
                 issue_date: data.issue_date || new Date().toISOString().split('T')[0],
                 notes: data.description || '',
-                terms: data.payment_terms || 'Net 30'
+                terms: 'Net 30'
               };
               
               console.log('Invoice data to insert:', invoiceData);
