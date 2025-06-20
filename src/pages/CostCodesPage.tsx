@@ -81,7 +81,7 @@ export default function CostCodesPage() {
       loadTradeCategories();
       loadCostCodeItemCounts();
     }
-  }, [selectedOrg?.id]);
+  }, [selectedOrg?.id, selectedOrg?.industry_id]);
 
   const loadCostCodes = async () => {
     if (!selectedOrg?.id) return;
