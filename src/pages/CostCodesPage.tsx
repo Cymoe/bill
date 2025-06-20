@@ -8,9 +8,10 @@ import { PageHeader } from '../components/common/PageHeader';
 import { PageHeaderBar } from '../components/common/PageHeaderBar';
 import { NewButton } from '../components/common/NewButton';
 import { formatCurrency } from '../utils/format';
-import { ViewToggle } from '../components/common/ViewToggle';
+import { ViewToggle, ViewMode } from '../components/common/ViewToggle';
 import { Modal } from '../components/common/Modal';
 import { BulkProductGenerator } from '../components/products/BulkProductGenerator';
+import { CostCodeService } from '../services/CostCodeService';
 
 interface CostCode {
   id: string;
@@ -66,7 +67,7 @@ export default function CostCodesPage() {
   const [tradeCategories, setTradeCategories] = useState<TradeCategory[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTradeCategory, setSelectedTradeCategory] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showBulkGenerator, setShowBulkGenerator] = useState(false);
@@ -87,15 +88,10 @@ export default function CostCodesPage() {
     
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from('cost_codes')
-        .select('*')
-        .or(`organization_id.eq.${selectedOrg.id},organization_id.is.null`)
-        .eq('is_active', true)
-        .order('code');
-
-      if (error) throw error;
-      setCostCodes(data || []);
+      
+      // Use CostCodeService which handles industry filtering and merging
+      const costCodes = await CostCodeService.list(selectedOrg.id);
+      setCostCodes(costCodes);
     } catch (error) {
       console.error('Error loading cost codes:', error);
     } finally {
@@ -412,6 +408,9 @@ export default function CostCodesPage() {
                       <div className="flex items-center gap-3">
                         <span className="text-[#336699] font-mono text-sm">{code.code}</span>
                         <h3 className="text-white font-medium">{code.name}</h3>
+                        {code.organization_id && (
+                          <span className="text-xs px-2 py-0.5 bg-[#336699]/20 text-[#336699] rounded">Custom</span>
+                        )}
                       </div>
                       {code.description && (
                         <p className="text-gray-400 text-sm mt-1">{code.description}</p>
@@ -430,7 +429,7 @@ export default function CostCodesPage() {
             })}
           </div>
         ) : (
-          /* Grid View - Compact Grid */
+          /* Compact View - Compact Grid */
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
               {filteredCostCodes.map((code) => {
@@ -453,7 +452,12 @@ export default function CostCodesPage() {
                       />
                     </div>
                     
-                    <h3 className="text-white font-medium text-sm mb-1 line-clamp-2">{code.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-white font-medium text-sm line-clamp-2">{code.name}</h3>
+                      {code.organization_id && (
+                        <span className="text-xs px-1.5 py-0.5 bg-[#336699]/20 text-[#336699] rounded shrink-0">Custom</span>
+                      )}
+                    </div>
                     
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-[#336699] font-medium">
