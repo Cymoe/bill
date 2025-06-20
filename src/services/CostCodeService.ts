@@ -60,16 +60,16 @@ export class CostCodeService {
 
     // Get organization-specific cost codes (all of them, not filtered by industry)
     // This allows organizations to have custom codes outside their selected industries
-    const { data: orgCostCodes, error: orgError } = await supabase
+    const { data: orgCostCodes, error: orgCodesError } = await supabase
       .from('cost_codes')
       .select('*')
       .eq('organization_id', organizationId)
       .eq('is_active', true)
       .order('code', { ascending: true });
 
-    if (orgError) {
-      console.error('Error fetching organization cost codes:', orgError);
-      throw orgError;
+    if (orgCodesError) {
+      console.error('Error fetching organization cost codes:', orgCodesError);
+      throw orgCodesError;
     }
 
     // Merge templates with org-specific codes
