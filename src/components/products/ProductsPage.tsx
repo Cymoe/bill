@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useContext } from 'react';
 import ProductComparisonModal from './ProductComparisonModal';
-import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package, Search, Plus, List, LayoutGrid, Settings, FileText, Columns } from 'lucide-react';
+import { MoreVertical, ChevronDown, Filter, Upload, Download, Printer, ChevronRight, BarChart3, Package, Search, Plus, List, LayoutGrid, Settings, FileText, Columns, Zap } from 'lucide-react';
 import { ProductVariantComparison } from './ProductVariantComparison';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { formatCurrency } from '../../utils/format';
@@ -9,6 +9,7 @@ import { DeleteConfirmationModal } from '../common/DeleteConfirmationModal';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductService } from '../../services/ProductService';
+import { CostCodeService } from '../../services/CostCodeService';
 import { ProductAssemblyForm } from './ProductAssemblyForm';
 import { CreateProductDrawer } from './CreateProductDrawer';
 import { EditProductDrawer } from './EditProductDrawer';
@@ -20,6 +21,7 @@ import { TableSkeleton } from '../skeletons/TableSkeleton';
 import { CardSkeleton } from '../skeletons/CardSkeleton';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import { getCollectionLabel, PRODUCT_COLLECTIONS } from '../../constants/collections';
+import { BulkProductGenerator } from './BulkProductGenerator';
 
 // Product type
 interface Product {
@@ -90,6 +92,7 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   const [isClosingDrawer, setIsClosingDrawer] = useState(false);
   const [showCreateDrawer, setShowCreateDrawer] = useState(false);
   const [editingProductData, setEditingProductData] = useState<Product | null>(null);
+  const [showBulkGenerator, setShowBulkGenerator] = useState(false);
 
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
@@ -197,12 +200,12 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   }, [user, selectedOrg?.id]);
 
   const fetchCostCodes = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('cost_codes')
-        .select('id, name, code')
-        .order('code');
-      if (!error && data) setCostCodes(data);
+      // Use CostCodeService to get industry-filtered cost codes
+      const costCodes = await CostCodeService.list(selectedOrg.id);
+      setCostCodes(costCodes.map(cc => ({ id: cc.id, name: cc.name, code: cc.code })));
     } catch (error) {
       console.error('Error fetching cost codes:', error);
     }
@@ -686,217 +689,195 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto p-8">
-      {/* Single Unified Card */}
-      <div className="bg-transparent border border-[#333333]">
-        {/* Header Section */}
-        <div className="px-6 py-5 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-white">Products</h1>
-          
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-[300px]"
-              />
-            </div>
-            
-            <button
-              onClick={() => setEditingProduct('new')}
-              className="bg-white hover:bg-gray-100 text-black px-5 py-2.5 text-sm font-medium transition-colors flex items-center gap-2 w-[150px] justify-center"
+    <>
+      <div className="bg-transparent border border-[#333333] border-t-0">
+      {/* Stats Section */}
+      <div className="px-6 py-5">
+        <div className="grid grid-cols-4 gap-6">
+          <div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">CATALOG VALUE</div>
+            <div className="text-lg font-semibold text-green-400 mt-1">{formatCurrency(categoryFilteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</div>
+            <div className="text-xs text-gray-500">({categoryFilteredProducts.length} items)</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">PREMIUM ITEMS</div>
+            <div className="text-lg font-semibold text-[#F9D71C] mt-1">{categoryFilteredProducts.filter(p => (p.price || 0) >= 500).length}</div>
+            <div className="text-xs text-gray-500">($500+)</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">AVG PRICE</div>
+            <div className="text-lg font-semibold mt-1">{formatCurrency(averagePrice)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-400 uppercase tracking-wider">WITH VARIANTS</div>
+            <div className="text-lg font-semibold mt-1">{categoryFilteredProducts.filter(p => p.variants && p.variants.length > 0).length}</div>
+            <div className="text-xs text-gray-500">(popular)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls Section */}
+      <div className="border-t border-[#333333] px-6 py-4">
+        <div className="flex items-center justify-between gap-4">
+          {/* Left side - Filters */}
+          <div className="flex items-center gap-3">
+            <select
+              className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+              value={selectedCategory}
+              onChange={(e) => {
+                setSelectedCategory(e.target.value);
+                updateUrlParams({ category: e.target.value });
+              }}
             >
-              <Plus className="w-4 h-4" />
-              <span>Add Product</span>
-            </button>
-          </div>
-        </div>
-        {/* Stats Section */}
-        <div className="border-t border-[#333333] px-6 py-5">
-            <div className="grid grid-cols-4 gap-6">
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">CATALOG VALUE</div>
-                <div className="text-lg font-semibold text-green-400 mt-1">{formatCurrency(categoryFilteredProducts.reduce((sum, p) => sum + (p.price || 0), 0))}</div>
-                <div className="text-xs text-gray-500">({categoryFilteredProducts.length} items)</div>
-                </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">PREMIUM ITEMS</div>
-                <div className="text-lg font-semibold text-[#F9D71C] mt-1">{categoryFilteredProducts.filter(p => (p.price || 0) >= 500).length}</div>
-                <div className="text-xs text-gray-500">($500+)</div>
-                </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">AVG PRICE</div>
-                <div className="text-lg font-semibold mt-1">{formatCurrency(averagePrice)}</div>
-                </div>
-              <div>
-                <div className="text-xs text-gray-400 uppercase tracking-wider">WITH VARIANTS</div>
-                <div className="text-lg font-semibold mt-1">{categoryFilteredProducts.filter(p => p.variants && p.variants.length > 0).length}</div>
-                <div className="text-xs text-gray-500">(popular)</div>
-                </div>
-          </div>
-        </div>
+              <option value="all">All Collections ({products.length})</option>
+              {PRODUCT_COLLECTIONS.filter(col => col.value !== '').map(collection => (
+                <option key={collection.value} value={collection.value}>
+                  {collection.label} ({products.filter(p => p.category === collection.value).length})
+                </option>
+              ))}
+            </select>
 
-        {/* Controls Section */}
-        <div className="border-t border-[#333333] px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
-              {/* Left side - Filters */}
-            <div className="flex items-center gap-3">
-                <select
-                  className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    updateUrlParams({ category: e.target.value });
-                  }}
-                >
-                  <option value="all">All Collections ({products.length})</option>
-                  {PRODUCT_COLLECTIONS.filter(col => col.value !== '').map(collection => (
-                    <option key={collection.value} value={collection.value}>
-                      {collection.label} ({products.filter(p => p.category === collection.value).length})
-                      </option>
-                  ))}
-                </select>
+            <div className="relative" ref={filterMenuRef}>
+              <button 
+                onClick={() => setShowFilterMenu(!showFilterMenu)}
+                className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                More Filters
+              </button>
+              
+              {showFilterMenu && (
+                <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] p-4">
+                  <div className="space-y-4">
+                    {/* Profit Tier Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Profit Tier
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedProfitTier}
+                        onChange={(e) => {
+                          setSelectedProfitTier(e.target.value);
+                          updateUrlParams({ profitTier: e.target.value });
+                        }}
+                      >
+                        <option value="all">All Price Ranges</option>
+                        <option value="premium">Premium ($500+)</option>
+                        <option value="high">High Margin ($200-500)</option>
+                        <option value="medium">Standard ($50-200)</option>
+                        <option value="low">Budget ($10-50)</option>
+                        <option value="minimal">Basic (Under $10)</option>
+                      </select>
+                    </div>
 
-              <div className="relative" ref={filterMenuRef}>
-                <button 
-                  onClick={() => setShowFilterMenu(!showFilterMenu)}
-                    className="bg-[#1E1E1E] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
-                >
-                  <Filter className="w-4 h-4" />
-                    More Filters
-                </button>
-                
-                {showFilterMenu && (
-                    <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] p-4">
-                    <div className="space-y-4">
-                      {/* Profit Tier Filter */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                          Profit Tier
-                        </label>
-                        <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                          value={selectedProfitTier}
-                          onChange={(e) => {
-                            setSelectedProfitTier(e.target.value);
-                            updateUrlParams({ profitTier: e.target.value });
-                          }}
-                        >
-                          <option value="all">All Price Ranges</option>
-                          <option value="premium">Premium ($500+)</option>
-                          <option value="high">High Margin ($200-500)</option>
-                          <option value="medium">Standard ($50-200)</option>
-                          <option value="low">Budget ($10-50)</option>
-                          <option value="minimal">Basic (Under $10)</option>
-                        </select>
-                      </div>
+                    {/* Usage Frequency Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Usage Frequency
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedUsageFrequency}
+                        onChange={(e) => {
+                          setSelectedUsageFrequency(e.target.value);
+                          updateUrlParams({ usage: e.target.value });
+                        }}
+                      >
+                        <option value="all">All Products</option>
+                        <option value="frequent">Frequently Used (3+ Variants)</option>
+                        <option value="regular">Regularly Used (Has Variants)</option>
+                        <option value="occasional">Occasionally Used</option>
+                      </select>
+                    </div>
 
-                      {/* Usage Frequency Filter */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                          Usage Frequency
-                        </label>
-                        <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                          value={selectedUsageFrequency}
-                          onChange={(e) => {
-                            setSelectedUsageFrequency(e.target.value);
-                            updateUrlParams({ usage: e.target.value });
-                          }}
-                        >
-                          <option value="all">All Products</option>
-                          <option value="frequent">Frequently Used (3+ Variants)</option>
-                          <option value="regular">Regularly Used (Has Variants)</option>
-                          <option value="occasional">Occasionally Used</option>
-                        </select>
-                      </div>
+                    {/* Price Strategy Filter */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                        Pricing Strategy
+                      </label>
+                      <select
+                        className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        value={selectedPriceStrategy}
+                        onChange={(e) => {
+                          setSelectedPriceStrategy(e.target.value);
+                          updateUrlParams({ strategy: e.target.value });
+                        }}
+                      >
+                        <option value="all">All Strategies</option>
+                        <option value="premium">Premium Pricing ($300+)</option>
+                        <option value="competitive">Market Competitive ($50-300)</option>
+                        <option value="value">Value Pricing (Under $50)</option>
+                      </select>
+                    </div>
 
-                      {/* Price Strategy Filter */}
-                      <div>
-                        <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
-                          Pricing Strategy
-                        </label>
-                        <select
-                          className="w-full bg-[#333333] border border-[#555555] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                          value={selectedPriceStrategy}
-                          onChange={(e) => {
-                            setSelectedPriceStrategy(e.target.value);
-                            updateUrlParams({ strategy: e.target.value });
-                          }}
-                        >
-                          <option value="all">All Strategies</option>
-                          <option value="premium">Premium Pricing ($300+)</option>
-                          <option value="competitive">Market Competitive ($50-300)</option>
-                          <option value="value">Value Pricing (Under $50)</option>
-                        </select>
-                      </div>
-
-                      {/* Clear Filters */}
-                      <div className="pt-2 border-t border-[#333333]">
-                        <button
-                          onClick={() => {
-                            resetFilters();
-                            setShowFilterMenu(false);
-                          }}
-                            className="w-full bg-white hover:bg-gray-100 text-black py-2 px-3 rounded-[8px] text-sm font-medium transition-colors"
-                        >
-                          Clear All Filters
-                        </button>
-                      </div>
+                    {/* Clear Filters */}
+                    <div className="pt-2 border-t border-[#333333]">
+                      <button
+                        onClick={() => {
+                          resetFilters();
+                          setShowFilterMenu(false);
+                        }}
+                        className="w-full bg-white hover:bg-gray-100 text-black py-2 px-3 text-sm font-medium transition-colors"
+                      >
+                        Clear All Filters
+                      </button>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
+          </div>
 
-              {/* Right side - Options menu */}
+          {/* Right side - Options menu */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowBulkGenerator(true)}
+              className="bg-[#1E1E1E] border border-[#333333] p-2 text-[#fbbf24] hover:bg-[#333333] transition-colors"
+              title="Generate products from cost codes"
+            >
+              <Zap className="w-4 h-4" />
+            </button>
+            
             <div className="relative" ref={optionsMenuRef}>
               <button
                 onClick={() => setShowOptionsMenu(!showOptionsMenu)}
-                  className="p-2 hover:bg-[#333333] rounded-[4px] transition-colors"
+                className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
               >
-                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                <MoreVertical className="w-4 h-4" />
               </button>
 
               {showOptionsMenu && (
-                  <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] rounded-[4px] shadow-lg z-[9999] py-1">
-                    <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333]">
-                      Data Management
-                    </div>
+                <div className="absolute top-full right-0 mt-2 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] py-2">
                   <button
-                      onClick={() => {
-                        handleImportItems();
-                        setShowOptionsMenu(false);
-                      }}
-                      className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                      <Upload className="w-3 h-3 mr-3 text-gray-400" />
+                    onClick={() => {
+                      handleImportItems();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <Upload className="w-4 h-4 mr-3" />
                     Import Products
                   </button>
                   <button
-                      onClick={() => {
-                        handleExportToCSV();
-                        setShowOptionsMenu(false);
-                      }}
-                      className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                      <Download className="w-3 h-3 mr-3 text-gray-400" />
+                    onClick={() => {
+                      handleExportToCSV();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <Download className="w-4 h-4 mr-3" />
                     Export to CSV
                   </button>
-                    <div className="px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wide border-b border-[#333333] border-t border-[#333333] mt-1">
-                      View Options
-                    </div>
+                  <div className="border-t border-[#333333] my-1" />
                   <button
-                      onClick={() => {
-                        handlePrintPriceBook();
-                        setShowOptionsMenu(false);
-                      }}
-                      className="w-full flex items-center px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
-                    >
-                      <FileText className="w-3 h-3 mr-3 text-gray-400" />
+                    onClick={() => {
+                      handlePrintPriceBook();
+                      setShowOptionsMenu(false);
+                    }}
+                    className="w-full flex items-center px-4 py-2 text-sm text-white hover:bg-[#333333] transition-colors"
+                  >
+                    <FileText className="w-4 h-4 mr-3" />
                     Print Products
                   </button>
                 </div>
@@ -904,23 +885,24 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Content Area */}
-          <div className="overflow-hidden rounded-b-[4px]">
-          {isLoading ? (
-            <LoadingIndicator />
-          ) : filteredProducts.length === 0 ? (
-            products.length === 0 || showTutorial ? (
-              <ContextualOnboarding />
-            ) : (
-              <div className="text-center py-20">
-                <div className="text-gray-400 text-lg mb-4">No products match your search</div>
-                <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
-              </div>
-            )
+      {/* Content Area */}
+      <div className="border-t border-[#333333]">
+        {isLoading ? (
+          <LoadingIndicator />
+        ) : filteredProducts.length === 0 ? (
+          products.length === 0 || showTutorial ? (
+            <ContextualOnboarding />
           ) : (
-              <div className="border-t border-[#333333] divide-y divide-[#333333]">
-              {filteredProducts.map((product, index) => (
+            <div className="text-center py-20">
+              <div className="text-gray-400 text-lg mb-4">No products match your search</div>
+              <div className="text-gray-500 text-sm">Try adjusting your filters or search terms</div>
+            </div>
+          )
+        ) : (
+          <div className="divide-y divide-[#333333]">
+            {filteredProducts.map((product, index) => (
                 <div key={product.id}>
                   {/* Base Product Header - Entire row clickable */}
                   <div
@@ -1163,6 +1145,16 @@ export const ProductsPage = ({ editingProduct, setEditingProduct }: ProductsPage
           fetchProducts(); // Refresh the products list
         }}
       />
-    </div>
+
+      {/* Bulk Product Generator */}
+      <BulkProductGenerator
+        isOpen={showBulkGenerator}
+        onClose={() => setShowBulkGenerator(false)}
+        onSuccess={() => {
+          setShowBulkGenerator(false);
+          fetchProducts(); // Refresh the products list
+        }}
+      />
+    </>
   );
 };

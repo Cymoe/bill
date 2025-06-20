@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map, FileSpreadsheet, Trash2, Check } from 'lucide-react';
+import { MoreVertical, LayoutGrid, List, Calendar, DollarSign, Briefcase, FolderKanban, MapPin, User, CheckCircle, Search, Plus, ChevronDown, Filter, Download, Upload, Settings, BarChart3, FileText, Columns, Map, FileSpreadsheet, Trash2, Check, Zap } from 'lucide-react';
+import { ViewToggle, ViewMode } from '../common/ViewToggle';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { PageHeader } from '../common/PageHeader';
@@ -11,7 +12,7 @@ import { Dropdown } from '../common/Dropdown';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
-import { CreateProjectWizard } from './CreateProjectWizard';
+import { EnhancedProjectWizard } from './EnhancedProjectWizard';
 import { StatusBadge } from './StatusBadge';
 import { ProjectsOverviewMap } from '../maps/ProjectsOverviewMap';
 import { ProjectExportService } from '../../services/ProjectExportService';
@@ -22,7 +23,7 @@ interface ProjectListProps {
   searchTerm?: string;
 }
 
-export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => {
+export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm: initialSearchTerm = '' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isConstrained, availableWidth } = useContext(LayoutContext);
@@ -33,6 +34,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'planned' | 'active' | 'on-hold' | 'completed' | 'cancelled'>('all');
   const [showProjectWizard, setShowProjectWizard] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
   
   // Additional filter states
   const [dateRange, setDateRange] = useState<'all' | '7d' | '30d' | '90d'>('all');
@@ -41,7 +43,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
   
   // Load view preference from localStorage - default to 'list'
   const [viewType, setViewType] = useState<'list' | 'gantt' | 'map'>('list');
-  const [isCompactTable, setIsCompactTable] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('compact');
   
   // Dropdown state management
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
@@ -469,8 +471,29 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
             {/* Controls Section */}
             <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
               <div className="flex items-center justify-between">
-                {/* Left side - Filters */}
+                {/* Left side - Search, Create button, and Filters */}
           <div className="flex items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Search projects..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-[#1E1E1E] border border-[#333333] rounded-[4px] text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-64"
+              />
+            </div>
+            
+            {/* Create Project Button */}
+            <button
+              onClick={() => setShowProjectWizard(true)}
+              className="px-4 py-2 bg-[#fbbf24] text-black rounded-[4px] text-sm font-medium hover:bg-[#f59e0b] transition-colors flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Project</span>
+            </button>
+            
             <div className="relative">
               <select
                       className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699] appearance-none pr-10 min-w-[200px]"
@@ -575,16 +598,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
           </div>
                 
                 {/* Right side - View toggle and options */}
-          <div className="flex items-center gap-2">
-            {/* Compact Table Toggle */}
-            <button
-              onClick={() => setIsCompactTable(!isCompactTable)}
-              className={`p-2 hover:bg-[#333333] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
-              title="Toggle compact view"
-            >
-              <LayoutGrid className="w-4 h-4" />
-            </button>
-            
+          <div className="flex items-center gap-6">
+            {/* View Type Toggle Group */}
             <div className="flex bg-[#1E1E1E] border border-[#333333] overflow-hidden">
               <button
                       className={`px-3 py-2 text-sm font-medium transition-colors ${
@@ -611,17 +626,24 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                 <Map className="w-4 h-4" />
               </button>
             </div>
+
+            {/* View Toggle and More Options grouped together */}
+            <div className="flex items-center gap-2">
+              <ViewToggle 
+                viewMode={viewMode} 
+                onViewModeChange={setViewMode}
+              />
                   
-                  <div className="relative" ref={mainOptionsRef}>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowMainOptions(!showMainOptions);
-                      }}
-                      className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors relative"
-                    >
-                      <MoreVertical className="w-4 h-4 text-gray-400" />
-                    </button>
+              <div className="relative" ref={mainOptionsRef}>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowMainOptions(!showMainOptions);
+                  }}
+                  className="bg-[#1E1E1E] border border-[#333333] rounded-[4px] w-8 h-8 flex items-center justify-center hover:bg-[#252525] transition-colors relative"
+                >
+                  <MoreVertical className="w-4 h-4 text-gray-400" />
+                </button>
 
                     {/* Main Options Dropdown */}
                     {showMainOptions && (
@@ -668,6 +690,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                     )}
                   </div>
                 </div>
+              </div>
               </div>
             </div>
 
@@ -974,21 +997,21 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                       <div key={project.id} className="relative">
                         <div
                           onClick={() => navigate(`/projects/${project.id}`)}
-                          className={`w-full text-left ${isCompactTable ? 'p-2' : 'p-3 md:p-4'} hover:bg-[#333333] transition-colors border-b border-gray-700/30 group cursor-pointer ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
+                          className={`w-full text-left ${viewMode === 'compact' ? 'p-2' : 'p-3 md:p-4'} hover:bg-[#333333] transition-colors border-b border-gray-700/30 group cursor-pointer ${index === filteredProjects.length - 1 ? 'border-b-0' : ''}`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex-1 min-w-0">
-                                    <div className={`flex items-center gap-3 ${isCompactTable ? 'mb-0.5' : 'mb-1'}`}>
-                                      <div className={`${isCompactTable ? 'w-1 h-1' : 'w-1.5 h-1.5 md:w-2 md:h-2'} rounded-full flex-shrink-0 ${
+                                                                  <div className={`flex items-center gap-3 ${viewMode === 'compact' ? 'mb-0.5' : 'mb-1'}`}>
+                                <div className={`${viewMode === 'compact' ? 'w-1 h-1' : 'w-1.5 h-1.5 md:w-2 md:h-2'} rounded-full flex-shrink-0 ${
                                         project.status === 'completed' ? 'bg-[#3b82f6]' :
                                         project.status === 'active' ? 'bg-[#10b981]' :
                                         project.status === 'on-hold' ? 'bg-[#f59e0b]' :
                                         'bg-[#ef4444]'
                                 }`}></div>
-                                      <span className={`text-white ${isCompactTable ? 'text-sm' : 'text-sm md:text-base'} font-medium truncate`}>{project.name}</span>
-                                      <StatusBadge status={project.status} className={isCompactTable ? 'scale-50' : 'scale-75'} />
+                                                                      <span className={`text-white ${viewMode === 'compact' ? 'text-sm' : 'text-sm md:text-base'} font-medium truncate`}>{project.name}</span>
+                                <StatusBadge status={project.status} className={viewMode === 'compact' ? 'scale-50' : 'scale-75'} />
                               </div>
-                                    {!isCompactTable && (
+                              {viewMode !== 'compact' && (
                                       <div className="flex items-center gap-3 md:gap-4 text-gray-400 text-xs md:text-sm ml-3.5 md:ml-5">
                                         <span className="uppercase tracking-wide text-[10px] md:text-xs">Client Name</span>
                                         {availableWidth === 'full' && (
@@ -1001,7 +1024,7 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                     )}
                             </div>
                                   <div className="flex items-center gap-3 flex-shrink-0">
-                                    {!isCompactTable && <span className="text-[#6b7280] text-sm md:text-base font-medium font-mono">{progress}%</span>}
+                                    {viewMode !== 'compact' && <span className="text-[#6b7280] text-sm md:text-base font-medium font-mono">{progress}%</span>}
                               
                                     {/* Three dots menu - always visible */}
                                 <div className="relative">
@@ -1011,10 +1034,10 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
                                       const dropdownId = `project-${project.id}`;
                                       setOpenDropdownId(openDropdownId === dropdownId ? null : dropdownId);
                                     }}
-                                        className={`${isCompactTable ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded hover:bg-[#252525] transition-all opacity-0 group-hover:opacity-100`}
-                                    title="More options"
-                                  >
-                                        <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                                                                                className={`${viewMode === 'compact' ? 'w-6 h-6' : 'w-8 h-8'} flex items-center justify-center rounded hover:bg-[#252525] transition-all opacity-0 group-hover:opacity-100`}
+                                        title="More options"
+                                      >
+                                        <MoreVertical className={`${viewMode === 'compact' ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                                   </button>
                                   
                                   {/* Dropdown Menu - Simplified for MVP */}
@@ -1149,12 +1172,13 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm = '' }) => 
         </div>
       </div>
       
-      {/* Create Project Wizard */}
-      <CreateProjectWizard 
+      {/* Enhanced Project Wizard */}
+      <EnhancedProjectWizard 
         isOpen={showProjectWizard} 
-        onClose={() => {
+        onClose={() => setShowProjectWizard(false)}
+        onSuccess={() => {
           setShowProjectWizard(false);
-          // Refresh the project list when the wizard is closed
+          // Refresh the project list when the wizard completes
           const fetchProjects = async () => {
             try {
               const projectsData = await db.projects.list(selectedOrg.id);

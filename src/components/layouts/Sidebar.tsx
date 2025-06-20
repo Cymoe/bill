@@ -11,7 +11,8 @@ import {
   LogOut,
   Building2,
   Book,
-  Activity
+  Activity,
+  TrendingUp
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -102,6 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => setSidebarCollapsedWithLogging(!isSidebarCollapsed)}
             className={`${isSidebarCollapsed ? 'w-full' : 'w-8'} h-8 flex items-center justify-center rounded-[4px] bg-[#1E1E1E] text-[#9E9E9E] hover:text-white transition-colors`}
             aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {isSidebarCollapsed ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
@@ -109,6 +111,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button 
               onClick={() => setOrgDropdownOpen(!orgDropdownOpen)}
               className="flex-1 bg-[#1A1A1A] border border-[#2A2A2A] flex items-center justify-between ml-1 h-8 px-2 hover:bg-[#2A2A2A] transition-all duration-150 max-w-[140px]"
+              title={`Organization: ${selectedOrg.name}`}
             >
               <div className="flex items-center min-w-0 flex-1 overflow-hidden">
                 <span className="text-white text-sm font-medium leading-tight truncate">{selectedOrg.name}</span>
@@ -125,7 +128,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={org.id}
                   className={`w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#2A2A2A] transition-colors ${selectedOrg.id === org.id ? 'bg-[#2A2A2A]' : ''}`}
                   onClick={() => {
+                    console.log('Switching to organization:', org.name, 'ID:', org.id, 'Industry:', org.industry);
                     setSelectedOrg(org);
+                    localStorage.setItem('selectedOrgId', org.id);
                     setOrgDropdownOpen(false);
                   }}
                 >
@@ -154,6 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "Profit Tracker" : undefined}
             >
               {({ isActive }) => (
                 <>
@@ -180,6 +186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "People - Manage Clients, Team, Vendors & Subcontractors" : undefined}
             >
               {({ isActive }) => (
                 <>
@@ -205,6 +212,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "Work - Estimates, Projects & Invoices" : undefined}
             >
               {({ isActive }) => (
                 <>
@@ -231,6 +239,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "Work Packs - Reusable Project Templates" : undefined}
             >
               {({ isActive }) => (
                 <>
@@ -248,24 +257,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Products */}
+            {/* Price Book */}
             <NavLink
-              to="/products"
+              to="/price-book"
               className={({ isActive }) =>
-                isActive
+                isActive || location.pathname.startsWith('/price-book') || location.pathname.startsWith('/items') || location.pathname.startsWith('/cost-codes') || location.pathname.startsWith('/products')
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "Price Book - Items, Cost Codes & Products" : undefined}
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
-                    <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-xl font-bold">▢</span>
+                    <div className={`mb-1 ${isActive || location.pathname.startsWith('/price-book') || location.pathname.startsWith('/items') || location.pathname.startsWith('/cost-codes') || location.pathname.startsWith('/products') ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                      <span className="text-base">□</span>
                     </div>
                     {!isSidebarCollapsed && (
-                      <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Products
+                      <span className={`text-xs font-medium ${isActive || location.pathname.startsWith('/price-book') || location.pathname.startsWith('/items') || location.pathname.startsWith('/cost-codes') || location.pathname.startsWith('/products') ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
+                        Price Book
                       </span>
                     )}
                   </div>
@@ -273,24 +283,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
             </NavLink>
 
-            {/* Price Book */}
+            {/* Community */}
             <NavLink
-              to="/price-book"
+              to="/community"
               className={({ isActive }) =>
                 isActive
                   ? `bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md border border-[#336699]/50 flex flex-col items-center justify-center h-16 relative overflow-hidden group shadow-[0_0_10px_rgba(51,102,153,0.15)]`
                   : "bg-[#1A1A1A] border border-[#2A2A2A] flex flex-col items-center justify-center h-16 hover:bg-[#2A2A2A] transition-all duration-150 relative overflow-hidden group active:scale-95"
               }
+              title={isSidebarCollapsed ? "Community - Discover Professionals" : undefined}
             >
               {({ isActive }) => (
                 <>
                   <div className="relative z-10 flex flex-col items-center">
                     <div className={`mb-1 ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                      <span className="text-2xl font-bold">•</span>
+                      <span className="text-base" style={{ letterSpacing: '-0.3em' }}>○○</span>
                     </div>
                     {!isSidebarCollapsed && (
                       <span className={`text-xs font-medium ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-gray-300'} transition-colors`}>
-                        Cost Codes
+                        Community
                       </span>
                     )}
                   </div>
@@ -379,6 +390,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <button
               onClick={onActivityClick}
               className="w-full flex items-center justify-center h-12 bg-[#1A1A1A] border border-[#2A2A2A] rounded-[4px] hover:bg-[#2A2A2A] transition-all duration-150 group"
+              title={isSidebarCollapsed ? "Activity Log - View Recent Actions" : undefined}
             >
               <Activity className={`w-4 h-4 ${isSidebarCollapsed ? '' : 'mr-2'} text-gray-400 group-hover:text-white transition-colors`} />
               {!isSidebarCollapsed && (
@@ -451,14 +463,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ) : (
               <div 
                 ref={liveRevenueButtonRef}
-                onClick={() => setIsLiveRevenuePopoverOpen(!isLiveRevenuePopoverOpen)}
-                className="bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md p-2 rounded-[2px] border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)] cursor-pointer hover:from-[#336699]/30 hover:to-[#336699]/10 transition-all"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsLiveRevenuePopoverOpen(!isLiveRevenuePopoverOpen);
+                }}
+                className="bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 backdrop-blur-md p-2 rounded-[2px] border border-[#336699]/50 shadow-[0_0_10px_rgba(51,102,153,0.15)] cursor-pointer hover:from-[#336699]/30 hover:to-[#336699]/10 transition-all group"
+                title={`Revenue: $${currentData.revenue.toLocaleString()} (${currentData.percentage}% of goal)`}
               >
-                <div className="text-center">
-                  <div className="text-white text-xs font-bold mb-1">
-                    ${(currentData.revenue / 1000).toFixed(0)}K
+                <div className="flex flex-col items-center justify-center">
+                  <div className="text-[#336699] mb-1">
+                    <TrendingUp className="w-4 h-4" />
                   </div>
-                  <div className="w-full bg-white/20 rounded-full h-1">
+                  <div className="text-white text-[10px] font-bold">
+                    {currentData.percentage}%
+                  </div>
+                  <div className="w-full bg-white/20 rounded-full h-1 mt-1">
                     <div 
                       className="bg-[#336699] h-1 rounded-full transition-all duration-300" 
                       style={{width: `${currentData.percentage}%`}}
@@ -553,12 +572,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             )}
 
-            <div className="p-4 flex items-center">
+            {/* Profile Button - Entire Section Clickable */}
+            <button
+              ref={profileButtonRef}
+              onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+              className="w-full p-4 flex items-center hover:bg-[#252525] transition-colors duration-200 cursor-pointer group"
+            >
               {/* User Info - only when sidebar expanded */}
               {!isSidebarCollapsed && (
                 <div className="flex items-center flex-1 min-w-0">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
+                    <p className="text-sm font-medium text-white truncate group-hover:text-[#EAB308] transition-colors">
                       {user?.user_metadata?.full_name || 'User'}
                     </p>
                     <p className="text-xs text-gray-400 truncate">
@@ -568,17 +592,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
               )}
 
-              {/* Profile Menu Button */}
-              <button
-                ref={profileButtonRef}
-                onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                className={`${isSidebarCollapsed ? 'w-full' : 'ml-3'} flex items-center justify-center w-8 h-8 rounded-full bg-[#336699] text-white hover:bg-[#2A5580] transition-colors`}
-              >
+              {/* Avatar */}
+              <div className={`${isSidebarCollapsed ? 'w-full' : 'ml-3'} flex items-center justify-center w-8 h-8 rounded-full bg-[#336699] text-white group-hover:bg-[#2A5580] transition-all`}>
                 <span className="text-sm font-medium">
                   {(user?.user_metadata?.full_name || 'User').charAt(0).toUpperCase()}
                 </span>
-              </button>
-            </div>
+              </div>
+            </button>
           </div>
         </div>
       </div>

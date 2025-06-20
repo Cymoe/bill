@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Plus, Download, Upload, ChevronRight, Package, Wrench, Truck, Users, Briefcase, Grid, List } from 'lucide-react';
+import { Search, Filter, Plus, Download, Upload, ChevronRight, ChevronDown, ChevronLeft, Package, Wrench, Truck, Users, Briefcase, Grid, List } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
@@ -24,6 +24,12 @@ interface CostCode {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  industry?: {
+    id: string;
+    name: string;
+    icon?: string;
+    color?: string;
+  };
 }
 
 interface TradeCategory {
@@ -66,13 +72,15 @@ export default function CostCodesPage() {
   const [loadingLineItems, setLoadingLineItems] = useState(false);
   const [tradeCategories, setTradeCategories] = useState<TradeCategory[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedTradeCategory, setSelectedTradeCategory] = useState<string>('all');
+  const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [showBulkGenerator, setShowBulkGenerator] = useState(false);
   const [selectedCostCodes, setSelectedCostCodes] = useState<Set<string>>(new Set());
   const [costCodeItemCounts, setCostCodeItemCounts] = useState<Record<string, number>>({});
+  const [availableIndustries, setAvailableIndustries] = useState<Array<{id: string, name: string, count: number}>>([]);
+  const [expandedIndustries, setExpandedIndustries] = useState<Set<string>>(new Set());
   
   // Load data
   useEffect(() => {
@@ -82,15 +90,38 @@ export default function CostCodesPage() {
       loadCostCodeItemCounts();
     }
   }, [selectedOrg?.id, selectedOrg?.industry_id]);
+  
+  // Update available industries when cost codes change
+  useEffect(() => {
+    const industries = new Map<string, {id: string, name: string, count: number}>();
+    
+    costCodes.forEach(code => {
+      if (code.industry) {
+        const key = code.industry.id;
+        if (!industries.has(key)) {
+          industries.set(key, {
+            id: code.industry.id,
+            name: code.industry.name,
+            count: 0
+          });
+        }
+        industries.get(key)!.count++;
+      }
+    });
+    
+    setAvailableIndustries(Array.from(industries.values()).sort((a, b) => a.name.localeCompare(b.name)));
+  }, [costCodes]);
 
   const loadCostCodes = async () => {
     if (!selectedOrg?.id) return;
     
     try {
       setIsLoading(true);
+      console.log('CostCodesPage: Loading cost codes for org:', selectedOrg.id, 'with industry:', selectedOrg.industry_id);
       
       // Use CostCodeService which handles industry filtering and merging
       const costCodes = await CostCodeService.list(selectedOrg.id);
+      console.log('CostCodesPage: Loaded', costCodes.length, 'cost codes from service');
       setCostCodes(costCodes);
     } catch (error) {
       console.error('Error loading cost codes:', error);
@@ -118,10 +149,17 @@ export default function CostCodesPage() {
     if (!selectedOrg?.id) return;
     
     try {
+      // Get all cost codes for the organization's industries
+      const costCodes = await CostCodeService.list(selectedOrg.id);
+      const costCodeIds = costCodes.map(cc => cc.id);
+      
+      if (costCodeIds.length === 0) return;
+      
+      // Get line items for these cost codes
       const { data, error } = await supabase
         .from('line_items')
         .select('cost_code_id')
-        .eq('organization_id', selectedOrg.id);
+        .in('cost_code_id', costCodeIds);
 
       if (error) throw error;
       
@@ -139,19 +177,13 @@ export default function CostCodesPage() {
     }
   };
 
-  // Filter cost codes based on search and trade category
+  // Filter cost codes based on search and selected industry
   const filteredCostCodes = useMemo(() => {
     let filtered = costCodes;
 
-    // Filter by trade category dropdown
-    if (selectedTradeCategory !== 'all') {
-      const category = tradeCategories.find(cat => cat.slug === selectedTradeCategory);
-      if (category) {
-        filtered = filtered.filter(code => {
-          const majorCode = code.code.substring(0, 2);
-          return majorCode >= category.code_range_start && majorCode <= category.code_range_end;
-        });
-      }
+    // Filter by selected industry
+    if (selectedIndustry !== 'all') {
+      filtered = filtered.filter(code => code.industry?.id === selectedIndustry);
     }
 
     // Filter by search term
@@ -165,7 +197,23 @@ export default function CostCodesPage() {
     }
 
     return filtered;
-  }, [costCodes, selectedTradeCategory, searchTerm, tradeCategories]);
+  }, [costCodes, selectedIndustry, searchTerm]);
+
+  // Group filtered cost codes by industry
+  const groupedFilteredCostCodes = useMemo(() => {
+    const grouped = new Map<string, CostCode[]>();
+    
+    filteredCostCodes.forEach(code => {
+      const industryName = code.industry?.name || 'Unknown Industry';
+      if (!grouped.has(industryName)) {
+        grouped.set(industryName, []);
+      }
+      grouped.get(industryName)!.push(code);
+    });
+    
+    // Sort industries alphabetically
+    return new Map([...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)));
+  }, [filteredCostCodes]);
 
   // Group cost codes by major code for grid view
   const groupedCostCodes = useMemo(() => {
@@ -219,14 +267,19 @@ export default function CostCodesPage() {
     setSelectedCostCode(costCode);
     setLoadingLineItems(true);
     
+    // Ensure the industry is expanded when viewing a cost code
+    if (costCode.industry?.name && !expandedIndustries.has(costCode.industry.name)) {
+      setExpandedIndustries(new Set([...expandedIndustries, costCode.industry.name]));
+    }
+    
     try {
+      // Line items are now standard and tied only to cost codes
       const { data, error } = await supabase
         .from('line_items')
         .select(`
           *,
           cost_code:cost_codes(name, code)
         `)
-        .eq('organization_id', selectedOrg?.id)
         .eq('cost_code_id', costCode.id)
         .order('name');
 
@@ -244,6 +297,35 @@ export default function CostCodesPage() {
     setSelectedCostCode(null);
     setLineItems([]);
   };
+  
+  const toggleIndustryExpanded = (industryName: string) => {
+    const newExpanded = new Set(expandedIndustries);
+    if (newExpanded.has(industryName)) {
+      newExpanded.delete(industryName);
+    } else {
+      newExpanded.add(industryName);
+    }
+    setExpandedIndustries(newExpanded);
+  };
+
+  // Calculate previous and next cost codes within the same industry
+  const navigationContext = useMemo(() => {
+    if (!selectedCostCode || !selectedCostCode.industry) return null;
+    
+    // Get all cost codes in the same industry
+    const industryCodes = costCodes.filter(
+      code => code.industry?.id === selectedCostCode.industry?.id
+    ).sort((a, b) => a.code.localeCompare(b.code));
+    
+    const currentIndex = industryCodes.findIndex(code => code.id === selectedCostCode.id);
+    
+    return {
+      previous: currentIndex > 0 ? industryCodes[currentIndex - 1] : null,
+      next: currentIndex < industryCodes.length - 1 ? industryCodes[currentIndex + 1] : null,
+      currentIndex,
+      totalCount: industryCodes.length
+    };
+  }, [selectedCostCode, costCodes]);
 
   return (
     <div className="bg-transparent border border-[#333333] border-t-0">
@@ -259,35 +341,55 @@ export default function CostCodesPage() {
                   className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
                 >
                   <Filter className="w-4 h-4" />
-                  {selectedTradeCategory === 'all' ? 'All Industries' : 
-                    tradeCategories.find(cat => cat.slug === selectedTradeCategory)?.name || 'Select Industry'}
+                  {selectedIndustry === 'all' ? `All Cost Codes (${filteredCostCodes.length})` : 
+                    `${availableIndustries.find(ind => ind.id === selectedIndustry)?.name || 'Select Industry'} (${filteredCostCodes.length})`}
                 </button>
                 
                 {showFilterMenu && (
-                  <div className="absolute top-full left-0 mt-2 w-64 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1 max-h-64 overflow-y-auto">
+                  <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1 max-h-96 overflow-y-auto">
                     <button
                       onClick={() => {
-                        setSelectedTradeCategory('all');
+                        setSelectedIndustry('all');
                         setShowFilterMenu(false);
                       }}
-                      className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333]"
+                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#333333] flex items-center justify-between group"
                     >
-                      All Industries
+                      <span className="font-medium">All Cost Codes</span>
+                      <span className="text-gray-400 text-xs bg-[#333333] px-2 py-1 rounded group-hover:bg-[#444444]">
+                        {costCodes.length} total
+                      </span>
                     </button>
-                    {tradeCategories
-                      .filter(cat => cat.category_type === 'specialty_trade')
-                      .map(category => (
-                      <button
-                        key={category.slug}
-                        onClick={() => {
-                          setSelectedTradeCategory(category.slug);
-                          setShowFilterMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-[#333333]"
-                      >
-                        {category.name}
-                      </button>
-                    ))}
+                    
+                    {availableIndustries.length > 0 && (
+                      <>
+                        <div className="border-t border-[#333333] my-1" />
+                        <div className="px-4 py-2 text-xs text-gray-500 uppercase tracking-wider font-semibold">▶ Filter by Industry</div>
+                        {availableIndustries.map(industry => {
+                          // Find the first cost code to get the industry icon
+                          const industryCode = costCodes.find(c => c.industry?.id === industry.id);
+                          const icon = industryCode?.industry?.icon || '';
+                          
+                          return (
+                            <button
+                              key={industry.id}
+                              onClick={() => {
+                                setSelectedIndustry(industry.id);
+                                setShowFilterMenu(false);
+                              }}
+                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#333333] flex items-center justify-between group"
+                            >
+                              <span className={`flex items-center gap-2 ${selectedIndustry === industry.id ? 'font-medium text-[#336699]' : ''}`}>
+                                {icon && <span className="text-base">{icon}</span>}
+                                {industry.name}
+                              </span>
+                              <span className="text-gray-400 text-xs bg-[#333333] px-2 py-1 rounded group-hover:bg-[#444444]">
+                                {industry.count} codes
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </>
+                    )}
                   </div>
                 )}
               </div>
@@ -295,6 +397,33 @@ export default function CostCodesPage() {
 
             {/* Right side - View toggle and actions */}
             <div className="flex items-center gap-3">
+              {/* Expand/Collapse All button */}
+              <button
+                onClick={() => {
+                  if (expandedIndustries.size === 0) {
+                    // Expand all
+                    const allIndustries = new Set(Array.from(groupedFilteredCostCodes.keys()));
+                    setExpandedIndustries(allIndustries);
+                  } else {
+                    // Collapse all
+                    setExpandedIndustries(new Set());
+                  }
+                }}
+                className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
+              >
+                {expandedIndustries.size === 0 ? (
+                  <>
+                    <ChevronRight className="w-4 h-4" />
+                    Expand All
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4" />
+                    Collapse All
+                  </>
+                )}
+              </button>
+              
               <ViewToggle
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
@@ -322,13 +451,14 @@ export default function CostCodesPage() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleBackToCostCodes}
-                  className="text-[#336699] hover:text-[#4A7BB7] transition-colors text-sm flex items-center gap-2"
+                  className="text-[#336699] hover:text-[#4A7BB7] transition-colors text-sm flex items-center gap-1"
                 >
-                  ← Back to Cost Codes
+                  <ChevronLeft className="w-4 h-4" />
+                  Back to {selectedCostCode.industry?.name || 'Cost Codes'}
                 </button>
-                <span className="text-gray-500">/</span>
+                <span className="text-gray-600">&gt;</span>
                 <span className="text-white font-medium">
-                  {selectedCostCode.name} ({selectedCostCode.code})
+                  {selectedCostCode.code} • {selectedCostCode.name}
                 </span>
               </div>
               <div className="text-sm text-gray-400">
@@ -336,22 +466,93 @@ export default function CostCodesPage() {
               </div>
             </div>
 
-            {/* Line Items Content */}
-            {loadingLineItems ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="text-gray-400">Loading line items...</div>
-              </div>
-            ) : lineItems.length === 0 ? (
-              <div className="flex items-center justify-center h-64 text-center">
-                <div>
-                  <div className="text-gray-400 mb-2">No items found for this cost code</div>
-                  <button className="text-[#336699] hover:text-[#4A7BB7] text-sm">
-                    + Add first item
-                  </button>
+            {/* Industry Context Bar */}
+            <div className="px-6 py-3 bg-[#1E1E1E] border-b border-[#333333] flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  {selectedCostCode.industry?.name && (
+                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                      {selectedCostCode.industry.name}
+                    </span>
+                  )}
+                  {selectedCostCode.category && (
+                    <>
+                      <span className="text-gray-600">•</span>
+                      <span className={`text-xs px-2 py-0.5 rounded ${
+                        selectedCostCode.category === 'labor' ? 'bg-blue-400/20 text-blue-400' :
+                        selectedCostCode.category === 'material' ? 'bg-green-400/20 text-green-400' :
+                        selectedCostCode.category === 'equipment' ? 'bg-yellow-400/20 text-yellow-400' :
+                        selectedCostCode.category === 'subcontractor' ? 'bg-purple-400/20 text-purple-400' :
+                        'bg-orange-400/20 text-orange-400'
+                      }`}>
+                        {selectedCostCode.category.charAt(0).toUpperCase() + selectedCostCode.category.slice(1)}
+                      </span>
+                    </>
+                  )}
+                  {selectedCostCode.organization_id && (
+                    <>
+                      <span className="text-gray-600">•</span>
+                      <span className="text-xs px-2 py-0.5 bg-[#336699]/20 text-[#336699] rounded">
+                        Custom
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div className="divide-y divide-[#333333]">
+              <div className="flex items-center gap-2">
+                {navigationContext && (
+                  <>
+                    <span className="text-xs text-gray-500">
+                      {navigationContext.currentIndex + 1} of {navigationContext.totalCount}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => navigationContext.previous && handleCostCodeClick(navigationContext.previous)}
+                        disabled={!navigationContext.previous}
+                        className={`p-1 rounded transition-colors ${
+                          navigationContext.previous 
+                            ? 'text-gray-400 hover:bg-[#333333] hover:text-white' 
+                            : 'text-gray-600 cursor-not-allowed'
+                        }`}
+                        title={navigationContext.previous ? `Previous: ${navigationContext.previous.name}` : 'No previous code'}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => navigationContext.next && handleCostCodeClick(navigationContext.next)}
+                        disabled={!navigationContext.next}
+                        className={`p-1 rounded transition-colors ${
+                          navigationContext.next 
+                            ? 'text-gray-400 hover:bg-[#333333] hover:text-white' 
+                            : 'text-gray-600 cursor-not-allowed'
+                        }`}
+                        title={navigationContext.next ? `Next: ${navigationContext.next.name}` : 'No next code'}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Line Items Content */}
+            <div className="bg-[#0A0A0A]">
+              {loadingLineItems ? (
+                <div className="flex items-center justify-center h-64">
+                  <div className="text-gray-400">Loading line items...</div>
+                </div>
+              ) : lineItems.length === 0 ? (
+                <div className="flex items-center justify-center h-64 text-center">
+                  <div>
+                    <div className="text-gray-400 mb-2">No items found for this cost code</div>
+                    <button className="text-[#336699] hover:text-[#4A7BB7] text-sm">
+                      + Add first item
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#333333]">
                 {lineItems.map((item) => (
                   <div
                     key={item.id}
@@ -380,95 +581,166 @@ export default function CostCodesPage() {
                 ))}
               </div>
             )}
+            </div>
           </div>
         ) : isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-400">Loading cost codes...</div>
           </div>
         ) : viewMode === 'list' ? (
-          /* List View */
-          <div className="divide-y divide-[#333333]">
-            {filteredCostCodes.map((code) => {
+          /* List View - Grouped by Industry with Accordion */
+          <div>
+            {Array.from(groupedFilteredCostCodes.entries()).map(([industryName, codes], index) => {
+              const isExpanded = expandedIndustries.has(industryName);
+              const itemCount = codes.reduce((sum, code) => sum + (costCodeItemCounts[code.id] || 0), 0);
+              
               return (
-                <div
-                  key={code.id}
-                  className="px-6 py-4 hover:bg-[#1E1E1E] transition-colors flex items-center gap-4 cursor-pointer"
-                  onClick={() => handleCostCodeClick(code)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedCostCodes.has(code.id)}
-                    onChange={() => toggleCostCode(code.id)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="w-4 h-4 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
-                  />
-                  
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-[#336699] font-mono text-sm">{code.code}</span>
-                        <h3 className="text-white font-medium">{code.name}</h3>
-                        {code.organization_id && (
-                          <span className="text-xs px-2 py-0.5 bg-[#336699]/20 text-[#336699] rounded">Custom</span>
-                        )}
-                      </div>
-                      {code.description && (
-                        <p className="text-gray-400 text-sm mt-1">{code.description}</p>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-[#336699] font-medium text-sm">
-                        {costCodeItemCounts[code.id] || '-'}
+                <div key={industryName} className="border-b border-[#333333] last:border-b-0">
+                  {/* Industry Header - Clickable */}
+                  <button
+                    onClick={() => toggleIndustryExpanded(industryName)}
+                    className="w-full px-6 py-4 bg-[#1A1A1A] hover:bg-[#222222] transition-colors flex items-center justify-between group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <ChevronRight 
+                        className={`w-5 h-5 text-gray-400 transition-transform ${
+                          isExpanded ? 'rotate-90' : ''
+                        }`}
+                      />
+                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                        {industryName}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {codes.length} codes • {itemCount} items
                       </span>
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
                     </div>
+                    <div className="text-sm text-gray-400 group-hover:text-gray-300">
+                      {isExpanded ? 'Click to collapse' : 'Click to expand'}
+                    </div>
+                  </button>
+                  
+                  {/* Cost Codes for this Industry - Only show when expanded */}
+                  {isExpanded && (
+                    <div className="divide-y divide-[#333333]">
+                      {codes.map((code) => (
+                    <div
+                      key={code.id}
+                      className="px-6 py-4 hover:bg-[#1E1E1E] transition-colors flex items-center gap-4 cursor-pointer"
+                      onClick={() => handleCostCodeClick(code)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedCostCodes.has(code.id)}
+                        onChange={() => toggleCostCode(code.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-4 h-4 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
+                      />
+                      
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className="text-[#336699] font-mono text-sm">{code.code}</span>
+                            <h3 className="text-white font-medium">{code.name}</h3>
+                            {code.organization_id && (
+                              <span className="text-xs px-2 py-0.5 bg-[#336699]/20 text-[#336699] rounded">Custom</span>
+                            )}
+                          </div>
+                          {code.description && (
+                            <p className="text-gray-400 text-sm mt-1">{code.description}</p>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <span className="text-[#336699] font-medium text-sm">
+                            {costCodeItemCounts[code.id] || '-'}
+                          </span>
+                          <ChevronRight className="w-5 h-5 text-gray-400" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                   </div>
+                  )}
                 </div>
               );
             })}
           </div>
         ) : (
-          /* Compact View - Compact Grid */
-          <div className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-              {filteredCostCodes.map((code) => {
-                return (
-                  <div
-                    key={code.id}
-                    className="bg-[#1E1E1E] border border-[#333333] p-3 hover:border-[#336699] transition-colors cursor-pointer"
-                    onClick={() => handleCostCodeClick(code)}
+          /* Compact View - Grouped by Industry with Accordion */
+          <div className="">
+            {Array.from(groupedFilteredCostCodes.entries()).map(([industryName, codes]) => {
+              const isExpanded = expandedIndustries.has(industryName);
+              const itemCount = codes.reduce((sum, code) => sum + (costCodeItemCounts[code.id] || 0), 0);
+              
+              return (
+                <div key={industryName} className="border-b border-[#333333] last:border-b-0">
+                  {/* Industry Header - Clickable */}
+                  <button
+                    onClick={() => toggleIndustryExpanded(industryName)}
+                    className="w-full px-6 py-4 bg-[#1A1A1A] hover:bg-[#222222] transition-colors flex items-center justify-between group"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <span className="text-[#336699] font-mono text-xs">{code.code}</span>
-                      <input
-                        type="checkbox"
-                        checked={selectedCostCodes.has(code.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleCostCode(code.id);
-                        }}
-                        className="w-3 h-3 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
+                    <div className="flex items-center gap-3">
+                      <ChevronRight 
+                        className={`w-5 h-5 text-gray-400 transition-transform ${
+                          isExpanded ? 'rotate-90' : ''
+                        }`}
                       />
-                    </div>
-                    
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-white font-medium text-sm line-clamp-2">{code.name}</h3>
-                      {code.organization_id && (
-                        <span className="text-xs px-1.5 py-0.5 bg-[#336699]/20 text-[#336699] rounded shrink-0">Custom</span>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[#336699] font-medium">
-                        {costCodeItemCounts[code.id] || '-'} items
+                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                        {industryName}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {codes.length} codes • {itemCount} items
                       </span>
-                      <ChevronRight className="w-3 h-3 text-gray-400" />
+                    </div>
+                    <div className="text-sm text-gray-400 group-hover:text-gray-300">
+                      {isExpanded ? 'Click to collapse' : 'Click to expand'}
+                    </div>
+                  </button>
+                  
+                  {/* Cost Code Grid for this Industry - Only show when expanded */}
+                  {isExpanded && (
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                        {codes.map((code) => (
+                    <div
+                      key={code.id}
+                      className="bg-[#1E1E1E] border border-[#333333] p-3 hover:border-[#336699] transition-colors cursor-pointer"
+                      onClick={() => handleCostCodeClick(code)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="text-[#336699] font-mono text-xs">{code.code}</span>
+                        <input
+                          type="checkbox"
+                          checked={selectedCostCodes.has(code.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleCostCode(code.id);
+                          }}
+                          className="w-3 h-3 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="text-white font-medium text-sm line-clamp-2">{code.name}</h3>
+                        {code.organization_id && (
+                          <span className="text-xs px-1.5 py-0.5 bg-[#336699]/20 text-[#336699] rounded shrink-0">Custom</span>
+                        )}
+                      </div>
+                      
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[#336699] font-medium">
+                          {costCodeItemCounts[code.id] || '-'} items
+                        </span>
+                        <ChevronRight className="w-3 h-3 text-gray-400" />
+                      </div>
+                    </div>
+                  ))}
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

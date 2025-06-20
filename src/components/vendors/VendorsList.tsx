@@ -319,9 +319,9 @@ export const VendorsList: React.FC<VendorsListProps> = ({
   return (
     <div>
       {/* Vendors Section */}
-      <div className="pb-8">
+      <div>
         {/* Unified Container with transparent background */}
-                    <div className="bg-transparent border border-[#333333]">
+                    <div className="bg-transparent">
               {/* Stats Section */}
               <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
             {isConstrained ? (
@@ -549,7 +549,7 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                 <p className="text-gray-400">No vendors found</p>
               </div>
             ) : viewMode === 'compact' ? (
-              <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+              <div className="bg-[#121212] overflow-hidden">
                 <div className="space-y-0">
                   {filteredVendors.map((vendor, index) => {
                     const stats = vendorStats[vendor.id];
@@ -663,7 +663,7 @@ export const VendorsList: React.FC<VendorsListProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+              <div className="bg-[#121212] overflow-hidden">
                 <div className="space-y-0">
                   {filteredVendors.map((vendor, index) => {
                     const stats = vendorStats[vendor.id];
@@ -845,7 +845,6 @@ export const VendorsList: React.FC<VendorsListProps> = ({
           </div>
         </div>
       )}
-
         </div>
   );
 }; 

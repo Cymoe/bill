@@ -305,9 +305,9 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
       ) : (
         <>
           {/* Team Members Section */}
-          <div className="pb-8">
+          <div>
             {/* Unified Container */}
-                    <div className="bg-transparent border border-[#333333]">
+                    <div className="bg-transparent">
           {/* Stats Section */}
           <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
@@ -464,7 +464,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
               {/* Content */}
               <div className="flex-1 overflow-auto">
                 {viewMode === 'compact' ? (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredTeamMembers.map((member, index) => (
                         <div key={member.id} className="relative">
@@ -564,7 +564,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredTeamMembers.map((member, index) => (
                         <div key={member.id} className="relative">
@@ -684,7 +684,7 @@ export const TeamMembersList: React.FC<TeamMembersListProps> = ({
             setTeamMembers(prevMembers => [newTeamMember, ...prevMembers]);
           } else {
             // Fallback to full reload if no team member data returned
-            loadTeamMembers();
+          loadTeamMembers();
           }
           // Don't close the modal here - let the modal handle it
         }}

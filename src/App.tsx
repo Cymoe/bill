@@ -6,8 +6,7 @@ import { ScrollRestoration } from './components/ScrollRestoration';
 import Dashboard from './pages/dashboard/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { People } from './pages/People';
-import { PriceBook } from './components/price-book/PriceBook';
-import { ProductsPage } from './components/products/ProductsPage';
+import { PriceBook as PriceBookPage } from './pages/PriceBook';
 import { ProductVariantComparisonPage } from './components/products/ProductVariantComparisonPage';
 import ChatManagementSystem from './pages/chat/ChatManagementSystem';
 // ProductBuilderPage removed - using ProductAssemblyForm drawer instead
@@ -24,6 +23,8 @@ import Projects from './pages/marketing/Projects';
 import { BillsList } from './components/bills/BillsList';
 import { Callback } from './components/auth/Callback';
 import { UserProfile } from './components/settings/UserProfile';
+import { PublicProfileView } from './components/settings/PublicProfileView';
+import { CommunityHub } from './pages/CommunityHub';
 import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 import { ProjectNewPage } from './pages/ProjectNewPage';
@@ -48,6 +49,7 @@ import { TeamMemberDetailPage } from './pages/TeamMemberDetailPage';
 import { DebugData } from './pages/DebugData';
 import { Work } from './pages/Work';
 import { ActivityPage } from './pages/ActivityPage';
+import { WhoWeServe } from './pages/WhoWeServe';
 
 // Import debugging tools in development
 // COMMENTED OUT: These test utilities were running automatically and causing issues
@@ -155,6 +157,7 @@ function AppRoutes() {
       <Route path="/auth/callback" element={<Callback />} />
       <Route path="/auth/test" element={<TestAuth />} />
       <Route path="/marketing/projects" element={<Projects />} />
+      <Route path="/who-we-serve" element={<WhoWeServe />} />
 
       {/* Protected routes */}
       <Route
@@ -217,13 +220,7 @@ function AppRoutes() {
       />
       <Route
         path="/products"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <ProductsPage editingProduct={editingProduct} setEditingProduct={setEditingProduct} />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
+        element={<Navigate to="/price-book/products" replace />}
       />
       <Route
         path="/products/:productId/compare"
@@ -463,6 +460,30 @@ function AppRoutes() {
         path="/docs/:filename"
         element={<MarkdownViewer />}
       />
+
+      {/* Public Profile Route */}
+      <Route
+        path="/pro/:username"
+        element={<PublicProfileView />}
+      />
+      
+      {/* Community Hub - Public version for discovery */}
+      <Route
+        path="/discover"
+        element={<CommunityHub />}
+      />
+      
+      {/* Community Hub - Protected version with sidebar for logged-in users */}
+      <Route
+        path="/community"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <CommunityHub />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
       
       {/* Project routes */}
       <Route
@@ -524,16 +545,56 @@ function AppRoutes() {
         }
       />
 
-      {/* Catch all */}
+      {/* Unified Price Book routes */}
       <Route
         path="/price-book"
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <PriceBook />
+              <PriceBookPage />
             </DashboardLayout>
           </ProtectedRoute>
         }
+      />
+      <Route
+        path="/price-book/cost-codes"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PriceBookPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/price-book/items"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PriceBookPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/price-book/products"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <PriceBookPage />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      
+      {/* Legacy route redirects to unified Price Book */}
+      <Route
+        path="/items"
+        element={<Navigate to="/price-book" replace />}
+      />
+      <Route
+        path="/cost-codes"
+        element={<Navigate to="/price-book/cost-codes" replace />}
       />
       <Route
         path="/line-item-test"

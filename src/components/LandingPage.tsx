@@ -288,8 +288,11 @@ export const LandingPage = () => {
             Streamline Your Business & Showcase Your Work
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            BillBreeze helps contractors, builders, and service providers manage their business 
-            with professional invoicing while showcasing their best projects to potential clients.
+            BillBreeze empowers master craftsmen, trade professionals, and real estate investors to manage their business 
+            with professional invoicing while tracking costs and showcasing their best projects.
+            <a href="/who-we-serve" className="text-blue-600 hover:underline ml-1">
+              See who we serve →
+            </a>
           </p>
           <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
             <button

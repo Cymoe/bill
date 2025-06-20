@@ -56,6 +56,9 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
     if (path === '/marketing/projects' && location.pathname === '/marketing/projects') {
       return true;
     }
+    if (path === '/who-we-serve' && location.pathname === '/who-we-serve') {
+      return true;
+    }
     if (path === '/docs/construction-saas-user-feedback' && location.pathname.includes('/docs') && location.pathname.includes('feedback')) {
       return true;
     }
@@ -96,6 +99,15 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
       
       {/* Desktop navigation */}
       <div className="hidden md:flex items-center space-x-6">
+        <button 
+          onClick={() => handleNavigation('/who-we-serve')}
+          className={`text-gray-700 font-medium transition-colors ${
+            isActive('/who-we-serve') ? '' : 'hover:text-blue-600'
+          }`}
+          style={{ color: isActive('/who-we-serve') ? '#336699' : undefined }}
+        >
+          For Professionals
+        </button>
         <button 
           onClick={() => handleNavigation('/marketing/projects')}
           className={`text-gray-700 font-medium transition-colors ${
@@ -154,6 +166,15 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
         <div className="flex flex-col p-6 h-full">
           <div className="mb-8 mt-12">
             <div className="flex flex-col space-y-4">
+              <button 
+                onClick={() => handleNavigation('/who-we-serve')}
+                className={`text-gray-700 font-medium transition-colors text-left ${
+                  isActive('/who-we-serve') ? '' : 'hover:text-blue-600'
+                }`}
+                style={{ color: isActive('/who-we-serve') ? '#336699' : undefined }}
+              >
+                For Professionals
+              </button>
               <button 
                 onClick={() => handleNavigation('/marketing/projects')}
                 className={`text-gray-700 font-medium transition-colors text-left ${

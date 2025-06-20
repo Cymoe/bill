@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { X, Activity, ExternalLink } from 'lucide-react';
 import { ActivityFeed } from './ActivityFeed';
 import { Link } from 'react-router-dom';
@@ -12,22 +12,41 @@ interface ActivityPanelProps {
 
 export const ActivityPanel: React.FC<ActivityPanelProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
+  const panelRef = useRef<HTMLDivElement>(null);
   
   // Get organization from context
   const { selectedOrg } = React.useContext(OrganizationContext);
+
+  // Handle click outside to close panel
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (isOpen && panelRef.current && !panelRef.current.contains(event.target as Node)) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen, onClose]);
 
   return (
     <>
       {/* Backdrop */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-[9999] lg:hidden"
+          className="fixed inset-0 bg-black bg-opacity-50 z-[9999]"
           onClick={onClose}
         />
       )}
 
       {/* Panel */}
       <div
+        ref={panelRef}
         className={`fixed top-0 right-0 h-full w-full max-w-md bg-gray-900 border-l border-gray-800 shadow-xl z-[10000] transform transition-transform duration-300 flex flex-col ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}

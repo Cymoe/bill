@@ -143,21 +143,6 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
           </NavLink>
 
           <NavLink
-            to="/products"
-            onClick={onClose}
-            className={({ isActive }) =>
-              `flex items-center gap-3 p-3 rounded-[4px] transition-colors ${
-                isActive
-                  ? 'bg-gradient-to-br from-[#336699]/20 to-[#336699]/5 border border-[#336699]/50 text-white'
-                  : 'hover:bg-[#333333] text-gray-300'
-              }`
-            }
-          >
-            <span className="text-lg">▢</span>
-            <span>Products</span>
-          </NavLink>
-
-          <NavLink
             to="/price-book"
             onClick={onClose}
             className={({ isActive }) =>
@@ -168,8 +153,8 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
               }`
             }
           >
-            <span className="text-lg">•</span>
-            <span>Cost Codes</span>
+            <span className="text-lg">📚</span>
+            <span>Price Book</span>
           </NavLink>
         </nav>
 

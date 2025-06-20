@@ -21,6 +21,7 @@ export default function IndustrySettings() {
   const { selectedOrg } = useContext(OrganizationContext);
   const [industries, setIndustries] = useState<Industry[]>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<Set<string>>(new Set());
+  const [primaryIndustryId, setPrimaryIndustryId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -44,15 +45,31 @@ export default function IndustrySettings() {
       if (industriesError) throw industriesError;
       setIndustries(allIndustries || []);
 
-      // Load organization's selected industries
-      const { data: orgIndustries, error: orgError } = await supabase
+      // Load organization's primary industry
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('industry_id')
+        .eq('id', selectedOrg.id)
+        .single();
+
+      if (orgError) throw orgError;
+
+      // Store primary industry ID
+      setPrimaryIndustryId(org?.industry_id || null);
+
+      // Load organization's additional industries
+      const { data: orgIndustries, error: additionalError } = await supabase
         .from('organization_industries')
         .select('industry_id')
         .eq('organization_id', selectedOrg.id);
 
-      if (orgError) throw orgError;
+      if (additionalError) throw additionalError;
       
+      // Combine primary and additional industries
       const selected = new Set(orgIndustries?.map(oi => oi.industry_id) || []);
+      if (org?.industry_id) {
+        selected.add(org.industry_id);
+      }
       setSelectedIndustries(selected);
     } catch (error) {
       console.error('Error loading industries:', error);
@@ -62,6 +79,11 @@ export default function IndustrySettings() {
   };
 
   const toggleIndustry = (industryId: string) => {
+    // Don't allow toggling the primary industry
+    if (industryId === primaryIndustryId) {
+      return;
+    }
+    
     const newSelected = new Set(selectedIndustries);
     if (newSelected.has(industryId)) {
       newSelected.delete(industryId);
@@ -76,7 +98,18 @@ export default function IndustrySettings() {
 
     setIsSaving(true);
     try {
-      // Get current industries for this org
+      // Get the organization's primary industry
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .select('industry_id')
+        .eq('id', selectedOrg.id)
+        .single();
+
+      if (orgError) throw orgError;
+
+      const primaryIndustryId = org?.industry_id;
+
+      // Get current additional industries for this org
       const { data: currentIndustries, error: fetchError } = await supabase
         .from('organization_industries')
         .select('industry_id')
@@ -84,14 +117,19 @@ export default function IndustrySettings() {
 
       if (fetchError) throw fetchError;
 
-      const currentIds = new Set(currentIndustries?.map(item => item.industry_id) || []);
-      const selectedIds = selectedIndustries;
-
-      // Find industries to delete
-      const toDelete = Array.from(currentIds).filter(id => !selectedIds.has(id));
+      const currentAdditionalIds = new Set(currentIndustries?.map(item => item.industry_id) || []);
       
-      // Find industries to add
-      const toAdd = Array.from(selectedIds).filter(id => !currentIds.has(id));
+      // Remove primary industry from selected to get only additional
+      const selectedAdditionalIds = new Set(selectedIndustries);
+      if (primaryIndustryId) {
+        selectedAdditionalIds.delete(primaryIndustryId);
+      }
+
+      // Find industries to delete (excluding primary)
+      const toDelete = Array.from(currentAdditionalIds).filter(id => !selectedAdditionalIds.has(id));
+      
+      // Find industries to add (excluding primary)
+      const toAdd = Array.from(selectedAdditionalIds).filter(id => !currentAdditionalIds.has(id));
 
       // Delete removed industries
       if (toDelete.length > 0) {
@@ -192,15 +230,18 @@ export default function IndustrySettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {industries.map((industry) => {
             const isSelected = selectedIndustries.has(industry.id);
+            const isPrimary = industry.id === primaryIndustryId;
             
             return (
               <button
                 key={industry.id}
                 onClick={() => toggleIndustry(industry.id)}
+                disabled={isPrimary}
                 className={`relative flex flex-col items-start p-6 rounded-xl border-2 transition-all duration-200
                           ${isSelected 
                             ? 'bg-[#0f1729] border-[#fbbf24] ring-2 ring-[#fbbf24]/20'
-                            : 'bg-[#111] border-[#2a2a2a] hover:border-[#3a3a3a] hover:bg-[#151515]'}`}
+                            : 'bg-[#111] border-[#2a2a2a] hover:border-[#3a3a3a] hover:bg-[#151515]'}
+                          ${isPrimary ? 'cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 {/* Industry Icon */}
                 <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-4 transition-all
@@ -216,7 +257,14 @@ export default function IndustrySettings() {
                 </div>
 
                 {/* Content */}
-                <h3 className="text-lg font-semibold text-white mb-2">{industry.name}</h3>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-lg font-semibold text-white">{industry.name}</h3>
+                  {isPrimary && (
+                    <span className="px-2 py-0.5 text-xs font-medium bg-[#336699] text-white rounded">
+                      Primary
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-400 mb-4">{industry.description}</p>
 
                 {/* Selection Indicator */}

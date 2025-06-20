@@ -775,7 +775,7 @@ export const ClientList: React.FC<ClientListProps> = ({
               {/* Content */}
               <div className="flex-1 overflow-auto">
                 {viewMode === 'compact' ? (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredClients.map((client, index) => (
                         <div key={client.id} className="relative">
@@ -876,7 +876,7 @@ export const ClientList: React.FC<ClientListProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredClients.map((client, index) => (
                         <div key={client.id} className="relative">

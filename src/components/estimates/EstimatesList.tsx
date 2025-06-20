@@ -5,6 +5,7 @@ import {
   XCircle, AlertTriangle, Calendar, ChevronDown, ChevronUp, LayoutGrid, Share2, Copy,
   Download, FileSpreadsheet, FileDown, Check
 } from 'lucide-react';
+import { ViewToggle, ViewMode } from '../common/ViewToggle';
 import { useNavigate } from 'react-router-dom';
 import { EstimateService, Estimate } from '../../services/EstimateService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,7 +35,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
   const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-  const [isCompactTable, setIsCompactTable] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('compact');
   const [editingEstimate, setEditingEstimate] = useState<Estimate | null>(null);
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -548,14 +549,11 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
             </div>
             
             <div className="flex items-center gap-3">
-              {/* Compact Table Toggle */}
-              <button
-                onClick={() => setIsCompactTable(!isCompactTable)}
-                className={`p-2 bg-[#1E1E1E] border border-[#333333] hover:bg-[#333333] rounded-[4px] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
-                title="Toggle compact view"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
+              {/* View Toggle */}
+              <ViewToggle 
+                viewMode={viewMode} 
+                onViewModeChange={setViewMode}
+              />
               
               {/* Options menu */}
               <div className="relative" ref={optionsMenuRef}>
@@ -671,7 +669,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                     <div
                       key={estimate.id}
                       onClick={() => navigate(`/estimates/${estimate.id}`)}
-                      className={`group grid grid-cols-12 gap-4 px-6 ${isCompactTable ? 'py-2' : 'py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
+                      className={`group grid grid-cols-12 gap-4 px-6 ${viewMode === 'compact' ? 'py-2' : 'py-4'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer border-b border-[#333333]/50 last:border-b-0`}
                     >
                       {/* Estimate Column */}
                       <div className="col-span-6">
@@ -680,10 +678,10 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                             {estimate.status.toUpperCase()}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className={`font-medium text-white truncate ${isCompactTable ? 'text-sm' : ''}`}>
+                            <div className={`font-medium text-white truncate ${viewMode === 'compact' ? 'text-sm' : ''}`}>
                               {estimate.estimate_number}
                             </div>
-                            {!isCompactTable && (
+                            {viewMode !== 'compact' && (
                               <div className="text-xs text-gray-400 truncate mt-0.5">
                                 {estimate.client?.name || 'Unknown Client'}
                               </div>
@@ -694,16 +692,16 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
                       
                       {/* Amount Column */}
                       <div className="col-span-3 text-center">
-                        <div className={`font-mono font-semibold text-white ${isCompactTable ? 'text-sm' : ''}`}>
+                        <div className={`font-mono font-semibold text-white ${viewMode === 'compact' ? 'text-sm' : ''}`}>
                           {formatCurrency(estimate.total_amount)}
                         </div>
-                        {!isCompactTable && (
+                        {viewMode !== 'compact' && (
                           <div className="text-xs text-gray-400 capitalize">Estimate</div>
                         )}
                       </div>
                       
                       {/* Date Column */}
-                      <div className={`col-span-2 text-gray-300 ${isCompactTable ? 'text-xs' : 'text-sm'}`}>
+                      <div className={`col-span-2 text-gray-300 ${viewMode === 'compact' ? 'text-xs' : 'text-sm'}`}>
                         <div>{estimate.created_at ? new Date(estimate.created_at).toLocaleDateString() : 'No date'}</div>
                       </div>
 

@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { CostCodeService } from '../../services/CostCodeService';
+import { OrganizationContext } from '../layouts/DashboardLayout';
 import { UNIT_OPTIONS, PRODUCT_TYPE_OPTIONS } from '../../constants';
 
 interface LineItemFormData {
@@ -17,6 +19,12 @@ interface CostCode {
   id: string;
   name: string;
   code: string;
+  industry?: {
+    id: string;
+    name: string;
+    icon?: string;
+    color?: string;
+  };
 }
 
 interface LineItemFormProps {
@@ -33,6 +41,7 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
   submitLabel = 'Save'
 }) => {
   const { user } = useAuth();
+  const { selectedOrg } = useContext(OrganizationContext);
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       name: initialData?.name || '',
@@ -45,20 +54,28 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
   });
   const [isLoading, setIsLoading] = useState(false);
   const [costCodes, setCostCodes] = useState<CostCode[]>([]);
+  const [groupedCostCodes, setGroupedCostCodes] = useState<Map<string, CostCode[]>>(new Map());
 
   useEffect(() => {
     fetchCostCodes();
   }, [user]);
 
   const fetchCostCodes = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('cost_codes')
-        .select('id, name, code')
-        .order('code');
+      // Use CostCodeService to get industry-filtered cost codes
+      const costCodes = await CostCodeService.list(selectedOrg.id);
+      setCostCodes(costCodes.map(cc => ({ 
+        id: cc.id, 
+        name: cc.name, 
+        code: cc.code,
+        industry: cc.industry 
+      })));
       
-      if (error) throw error;
-      setCostCodes(data || []);
+      // Also get grouped version for dropdown
+      const grouped = await CostCodeService.listGroupedByIndustry(selectedOrg.id);
+      setGroupedCostCodes(grouped);
     } catch (error) {
       console.error('Error fetching cost codes:', error);
     }
@@ -95,10 +112,22 @@ export const LineItemForm: React.FC<LineItemFormProps> = ({
           className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
         >
           <option value="" className="bg-[#333333] text-white">Select Cost Code</option>
-          {costCodes.map(code => (
-            <option key={code.id} value={code.id} className="bg-[#333333] text-white">
-              {code.code} {code.name}
-            </option>
+          {Array.from(groupedCostCodes.entries()).map(([industryName, codes]) => (
+            <optgroup 
+              key={industryName} 
+              label={`━━━  ${industryName.toUpperCase()}  ━━━`}
+              className="bg-[#1E1E1E] text-gray-400 font-bold"
+            >
+              {codes.map(code => (
+                <option 
+                  key={code.id} 
+                  value={code.id} 
+                  className="bg-[#333333] text-white pl-4"
+                >
+                  {code.code} — {code.name}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         {errors.cost_code_id && (

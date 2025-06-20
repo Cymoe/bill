@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Download, Share2, Copy, Filter, MoreVertical, FileText, Eye, Edit, Trash2, CreditCard, LayoutGrid, ChevronUp, ChevronDown, FileSpreadsheet, FileDown, Check } from 'lucide-react';
+import { ViewToggle, ViewMode } from '../common/ViewToggle';
 import { formatCurrency } from '../../utils/format';
 import { advancedSearch, SearchableField } from '../../utils/searchUtils';
 import { Modal } from '../common/Modal';
@@ -62,7 +63,14 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   const location = useLocation();
   const { user } = useAuth();
   const { selectedOrg } = useContext(OrganizationContext);
-  const { isConstrained, isMinimal, isCompact, availableWidth } = React.useContext(LayoutContext);
+  const layoutContext = React.useContext(LayoutContext);
+  const isConstrained = layoutContext?.isConstrained || false;
+  const isMinimal = layoutContext?.isMinimal || false;
+  const isCompact = layoutContext?.isCompact || false;
+  const availableWidth = layoutContext?.availableWidth || 'full';
+  
+  // Define isCompactTable based on layout constraints
+  const isCompactTable = isMinimal || isCompact;
   
   // Add debugging for organization context
   useEffect(() => {
@@ -106,7 +114,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
   const [showProgressBilling, setShowProgressBilling] = useState(false);
   
   // Compact table toggle state
-  const [isCompactTable, setIsCompactTable] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('compact');
   
   // Delete confirmation modal state
   const [deletingInvoice, setDeletingInvoice] = useState<Invoice | null>(null);
@@ -1114,14 +1122,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
 
             {/* Right side - Compact toggle and Options menu */}
             <div className="flex items-center gap-3">
-              {/* Compact Table Toggle */}
-              <button
-                onClick={() => setIsCompactTable(!isCompactTable)}
-                className={`p-2 bg-[#1E1E1E] border border-[#333333] hover:bg-[#333333] rounded-[4px] transition-colors ${isCompactTable ? 'bg-[#333333] text-[#3B82F6]' : 'text-gray-400'}`}
-                title="Toggle compact view"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
+              {/* View Toggle */}
+              <ViewToggle 
+                viewMode={viewMode} 
+                onViewModeChange={setViewMode}
+              />
               
               <div className="relative" ref={optionsMenuRef}>
                 <button
@@ -1174,16 +1179,16 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
         </div>
 
         {/* Table Column Headers */}
-        <div className={`${isCompactTable ? 'px-3 py-1.5' : isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
+        <div className={`${viewMode === 'compact' ? 'px-3 py-1.5' : isMinimal ? 'px-4 py-2' : isConstrained ? 'px-4 py-2' : 'px-6 py-3'} border-b border-[#333333]/50 bg-[#1E1E1E]/50`}>
           <div className={`grid ${
-            isCompactTable 
+            viewMode === 'compact' 
               ? 'grid-cols-6' 
               : isMinimal ? 'grid-cols-8' : isConstrained ? 'grid-cols-8' : 'grid-cols-12'
           } gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center`}>
             <button 
               onClick={() => handleSort('invoice_number')}
               className={`${
-                isCompactTable 
+                viewMode === 'compact' 
                   ? 'col-span-2' 
                   : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
               } text-left hover:text-white transition-colors flex items-center gap-1 ${
@@ -1198,7 +1203,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
             <button 
               onClick={() => handleSort('amount')}
               className={`${
-                isCompactTable 
+                viewMode === 'compact' 
                   ? 'col-span-2 text-center' 
                   : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
               } text-center hover:text-white transition-colors flex items-center justify-center gap-1 ${
@@ -1210,7 +1215,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                 sortDirection === 'asc' ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />
               )}
             </button>
-            {!isCompactTable && !isMinimal && !isConstrained && (
+            {viewMode !== 'compact' && !isMinimal && !isConstrained && (
               <button 
                 onClick={() => handleSort('date')}
                 className={`col-span-2 text-left hover:text-white transition-colors flex items-center gap-1 ${
@@ -1223,9 +1228,9 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                 )}
               </button>
             )}
-            {isCompactTable && <div className="col-span-1 text-center">STATUS</div>}
+            {viewMode === 'compact' && <div className="col-span-1 text-center">STATUS</div>}
             <div className={`${
-              isCompactTable 
+              viewMode === 'compact' 
                 ? 'col-span-1' 
                 : isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'
             } text-right`}></div>
@@ -1254,7 +1259,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                         <div
                           key={invoice.id}
                           className={`group grid ${
-                            isCompactTable
+                            viewMode === 'compact'
                               ? 'grid-cols-6 gap-2 px-3 py-1.5'
                               : isMinimal 
                                 ? 'grid-cols-8 gap-4 px-4 py-3' 
@@ -1266,11 +1271,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                         >
                           {/* Invoice Column */}
                           <div className={`${
-                            isCompactTable 
+                            viewMode === 'compact' 
                               ? 'col-span-2' 
                               : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-5' : 'col-span-6'
                           }`}>
-                            {isCompactTable ? (
+                            {viewMode === 'compact' ? (
                               // Compact layout - just invoice number and client
                               <div>
                                 <div className="font-medium text-white text-sm truncate">
@@ -1314,20 +1319,20 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                           
                           {/* Amount Column */}
                           <div className={`${
-                            isCompactTable 
+                            viewMode === 'compact' 
                               ? 'col-span-2 text-center' 
                               : isMinimal ? 'col-span-3' : isConstrained ? 'col-span-2' : 'col-span-3'
                           } text-center`}>
-                            <div className={`font-mono font-semibold text-white ${isCompactTable || isMinimal ? 'text-sm' : ''}`}>
+                            <div className={`font-mono font-semibold text-white ${viewMode === 'compact' || isMinimal ? 'text-sm' : ''}`}>
                               {formatCurrency(invoice.amount)}
                             </div>
-                            {!isCompactTable && (
+                            {viewMode !== 'compact' && (
                               <div className="text-xs text-gray-400 capitalize">Invoice</div>
                             )}
                           </div>
                           
                           {/* Status Column - Only in compact mode */}
-                          {isCompactTable && (
+                          {viewMode === 'compact' && (
                             <div className="col-span-1 text-center">
                               <span className={`text-xs px-1.5 py-0.5 font-medium ${status.color}`}>
                                 {status.text}
@@ -1336,7 +1341,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                           )}
                           
                           {/* Client Column - Only shown in full mode */}
-                          {!isCompactTable && !isMinimal && !isConstrained && (
+                          {viewMode !== 'compact' && !isMinimal && !isConstrained && (
                             <div className="col-span-2 text-sm text-gray-300">
                               <div>{new Date(invoice.due_date).toLocaleDateString()}</div>
                               {daysPastDue > 0 && (
@@ -1349,7 +1354,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
 
                           {/* Actions Column */}
                           <div className={`${
-                            isCompactTable 
+                            viewMode === 'compact' 
                               ? 'col-span-1' 
                               : isMinimal ? 'col-span-2' : isConstrained ? 'col-span-1' : 'col-span-1'
                           } flex justify-end relative`}>
@@ -1379,7 +1384,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({ searchTerm = '', refre
                                 }}
                                 className="opacity-0 group-hover:opacity-100 transition-all p-1 hover:bg-gray-600 rounded"
                               >
-                                <MoreVertical className={`${isCompactTable ? 'w-3 h-3' : isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
+                                <MoreVertical className={`${viewMode === 'compact' ? 'w-3 h-3' : isMinimal ? 'w-3 h-3' : 'w-4 h-4'} text-gray-400`} />
                               </button>
                             </div>
                           </div>

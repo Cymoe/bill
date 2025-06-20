@@ -357,9 +357,9 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
       ) : (
         <>
           {/* Subcontractors Section */}
-          <div className="pb-8">
+          <div>
             {/* Unified Container */}
-                    <div className="bg-transparent border border-[#333333]">
+                    <div className="bg-transparent">
           {/* Stats Section */}
           <div className={`${isConstrained ? 'px-4 py-3' : 'px-6 py-4'} border-b border-[#333333]/50`}>
                 {isConstrained ? (
@@ -570,7 +570,7 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
               {/* Content */}
               <div className="flex-1 overflow-auto">
                 {viewMode === 'compact' ? (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredSubcontractors.map((subcontractor, index) => (
                         <div key={subcontractor.id} className="relative">
@@ -686,7 +686,7 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
                     )}
                   </div>
                 ) : (
-                  <div className="bg-[#121212] border-b border-[#333333] overflow-hidden">
+                  <div className="bg-[#121212] overflow-hidden">
                     <div className="space-y-0">
                       {filteredSubcontractors.map((subcontractor, index) => (
                         <div key={subcontractor.id} className="relative">
@@ -851,7 +851,7 @@ export const SubcontractorsList: React.FC<SubcontractorsListProps> = ({
             setSubcontractors(prevSubs => [enrichedSubcontractor, ...prevSubs]);
           } else {
             // Fallback to full reload if no subcontractor data returned
-            loadSubcontractors();
+          loadSubcontractors();
           }
           // Don't close the modal here - let the modal handle it
         }}

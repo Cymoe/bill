@@ -29,7 +29,7 @@ body {
   overflow-y: auto;
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
-  background-color: #1f2937; /* Dark background color */
+  background-color: #0a0a0a; /* Dark charcoal background color */
   color: #f3f4f6; /* Light text color */
 }
 

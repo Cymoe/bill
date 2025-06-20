@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { ProductService } from '../../services/ProductService';
+import { CostCodeService } from '../../services/CostCodeService';
 import { formatCurrency } from '../../utils/format';
 import { Search, Plus, Minus, X, Save } from 'lucide-react';
 import { PRODUCT_COLLECTIONS } from '../../constants/collections';
@@ -61,14 +62,12 @@ export const CreateProductDrawer: React.FC<CreateProductDrawerProps> = ({
   }, [isOpen, user?.id]);
 
   const fetchCostCodes = async () => {
+    if (!selectedOrg?.id) return;
+    
     try {
-      const { data, error } = await supabase
-        .from('cost_codes')
-        .select('id, name, code')
-        .order('code');
-      
-      if (error) throw error;
-      setCostCodes(data || []);
+      // Use CostCodeService to get industry-filtered cost codes
+      const costCodes = await CostCodeService.list(selectedOrg.id);
+      setCostCodes(costCodes.map(cc => ({ id: cc.id, name: cc.name, code: cc.code })));
     } catch (error) {
       console.error('Error fetching cost codes:', error);
     }
