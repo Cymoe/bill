@@ -1,8 +1,16 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
+  "framework": null,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/blog/(.*)",
+      "destination": "/apps/blog/dist/blog/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/apps/web/dist/$1"
+    }
   ]
 }

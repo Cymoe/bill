@@ -1,0 +1,216 @@
+---
+const currentPath = Astro.url.pathname;
+
+// Determine which nav item is active
+const isActive = (path: string) => {
+  if (path === '/blog' && currentPath.startsWith('/blog')) {
+    return true;
+  }
+  return currentPath === path;
+};
+---
+
+<nav class="relative flex justify-between items-center p-4 md:p-6 border-b border-gray-200 bg-white">
+  <a 
+    href="/" 
+    class="flex items-center space-x-2 cursor-pointer z-20"
+  >
+    <!-- Building2 icon from Lucide to match main app -->
+    <svg class="h-6 w-6 text-steel-blue" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 6h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 10h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 14h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="text-xl font-bold text-gray-900">BillBreeze</span>
+  </a>
+  
+  <!-- Mobile menu button -->
+  <button 
+    class="md:hidden z-20 menu-button" 
+    id="mobile-menu-btn"
+    aria-label="Toggle menu"
+  >
+    <svg class="menu-icon h-6 w-6 text-gray-900" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg class="close-icon h-6 w-6 text-gray-900 hidden" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+  
+  <!-- Desktop navigation -->
+  <div class="hidden md:flex items-center space-x-6">
+    <a 
+      href="/who-we-serve"
+      class={`text-base text-gray-700 font-medium transition-colors ${isActive('/who-we-serve') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+    >
+      For Professionals
+    </a>
+    <a 
+      href="/marketing/projects"
+      class={`text-base text-gray-700 font-medium transition-colors ${isActive('/marketing/projects') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+    >
+      Projects
+    </a>
+    <a 
+      href="/docs/construction-saas-user-feedback"
+      class={`text-base text-gray-700 font-medium transition-colors ${isActive('/docs/construction-saas-user-feedback') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+    >
+      Insights
+    </a>
+    <a 
+      href="/docs/product-roadmap"
+      class={`text-base text-gray-700 font-medium transition-colors ${isActive('/docs/product-roadmap') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+    >
+      Roadmap
+    </a>
+    <a 
+      href="/blog"
+      class={`text-base text-gray-700 font-medium transition-colors ${isActive('/blog') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+    >
+      Resources
+    </a>
+    
+    <!-- Sign In button matching main app styling -->
+    <a 
+      href="/"
+      class="flex items-center justify-center px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-full"
+    >
+      <svg
+        class="w-5 h-5 mr-2"
+        aria-hidden="true"
+        fill="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
+      </svg>
+      Sign in with Google
+    </a>
+  </div>
+</nav>
+
+<!-- Mobile menu overlay -->
+<div class="mobile-overlay fixed inset-0 bg-black bg-opacity-50 z-10 hidden" aria-hidden="true"></div>
+
+<!-- Mobile navigation menu -->
+<div 
+  class="mobile-menu fixed top-0 right-0 bottom-0 w-64 bg-white z-10 transform transition-transform duration-300 ease-in-out translate-x-full"
+  style="box-shadow: -4px 0 15px rgba(0, 0, 0, 0.1)"
+  id="mobile-menu"
+>
+  <div class="flex flex-col p-6 h-full">
+    <div class="mb-8 mt-12">
+      <div class="flex flex-col space-y-4">
+        <a 
+          href="/who-we-serve"
+          class={`text-base text-gray-700 font-medium transition-colors text-left ${isActive('/who-we-serve') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+        >
+          For Professionals
+        </a>
+        <a 
+          href="/marketing/projects"
+          class={`text-base text-gray-700 font-medium transition-colors text-left ${isActive('/marketing/projects') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+        >
+          Projects
+        </a>
+        <a 
+          href="/docs/construction-saas-user-feedback"
+          class={`text-base text-gray-700 font-medium transition-colors text-left ${isActive('/docs/construction-saas-user-feedback') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+        >
+          Insights
+        </a>
+        <a 
+          href="/docs/product-roadmap"
+          class={`text-base text-gray-700 font-medium transition-colors text-left ${isActive('/docs/product-roadmap') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+        >
+          Roadmap
+        </a>
+        <a 
+          href="/blog"
+          class={`text-base text-gray-700 font-medium transition-colors text-left ${isActive('/blog') ? 'text-steel-blue' : 'hover:text-blue-600'}`}
+        >
+          Resources
+        </a>
+      </div>
+    </div>
+    
+    <!-- Mobile auth buttons matching main app -->
+    <div class="mt-auto">
+      <a 
+        href="/"
+        class="flex items-center justify-center w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 transition-colors rounded-full"
+      >
+        <svg
+          class="w-5 h-5 mr-2"
+          aria-hidden="true"
+          fill="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z" />
+        </svg>
+        Sign in with Google
+      </a>
+    </div>
+  </div>
+</div>
+
+<script>
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+  const mobileMenu = document.getElementById('mobile-menu');
+  const mobileOverlay = document.querySelector('.mobile-overlay');
+  const menuIcon = document.querySelector('.menu-icon');
+  const closeIcon = document.querySelector('.close-icon');
+  
+  let isOpen = false;
+  
+  mobileMenuBtn?.addEventListener('click', () => {
+    isOpen = !isOpen;
+    
+    if (isOpen) {
+      mobileMenu?.classList.remove('translate-x-full');
+      mobileMenu?.classList.add('translate-x-0');
+      mobileOverlay?.classList.remove('hidden');
+      menuIcon?.classList.add('hidden');
+      closeIcon?.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    } else {
+      mobileMenu?.classList.add('translate-x-full');
+      mobileMenu?.classList.remove('translate-x-0');
+      mobileOverlay?.classList.add('hidden');
+      menuIcon?.classList.remove('hidden');
+      closeIcon?.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  });
+  
+  // Close menu when clicking overlay
+  mobileOverlay?.addEventListener('click', () => {
+    if (isOpen) {
+      isOpen = false;
+      mobileMenu?.classList.add('translate-x-full');
+      mobileMenu?.classList.remove('translate-x-0');
+      mobileOverlay?.classList.add('hidden');
+      menuIcon?.classList.remove('hidden');
+      closeIcon?.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+  });
+  
+  // Close menu when clicking mobile links
+  const mobileLinks = mobileMenu?.querySelectorAll('a');
+  mobileLinks?.forEach(link => {
+    link.addEventListener('click', () => {
+      isOpen = false;
+      mobileMenu?.classList.add('translate-x-full');
+      mobileMenu?.classList.remove('translate-x-0');
+      mobileOverlay?.classList.add('hidden');
+      menuIcon?.classList.remove('hidden');
+      closeIcon?.classList.add('hidden');
+      document.body.style.overflow = '';
+    });
+  });
+</script>

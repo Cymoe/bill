@@ -77,3 +77,64 @@ Once configured, I should be able to:
 - Execute admin operations
 
 This will significantly speed up the development process!
+
+---
+
+# Setting Up MCP for Flux Image Generation
+
+In addition to Supabase, you can also set up the Flux Image MCP server for AI image generation.
+
+## Flux MCP Server Setup
+
+### 1. Get Your Flux API Key
+
+1. Go to [Black Forest Labs](https://blackforestlabs.ai/)
+2. Sign up or log in to your account
+3. Navigate to API settings
+4. Generate an API key
+
+### 2. Install and Build the Server
+
+```bash
+cd mcp-servers/flux-image-server
+npm install
+npm run build
+```
+
+### 3. Configure Claude Desktop
+
+Add the Flux server to your Claude Desktop configuration:
+
+**MacOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "supabase": {
+      // ... your existing Supabase config ...
+    },
+    "flux-image": {
+      "command": "node",
+      "args": ["/Users/myleswebb/Apps/bills/mcp-servers/flux-image-server/dist/index.js"],
+      "env": {
+        "FLUX_API_KEY": "your_flux_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### 4. Available Image Generation Tools
+
+Once configured, you'll have access to:
+- **generate_image**: Create images using Flux AI models
+- **get_flux_models**: Query available models and their capabilities
+
+### Example Usage
+
+In Claude, you can now say things like:
+- "Generate an image of a modern minimalist house with large windows"
+- "Create a photorealistic portrait of a chef in a professional kitchen"
+- "What Flux models are available?"
+
+See the full documentation at: `mcp-servers/flux-image-server/README.md`

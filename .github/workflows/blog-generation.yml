@@ -1,0 +1,78 @@
+name: Generate Blog Content
+
+on:
+  schedule:
+    # Run every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: 'Blog post topic'
+        required: true
+        type: string
+      industry:
+        description: 'Industry category'
+        required: false
+        default: 'general'
+        type: choice
+        options:
+          - general
+          - roofing
+          - hvac
+          - plumbing
+          - electrical
+          - painting
+          - flooring
+          - landscaping
+
+jobs:
+  generate-content:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate blog post(s)
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+        VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual trigger - generate single post
+          npm run generate:post "${{ github.event.inputs.topic }}" "${{ github.event.inputs.industry }}"
+        else
+          # Scheduled trigger - generate batch
+          npm run generate:batch
+        fi
+
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add apps/blog/src/content/blog/*.mdx
+        git diff --cached --quiet || git commit -m "feat: Add AI-generated blog posts
+
+        🤖 Generated with Claude Code
+        
+        Co-Authored-By: Claude <noreply@anthropic.com>"
+        git push
+
+    - name: Trigger Vercel deployment
+      if: env.VERCEL_DEPLOY_HOOK
+      env:
+        VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+      run: |
+        curl -X POST $VERCEL_DEPLOY_HOOK

@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('blog');
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Blog Post</title>
+</head>
+<body>
+    <h1>Test Blog Posts</h1>
+    <h2>All Posts:</h2>
+    <ul>
+        {posts.map(post => (
+            <li>
+                <a href={`/${post.slug || post.id.replace('.mdx', '')}/`}>
+                    {post.data.title} - ID: {post.id} - Slug: {post.slug || post.id.replace('.mdx', '')}
+                </a>
+            </li>
+        ))}
+    </ul>
+</body>
+</html>

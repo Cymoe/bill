@@ -47,6 +47,7 @@ import { supabase } from '../../lib/supabase';
 import { ActivityPanel } from '../activity/ActivityPanel';
 import { IndustryBanner } from '../common/IndustryBanner';
 import { IndustryManagementDrawer } from '../common/IndustryManagementDrawer';
+import { ProjectPreviewPanel } from '../projects/ProjectPreviewPanel';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -135,6 +136,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
   });
   const [isIndustryDrawerOpen, setIsIndustryDrawerOpen] = useState(false);
   const [selectedTimePeriod, setSelectedTimePeriod] = useState<'D' | 'W' | 'M' | 'Q' | 'Y'>('D');
+  const [hoveredProject, setHoveredProject] = useState<any>(null);
+  const [previewPosition, setPreviewPosition] = useState({ top: 0 });
+  const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isLiveRevenuePopoverOpen, setIsLiveRevenuePopoverOpen] = useState(false);
   const liveRevenueButtonRef = useRef<HTMLDivElement>(null);
   const liveRevenuePopoverRef = useRef<HTMLDivElement>(null);
@@ -966,7 +970,28 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                                       setIsProjectsSidebarOpen(false);
                                     }
                                   }}
-                                  className={`w-full text-left p-3 hover:bg-[#333333] transition-colors border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
+                                  onMouseEnter={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setPreviewPosition({ top: rect.top });
+                                    
+                                    // INSTANT preview - no delay!
+                                    setHoveredProject({
+                                      ...project,
+                                      budget: 50000,
+                                      spent: 35000,
+                                      startDate: '2024-01-15',
+                                      endDate: '2024-03-30',
+                                      recentActivities: [
+                                        { id: '1', type: 'invoice', description: 'Invoice #1234 sent to client', timestamp: '2 hours ago' },
+                                        { id: '2', type: 'payment', description: 'Payment received: $5,000', timestamp: 'Yesterday' },
+                                        { id: '3', type: 'update', description: 'Electrical work completed', timestamp: '3 days ago' }
+                                      ]
+                                    });
+                                  }}
+                                  onMouseLeave={() => {
+                                    setHoveredProject(null);
+                                  }}
+                                  className={`w-full text-left p-3 project-flash-hover border-b border-gray-700/30 group ${index === sortedProjects.length - 1 ? 'border-b-0' : ''}`}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
@@ -980,8 +1005,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                                       </div>
                                       <div className="text-gray-400 text-[10px] truncate ml-3.5 leading-tight uppercase tracking-wide">{project.client}</div>
                                     </div>
-                                    <div className="flex items-center gap-1">
-                                      <span className="text-[#6b7280] text-xs font-medium leading-tight">{project.progress}%</span>
+                                    <div className="flex items-center gap-2">
+                                      <div className="opacity-0 group-hover:opacity-100 transition-none">
+                                        <div className="w-8 h-1 bg-[#374151] rounded-full overflow-hidden">
+                                          <div 
+                                            className="h-full bg-[#3B82F6] rounded-full"
+                                            style={{ width: `${project.progress}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                      <span className="text-[#6b7280] group-hover:text-[#3B82F6] transition-none text-xs font-medium leading-tight">{project.progress}%</span>
                                     </div>
                                   </div>
                                 </button>
@@ -999,6 +1032,15 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                       </div>
                       )}
                     </div>
+
+                    {/* Project Preview Panel */}
+                    {(isProjectsSidebarOpen || isProjectsSidebarLocked) && (
+                      <ProjectPreviewPanel 
+                        project={hoveredProject}
+                        isVisible={!!hoveredProject}
+                        position={previewPosition}
+                      />
+                    )}
 
                     {/* Main Sidebar */}
                     <Sidebar
