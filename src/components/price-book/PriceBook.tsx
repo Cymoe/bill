@@ -11,7 +11,7 @@ import { LineItemService } from '../../services/LineItemService';
 import { IndustryService } from '../../services/IndustryService';
 import { CostCodeService } from '../../services/CostCodeService';
 import { LineItem, Industry } from '../../types';
-import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns, FileSpreadsheet, Tag } from 'lucide-react';
+import { MoreVertical, Filter, ChevronDown, ChevronRight, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns, FileSpreadsheet, Tag } from 'lucide-react';
 import { PageHeaderBar } from '../common/PageHeaderBar';
 import './price-book.css';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -77,6 +77,22 @@ export const PriceBook: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isLoadingCostCodes, setIsLoadingCostCodes] = useState(true);
   const [activeIndustries, setActiveIndustries] = useState<Industry[]>([]);
+  
+  // Add state for expanded industries - all collapsed by default
+  const [expandedIndustries, setExpandedIndustries] = useState<Set<string>>(new Set());
+  
+  // Function to toggle industry expansion
+  const toggleIndustryExpansion = (industryName: string) => {
+    setExpandedIndustries((prev: Set<string>) => {
+      const newSet = new Set(prev);
+      if (newSet.has(industryName)) {
+        newSet.delete(industryName);
+      } else {
+        newSet.add(industryName);
+      }
+      return newSet;
+    });
+  };
   
   // Check if tutorial mode is enabled via URL parameter
   const searchParams = new URLSearchParams(location.search);
@@ -882,9 +898,19 @@ export const PriceBook: React.FC = () => {
             
             return (
               <div key={industryName}>
-                {/* Industry Header */}
-                <div className="px-6 py-3 bg-[#1A1A1A] border-y border-[#333333] sticky top-0 z-10">
+                {/* Industry Header - Clickable */}
+                <div 
+                  className="px-6 py-3 bg-[#1A1A1A] border-y border-[#333333] sticky top-0 z-10 hover:bg-[#222222] cursor-pointer transition-colors"
+                  onClick={() => toggleIndustryExpansion(industryName)}
+                >
                   <div className="flex items-center gap-2">
+                    {/* Chevron icon for expand/collapse */}
+                    {expandedIndustries.has(industryName) ? (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    )}
+                    
                     {industryIcon && <span className="text-lg">{industryIcon}</span>}
                     <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
                       {industryName}
@@ -893,8 +919,8 @@ export const PriceBook: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Line Items for this Industry */}
-                {items.map((lineItem) => (
+                {/* Line Items for this Industry - Only show when expanded */}
+                {expandedIndustries.has(industryName) && items.map((lineItem) => (
             <div
               key={lineItem.id}
               onClick={() => {
