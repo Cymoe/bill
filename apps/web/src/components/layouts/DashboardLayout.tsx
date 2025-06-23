@@ -759,6 +759,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                     isSidebarCollapsed={isSidebarCollapsed}
                     isProjectsSidebarLocked={isProjectsSidebarLocked}
                     isProjectsSidebarOpen={isProjectsSidebarOpen}
+                    isIndustryDrawerOpen={isIndustryDrawerOpen}
                   />
                   <QuickCreateMenu 
                     isOpen={isCreateMenuOpen} 
