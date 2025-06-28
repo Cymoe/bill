@@ -55,6 +55,9 @@ export class SupabaseJobQueue implements JobQueue {
 
     if (error) {
       console.error('Error updating job progress:', error);
+      console.error('Job ID:', jobId);
+      console.error('Updates:', updates);
+      throw error; // Throw to stop processing
     }
   }
 

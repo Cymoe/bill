@@ -95,8 +95,14 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     message: string;
     itemCount: number;
   } | null>(null);
+  const [showError, setShowError] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [jobPollingInterval, setJobPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const successTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const errorTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Calculate counts for each quick filter
   const quickFilterCounts = useMemo(() => {
@@ -683,13 +689,52 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
 
   // Auto-hide success message after 5 seconds
   useEffect(() => {
-    if (showSuccess) {
-      const timer = setTimeout(() => {
-        setShowSuccess(null);
-      }, 5000);
-      return () => clearTimeout(timer);
+    // Clear any existing timer
+    if (successTimerRef.current) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
     }
-  }, [showSuccess]);
+    
+    if (showSuccess) {
+      successTimerRef.current = setTimeout(() => {
+        setShowSuccess(null);
+        successTimerRef.current = null;
+      }, 5000);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (successTimerRef.current) {
+        clearTimeout(successTimerRef.current);
+        successTimerRef.current = null;
+      }
+    };
+  }, [showSuccess?.message]); // Only re-run if message actually changes
+  
+  // Auto-dismiss error messages after 5 seconds
+  useEffect(() => {
+    if (showError) {
+      // Clear any existing timer
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+      
+      // Set new timer
+      errorTimerRef.current = setTimeout(() => {
+        setShowError(null);
+        errorTimerRef.current = null;
+      }, 5000);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (errorTimerRef.current) {
+        clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = null;
+      }
+    };
+  }, [showError?.message]);
 
   // Prevent page refresh during pricing operations
   useEffect(() => {
@@ -763,11 +808,107 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       if (activeJobs.length > 0) {
         // Resume tracking the most recent job
         const mostRecentJob = activeJobs[0];
+        const jobAge = Date.now() - new Date(mostRecentJob.created_at).getTime();
+        
+        console.log('Found active job:', {
+          id: mostRecentJob.id,
+          status: mostRecentJob.status,
+          age: Math.floor(jobAge / 1000) + 's',
+          processed: mostRecentJob.processed_items,
+          total: mostRecentJob.total_items
+        });
+        
+        // If job is too old or stuck, clean it up
+        // Jobs get stuck at multiples of 100 (batch size issue)
+        if (jobAge > 2 * 60 * 1000 || 
+            (mostRecentJob.processed_items > 0 && mostRecentJob.processed_items % 100 === 0 && jobAge > 30 * 1000)) {
+          console.log('Job is stuck or too old, cleaning up...', {
+            age: Math.floor(jobAge / 1000) + 's',
+            processed: mostRecentJob.processed_items
+          });
+          
+          // Mark as failed to clean up
+          try {
+            await supabase
+              .from('pricing_jobs')
+              .update({
+                status: 'failed',
+                error_message: 'Job timed out or stuck',
+                completed_at: new Date().toISOString()
+              })
+              .eq('id', mostRecentJob.id);
+          } catch (error) {
+            console.error('Error cleaning up stuck job:', error);
+          }
+          
+          // Don't show any UI, just clean up silently
+          return;
+        }
+        
         setActiveJobId(mostRecentJob.id);
         
-        // If it's processing, resume polling
-        if (mostRecentJob.status === 'processing') {
-          startJobPolling(mostRecentJob.id);
+        // Set initial progress state immediately
+        if (mostRecentJob.status === 'processing' || mostRecentJob.status === 'pending') {
+          console.log('Resuming job on page refresh:', mostRecentJob);
+          setActiveJobId(mostRecentJob.id);
+          setApplyingProgress({
+            current: mostRecentJob.processed_items || 0,
+            total: mostRecentJob.total_items || 0,
+            action: 'applying'
+          });
+          
+          // Resume processing from where it left off
+          const { mode_id, line_item_ids, previous_prices, mode_name } = mostRecentJob.job_data;
+          
+          try {
+            // Continue processing
+            const result = await PricingModesService.applyModeWithErrorHandling(
+              selectedOrg.id,
+              mode_id,
+              line_item_ids,
+              async (current, total) => {
+                setApplyingProgress({
+                  current,
+                  total,
+                  action: 'applying'
+                });
+                // Update job progress
+                await PricingModesService.updateJobProgress(mostRecentJob.id, current, total);
+              }
+            );
+            
+            // Mark job as completed
+            await PricingModesService.completeJob(mostRecentJob.id, result);
+            
+            // Small delay before hiding
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setApplyingProgress(null);
+            setActiveJobId(null);
+            
+            if (result.successCount > 0) {
+              // Restore undo state if available
+              if (previous_prices) {
+                setLastPricingOperation({
+                  modeId: mode_id,
+                  modeName: mode_name || 'Pricing Mode',
+                  lineItemIds: line_item_ids || [],
+                  previousPrices: previous_prices,
+                  timestamp: Date.now()
+                });
+                setShowUndo(true);
+              }
+              
+              // Refresh data
+              fetchLineItems(true);
+            }
+          } catch (error) {
+            console.error('Error resuming job:', error);
+            setApplyingProgress(null);
+            await PricingModesService.failJob(
+              mostRecentJob.id, 
+              error instanceof Error ? error.message : 'Failed to resume processing'
+            );
+          }
         } else {
           // Check status once in case it just finished
           checkJobStatus(mostRecentJob.id);
@@ -792,6 +933,13 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     if (!lastPricingOperation || !selectedOrg?.id) return;
     
     setShowUndo(false);
+    
+    // Longer delay to ensure smooth transition
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Track when we started showing progress
+    const progressStartTime = Date.now();
+    
     setApplyingProgress({ 
       current: 0, 
       total: lastPricingOperation.previousPrices.length,
@@ -840,6 +988,10 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         }
       }
       
+      // Store the last progress update time to throttle updates
+      let lastProgressUpdate = 0;
+      const progressThrottle = 200; // Update progress at most every 200ms to reduce flashing
+      
       // Restore previous prices for items that had overrides
       const batchSize = 50;
       for (let i = 0; i < itemsToRestore.length; i += batchSize) {
@@ -865,13 +1017,27 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
           successCount += batch.length;
         }
         
-        setApplyingProgress({ 
-          current: itemsToDelete.length + i + batch.length, 
-          total: lastPricingOperation.previousPrices.length,
-          action: 'undoing'
-        });
+        // Throttle progress updates to prevent flashing
+        const now = Date.now();
+        if (now - lastProgressUpdate > progressThrottle) {
+          setApplyingProgress({ 
+            current: itemsToDelete.length + i + batch.length, 
+            total: lastPricingOperation.previousPrices.length,
+            action: 'undoing'
+          });
+          lastProgressUpdate = now;
+        }
       }
       
+      // Ensure minimum display time to prevent flashing
+      const elapsedTime = Date.now() - progressStartTime;
+      const minimumDisplayTime = 1500; // Show for at least 1.5 seconds
+      if (elapsedTime < minimumDisplayTime) {
+        await new Promise(resolve => setTimeout(resolve, minimumDisplayTime - elapsedTime));
+      }
+      
+      // Additional delay for smooth transition
+      await new Promise(resolve => setTimeout(resolve, 300));
       setApplyingProgress(null);
       
       if (successCount > 0) {
@@ -882,15 +1048,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
           localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
         }
         
-        // Show success message
+        // Only show success message if there were failures
+        // The act of reverting is confirmation enough for successful undo
         if (failedCount > 0) {
           setShowSuccess({
             message: `Restored ${successCount} items. ${failedCount} items failed.`,
-            itemCount: successCount
-          });
-        } else {
-          setShowSuccess({
-            message: 'Successfully undid pricing changes',
             itemCount: successCount
           });
         }
@@ -898,11 +1060,17 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         // Refresh the list
         fetchLineItems(true);
       } else {
-        alert('Failed to undo pricing changes. Please try again.');
+        setShowError({
+          title: 'Undo Failed',
+          message: 'Failed to undo pricing changes. Please try again.'
+        });
       }
     } catch (error) {
       console.error('Error undoing pricing change:', error);
-      alert('Failed to undo pricing change. Please try again.');
+      setShowError({
+        title: 'Undo Failed',
+        message: 'Failed to undo pricing change. Please try again.'
+      });
       setApplyingProgress(null);
     }
   };
@@ -924,7 +1092,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       }));
     
     try {
-      // Create a job for background processing
+      // Create a job for recovery on page refresh
       const jobId = await PricingModesService.createPricingJob(
         selectedOrg.id,
         pendingModeId,
@@ -936,9 +1104,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       setActiveJobId(jobId);
       setSelectedLineItemIds([]);
       
-      // Start polling for job updates
-      startJobPolling(jobId);
-      
       // Store for undo capability
       setShowUndo(false);
       setLastPricingOperation({
@@ -949,9 +1114,69 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         timestamp: Date.now()
       });
       
+      // Now process directly with progress updates
+      setApplyingProgress({
+        current: 0,
+        total: previousPrices.length,
+        action: 'applying'
+      });
+      
+      const result = await PricingModesService.applyModeWithErrorHandling(
+        selectedOrg.id,
+        pendingModeId,
+        selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined,
+        async (current, total) => {
+          setApplyingProgress({
+            current,
+            total,
+            action: 'applying'
+          });
+          // Update job progress in database for recovery
+          await PricingModesService.updateJobProgress(jobId, current, total);
+        }
+      );
+      
+      // Mark job as completed
+      await PricingModesService.completeJob(jobId, result);
+      
+      // Small delay before hiding
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setApplyingProgress(null);
+      setActiveJobId(null);
+      
+      if (result.successCount > 0) {
+        // Show undo option
+        setTimeout(() => {
+          setShowUndo(true);
+        }, 50);
+        
+        // Only show success overlay if there were failures
+        if (result.failedCount > 0) {
+          setShowSuccess({
+            message: `Updated ${result.successCount} items. ${result.failedCount} items failed.`,
+            itemCount: result.successCount
+          });
+        }
+        
+        // Refresh data
+        fetchLineItems(true);
+      } else {
+        setShowError({
+          title: 'Update Failed',
+          message: 'Failed to apply pricing mode. Please try again.'
+        });
+      }
+      
     } catch (error) {
-      console.error('Error creating pricing job:', error);
-      alert('Failed to start pricing update. Please try again.');
+      console.error('Error applying pricing mode:', error);
+      setApplyingProgress(null);
+      if (activeJobId) {
+        await PricingModesService.failJob(activeJobId, error instanceof Error ? error.message : 'Unknown error');
+      }
+      setShowError({
+        title: 'Update Failed',
+        message: 'Failed to apply pricing mode. Please try again.'
+      });
     } finally {
       setPendingModeId(null);
     }
@@ -978,13 +1203,53 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
   const checkJobStatus = async (jobId: string) => {
     const job = await PricingModesService.getJobStatus(jobId);
     
-    if (!job) return;
+    if (!job) {
+      // Job not found, stop polling
+      if (jobPollingInterval) {
+        clearInterval(jobPollingInterval);
+        setJobPollingInterval(null);
+      }
+      setActiveJobId(null);
+      setApplyingProgress(null);
+      return;
+    }
+    
+    // Check if job is stale (more than 10 minutes old and still processing with no progress)
+    const jobAge = Date.now() - new Date(job.created_at).getTime();
+    if (job.status === 'processing' && jobAge > 10 * 60 * 1000 && job.processed_items === 0) {
+      // Mark as failed only if truly stuck
+      console.log('Job appears to be stuck:', {
+        age: Math.floor(jobAge / 1000) + 's',
+        processed: job.processed_items,
+        total: job.total_items
+      });
+      
+      if (jobPollingInterval) {
+        clearInterval(jobPollingInterval);
+        setJobPollingInterval(null);
+      }
+      setActiveJobId(null);
+      setApplyingProgress(null);
+      setShowError({
+        title: 'Update Timed Out',
+        message: 'Pricing update timed out. Please try again.'
+      });
+      fetchLineItems(false);
+      return;
+    }
     
     // Update progress
-    if (job.status === 'processing') {
+    if (job.status === 'processing' || job.status === 'pending') {
+      console.log('Job progress update:', {
+        id: job.id,
+        status: job.status,
+        processed: job.processed_items,
+        total: job.total_items
+      });
+      
       setApplyingProgress({
-        current: job.processed_items,
-        total: job.total_items,
+        current: job.processed_items || 0,
+        total: job.total_items || 0,
         action: 'applying'
       });
     }
@@ -1002,19 +1267,17 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       
       if (job.status === 'completed') {
         const summary = job.result_summary;
+        
+        // Only show success overlay if there were failures
+        // Otherwise, the undo bar is sufficient confirmation
         if (summary?.failed_count > 0) {
           setShowSuccess({
             message: `Updated ${summary.success_count} items. ${summary.failed_count} items failed.`,
             itemCount: summary.success_count
           });
-        } else {
-          setShowSuccess({
-            message: `Successfully applied "${job.job_data.mode_name}" pricing`,
-            itemCount: summary?.success_count || 0
-          });
         }
         
-        // Show undo option
+        // Show undo option (this is the main confirmation)
         setTimeout(() => {
           setShowUndo(true);
         }, 50);
@@ -1023,7 +1286,10 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         fetchLineItems(true);
       } else {
         // Failed
-        alert(`Pricing update failed: ${job.error_message || 'Unknown error'}`);
+        setShowError({
+          title: 'Update Failed',
+          message: job.error_message || 'Pricing update failed. Please try again.'
+        });
         fetchLineItems(false);
       }
     }
@@ -1032,6 +1298,35 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
 
   return (
     <div className="bg-transparent border border-[#333333] border-t-0 relative">
+      {/* Warning Banner - appears when operations are in progress */}
+      {applyingProgress && (
+        <div className="fixed top-0 left-0 right-0 bg-yellow-500 z-[13000] py-3 px-4 shadow-lg">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <svg className="w-6 h-6 text-yellow-900 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="text-base font-semibold text-yellow-900">
+                ⚠️ Pricing update in progress - DO NOT close or refresh this page!
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="w-24 bg-yellow-700 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-yellow-900 h-full transition-all duration-300"
+                    style={{ width: `${(applyingProgress.current / applyingProgress.total) * 100}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium text-yellow-900">
+                  {Math.round((applyingProgress.current / applyingProgress.total) * 100)}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Progress Overlay */}
       {applyingProgress && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[12000] flex items-center justify-center">
@@ -1057,6 +1352,14 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
                 Processing {applyingProgress.total} items - this may take a moment
               </p>
             )}
+            <div className="mt-4 pt-4 border-t border-[#333333]">
+              <p className="text-xs text-yellow-500 text-center flex items-center justify-center gap-2">
+                <svg className="w-4 h-4 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                Please keep this window open until complete
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -1074,6 +1377,31 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
             </div>
             <h3 className="text-white font-medium mb-2 text-center">{showSuccess.message}</h3>
             <p className="text-sm text-gray-400 text-center">{showSuccess.itemCount} items updated</p>
+          </div>
+        </div>
+      )}
+      
+      {/* Error Notification */}
+      {showError && (
+        <div className="fixed bottom-4 right-4 max-w-md z-[12000]">
+          <div className="bg-red-900 border border-red-700 p-4 shadow-xl flex items-start gap-3">
+            <div className="flex-shrink-0">
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-red-100 font-medium">{showError.title}</h4>
+              <p className="text-red-200 text-sm mt-1">{showError.message}</p>
+            </div>
+            <button
+              onClick={() => setShowError(null)}
+              className="flex-shrink-0 text-red-400 hover:text-red-300 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
       )}

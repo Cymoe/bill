@@ -749,19 +749,30 @@ export class PricingModesService {
       }
     });
 
-    // Mark as processing immediately
-    await jobQueue.markAsProcessing(jobId);
-
-    // Trigger the Edge Function to process the job
-    const { error } = await supabase.functions.invoke('process-pricing-job', {
+    // Try to trigger the Edge Function first
+    const { data, error } = await supabase.functions.invoke('process-pricing-job', {
       body: { jobId }
     });
 
-    if (error) {
-      console.error('Error invoking pricing job function:', error);
+    // For now, always use inline processing since Edge Function isn't deployed
+    // TODO: Remove this when Edge Function is deployed
+    const useInlineProcessing = true;
+
+    if (error || useInlineProcessing) {
+      if (error) {
+        console.error('Error invoking pricing job function:', error);
+      } else {
+        console.log('Using inline processing (Edge Function not deployed)');
+      }
+      
+      // Mark as processing only if we're going to process inline
+      await jobQueue.markAsProcessing(jobId);
       // Fallback to inline processing if Edge Function fails
-      console.log('Falling back to inline processing');
+      console.log('Starting inline processing for job:', jobId);
       this.processJobInBackground(jobId, organizationId, modeId, lineItemIds);
+    } else {
+      // Edge function will handle marking as processing
+      console.log('Edge function invoked successfully for job:', jobId, data);
     }
 
     return jobId;
@@ -778,30 +789,63 @@ export class PricingModesService {
     modeId: string,
     lineItemIds?: string[]
   ): Promise<void> {
-    try {
-      const result = await this.applyModeWithErrorHandling(
-        organizationId,
-        modeId,
-        lineItemIds,
-        async (current, total) => {
-          // Update job progress
-          await jobQueue.updateProgress(jobId, { current, total });
+    // Process in next tick to avoid blocking
+    setTimeout(async () => {
+      try {
+        console.log('Starting inline job processing for job:', jobId);
+        
+        // Check if job is still active before processing
+        const currentJob = await jobQueue.getJob(jobId);
+        if (!currentJob || currentJob.status !== 'processing') {
+          console.log(`Job ${jobId} is no longer active, skipping processing`);
+          return;
         }
-      );
+        
+        const result = await this.applyModeWithErrorHandling(
+          organizationId,
+          modeId,
+          lineItemIds,
+          async (current, total) => {
+            // Check if job is still active
+            const job = await jobQueue.getJob(jobId);
+            if (!job || job.status !== 'processing') {
+              console.log(`Job ${jobId} cancelled or completed elsewhere`);
+              throw new Error('Job cancelled');
+            }
+            
+            // Update job progress
+            console.log(`Job ${jobId} progress: ${current}/${total}`);
+            try {
+              await jobQueue.updateProgress(jobId, { current, total });
+            } catch (error) {
+              console.error(`Failed to update progress for job ${jobId}:`, error);
+              throw error;
+            }
+          }
+        );
 
-      // Mark job as completed
-      await jobQueue.markAsCompleted(jobId, {
-        success_count: result.successCount,
-        failed_count: result.failedCount,
-        failed_items: result.failedItems
-      });
-    } catch (error) {
-      console.error('Error processing pricing job:', error);
-      await jobQueue.markAsFailed(
-        jobId, 
-        error instanceof Error ? error.message : 'Unknown error occurred'
-      );
-    }
+        console.log(`Job ${jobId} completed:`, result);
+        
+        // Mark job as completed
+        await jobQueue.markAsCompleted(jobId, {
+          success_count: result.successCount,
+          failed_count: result.failedCount,
+          failed_items: result.failedItems
+        });
+      } catch (error) {
+        console.error('Error processing pricing job:', error);
+        
+        // Don't try to update if job was cancelled
+        if (error instanceof Error && error.message === 'Job cancelled') {
+          return;
+        }
+        
+        await jobQueue.markAsFailed(
+          jobId, 
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        );
+      }
+    }, 100);
   }
 
   /**
@@ -815,7 +859,44 @@ export class PricingModesService {
    * Get active jobs for an organization
    */
   static async getActiveJobs(organizationId: string) {
-    return jobQueue.getActiveJobsForOrganization(organizationId);
+    const jobs = await jobQueue.getActiveJobsForOrganization(organizationId);
+    
+    // Clean up stale jobs
+    const now = Date.now();
+    for (const job of jobs) {
+      const jobAge = now - new Date(job.created_at).getTime();
+      // If job is older than 10 minutes with no progress, mark it as failed
+      if (jobAge > 10 * 60 * 1000 && job.processed_items === 0) {
+        console.log('Cleaning up stale job:', job.id);
+        await jobQueue.markAsFailed(job.id, 'Job timed out - no progress after 10 minutes');
+      }
+    }
+    
+    // Return only non-stale jobs
+    return jobs.filter(job => {
+      const jobAge = now - new Date(job.created_at).getTime();
+      return !(jobAge > 10 * 60 * 1000 && job.processed_items === 0);
+    });
+  }
+  
+  /**
+   * Resume a stuck job
+   */
+  static async resumeJob(jobId: string, organizationId: string): Promise<void> {
+    const job = await jobQueue.getJob(jobId);
+    if (!job || job.status === 'completed' || job.status === 'failed') {
+      return;
+    }
+    
+    const { mode_id, line_item_ids } = job.job_data;
+    if (!mode_id) {
+      console.error('No mode_id in job data');
+      await jobQueue.markAsFailed(jobId, 'Missing mode_id in job data');
+      return;
+    }
+    
+    // Process the job inline
+    this.processJobInBackground(jobId, organizationId, mode_id, line_item_ids);
   }
 
   /**
@@ -827,6 +908,31 @@ export class PricingModesService {
       return queue.subscribeToJobUpdates(jobId, onUpdate);
     }
     return () => {}; // No-op cleanup
+  }
+  
+  /**
+   * Update job progress
+   */
+  static async updateJobProgress(jobId: string, current: number, total: number): Promise<void> {
+    await jobQueue.updateProgress(jobId, { current, total });
+  }
+  
+  /**
+   * Mark job as completed
+   */
+  static async completeJob(jobId: string, result: ApplyModeResult): Promise<void> {
+    await jobQueue.markAsCompleted(jobId, {
+      success_count: result.successCount,
+      failed_count: result.failedCount,
+      failed_items: result.failedItems
+    });
+  }
+  
+  /**
+   * Mark job as failed
+   */
+  static async failJob(jobId: string, error: string): Promise<void> {
+    await jobQueue.markAsFailed(jobId, error);
   }
 
 }
