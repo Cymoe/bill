@@ -4,6 +4,7 @@ import { formatCurrency } from '../../utils/format';
 import { ServiceCatalogService, ServicePackage, ServicePackageItem } from '../../services/ServiceCatalogService';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { NewButton } from '../common/NewButton';
+import { CreatePackageDrawer } from './CreatePackageDrawer';
 
 interface PackagesByLevel {
   essentials: ServicePackage[];
@@ -23,6 +24,7 @@ export const ServicePackages: React.FC = () => {
   const [selectedPackage, setSelectedPackage] = useState<ServicePackage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateDrawer, setShowCreateDrawer] = useState(false);
 
   useEffect(() => {
     loadPackages();
@@ -112,7 +114,7 @@ export const ServicePackages: React.FC = () => {
       <div className="bg-[#1a1a1a] border-b border-[#333333] px-6 py-4">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-white">Service Packages</h1>
-          <NewButton onClick={() => console.log('Create package')} />
+          <NewButton onClick={() => setShowCreateDrawer(true)} />
         </div>
 
         <p className="text-gray-400 mb-4">
@@ -171,6 +173,16 @@ export const ServicePackages: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Create Package Drawer */}
+      <CreatePackageDrawer
+        isOpen={showCreateDrawer}
+        onClose={() => setShowCreateDrawer(false)}
+        onSuccess={() => {
+          setShowCreateDrawer(false);
+          loadPackages();
+        }}
+      />
     </div>
   );
 };

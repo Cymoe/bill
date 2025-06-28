@@ -6,12 +6,14 @@ export interface Client {
   phone?: string;
   address?: string;
   created_at?: string;
+  discount_percentage?: number; // Default discount percentage for this client (0-100)
 }
 
 // Line Items (standard items tied to cost codes)
 export interface LineItem {
   id: string;
   user_id: string;
+  organization_id?: string; // NULL for shared industry-standard items, organization ID for custom items
   name: string;
   description?: string;
   price: number;
@@ -20,12 +22,21 @@ export interface LineItem {
   vendor_id?: string;
   favorite?: boolean;
   status?: string;
+  is_active?: boolean;
+  is_custom?: boolean; // Indicates if this is a custom price override
   created_at?: string;
   updated_at?: string;
   cost_code?: {
     name: string;
     code: string;
   };
+  // Price override fields
+  base_price?: number; // Original industry standard price
+  has_override?: boolean; // True if this org has an override price
+  markup_percentage?: number; // Markup percentage for this line item
+  margin_percentage?: number; // Calculated margin percentage for display
+  applied_mode_id?: string; // ID of the pricing mode that was applied
+  applied_mode_name?: string; // Name of the pricing mode that was applied
 }
 
 // Product Assemblies (bundles made of line items - formerly bundled products)

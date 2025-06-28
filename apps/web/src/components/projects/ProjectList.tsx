@@ -16,6 +16,7 @@ import { EnhancedProjectWizard } from './EnhancedProjectWizard';
 import { StatusBadge } from './StatusBadge';
 import { ProjectsOverviewMap } from '../maps/ProjectsOverviewMap';
 import { ProjectExportService } from '../../services/ProjectExportService';
+import { SimpleGanttChart } from './SimpleGanttChart';
 
 type Project = Tables['projects'];
 
@@ -367,34 +368,6 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm: initialSea
       default:
         return 0;
     }
-  };
-
-  // Generate Gantt chart data
-  const generateGanttData = () => {
-    const today = new Date();
-    const currentMonth = today.getMonth();
-    const currentYear = today.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
-    return {
-      today: today.getDate(),
-      daysInMonth,
-      currentMonth,
-      currentYear,
-      projects: filteredProjects.map(project => {
-        const startDate = new Date(project.start_date);
-        const endDate = new Date(project.end_date);
-        const startDay = startDate.getMonth() === currentMonth ? startDate.getDate() : 1;
-        const endDay = endDate.getMonth() === currentMonth ? endDate.getDate() : daysInMonth;
-        
-        return {
-          ...project,
-          startDay,
-          endDay,
-          progress: getProjectProgress(project.status)
-        };
-      })
-    };
   };
 
   if (loading) {
@@ -1128,11 +1101,8 @@ export const ProjectList: React.FC<ProjectListProps> = ({ searchTerm: initialSea
               </div>
             ) : viewType === 'gantt' ? (
               // Gantt Chart View
-              <div className="bg-[#1a1a1a] border border-[#333333] rounded-xl p-6 overflow-x-auto">
-                <div className="text-center py-12">
-                  <div className="text-gray-400 text-lg mb-2">Gantt Chart View</div>
-                  <div className="text-gray-500 text-sm">Coming soon...</div>
-                </div>
+              <div className="p-6">
+                <SimpleGanttChart projects={filteredProjects} />
               </div>
             ) : (
               // Map View

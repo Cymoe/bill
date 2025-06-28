@@ -12,6 +12,7 @@ export interface ClientFormProps {
     email: string;
     phone: string;
     address: string;
+    discount_percentage?: number;
   };
 }
 
@@ -25,7 +26,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
     name: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    discount_percentage: 0
   }
 }) => {
   const [formData, setFormData] = useState(initialData);
@@ -124,6 +126,31 @@ export const ClientForm: React.FC<ClientFormProps> = ({
               rows={3}
               placeholder="Optional"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-[#FFFFFF] mb-2 font-['Roboto'] uppercase tracking-wider">
+              DEFAULT DISCOUNT %
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                value={formData.discount_percentage || 0}
+                onChange={(e) => {
+                  const value = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                  setFormData({ ...formData, discount_percentage: value });
+                }}
+                className="w-full border border-[#555555] rounded-[4px] p-3 pr-12 bg-[#333333] text-[#FFFFFF] font-['Roboto_Mono'] focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+                min="0"
+                max="100"
+                step="0.5"
+                placeholder="0"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9E9E9E] font-['Roboto']">%</span>
+            </div>
+            <p className="mt-1 text-xs text-[#9E9E9E] font-['Roboto']">
+              This discount will automatically apply to all estimates for this client
+            </p>
           </div>
         </form>
       </div>

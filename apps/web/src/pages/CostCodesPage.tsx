@@ -8,9 +8,7 @@ import { PageHeader } from '../components/common/PageHeader';
 import { PageHeaderBar } from '../components/common/PageHeaderBar';
 import { NewButton } from '../components/common/NewButton';
 import { formatCurrency } from '../utils/format';
-import { ViewToggle, ViewMode } from '../components/common/ViewToggle';
 import { Modal } from '../components/common/Modal';
-import { BulkProductGenerator } from '../components/products/BulkProductGenerator';
 import { CostCodeService } from '../services/CostCodeService';
 import { CostCodeForm } from '../components/cost-codes/CostCodeForm';
 
@@ -78,17 +76,13 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
   const [tradeCategories, setTradeCategories] = useState<TradeCategory[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showBulkGenerator, setShowBulkGenerator] = useState(false);
   const [selectedCostCodes, setSelectedCostCodes] = useState<Set<string>>(new Set());
   const [costCodeItemCounts, setCostCodeItemCounts] = useState<Record<string, number>>({});
   const [availableIndustries, setAvailableIndustries] = useState<Array<{id: string, name: string, count: number}>>([]);
   const [expandedIndustries, setExpandedIndustries] = useState<Set<string>>(new Set());
   const [showNewCostCodeModal, setShowNewCostCodeModal] = useState(false);
-  const [sortField, setSortField] = useState<'code' | 'name' | 'items'>('code');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Handle trigger from parent component
   useEffect(() => {
@@ -186,29 +180,8 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
       );
     }
 
-    // Sort the filtered results
-    filtered = [...filtered].sort((a, b) => {
-      let comparison = 0;
-      
-      switch (sortField) {
-        case 'code':
-          comparison = a.code.localeCompare(b.code);
-          break;
-        case 'name':
-          comparison = a.name.localeCompare(b.name);
-          break;
-        case 'items':
-          const aCount = costCodeItemCounts[a.id] || 0;
-          const bCount = costCodeItemCounts[b.id] || 0;
-          comparison = aCount - bCount;
-          break;
-      }
-      
-      return sortDirection === 'asc' ? comparison : -comparison;
-    });
-
     return filtered;
-  }, [costCodes, selectedIndustry, searchTerm, sortField, sortDirection, costCodeItemCounts]);
+  }, [costCodes, selectedIndustry, searchTerm]);
 
   // Group filtered cost codes by industry
   const groupedFilteredCostCodes = useMemo(() => {
@@ -226,22 +199,6 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
     return new Map([...grouped.entries()].sort(([a], [b]) => a.localeCompare(b)));
   }, [filteredCostCodes]);
 
-  // Group cost codes by major code for grid view
-  const groupedCostCodes = useMemo(() => {
-    const groups = new Map<string, CostCode[]>();
-    
-    filteredCostCodes.forEach(code => {
-      const majorCode = code.code.substring(0, 2);
-      if (!groups.has(majorCode)) {
-        groups.set(majorCode, []);
-      }
-      groups.get(majorCode)!.push(code);
-    });
-
-    return Array.from(groups.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [filteredCostCodes]);
-
-
   const toggleCostCode = (codeId: string) => {
     const newSelected = new Set(selectedCostCodes);
     if (newSelected.has(codeId)) {
@@ -254,14 +211,12 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
 
   const handleExportCSV = async () => {
     const csv = [
-      ['Code', 'Name', 'Description', 'Category', 'Unit', 'Base Price'],
+      ['Code', 'Name', 'Description', 'Category'],
       ...filteredCostCodes.map(code => [
         code.code,
         code.name,
         code.description || '',
-        code.category,
-        code.unit,
-        code.base_price?.toString() || ''
+        code.category
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
 
@@ -365,137 +320,25 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
 
   return (
     <div className="bg-transparent border border-[#333333] border-t-0">
-      {/* Bulk Actions Bar - Show when items are selected */}
-      {selectedCostCodes.size > 0 && !selectedCostCode && (
-        <div className="bg-[#336699] px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-white font-medium">
-              {selectedCostCodes.size} cost code{selectedCostCodes.size > 1 ? 's' : ''} selected
-            </span>
-            <button
-              onClick={() => setSelectedCostCodes(new Set())}
-              className="text-white/80 hover:text-white transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowBulkGenerator(true)}
-              className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 text-sm font-medium transition-colors"
-            >
-              Generate Products
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              className="bg-red-500/20 hover:bg-red-500/30 text-white px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Delete Selected
-            </button>
-          </div>
-        </div>
-      )}
       
       {/* Filters Section - Only show when not in drill-down view */}
       {!selectedCostCode && (
         <div className="px-6 py-4">
           <div className="flex items-center justify-between gap-4">
-            {/* Left side - Trade category filter and search */}
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <button
-                  onClick={() => setShowFilterMenu(!showFilterMenu)}
-                  className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2"
-                >
-                  <Filter className="w-4 h-4" />
-                  {selectedIndustry === 'all' ? `All Cost Codes (${filteredCostCodes.length})` : 
-                    `${availableIndustries.find(ind => ind.id === selectedIndustry)?.name || 'Select Industry'} (${filteredCostCodes.length})`}
-                </button>
-                
-                {showFilterMenu && (
-                  <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1 max-h-96 overflow-y-auto">
-                    <button
-                      onClick={() => {
-                        setSelectedIndustry('all');
-                        setShowFilterMenu(false);
-                      }}
-                      className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#333333] flex items-center justify-between group"
-                    >
-                      <span className="font-medium">All Cost Codes</span>
-                      <span className="text-gray-400 text-xs bg-[#333333] px-2 py-1 rounded group-hover:bg-[#444444]">
-                        {costCodes.length} total
-                      </span>
-                    </button>
-                    
-                    {availableIndustries.length > 0 && (
-                      <>
-                        <div className="border-t border-[#333333] my-1" />
-                        <div className="px-4 py-2 text-xs text-gray-500 uppercase tracking-wider font-semibold">▶ Filter by Industry</div>
-                        {availableIndustries.map(industry => {
-                          // Find the first cost code to get the industry icon
-                          const industryCode = costCodes.find(c => c.industry?.id === industry.id);
-                          const icon = industryCode?.industry?.icon || '';
-                          
-                          return (
-                            <button
-                              key={industry.id}
-                              onClick={() => {
-                                setSelectedIndustry(industry.id);
-                                setShowFilterMenu(false);
-                              }}
-                              className="w-full px-4 py-3 text-left text-sm text-white hover:bg-[#333333] flex items-center justify-between group"
-                            >
-                              <span className={`flex items-center gap-2 ${selectedIndustry === industry.id ? 'font-medium text-[#336699]' : ''}`}>
-                                {icon && <span className="text-base">{icon}</span>}
-                                {industry.name}
-                              </span>
-                              <span className="text-gray-400 text-xs bg-[#333333] px-2 py-1 rounded group-hover:bg-[#444444]">
-                                {industry.count} codes
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              {/* Search Input */}
-              <div className="relative w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search cost codes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-full"
-                />
-              </div>
+            {/* Search Input */}
+            <div className="relative w-64">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search cost codes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="bg-[#1E1E1E] border border-[#333333] pl-10 pr-4 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#336699] w-full"
+              />
             </div>
 
             {/* Right side - View toggle and actions */}
             <div className="flex items-center gap-3">
-              {/* Sort dropdown */}
-              <select
-                className="bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
-                value={`${sortField}-${sortDirection}`}
-                onChange={(e) => {
-                  const [field, direction] = e.target.value.split('-');
-                  setSortField(field as 'code' | 'name' | 'items');
-                  setSortDirection(direction as 'asc' | 'desc');
-                }}
-              >
-                <option value="code-asc" className="bg-[#1E1E1E] text-white">Code (A-Z)</option>
-                <option value="code-desc" className="bg-[#1E1E1E] text-white">Code (Z-A)</option>
-                <option value="name-asc" className="bg-[#1E1E1E] text-white">Name (A-Z)</option>
-                <option value="name-desc" className="bg-[#1E1E1E] text-white">Name (Z-A)</option>
-                <option value="items-desc" className="bg-[#1E1E1E] text-white">Most Items</option>
-                <option value="items-asc" className="bg-[#1E1E1E] text-white">Least Items</option>
-              </select>
-              
               {/* Expand/Collapse All button */}
               <button
                 onClick={() => {
@@ -522,11 +365,6 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                   </>
                 )}
               </button>
-              
-              <ViewToggle
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-              />
               
               <button
                 onClick={handleExportCSV}
@@ -686,7 +524,7 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-400">Loading cost codes...</div>
           </div>
-        ) : viewMode === 'list' ? (
+        ) : (
           /* List View - Grouped by Industry with Accordion */
           <div>
             {Array.from(groupedFilteredCostCodes.entries()).map(([industryName, codes], index) => {
@@ -713,36 +551,6 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                         {codes.length} codes • {itemCount} items
                       </span>
                     </div>
-                    <div className="flex items-center gap-4">
-                      {isExpanded && (
-                        <label className="flex items-center gap-2 text-sm text-gray-400 mr-4">
-                          <input
-                            type="checkbox"
-                            checked={codes.every(code => selectedCostCodes.has(code.id))}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              if (e.target.checked) {
-                                // Select all codes in this industry
-                                const newSelected = new Set(selectedCostCodes);
-                                codes.forEach(code => newSelected.add(code.id));
-                                setSelectedCostCodes(newSelected);
-                              } else {
-                                // Deselect all codes in this industry
-                                const newSelected = new Set(selectedCostCodes);
-                                codes.forEach(code => newSelected.delete(code.id));
-                                setSelectedCostCodes(newSelected);
-                              }
-                            }}
-                            className="w-4 h-4 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          Select all
-                        </label>
-                      )}
-                      <div className="text-sm text-gray-400 group-hover:text-gray-300">
-                        {isExpanded ? 'Click to collapse' : 'Click to expand'}
-                      </div>
-                    </div>
                   </button>
                   
                   {/* Cost Codes for this Industry - Only show when expanded */}
@@ -754,14 +562,6 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                       className="px-6 py-4 hover:bg-[#1E1E1E] transition-colors flex items-center gap-4 cursor-pointer"
                       onClick={() => handleCostCodeClick(code)}
                     >
-                      <input
-                        type="checkbox"
-                        checked={selectedCostCodes.has(code.id)}
-                        onChange={() => toggleCostCode(code.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-4 h-4 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
-                      />
-                      
                       <div className="flex items-center gap-3 flex-1">
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
@@ -771,9 +571,6 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                               <span className="text-xs px-2 py-0.5 bg-[#336699]/20 text-[#336699] rounded">Custom</span>
                             )}
                           </div>
-                          {code.description && (
-                            <p className="text-gray-400 text-sm mt-1">{code.description}</p>
-                          )}
                         </div>
                         
                         <div className="flex items-center gap-2">
@@ -791,126 +588,9 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
               );
             })}
           </div>
-        ) : (
-          /* Compact View - Grouped by Industry with Accordion */
-          <div className="">
-            {Array.from(groupedFilteredCostCodes.entries()).map(([industryName, codes]) => {
-              const isExpanded = expandedIndustries.has(industryName);
-              const itemCount = codes.reduce((sum, code) => sum + (costCodeItemCounts[code.id] || 0), 0);
-              
-              return (
-                <div key={industryName} className="border-b border-[#333333] last:border-b-0">
-                  {/* Industry Header - Clickable */}
-                  <button
-                    onClick={() => toggleIndustryExpanded(industryName)}
-                    className="w-full px-6 py-4 bg-[#1A1A1A] hover:bg-[#222222] transition-colors flex items-center justify-between group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <ChevronRight 
-                        className={`w-5 h-5 text-gray-400 transition-transform ${
-                          isExpanded ? 'rotate-90' : ''
-                        }`}
-                      />
-                      <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
-                        {industryName}
-                      </h3>
-                      <span className="text-xs text-gray-500">
-                        {codes.length} codes • {itemCount} items
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {isExpanded && (
-                        <label className="flex items-center gap-2 text-sm text-gray-400 mr-4">
-                          <input
-                            type="checkbox"
-                            checked={codes.every(code => selectedCostCodes.has(code.id))}
-                            onChange={(e) => {
-                              e.stopPropagation();
-                              if (e.target.checked) {
-                                // Select all codes in this industry
-                                const newSelected = new Set(selectedCostCodes);
-                                codes.forEach(code => newSelected.add(code.id));
-                                setSelectedCostCodes(newSelected);
-                              } else {
-                                // Deselect all codes in this industry
-                                const newSelected = new Set(selectedCostCodes);
-                                codes.forEach(code => newSelected.delete(code.id));
-                                setSelectedCostCodes(newSelected);
-                              }
-                            }}
-                            className="w-4 h-4 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          Select all
-                        </label>
-                      )}
-                      <div className="text-sm text-gray-400 group-hover:text-gray-300">
-                        {isExpanded ? 'Click to collapse' : 'Click to expand'}
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {/* Cost Code Grid for this Industry - Only show when expanded */}
-                  {isExpanded && (
-                    <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                        {codes.map((code) => (
-                    <div
-                      key={code.id}
-                      className="bg-[#1E1E1E] border border-[#333333] p-3 hover:border-[#336699] transition-colors cursor-pointer"
-                      onClick={() => handleCostCodeClick(code)}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <span className="text-[#336699] font-mono text-xs">{code.code}</span>
-                        <input
-                          type="checkbox"
-                          checked={selectedCostCodes.has(code.id)}
-                          onChange={(e) => {
-                            e.stopPropagation();
-                            toggleCostCode(code.id);
-                          }}
-                          className="w-3 h-3 bg-[#1E1E1E] border-[#333333] text-[#336699] focus:ring-[#336699]"
-                        />
-                      </div>
-                      
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-white font-medium text-sm line-clamp-2">{code.name}</h3>
-                        {code.organization_id && (
-                          <span className="text-xs px-1.5 py-0.5 bg-[#336699]/20 text-[#336699] rounded shrink-0">Custom</span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-[#336699] font-medium">
-                          {costCodeItemCounts[code.id] || '-'} items
-                        </span>
-                        <ChevronRight className="w-3 h-3 text-gray-400" />
-                      </div>
-                    </div>
-                  ))}
-                    </div>
-                  </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         )}
       </div>
 
-      {/* Bulk Product Generator */}
-      {showBulkGenerator && (
-        <BulkProductGenerator
-          isOpen={showBulkGenerator}
-          onClose={() => setShowBulkGenerator(false)}
-          onSuccess={() => {
-            setShowBulkGenerator(false);
-            setSelectedCostCodes(new Set());
-          }}
-          preSelectedCostCodes={Array.from(selectedCostCodes)}
-        />
-      )}
-      
       {/* Add Cost Code Modal */}
       <Modal
         isOpen={showNewCostCodeModal}

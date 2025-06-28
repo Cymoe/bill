@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { X, Search, Settings, Info, CheckCircle, Check } from 'lucide-react';
+import { X, Search, Settings, Info, CheckCircle, Check, Crown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
+import { IndustryService } from '../../services/IndustryService';
+import { UpgradePromptModal } from './UpgradePromptModal';
 
 interface Industry {
   id: string;
@@ -32,8 +34,13 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [canScroll, setCanScroll] = useState(false);
-
-  const MAX_INDUSTRIES = 5;
+  const [planData, setPlanData] = useState<{
+    planName: string;
+    industryLimit: number | null;
+    currentCount: number;
+    canAddMore: boolean;
+  } | null>(null);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   useEffect(() => {
     if (isOpen && user && selectedOrg) {
@@ -52,8 +59,8 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
     try {
       setIsLoading(true);
       
-      // Run all queries in parallel
-      const [industriesResult, orgResult, orgIndustriesResult] = await Promise.all([
+      // Run all queries in parallel, including plan data
+      const [industriesResult, orgResult, orgIndustriesResult, planResult] = await Promise.all([
         supabase
           .from('industries')
           .select('*')
@@ -69,7 +76,9 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
         supabase
           .from('organization_industries')
           .select('industry_id')
-          .eq('organization_id', selectedOrg.id)
+          .eq('organization_id', selectedOrg.id),
+        
+        IndustryService.getOrganizationPlan(selectedOrg.id)
       ]);
 
       if (industriesResult.error) throw industriesResult.error;
@@ -78,6 +87,7 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
 
       setIndustries(industriesResult.data || []);
       setPrimaryIndustryId(orgResult.data?.industry_id || null);
+      setPlanData(planResult);
       
       const selected = new Set(orgIndustriesResult.data?.map(oi => oi.industry_id) || []);
       if (orgResult.data?.industry_id) {
@@ -92,12 +102,16 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
   };
 
   const toggleIndustry = async (industryId: string) => {
-    if (!selectedOrg?.id || primaryIndustryId === industryId) return;
+    if (!selectedOrg?.id || primaryIndustryId === industryId || !planData) return;
 
     const isCurrentlySelected = selectedIndustries.has(industryId);
     
-    // Check limits
-    if (!isCurrentlySelected && selectedIndustries.size >= MAX_INDUSTRIES) {
+    // Check limits using dynamic plan data
+    if (!isCurrentlySelected && !planData.canAddMore) {
+      // Show upgrade prompt for non-unlimited plans
+      if (planData.planName !== 'Unlimited') {
+        setShowUpgradePrompt(true);
+      }
       return;
     }
 
@@ -180,7 +194,8 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
   }
 
   return (
-    <div className="w-full h-full bg-[#1F2937] flex flex-col relative overflow-hidden transition-opacity duration-200">
+    <>
+      <div className="w-full h-full bg-[#1F2937] flex flex-col relative overflow-hidden transition-opacity duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#374151]">
           <div className="flex items-center gap-3">
@@ -212,14 +227,36 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
         {/* Info Section */}
         <div className="px-6 py-4 bg-[#1a1a1a] border-b border-[#374151]">
           <div className="flex items-start gap-3">
-            <Info className="h-4 w-4 text-[#EAB308] mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="text-gray-300 mb-1">
-                Select up to {MAX_INDUSTRIES} industries that match your business.
-              </p>
+            {planData?.planName === 'Unlimited' ? (
+              <Crown className="h-4 w-4 text-[#F59E0B] mt-0.5 flex-shrink-0" />
+            ) : (
+              <Info className="h-4 w-4 text-[#EAB308] mt-0.5 flex-shrink-0" />
+            )}
+            <div className="text-sm flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-gray-300">
+                  {planData?.planName === 'Unlimited' 
+                    ? 'Select unlimited industries with your plan'
+                    : `Select up to ${planData?.industryLimit || 5} industries that match your business`
+                  }
+                </p>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  planData?.planName === 'Unlimited' 
+                    ? 'bg-[#F59E0B]/10 text-[#F59E0B]' 
+                    : 'bg-[#3B82F6]/10 text-[#3B82F6]'
+                }`}>
+                  {planData?.planName || 'Free'} Plan
+                </span>
+              </div>
               <p className="text-gray-400 text-xs">
-                {selectedIndustries.size}/{MAX_INDUSTRIES} industries selected
+                {planData?.currentCount || selectedIndustries.size}/
+                {planData?.industryLimit === null ? '∞' : planData?.industryLimit || 5} industries selected
               </p>
+              {planData?.planName !== 'Unlimited' && !planData?.canAddMore && (
+                <p className="text-amber-400 text-xs mt-1">
+                  Industry limit reached. Upgrade to add more industries.
+                </p>
+              )}
             </div>
           </div>
         </div>
@@ -247,7 +284,7 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
                 filteredIndustries.map((industry) => {
                   const isSelected = selectedIndustries.has(industry.id);
                   const isPrimary = industry.id === primaryIndustryId;
-                  const canSelect = isSelected || selectedIndustries.size < MAX_INDUSTRIES;
+                  const canSelect = isSelected || (planData?.canAddMore ?? false);
 
                   return (
                     <div
@@ -333,5 +370,16 @@ export const IndustryManagementDrawer: React.FC<IndustryManagementDrawerProps> =
           </div>
         </div>
       </div>
+      
+      <UpgradePromptModal
+        isOpen={showUpgradePrompt}
+        onClose={() => setShowUpgradePrompt(false)}
+        currentPlan={planData?.planName}
+        currentLimit={planData?.industryLimit || 5}
+        onUpgrade={() => {
+          window.location.href = '/settings/billing';
+        }}
+      />
+    </>
   );
 }; 

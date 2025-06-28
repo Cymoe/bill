@@ -133,16 +133,16 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="p-4 space-y-4">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="p-3 space-y-3">
       {/* Error Alert */}
       {submitError && (
-        <div className="bg-red-500/10 border border-red-500 rounded-[4px] p-3 mb-4">
-          <p className="text-sm text-red-400">{submitError}</p>
+        <div className="bg-red-500/10 border border-red-500 rounded p-2.5 mb-3">
+          <p className="text-xs text-red-400">{submitError}</p>
         </div>
       )}
       
       <div>
-        <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">
+        <label htmlFor="name" className="block text-xs font-medium text-gray-400 mb-1">
           Name
         </label>
         <input
@@ -159,16 +159,16 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
           })}
           type="text"
           id="name"
-          className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+          className="w-full px-2.5 py-1.5 bg-[#333333] border border-[#555555] rounded text-sm text-white focus:border-[#0D47A1] focus:outline-none focus:ring-1 focus:ring-[#0D47A1]/40"
           placeholder="Enter name"
         />
         {errors.name && (
-          <p className="mt-1 text-sm text-[#D32F2F]">{errors.name.message as string}</p>
+          <p className="mt-1 text-xs text-[#D32F2F]">{errors.name.message as string}</p>
         )}
       </div>
 
       <div>
-        <label htmlFor="code" className="block text-sm font-medium text-gray-300 mb-1">
+        <label htmlFor="code" className="block text-xs font-medium text-gray-400 mb-1">
           Code
         </label>
         <div className="relative">
@@ -186,7 +186,7 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
             })}
             type="text"
             id="code"
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40 font-mono pr-8"
+            className="w-full px-2.5 py-1.5 bg-[#333333] border border-[#555555] rounded text-sm text-white focus:border-[#0D47A1] focus:outline-none focus:ring-1 focus:ring-[#0D47A1]/40 font-mono pr-8"
             placeholder="Enter code (max 10 characters)"
             maxLength={10}
           />
@@ -197,32 +197,32 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
           )}
         </div>
         {errors.code && (
-          <p className="mt-1 text-sm text-[#D32F2F]">{errors.code.message as string}</p>
+          <p className="mt-1 text-xs text-[#D32F2F]">{errors.code.message as string}</p>
         )}
       </div>
 
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-1">
+        <label htmlFor="description" className="block text-xs font-medium text-gray-400 mb-1">
           Description
         </label>
         <textarea
           {...register('description')}
           id="description"
-          rows={3}
-          className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40 resize-none"
+          rows={2}
+          className="w-full px-2.5 py-1.5 bg-[#333333] border border-[#555555] rounded text-sm text-white focus:border-[#0D47A1] focus:outline-none focus:ring-1 focus:ring-[#0D47A1]/40 resize-none"
           placeholder="Enter description (optional)"
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1">
+          <label htmlFor="category" className="block text-xs font-medium text-gray-400 mb-1">
             Category
           </label>
           <select
             {...register('category', { required: 'Category is required' })}
             id="category"
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-2.5 py-1.5 bg-[#333333] border border-[#555555] rounded text-sm text-white focus:border-[#0D47A1] focus:outline-none focus:ring-1 focus:ring-[#0D47A1]/40"
           >
             {CATEGORY_OPTIONS.map(option => (
               <option key={option.value} value={option.value} className="bg-[#333333] text-white">
@@ -231,18 +231,18 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
             ))}
           </select>
           {errors.category && (
-            <p className="mt-1 text-sm text-[#D32F2F]">{errors.category.message as string}</p>
+            <p className="mt-1 text-xs text-[#D32F2F]">{errors.category.message as string}</p>
           )}
         </div>
 
         <div>
-          <label htmlFor="industry_id" className="block text-sm font-medium text-gray-300 mb-1">
+          <label htmlFor="industry_id" className="block text-xs font-medium text-gray-400 mb-1">
             Industry
           </label>
           <select
             {...register('industry_id', { required: 'Industry is required' })}
             id="industry_id"
-            className="w-full px-3 py-2 bg-[#333333] border border-[#555555] rounded-[4px] text-white focus:border-[#0D47A1] focus:outline-none focus:ring-2 focus:ring-[#0D47A1]/40"
+            className="w-full px-2.5 py-1.5 bg-[#333333] border border-[#555555] rounded text-sm text-white focus:border-[#0D47A1] focus:outline-none focus:ring-1 focus:ring-[#0D47A1]/40"
           >
             <option value="" className="bg-[#333333] text-gray-400">Select Industry</option>
             {industries.map(industry => (
@@ -256,23 +256,23 @@ export const CostCodeForm: React.FC<CostCodeFormProps> = ({
             ))}
           </select>
           {errors.industry_id && (
-            <p className="mt-1 text-sm text-[#D32F2F]">{errors.industry_id.message as string}</p>
+            <p className="mt-1 text-xs text-[#D32F2F]">{errors.industry_id.message as string}</p>
           )}
         </div>
       </div>
 
-      <div className="flex gap-4 pt-4">
+      <div className="flex gap-3 pt-3">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-2 border border-[#336699]/40 rounded-[4px] text-white hover:bg-[#333333] transition-colors"
+          className="flex-1 px-3 py-1.5 border border-[#336699]/40 rounded text-sm text-white hover:bg-[#333333] transition-colors"
           disabled={isSubmitting}
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="flex-1 px-4 py-2 bg-white text-black rounded-[8px] hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-3 py-1.5 bg-white text-black rounded text-sm hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           disabled={isSubmitting || isCheckingCode}
         >
           {isSubmitting ? 'Saving...' : submitLabel}

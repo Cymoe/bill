@@ -117,10 +117,10 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
 
       setServicesByIndustry(groupedByIndustry);
       
-      // Expand all industries by default to match behavior user expects
-      setExpandedIndustries(new Set(Object.keys(groupedByIndustry)));
-      // Expand all categories by default
-      setExpandedCategories(new Set(Object.keys(grouped)));
+      // Start with all industries collapsed for cleaner initial view
+      setExpandedIndustries(new Set());
+      // Start with all categories collapsed
+      setExpandedCategories(new Set());
     } catch (error) {
       console.error('Error loading services:', error);
     } finally {
@@ -253,6 +253,16 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
     return filtered;
   };
 
+  const expandAllIndustries = () => {
+    setExpandedIndustries(new Set(Object.keys(servicesByIndustry)));
+  };
+
+  const collapseAllIndustries = () => {
+    setExpandedIndustries(new Set());
+  };
+
+  const areAllExpanded = expandedIndustries.size === Object.keys(servicesByIndustry).length;
+
   // Get unique industries with counts
   const industries = Object.entries(servicesByIndustry).map(([id, data]) => {
     const services = data.services;
@@ -273,6 +283,22 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
 
       {/* Content */}
       <div className="border-t border-[#333333]">
+        {/* Expand/Collapse All Button */}
+        {!isLoading && services.length > 0 && industries.length > 0 && (
+          <div className="px-6 py-3 bg-[#1A1A1A] border-b border-[#333333] flex items-center justify-between">
+            <div className="text-sm text-gray-400">
+              {industries.length} {industries.length === 1 ? 'industry' : 'industries'} with services
+            </div>
+            <button
+              onClick={areAllExpanded ? collapseAllIndustries : expandAllIndustries}
+              className="px-3 py-1.5 text-sm text-[#336699] hover:text-[#4477aa] hover:bg-[#252525] rounded transition-colors flex items-center gap-2"
+            >
+              <ChevronDown className={`w-4 h-4 transition-transform ${areAllExpanded ? '' : '-rotate-90'}`} />
+              {areAllExpanded ? 'Collapse All' : 'Expand All'}
+            </button>
+          </div>
+        )}
+        
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="text-gray-400">Loading services...</div>
@@ -321,9 +347,6 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
                       <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
                         {industry.name}
                       </h3>
-                      <span className="text-xs text-gray-500">
-                        {industry.serviceCount} services • {industry.optionCount} options
-                      </span>
                     </div>
                     <div className="text-sm text-gray-400 group-hover:text-gray-300">
                       {isExpanded ? 'Click to collapse' : 'Click to expand'}
@@ -435,15 +458,23 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
                             {/* Service Options - Show when expanded */}
                             {expandedServices.has(service.id) && service.options && service.options.length > 0 && (
                               <div className="mt-4 ml-4 space-y-2 border-l-2 border-[#333333] pl-4">
-                                {service.options.map((option) => (
-                                  <EnhancedServiceOptionCard
-                                    key={option.id}
-                                    option={option}
-                                    isSelected={selectedOptions.has(option.id)}
-                                    onSelect={() => selectOption(option)}
-                                    industryName={service.industry_name}
-                                  />
-                                ))}
+                                {service.options.map((option, index) => {
+                                  // Assign different layout modes to first 4 options for A/B testing
+                                  const layoutModes = ['tabs', 'collapsible', 'cards', 'columns'] as const;
+                                  const layoutMode = index < 4 ? layoutModes[index] : 'default';
+                                  
+                                  return (
+                                    <EnhancedServiceOptionCard
+                                      key={option.id}
+                                      option={option}
+                                      isSelected={selectedOptions.has(option.id)}
+                                      onSelect={() => selectOption(option)}
+                                      industryName={service.industry_name}
+                                      lineItems={option.service_option_items}
+                                      layoutMode={layoutMode}
+                                    />
+                                  );
+                                })}
                               </div>
                             )}
                           </div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Settings, Info, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Search, Settings, Info, CheckCircle, Crown } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
+import { IndustryService } from '../services/IndustryService';
 
 interface Industry {
   id: string;
@@ -159,8 +160,12 @@ export default function IndustrySettings() {
   const [loadingMessage, setLoadingMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  const MAX_INDUSTRIES = 10;
+  const [planData, setPlanData] = useState<{
+    planName: string;
+    industryLimit: number | null;
+    currentCount: number;
+    canAddMore: boolean;
+  } | null>(null);
   
   // Keyboard shortcut for search
   useEffect(() => {
@@ -195,8 +200,8 @@ export default function IndustrySettings() {
     if (!user || !selectedOrg?.id) return;
 
     try {
-      // Run all queries in parallel
-      const [industriesResult, orgResult, orgIndustriesResult] = await Promise.all([
+      // Run all queries in parallel, including plan data
+      const [industriesResult, orgResult, orgIndustriesResult, planResult] = await Promise.all([
         supabase
           .from('industries')
           .select('*')
@@ -212,7 +217,9 @@ export default function IndustrySettings() {
         supabase
           .from('organization_industries')
           .select('industry_id')
-          .eq('organization_id', selectedOrg.id)
+          .eq('organization_id', selectedOrg.id),
+        
+        IndustryService.getOrganizationPlan(selectedOrg.id)
       ]);
 
       if (industriesResult.error) throw industriesResult.error;
@@ -221,6 +228,7 @@ export default function IndustrySettings() {
 
       setIndustries(industriesResult.data || []);
       setPrimaryIndustryId(orgResult.data?.industry_id || null);
+      setPlanData(planResult);
       
       const selected = new Set(orgIndustriesResult.data?.map(oi => oi.industry_id) || []);
       if (orgResult.data?.industry_id) {
@@ -432,12 +440,17 @@ export default function IndustrySettings() {
                 </button>
               </div>
               <div className="flex flex-col items-end">
-                <div className="text-sm text-gray-400">
-                  {selectedIndustries.size} of {industries.length} selected
+                <div className="flex items-center gap-2">
+                  {planData?.planName === 'Unlimited' && (
+                    <Crown className="w-4 h-4 text-[#F59E0B]" />
+                  )}
+                  <div className="text-sm text-gray-400">
+                    {selectedIndustries.size} of {planData?.industryLimit === null ? '∞' : planData?.industryLimit || 5} selected
+                  </div>
                 </div>
-                {selectedIndustries.size >= MAX_INDUSTRIES && (
+                {planData && !planData.canAddMore && planData.planName !== 'Unlimited' && (
                   <div className="text-xs text-amber-500 mt-1">
-                    Maximum {MAX_INDUSTRIES} industries reached
+                    Maximum {planData.industryLimit} industries reached
                   </div>
                 )}
               </div>
@@ -521,7 +534,7 @@ export default function IndustrySettings() {
                     } ${
                       isSelected && !isPrimary ? 'bg-[#1a1a1a] border-l-2 border-l-[#3B82F6]' : ''
                     }`}
-                    onClick={() => !isPrimary && (isSelected || selectedIndustries.size < MAX_INDUSTRIES) && toggleIndustry(industry.id)}
+                    onClick={() => !isPrimary && (isSelected || planData?.canAddMore) && toggleIndustry(industry.id)}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -532,7 +545,7 @@ export default function IndustrySettings() {
                           } transition-all duration-200 hover:scale-110 hover:shadow-lg`}
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (!isPrimary && (isSelected || selectedIndustries.size < MAX_INDUSTRIES)) {
+                            if (!isPrimary && (isSelected || planData?.canAddMore)) {
                               toggleIndustry(industry.id);
                             }
                           }}
@@ -569,7 +582,7 @@ export default function IndustrySettings() {
                       </div>
                     </div>
                     {/* Selection disabled indicator */}
-                    {selectedIndustries.size >= MAX_INDUSTRIES && !isSelected && !isPrimary && (
+                    {planData && !planData.canAddMore && !isSelected && !isPrimary && (
                       <div className="absolute inset-0 bg-[#0A0A0A] bg-opacity-50 flex items-center justify-center pointer-events-none">
                         <span className="text-sm text-gray-400">Maximum industries selected</span>
                       </div>

@@ -16,6 +16,20 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
   isChatOpen,
   title = 'Dashboard'
 }) => {
+  const [isEstimateCartOpen, setIsEstimateCartOpen] = React.useState(false);
+
+  // Listen for estimate cart toggle events
+  React.useEffect(() => {
+    const handleCartToggle = (event: CustomEvent) => {
+      setIsEstimateCartOpen(event.detail.isOpen);
+    };
+
+    window.addEventListener('estimateCartToggle', handleCartToggle as EventListener);
+    return () => {
+      window.removeEventListener('estimateCartToggle', handleCartToggle as EventListener);
+    };
+  }, []);
+
   return (
     <div className="md:hidden fixed top-0 left-0 right-0 bg-[#121212] border-b border-[#333333] z-[9997]">
       <div className="flex items-center justify-between px-4 py-3">
@@ -32,13 +46,15 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-          {/* Create Button */}
-          <button
-            onClick={onCreateClick}
-            className="p-2 bg-[#F9D71C] hover:bg-[#e9c91c] rounded-[4px] transition-colors"
-          >
-            <Plus className="h-4 w-4 text-[#121212]" />
-          </button>
+          {/* Create Button - Hide when EstimateCart is open */}
+          {!isEstimateCartOpen && (
+            <button
+              onClick={onCreateClick}
+              className="p-2 bg-[#F9D71C] hover:bg-[#e9c91c] rounded-[4px] transition-colors"
+            >
+              <Plus className="h-4 w-4 text-[#121212]" />
+            </button>
+          )}
 
           {/* Chat Button */}
           <button

@@ -16,6 +16,7 @@ interface Client {
   user_id: string;
   organization_id: string;
   created_at: string;
+  discount_percentage?: number;
 }
 
 interface EditClientDrawerProps {
@@ -39,7 +40,8 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
     address: '',
     city: '',
     state: '',
-    zip: ''
+    zip: '',
+    discount_percentage: 0
   });
   const [isSaving, setIsSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -56,7 +58,8 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
         address: client.address || '',
         city: client.city || '',
         state: client.state || '',
-        zip: client.zip || ''
+        zip: client.zip || '',
+        discount_percentage: client.discount_percentage || 0
       });
     }
   }, [client]);
@@ -341,6 +344,43 @@ export const EditClientDrawer: React.FC<EditClientDrawerProps> = ({
                       placeholder="12345"
                     />
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pricing Information */}
+            <div className="space-y-4">
+              <div className="border-b border-[#1a1a1a] pb-3">
+                <h3 className="text-sm font-medium text-gray-300 uppercase tracking-wider flex items-center gap-2">
+                  <Building className="w-4 h-4" />
+                  Pricing Settings
+                </h3>
+              </div>
+              
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Default Discount %
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={formData.discount_percentage}
+                      onChange={(e) => {
+                        const value = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        setFormData({ ...formData, discount_percentage: value });
+                      }}
+                      className="w-full h-11 px-4 pr-12 bg-[#0f0f0f] border border-[#2a2a2a] rounded-xl text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500/20 transition-all duration-200 font-mono"
+                      min="0"
+                      max="100"
+                      step="0.5"
+                      placeholder="0"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400">%</span>
+                  </div>
+                  <p className="mt-2 text-xs text-gray-400">
+                    This discount will automatically apply to all estimates for this client
+                  </p>
                 </div>
               </div>
             </div>

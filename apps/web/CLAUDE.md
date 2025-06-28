@@ -20,6 +20,28 @@ Project Repository: https://github.com/Cymoe/bill
 - **Database seeding**: `npm run seed`
 - **Watch docs changes**: `npm run watch-docs`
 
+## IMPORTANT: Before Creating New Components
+
+**ALWAYS check for existing components/structures before creating new ones:**
+
+1. **Search for existing components**: Use `Grep` or `Glob` to search for similar component names
+   - Example: Before creating `LineItemForm`, search for `LineItem.*Form|LineItem.*Modal`
+   - Check variations: `CreateLineItem`, `AddLineItem`, `NewLineItem`, etc.
+
+2. **Check component directories**:
+   - `/src/components/modals/` - for modal components
+   - `/src/components/common/` - for reusable components
+   - `/src/components/[feature]/` - for feature-specific components
+
+3. **Review existing patterns**:
+   - Modal components often exist in `/src/components/modals/`
+   - Form components might be in feature folders or `/src/components/forms/`
+   - Drawers typically follow the pattern `Create[Entity]Drawer` or `Edit[Entity]Drawer`
+
+4. **Check the PriceBook and other main pages** - they often already have the forms/modals you need
+
+This prevents code duplication, maintains consistency, and keeps the codebase clean.
+
 ## Architecture Overview
 
 This is a construction/invoicing SaaS application built with React, TypeScript, Vite, and Supabase.
@@ -293,6 +315,51 @@ The service options system implements a sophisticated shared-to-custom pricing m
 - **Copy-to-customize** workflow infrastructure  
 - **Pricing snapshot** system for quote accuracy
 - **Advanced filtering** by industry-specific attributes
+
+## Service Packages System
+
+### Overview
+The service packages system provides pre-configured bundles of services organized by industry and complexity level. This allows contractors to quickly create estimates using industry-standard packages while maintaining flexibility.
+
+### Architecture
+**Three-tier hierarchy**:
+1. **Service Packages** - Curated bundles (e.g., "Bedroom Drywall Complete", "Bathroom Remodel Starter")
+2. **Service Templates** - Individual services that make up packages (e.g., "Drywall Installation", "Texture Application")  
+3. **Line Items** - Atomic units with specific pricing (e.g., "5/8\" Drywall Sheet $12.50/sheet")
+
+### Key Features
+- **Atomic Service Units**: Services maintain integrity - no editing individual components within estimates
+- **Expandable Views**: Transparency without editability - users can see what's included
+- **Smart Cart System**: Add packages and services to cart before creating estimates
+- **Visual Distinctions**: Clear differentiation between services and regular line items
+- **Industry-Specific**: Each industry has tailored packages at Essentials, Complete, and Deluxe levels
+
+### User Interface
+**Services & Packages Page** (`/services`):
+- Tab navigation between Service Packages and Individual Services
+- Grid/list view toggle for packages
+- Real-time search and filtering by industry/level
+- Shopping cart with quantity management
+- Empty cart functionality
+
+**Estimate Creation**:
+- Services appear as single line items with expandable details
+- Blue "Service Package" badges for visual identification  
+- Item count indicators (e.g., "4 items")
+- Read-only expansion to view included line items
+- Maintains service integrity - no component editing
+
+### Implementation Details
+- **Component**: `ServicesPackages.tsx` - Main page component
+- **Cart**: `EstimateCart.tsx` - Shopping cart sidebar
+- **Integration**: `CreateEstimateDrawer.tsx` - Handles service display in estimates
+- **Service**: `ServiceCatalogService.ts` - API layer for packages/templates
+
+### Database Structure
+- `service_packages` - Package definitions with industry, level, pricing
+- `service_package_templates` - Links packages to service templates
+- `service_options` - Individual service templates
+- `service_option_items` - Line items within each service template
 
 ## Development Roadmap
 

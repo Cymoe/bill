@@ -81,3 +81,31 @@ table.condensed .badge-type {
   font-size: 20px;
   margin-right: 6px;
 }
+
+/* Price update animation */
+@keyframes priceUpdate {
+  0% {
+    background-color: transparent;
+  }
+  15% {
+    background-color: #336699;
+    transform: scale(1.05);
+  }
+  30% {
+    background-color: #4477aa;
+    transform: scale(1.02);
+  }
+  100% {
+    background-color: transparent;
+    transform: scale(1);
+  }
+}
+
+.price-updated {
+  animation: priceUpdate 1.5s ease-out;
+  position: relative;
+  z-index: 1;
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -2px -4px;
+}

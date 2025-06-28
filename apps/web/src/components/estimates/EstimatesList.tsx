@@ -185,6 +185,7 @@ export const EstimatesList: React.FC<EstimatesListProps> = ({ onCreateEstimate, 
     }
   };
 
+
   const filteredEstimates = estimates.filter(estimate => {
     // Advanced search filter
     let matchesSearch = true;

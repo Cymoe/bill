@@ -8,14 +8,14 @@ interface ProjectCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: (projectId: string) => void;
-  workPack: {
+  servicePackage: {
     id: string;
     name: string;
-    description: string;
+    description?: string;
     base_price: number;
-    category?: { name: string };
-    tasks?: any[];
-    expenses?: any[];
+    level?: 'essentials' | 'complete' | 'deluxe';
+    duration_hours?: number;
+    includes_warranty?: boolean;
     items?: any[];
   };
 }
@@ -24,19 +24,19 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
-  workPack
+  servicePackage
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    name: `${workPack.name} Project`,
-    description: workPack.description || '',
+    name: `${servicePackage.name} Project`,
+    description: servicePackage.description || '',
     client_id: '',
     location: '',
     start_date: '',
     end_date: '',
-    budget: workPack.base_price,
+    budget: servicePackage.base_price,
     status: 'planning' as 'planning' | 'active' | 'completed' | 'on-hold'
   });
 
@@ -88,7 +88,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
           end_date: formData.end_date,
           budget: formData.budget,
           status: formData.status,
-          work_pack_template_id: workPack.id,
+          work_pack_template_id: servicePackage.id,
           user_id: user?.id
         })
         .select()
@@ -97,8 +97,8 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
       if (projectError) throw projectError;
 
       // Copy tasks from template
-      if (workPack.tasks && workPack.tasks.length > 0) {
-        const projectTasks = workPack.tasks.map(task => ({
+      if (servicePackage.tasks && servicePackage.tasks.length > 0) {
+        const projectTasks = servicePackage.tasks.map(task => ({
           title: task.title,
           description: task.description,
           estimated_hours: task.estimated_hours,
@@ -119,46 +119,9 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
         }
       }
 
-      // Copy expenses from template
-      if (workPack.expenses && workPack.expenses.length > 0) {
-        const projectExpenses = workPack.expenses.map(expense => ({
-          description: expense.description,
-          amount: expense.amount,
-          category: expense.category,
-          vendor: expense.vendor,
-          cost_code_id: expense.cost_code_id,
-          project_id: project.id,
-          user_id: user?.id,
-          status: 'estimated' // Mark as estimated since they're from template
-        }));
 
-        const { error: expensesError } = await supabase
-          .from('expenses')
-          .insert(projectExpenses);
-
-        if (expensesError) {
-          console.error('Error copying expenses:', expensesError);
-        }
-      }
-
-      // Copy products/items from template
-      if (workPack.items && workPack.items.length > 0) {
-        const projectItems = workPack.items.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: item.price,
-          project_id: project.id,
-          user_id: user?.id
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('project_items')
-          .insert(projectItems);
-
-        if (itemsError) {
-          console.error('Error copying project items:', itemsError);
-        }
-      }
+      // TODO: Copy service package items when service_package_items table is available
+      // This will include loading the service options and line items
 
       // Call success callback or navigate
       if (onSuccess) {
@@ -191,7 +154,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
           <div>
             <h2 className="text-lg font-semibold text-white">Create Project from Template</h2>
             <p className="text-sm text-gray-400 mt-1">
-              Using template: <span className="text-[#F9D71C]">{workPack.name}</span>
+              Using template: <span className="text-[#F9D71C]">{servicePackage.name}</span>
             </p>
           </div>
           <button
@@ -209,19 +172,19 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div className="bg-[#111827]/50 rounded-[4px] p-3">
-              <div className="text-lg font-bold text-white">{workPack.tasks?.length || 0}</div>
-              <div className="text-xs text-gray-400">Tasks</div>
+              <div className="text-lg font-bold text-white capitalize">{servicePackage.level || 'Standard'}</div>
+              <div className="text-xs text-gray-400">Level</div>
             </div>
             <div className="bg-[#111827]/50 rounded-[4px] p-3">
-              <div className="text-lg font-bold text-white">{workPack.expenses?.length || 0}</div>
-              <div className="text-xs text-gray-400">Expenses</div>
+              <div className="text-lg font-bold text-white">{servicePackage.duration_hours || 0}h</div>
+              <div className="text-xs text-gray-400">Duration</div>
             </div>
             <div className="bg-[#111827]/50 rounded-[4px] p-3">
-              <div className="text-lg font-bold text-white">{workPack.items?.length || 0}</div>
-              <div className="text-xs text-gray-400">Products</div>
+              <div className="text-lg font-bold text-white">{servicePackage.includes_warranty ? 'Yes' : 'No'}</div>
+              <div className="text-xs text-gray-400">Warranty</div>
             </div>
             <div className="bg-[#111827]/50 rounded-[4px] p-3">
-              <div className="text-lg font-bold text-[#F9D71C]">{formatCurrency(workPack.base_price)}</div>
+              <div className="text-lg font-bold text-[#F9D71C]">{formatCurrency(servicePackage.base_price)}</div>
               <div className="text-xs text-gray-400">Base Price</div>
             </div>
           </div>
@@ -317,7 +280,7 @@ export const ProjectCreationModal: React.FC<ProjectCreationModalProps> = ({
               className="w-full bg-[#111827]/50 border border-gray-700 rounded-[4px] px-3 py-2 text-white focus:outline-none focus:border-[#336699]"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Based on template base price: {formatCurrency(workPack.base_price)}
+              Based on template base price: {formatCurrency(servicePackage.base_price)}
             </p>
           </div>
 

@@ -3,9 +3,10 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
-import { Search, Plus, Minus, X, Save, FileText, Package, ArrowRight, CheckCircle, Check } from 'lucide-react';
+import { Search, Plus, Minus, X, Save, FileText, Package, ArrowRight, CheckCircle, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import { getCollectionLabel } from '../../constants/collections';
 import { EstimateService } from '../../services/EstimateService';
+import { ServiceCatalogService } from '../../services/ServiceCatalogService';
 
 interface EstimateItem {
   product_id: string;
@@ -14,6 +15,10 @@ interface EstimateItem {
   price: number;
   description?: string;
   unit?: string;
+  is_service?: boolean;
+  service_items?: any[];
+  line_item_count?: number;
+  service_data?: any;
 }
 
 interface Template {
@@ -55,6 +60,7 @@ interface Client {
   email?: string;
   phone?: string;
   address?: string;
+  discount_percentage?: number;
 }
 
 interface Trade {
@@ -81,6 +87,12 @@ interface EstimateFormData {
   title?: string;
   terms?: string;
   notes?: string;
+  subtotal?: number;
+  discount_percentage?: number;
+  discount_amount?: number;
+  additional_discount_percentage?: number;
+  additional_discount_amount?: number;
+  discount_reason?: string;
 }
 
 interface CreateEstimateDrawerProps {
@@ -94,6 +106,7 @@ interface CreateEstimateDrawerProps {
     projectName: string;
     projectBudget: number;
   };
+  preloadedItems?: EstimateItem[]; // Pre-populated items from cart
 }
 
 export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
@@ -101,13 +114,14 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
   onClose,
   onSave,
   editingEstimate,
-  projectContext
+  projectContext,
+  preloadedItems
 }) => {
   const { user } = useAuth();
   const { selectedOrg } = useContext(OrganizationContext);
   const [sourceType, setSourceType] = useState<'scratch' | 'template' | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'products' | 'lineItems'>('products');
+  const [activeTab, setActiveTab] = useState<'services' | 'lineItems'>('services');
   const [activeType, setActiveType] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -128,14 +142,19 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
   // Validity period in days
   const [validityDays, setValidityDays] = useState(30);
   
+  // Estimate-level discount
+  const [additionalDiscount, setAdditionalDiscount] = useState(0);
+  const [discountReason, setDiscountReason] = useState('');
+  
   // Data
   const [clients, setClients] = useState<Client[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [services, setServices] = useState<any[]>([]);
   const [lineItems, setLineItems] = useState<Product[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
   const [addedTemplateId, setAddedTemplateId] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     console.log('CreateEstimateDrawer useEffect triggered:', {
@@ -170,6 +189,8 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       setValidUntil(editingEstimate.valid_until ? editingEstimate.valid_until.split('T')[0] : '');
       setTerms(editingEstimate.terms || '');
       setNotes(editingEstimate.notes || '');
+      setAdditionalDiscount(editingEstimate.additional_discount_percentage || 0);
+      setDiscountReason(editingEstimate.discount_reason || '');
       
       // Load estimate items
       loadEstimateItems();
@@ -193,6 +214,28 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       setSourceType('scratch');
     }
   }, [isOpen, projectContext, editingEstimate]);
+
+  // Handle preloaded items from cart
+  useEffect(() => {
+    if (isOpen && preloadedItems && preloadedItems.length > 0 && !editingEstimate) {
+      console.log('Loading preloaded items:', preloadedItems);
+      // Process preloaded items to ensure service packages have the correct metadata
+      const processedItems = preloadedItems.map(item => {
+        if (item.service_data && item.service_data.service_option_items) {
+          // This is a service package
+          return {
+            ...item,
+            is_service: true,
+            service_items: item.service_data.service_option_items,
+            line_item_count: item.service_data.service_option_items?.length || 0
+          };
+        }
+        return item;
+      });
+      setSelectedItems(processedItems);
+      setSourceType('scratch'); // Use scratch mode when we have preloaded items
+    }
+  }, [isOpen, preloadedItems, editingEstimate]);
 
   // Load project category when project context is provided
   useEffect(() => {
@@ -293,20 +336,10 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       const queries = [
         supabase.from('clients').select('*').eq('organization_id', orgId),
         supabase.from('projects').select('*').eq('organization_id', orgId).order('name'),
-        // Get all products with their line items
-        supabase.from('products')
-          .select(`
-            *,
-            items:product_line_items!product_line_items_product_id_fkey(
-              *,
-              line_item:products!product_line_items_line_item_id_fkey(*)
-            )
-          `)
-          .eq('organization_id', orgId),
-        // Get all products to show as individual line items
-        supabase.from('products')
-          .select('*')
-          .eq('organization_id', orgId),
+        // Get all line items (both org-specific and shared)
+        supabase.from('line_items')
+          .select('*, cost_code:cost_codes(code, name, category)')
+          .or(`organization_id.eq.${orgId},organization_id.is.null`),
         supabase.from('trades')
           .select('id, name')
           .order('name')
@@ -324,19 +357,33 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       }
       
       // Execute all queries
-      const [clientsRes, projectsRes, productsRes, lineItemsRes, tradesRes] = await Promise.all(queries);
+      const [clientsRes, projectsRes, lineItemsRes, tradesRes] = await Promise.all(queries);
       const templatesRes = await templateQuery;
 
       if (clientsRes.error) throw clientsRes.error;
       if (projectsRes.error) throw projectsRes.error;
-      if (productsRes.error) throw productsRes.error;
       if (lineItemsRes.error) throw lineItemsRes.error;
       if (tradesRes.error) console.error('Trades error:', tradesRes.error);
       if (templatesRes.error) console.error('Templates error:', templatesRes.error);
       
-      // For now, show all products in both tabs
-      const allProducts = productsRes.data || [];
-      const allLineItems = lineItemsRes.data || [];
+      // Load service templates using ServiceCatalogService
+      let servicesData: any[] = [];
+      try {
+        servicesData = await ServiceCatalogService.listTemplates(orgId);
+        console.log('Loaded services:', servicesData.length);
+      } catch (error) {
+        console.error('Error loading services:', error);
+      }
+      
+      // Process line items - convert to Product format for compatibility
+      const allLineItems = (lineItemsRes.data || []).map((item: any) => ({
+        ...item,
+        price: item.base_price || 0,
+        unit: item.unit || 'ea',
+        trade_id: item.trade_id || null,
+        // Add category from cost code
+        type: item.cost_code?.category || 'material'
+      }));
       
       // Process templates and fetch their items separately
       let processedTemplates: Template[] = [];
@@ -370,7 +417,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       
       setClients(clientsRes.data || []);
       setProjects(projectsRes.data as Project[] || []);
-      setProducts(allProducts as Product[]);
+      setServices(servicesData);
       setLineItems(allLineItems as Product[]);
       setTemplates(processedTemplates);
       setTrades(tradesRes.data || []);
@@ -381,7 +428,8 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
         clients: clientsRes.data?.length || 0,
         projects: projectsRes.data?.length || 0,
         projectsData: projectsRes.data,
-        products: allProducts.length,
+        services: servicesData.length,
+        lineItems: allLineItems.length,
         templates: processedTemplates.length
       });
     } catch (error) {
@@ -415,32 +463,20 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     }
   };
 
-  const addProduct = (product: Product) => {
-    if (product.items && product.items.length > 0) {
-      // Add all items from the product bundle
-      const newItems = product.items.map((item: any) => {
-        const lineItem = item.line_item || {};
-        return {
-          product_id: lineItem.id || item.line_item_id,
-          product_name: lineItem.name || 'Unknown Item',
-          quantity: item.quantity || 1,
-          price: item.price || lineItem.price || 0,
-          unit: item.unit || lineItem.unit || 'ea',
-          description: lineItem.description || item.description
-        };
-      });
-      setSelectedItems([...selectedItems, ...newItems]);
-    } else {
-      // Single product
-      setSelectedItems([...selectedItems, {
-        product_id: product.id,
-        product_name: product.name,
-        quantity: 1,
-        price: product.price,
-        unit: product.unit,
-        description: product.description
-      }]);
-    }
+  const addService = (service: any) => {
+    // Add service as a single item with metadata about line items
+    setSelectedItems([...selectedItems, {
+      product_id: service.id,
+      product_name: service.name,
+      quantity: 1,
+      price: service.price || 0,
+      unit: service.unit || 'ea',
+      description: service.service_name || service.description || '',
+      // Store line items for display purposes
+      is_service: true,
+      service_items: service.service_option_items,
+      line_item_count: service.service_option_items?.length || 0
+    }]);
   };
 
   const addLineItem = (item: Product) => {
@@ -465,8 +501,48 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     setSelectedItems(updated);
   };
 
-  const calculateTotal = () => {
+  const toggleItemExpanded = (index: number) => {
+    const newExpanded = new Set(expandedItems);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedItems(newExpanded);
+  };
+
+  const calculateSubtotal = () => {
     return selectedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  };
+
+  const getClientDiscount = () => {
+    if (!selectedClient) return 0;
+    const client = clients.find(c => c.id === selectedClient);
+    return client?.discount_percentage || 0;
+  };
+
+  const calculateCustomerDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const discountPercentage = getClientDiscount();
+    return subtotal * (discountPercentage / 100);
+  };
+
+  const calculateAdditionalDiscount = () => {
+    const subtotal = calculateSubtotal();
+    const customerDiscount = calculateCustomerDiscount();
+    // Apply additional discount to the already discounted amount
+    const afterCustomerDiscount = subtotal - customerDiscount;
+    return afterCustomerDiscount * (additionalDiscount / 100);
+  };
+
+  const calculateTotalDiscount = () => {
+    return calculateCustomerDiscount() + calculateAdditionalDiscount();
+  };
+
+  const calculateTotal = () => {
+    const subtotal = calculateSubtotal();
+    const totalDiscount = calculateTotalDiscount();
+    return subtotal - totalDiscount;
   };
 
   const handleSave = async () => {
@@ -501,7 +577,14 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       status: 'draft',
       issue_date: issueDate,
       terms: terms,
-      notes: notes
+      notes: notes,
+      // Include discount information
+      subtotal: calculateSubtotal(),
+      discount_percentage: getClientDiscount(),
+      discount_amount: calculateCustomerDiscount(),
+      additional_discount_percentage: additionalDiscount,
+      additional_discount_amount: calculateAdditionalDiscount(),
+      discount_reason: discountReason
     };
 
     // Enhanced data with estimate number
@@ -538,21 +621,24 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     setValidUntil('');
     setSelectedItems([]);
     setSearchTerm('');
-    setActiveTab('products');
+    setActiveTab('services');
     setActiveType('all');
     setAddedTemplateId(null);
     setEstimateNumber('');
     setTerms('');
     setNotes('');
     setValidityDays(30);
+    setAdditionalDiscount(0);
+    setDiscountReason('');
     
     onClose();
   };
 
   // Filter logic
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredServices = services.filter(service => 
+    service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    service.service_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    service.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const filteredLineItems = lineItems.filter(item => {
@@ -567,32 +653,32 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     template.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Group products by collection
-  const groupedProducts = filteredProducts.reduce((groups, product) => {
-    const collectionLabel = product.category ? getCollectionLabel(product.category) : 'Uncategorized';
-    if (!groups[collectionLabel]) {
-      groups[collectionLabel] = [];
+  // Group services by industry
+  const groupedServices = filteredServices.reduce((groups: any, service: any) => {
+    const industryName = service.industry_name || 'Uncategorized';
+    if (!groups[industryName]) {
+      groups[industryName] = [];
     }
-    groups[collectionLabel].push(product);
+    groups[industryName].push(service);
     return groups;
-  }, {} as Record<string, Product[]>);
+  }, {} as Record<string, any[]>);
 
-  // Sort collection names alphabetically
-  const sortedCollectionNames = Object.keys(groupedProducts).sort();
+  // Sort industry names alphabetically
+  const sortedIndustryNames = Object.keys(groupedServices).sort();
 
-  // Group line items by trade
+  // Group line items by category (from cost code)
   const groupedLineItems = filteredLineItems.reduce((groups, item) => {
-    const trade = trades.find(t => t.id === item.trade_id);
-    const tradeName = trade?.name || 'Unassigned';
-    if (!groups[tradeName]) {
-      groups[tradeName] = [];
+    const category = item.type || 'Other';
+    const categoryName = category.charAt(0).toUpperCase() + category.slice(1);
+    if (!groups[categoryName]) {
+      groups[categoryName] = [];
     }
-    groups[tradeName].push(item);
+    groups[categoryName].push(item);
     return groups;
   }, {} as Record<string, Product[]>);
 
-  // Sort trade names alphabetically
-  const sortedTradeNames = Object.keys(groupedLineItems).sort();
+  // Sort category names alphabetically
+  const sortedCategoryNames = Object.keys(groupedLineItems).sort();
 
   const types = ['all', 'material', 'labor', 'equipment', 'service', 'subcontractor'];
 
@@ -630,7 +716,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
               className="px-4 py-1.5 bg-[#336699] text-white rounded-[4px] hover:bg-[#2A5580] transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center gap-2"
             >
               <Save className="w-3 h-3" />
-              {isSaving ? (editingEstimate ? 'Updating...' : 'Creating...') : (editingEstimate ? 'Update Estimate' : 'Create Estimate')}
+              {isSaving ? (editingEstimate ? 'Updating...' : 'Creating...') : (editingEstimate ? 'Update & Send' : 'Create & Get Paid')}
             </button>
           </div>
         </div>
@@ -699,14 +785,14 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                 <div className="p-3 pt-0 pb-0">
                   <div className="flex gap-1">
                     <button
-                      onClick={() => setActiveTab('products')}
+                      onClick={() => setActiveTab('services')}
                       className={`px-3 py-1.5 text-sm font-medium rounded-[4px] transition-colors ${
-                        activeTab === 'products'
+                        activeTab === 'services'
                           ? 'bg-[#336699] text-white'
                           : 'bg-[#333333] text-gray-300 hover:bg-[#404040]'
                       }`}
                     >
-                      Products
+                      Services
                     </button>
                     <button
                       onClick={() => setActiveTab('lineItems')}
@@ -727,7 +813,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder={`Search ${activeTab === 'products' ? 'products' : 'line items'}...`}
+                      placeholder={`Search ${activeTab === 'services' ? 'services' : 'line items'}...`}
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-full pl-9 pr-3 py-1.5 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
@@ -759,52 +845,57 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                     <div className="flex items-center justify-center py-8">
                       <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#336699]"></div>
                     </div>
-                  ) : activeTab === 'products' ? (
-                    filteredProducts.length === 0 ? (
+                  ) : activeTab === 'services' ? (
+                    filteredServices.length === 0 ? (
                       <div className="text-center py-8 text-gray-400 text-sm">
-                        {searchTerm ? 'No products found' : (
+                        {searchTerm ? 'No services found' : (
                           <div>
-                            <p className="mb-2">No products available</p>
-                            <p className="text-xs">Create products in the Products section first</p>
+                            <p className="mb-2">No services available</p>
+                            <p className="text-xs">Services will appear here as they are configured</p>
                           </div>
                         )}
                       </div>
                     ) : (
                       <div>
-                        {sortedCollectionNames.map(collectionName => (
-                          <div key={collectionName}>
-                            {/* Collection Header */}
+                        {sortedIndustryNames.map(industryName => (
+                          <div key={industryName}>
+                            {/* Industry Header */}
                             <div className="sticky top-0 bg-[#336699]/20 backdrop-blur-sm border-b border-[#336699]/30 px-3 py-2 z-10">
                               <h4 className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-                                {collectionName} ({groupedProducts[collectionName].length})
+                                {industryName} ({groupedServices[industryName].length})
                               </h4>
                             </div>
                             
-                            {/* Collection Products */}
+                            {/* Industry Services */}
                             <div className="divide-y divide-[#2A2A2A]">
-                              {groupedProducts[collectionName].map(product => (
+                              {groupedServices[industryName].map((service: any) => (
                                 <div
-                                  key={product.id}
+                                  key={service.id}
                                   className="px-3 py-2 bg-[#333333] hover:bg-[#404040] cursor-pointer transition-colors group"
-                                  onClick={() => addProduct(product)}
+                                  onClick={() => addService(service)}
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-sm text-white truncate">{product.name}</div>
-                                      {product.description && (
-                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{product.description}</p>
+                                      <div className="text-sm text-white truncate">
+                                        {service.name}
+                                        {service.line_item_count > 0 && (
+                                          <span className="ml-2 text-xs text-[#336699] font-normal">
+                                            ({service.line_item_count} items)
+                                          </span>
+                                        )}
+                                      </div>
+                                      {service.service_name && (
+                                        <p className="text-xs text-[#336699] mt-0.5 truncate">{service.service_name}</p>
                                       )}
-                                      {product.items && product.items.length > 0 && (
-                                        <div className="text-xs text-[#336699] mt-0.5">
-                                          Contains {product.items.length} items
-                                        </div>
+                                      {service.description && (
+                                        <p className="text-xs text-gray-400 mt-0.5 truncate">{service.description}</p>
                                       )}
                                     </div>
                                     <div className="text-right ml-3 flex-shrink-0">
                                       <div className="font-mono text-sm text-white">
-                                        {formatCurrency(product.price)}
+                                        {formatCurrency(service.price || 0)}
                                       </div>
-                                      <div className="text-xs text-gray-400">/{product.unit}</div>
+                                      <div className="text-xs text-gray-400">/{service.unit || 'ea'}</div>
                                       <div className="text-xs text-[#336699] opacity-0 group-hover:opacity-100 transition-opacity">
                                         + Add
                                       </div>
@@ -829,18 +920,18 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                       </div>
                     ) : (
                       <div>
-                        {sortedTradeNames.map(tradeName => (
-                          <div key={tradeName}>
-                            {/* Trade Header */}
+                        {sortedCategoryNames.map(categoryName => (
+                          <div key={categoryName}>
+                            {/* Category Header */}
                             <div className="sticky top-0 bg-[#336699]/20 backdrop-blur-sm border-b border-[#336699]/30 px-3 py-2 z-10">
                               <h4 className="text-xs font-semibold text-blue-200 uppercase tracking-wider">
-                                {tradeName} ({groupedLineItems[tradeName].length})
+                                {categoryName} ({groupedLineItems[categoryName].length})
                               </h4>
                             </div>
                             
-                            {/* Trade Items */}
+                            {/* Category Items */}
                             <div className="divide-y divide-[#2A2A2A]">
-                              {groupedLineItems[tradeName].map(item => (
+                              {groupedLineItems[categoryName].map(item => (
                                 <div
                                   key={item.id}
                                   className="px-3 py-2 bg-[#333333] hover:bg-[#404040] cursor-pointer transition-colors group"
@@ -848,7 +939,12 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                                 >
                                   <div className="flex items-center justify-between">
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-sm text-white truncate">{item.name}</div>
+                                      <div className="text-sm text-white truncate">
+                                        {item.name}
+                                        {item.cost_code && (
+                                          <span className="ml-2 text-xs text-gray-500">[{item.cost_code.code}]</span>
+                                        )}
+                                      </div>
                                       {item.description && (
                                         <p className="text-xs text-gray-400 mt-0.5 truncate">{item.description}</p>
                                       )}
@@ -1001,7 +1097,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                     <option value="">Select a client</option>
                     {clients.map(client => (
                       <option key={client.id} value={client.id}>
-                        {client.name}
+                        {client.name} {client.discount_percentage && client.discount_percentage > 0 ? `(${client.discount_percentage}% discount)` : ''}
                       </option>
                     ))}
                   </select>
@@ -1061,7 +1157,7 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
               {/* Collapsible Additional Fields */}
               <details className="mt-3">
                 <summary className="cursor-pointer text-xs text-gray-400 hover:text-white transition-colors mb-2">
-                  Additional Details (Description, Terms, Notes)
+                  Additional Details (Description, Terms, Notes, Discounts)
                 </summary>
                 <div className="space-y-3 mt-2">
                   <div>
@@ -1102,6 +1198,60 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                       className="w-full px-3 py-1.5 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699] resize-none"
                     />
                   </div>
+
+                  {/* Additional Discount Section */}
+                  <div className="border-t border-[#333333] pt-3">
+                    <h4 className="text-xs font-medium text-purple-400 uppercase tracking-wide mb-2">
+                      Additional Discount
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Discount %
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={additionalDiscount}
+                            onChange={(e) => {
+                              const value = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                              setAdditionalDiscount(value);
+                            }}
+                            className="w-full px-3 py-1.5 pr-8 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699] font-mono"
+                            min="0"
+                            max="100"
+                            step="0.5"
+                            placeholder="0"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">%</span>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-400 mb-1">
+                          Reason
+                        </label>
+                        <select
+                          value={discountReason}
+                          onChange={(e) => setDiscountReason(e.target.value)}
+                          className="w-full px-3 py-1.5 bg-[#333333] border border-[#555555] rounded-[4px] text-sm text-white placeholder-gray-400 focus:outline-none focus:border-[#336699]"
+                        >
+                          <option value="">No reason</option>
+                          <option value="seasonal">Seasonal Promotion</option>
+                          <option value="volume">Volume Discount</option>
+                          <option value="referral">Referral Discount</option>
+                          <option value="first_time">First Time Customer</option>
+                          <option value="loyalty">Loyalty Discount</option>
+                          <option value="competitive">Competitive Pricing</option>
+                          <option value="other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+                    {additionalDiscount > 0 && (
+                      <p className="mt-2 text-xs text-purple-400">
+                        Additional discount of {formatCurrency(calculateAdditionalDiscount())} will be applied
+                      </p>
+                    )}
+                  </div>
                 </div>
               </details>
             </div>
@@ -1130,29 +1280,65 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3 pb-4">
-                    {selectedItems.map((item, index) => (
-                      <div key={index} className="bg-[#1E1E1E] rounded-[4px] p-3">
-                        <div className="flex items-start gap-3">
-                          {/* Product info section - better width management */}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm text-white font-medium mb-1">
-                              {item.product_name || 'Unknown Item'}
-                            </div>
-                            {item.description && (
-                              <div className="text-xs text-gray-400 mb-2 line-clamp-2">
-                                {item.description}
-                              </div>
+                    {selectedItems.map((item, index) => {
+                      const isExpanded = expandedItems.has(index);
+                      return (
+                        <div 
+                          key={index} 
+                          className={`rounded-[4px] p-3 ${
+                            item.is_service 
+                              ? 'bg-[#1A2332] border border-[#336699]/20' 
+                              : 'bg-[#1E1E1E]'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Expand/collapse button for services */}
+                            {item.is_service && item.service_items?.length > 0 && (
+                              <button
+                                onClick={() => toggleItemExpanded(index)}
+                                className="mt-0.5 p-0.5 hover:bg-[#333333] rounded transition-colors"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4 text-gray-400" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4 text-gray-400" />
+                                )}
+                              </button>
                             )}
-                            <div className="text-xs text-gray-500">
-                              {formatCurrency(item.price)} × {item.quantity} = 
-                              <span className="text-[#388E3C] font-medium ml-1">
-                                {formatCurrency(item.price * item.quantity)}
-                              </span>
+                            
+                            {/* Product info section - better width management */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                {item.is_service && (
+                                  <Package className="w-4 h-4 text-[#336699]" />
+                                )}
+                                <div className="text-sm text-white font-medium">
+                                  {item.product_name || 'Unknown Item'}
+                                  {item.is_service && item.line_item_count > 0 && (
+                                    <span className="ml-2 text-xs text-[#336699] font-normal">
+                                      ({item.line_item_count} items)
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {item.is_service && (
+                                <div className="text-xs text-[#336699] mb-1">Service Package</div>
+                              )}
+                              {item.description && (
+                                <div className="text-xs text-gray-400 mb-2 line-clamp-2">
+                                  {item.description}
+                                </div>
+                              )}
+                              <div className="text-xs text-gray-500">
+                                {formatCurrency(item.price)} × {item.quantity} = 
+                                <span className="text-[#388E3C] font-medium ml-1">
+                                  {formatCurrency(item.price * item.quantity)}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                          
-                          {/* Quantity controls - stacked vertically for space */}
-                          <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                            
+                            {/* Quantity controls - stacked vertically for space */}
+                            <div className="flex flex-col items-center gap-1 flex-shrink-0">
                             <div className="flex items-center gap-1">
                               <button
                                 onClick={() => updateItemQuantity(index, item.quantity - 1)}
@@ -1181,8 +1367,38 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                             </button>
                           </div>
                         </div>
+                          
+                        {/* Expanded content for services */}
+                        {item.is_service && item.service_items?.length > 0 && isExpanded && (
+                          <div className="mt-3 pl-7 border-l-2 border-[#336699]/20">
+                            <div className="text-xs text-gray-400 mb-2">Included items:</div>
+                            <div className="space-y-2">
+                              {item.service_items.map((serviceItem: any, idx: number) => {
+                                const lineItem = serviceItem.line_item;
+                                if (!lineItem) return null;
+                                return (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <div className="flex-1">
+                                      <span className="text-gray-300">{lineItem.name}</span>
+                                      {lineItem.cost_code && (
+                                        <span className="ml-2 text-gray-500">[{lineItem.cost_code.code}]</span>
+                                      )}
+                                    </div>
+                                    <div className="text-gray-400">
+                                      {serviceItem.quantity} × {formatCurrency(lineItem.price)} = {formatCurrency(serviceItem.quantity * lineItem.price)}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-[#333333] text-xs text-gray-500">
+                              Note: Service items cannot be edited individually
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1198,6 +1414,35 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                   )}
                 </div>
                 <div className="text-right">
+                  {/* Show subtotal and discounts if applicable */}
+                  {(getClientDiscount() > 0 || additionalDiscount > 0) && (
+                    <div className="space-y-1 mb-1">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-xs text-gray-400">Subtotal:</span>
+                        <span className="font-mono text-sm text-gray-300">{formatCurrency(calculateSubtotal())}</span>
+                      </div>
+                      {getClientDiscount() > 0 && (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-purple-400">Good Customer Discount ({getClientDiscount()}%):</span>
+                          <span className="font-mono text-sm text-purple-400">-{formatCurrency(calculateCustomerDiscount())}</span>
+                        </div>
+                      )}
+                      {additionalDiscount > 0 && (
+                        <div className="flex items-center justify-end gap-2">
+                          <span className="text-xs text-orange-400">
+                            Additional Discount ({additionalDiscount}%{discountReason ? ` - ${discountReason.replace('_', ' ')}` : ''}):
+                          </span>
+                          <span className="font-mono text-sm text-orange-400">-{formatCurrency(calculateAdditionalDiscount())}</span>
+                        </div>
+                      )}
+                      {(getClientDiscount() > 0 || additionalDiscount > 0) && (
+                        <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#333333]">
+                          <span className="text-xs text-gray-400">They're Saving:</span>
+                          <span className="font-mono text-sm text-green-400">-{formatCurrency(calculateTotalDiscount())}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="font-mono text-lg font-bold text-white">{formatCurrency(calculateTotal())}</div>
                   <div className="text-xs text-gray-400">{selectedItems.length} items</div>
                 </div>

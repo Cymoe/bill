@@ -671,20 +671,20 @@ export class EstimateService {
   }
 
   /**
-   * Create estimate from work pack
+   * Create estimate from service package
    */
-  static async createFromWorkPack(data: {
+  static async createFromServicePackage(data: {
     organization_id: string;
     user_id: string;
     client_id: string;
     project_id?: string;
     title: string;
     description?: string;
-    work_pack_id: string;
-    work_pack_items: any[];
+    service_package_id: string;
+    service_package_items: any[];
   }): Promise<Estimate> {
-    // Calculate totals from work pack items
-    const subtotal = data.work_pack_items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // Calculate totals from service package items
+    const subtotal = data.service_package_items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const tax_rate = 0; // Default, can be configured
     const tax_amount = subtotal * (tax_rate / 100);
     const total_amount = subtotal + tax_amount;
@@ -704,9 +704,9 @@ export class EstimateService {
       tax_rate,
       tax_amount,
       total_amount,
-      items: data.work_pack_items.map((item, index) => ({
-        work_pack_item_id: item.id,
-        description: item.line_item?.name || item.product?.name || item.description,
+      items: data.service_package_items.map((item, index) => ({
+        service_option_id: item.service_option_id,
+        description: item.service_option?.name || item.description,
         quantity: item.quantity,
         unit_price: item.price,
         total_price: item.price * item.quantity,

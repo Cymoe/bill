@@ -5,10 +5,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
-import { WorkPackService } from '../../services/WorkPackService';
 import { DocumentTemplateService } from '../../services/DocumentTemplateService';
 import { ActivityLogService } from '../../services/ActivityLogService';
-import { IndustryWorkPackTemplates } from '../work-packs/IndustryWorkPackTemplates';
+import { ServiceCatalogService } from '../../services/ServiceCatalogService';
 import type { Tables } from '../../lib/database';
 
 interface EnhancedProjectWizardProps {
@@ -40,14 +39,15 @@ interface ProjectType {
   industry_id: string;
 }
 
-interface WorkPack {
+interface ServicePackage {
   id: string;
   name: string;
   description?: string;
-  industry_id: string;
-  project_type_id?: string;
-  tier?: 'budget' | 'standard' | 'premium';
+  industry_id?: string;
+  level: 'essentials' | 'complete' | 'deluxe';
   base_price: number;
+  duration_hours?: number;
+  includes_warranty: boolean;
   estimated_hours: number;
   typical_duration_days: number;
   included_items?: string[];
@@ -85,7 +85,7 @@ interface Document {
 const WIZARD_STEPS: WizardStep[] = [
   { id: 1, name: 'Industry', description: 'Select your industry', icon: <Building className="w-5 h-5" /> },
   { id: 2, name: 'Project Type', description: 'Choose project category', icon: <Briefcase className="w-5 h-5" /> },
-  { id: 3, name: 'Work Pack', description: 'Choose your work pack', icon: <Package className="w-5 h-5" /> },
+  { id: 3, name: 'Service Package', description: 'Choose your service package', icon: <Package className="w-5 h-5" /> },
   { id: 4, name: 'Configuration', description: 'Products, tasks & documents', icon: <Zap className="w-5 h-5" /> },
   { id: 5, name: 'Details', description: 'Project info & timeline', icon: <FileText className="w-5 h-5" /> },
   { id: 6, name: 'Review', description: 'Confirm and create', icon: <Check className="w-5 h-5" /> }
@@ -107,8 +107,8 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
   const [selectedProjectType, setSelectedProjectType] = useState<string>('');
   
   // Step 2: Work Pack
-  const [selectedWorkPack, setSelectedWorkPack] = useState<WorkPack | null>(null);
-  const [workPackCustomizations, setWorkPackCustomizations] = useState({
+  const [selectedServicePackage, setSelectedServicePackage] = useState<ServicePackage | null>(null);
+  const [packageCustomizations, setPackageCustomizations] = useState({
     includeAllProducts: true,
     includeAllTasks: true,
     includeAllDocuments: true,
@@ -161,10 +161,10 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
       }, 0);
       
       // Apply custom markup if any
-      const markupMultiplier = 1 + (workPackCustomizations.customMarkup / 100);
+      const markupMultiplier = 1 + (packageCustomizations.customMarkup / 100);
       setProjectBudget(total * markupMultiplier);
     }
-  }, [selectedProducts, workPackCustomizations.customMarkup]);
+  }, [selectedProducts, packageCustomizations.customMarkup]);
 
   useEffect(() => {
     // Calculate estimated duration based on tasks
@@ -222,44 +222,45 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
     }
   };
 
-  const loadWorkPackConfiguration = async (workPack: any) => {
+  const loadServicePackageConfiguration = async (servicePackage: any) => {
     setIsLoading(true);
-    setLoadingMessage('Loading work pack details...');
+    setLoadingMessage('Loading service package details...');
     
     try {
       // Load full work pack data
-      const fullWorkPack = await WorkPackService.getById(workPack.id);
-      if (!fullWorkPack) return;
+      const { data: fullPackage } = await supabase
+        .from('service_packages')
+        .select('*, service_package_items(*, service_option:service_options(*))')
+        .eq('id', servicePackage.id)
+        .single();
+      if (!fullPackage) return;
       
-      // Load products from work pack
-      const products = fullWorkPack.items?.map(item => ({
-        ...item.product || item.line_item,
+      // Load service options from package
+      const products = fullPackage.service_package_items?.map(item => ({
+        ...item.service_option,
         quantity: item.quantity,
-        work_pack_price: item.price
+        package_price: item.custom_price || item.service_option?.base_price
       })) || [];
       setSelectedProducts(products);
       
       // Load tasks
-      const tasks = fullWorkPack.tasks || [];
+      const tasks = [];
       setSelectedTasks(tasks);
       
       // Load document templates
-      const { data: workPackDocs } = await supabase
-        .from('work_pack_document_templates')
-        .select('*, document_template:document_templates(*)')
-        .eq('work_pack_id', workPack.id);
+      // Document templates will be added later for service packages
+      const documents = [];
       
-      const documents = workPackDocs?.map(doc => doc.document_template).filter(Boolean) || [];
       setSelectedDocuments(documents);
       
       // Set initial project name based on work pack
       setProjectDetails(prev => ({
         ...prev,
-        name: workPack.name,
-        description: workPack.description || ''
+        name: servicePackage.name,
+        description: servicePackage.description || ''
       }));
     } catch (error) {
-      console.error('Error loading work pack configuration:', error);
+      console.error('Error loading service package configuration:', error);
     } finally {
       setIsLoading(false);
       setLoadingMessage('');
@@ -289,7 +290,7 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
           category: selectedProjectType,
           metadata: {
             industry_id: selectedIndustry,
-            work_pack_id: selectedWorkPack?.id,
+            service_package_id: selectedServicePackage?.id,
             auto_generated: true
           }
         })
@@ -398,7 +399,7 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
         action: 'created',
         description: `Created project "${project.name}" with automated setup`,
         metadata: {
-          work_pack_id: selectedWorkPack?.id,
+          service_package_id: selectedServicePackage?.id,
           products_count: selectedProducts.length,
           tasks_count: selectedTasks.length,
           documents_count: selectedDocuments.length,
@@ -499,26 +500,29 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
               </p>
             </div>
 
-            <IndustryWorkPackTemplates
-              selectedIndustry={selectedIndustry}
-              selectedProjectType={selectedProjectType}
-              organizationId={selectedOrg!.id}
-              onSelectWorkPack={(workPack) => {
-                setSelectedWorkPack(workPack);
-                loadWorkPackConfiguration(workPack);
-              }}
-            />
+            {/* Service Package Selection - TODO: Create ServicePackageSelector component */}
+            <div className="space-y-4 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+              <p className="text-gray-600 dark:text-gray-400">Service package selection coming soon</p>
+            </div>
 
             <div className="border-t border-[#2a2a2a] pt-6">
               <button
                 onClick={() => {
-                  setSelectedWorkPack({ id: 'custom', name: 'Custom Project' });
+                  setSelectedServicePackage({ 
+                    id: 'custom', 
+                    name: 'Custom Project', 
+                    level: 'complete', 
+                    base_price: 0, 
+                    includes_warranty: false,
+                    estimated_hours: 0,
+                    typical_duration_days: 0
+                  });
                   setSelectedProducts([]);
                   setSelectedTasks([]);
                   setSelectedDocuments([]);
                 }}
                 className={`w-full p-4 rounded-lg border-2 transition-all
-                  ${selectedWorkPack?.id === 'custom'
+                  ${selectedServicePackage?.id === 'custom'
                     ? 'bg-[#0f1729] border-[#fbbf24]'
                     : 'bg-[#111] border-[#2a2a2a] hover:border-[#3a3a3a]'}`}
               >
@@ -819,7 +823,7 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
     switch (currentStep) {
       case 1: return selectedIndustry !== '';
       case 2: return selectedProjectType !== '';
-      case 3: return selectedWorkPack !== null;
+      case 3: return selectedServicePackage !== null;
       case 4: return true; // Configuration is optional
       case 5: return projectDetails.name && projectDetails.client_id;
       case 6: return true;

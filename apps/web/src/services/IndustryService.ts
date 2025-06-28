@@ -113,4 +113,120 @@ export class IndustryService {
       }
     }
   }
+
+  /**
+   * Get organization's subscription plan and industry limit
+   */
+  static async getOrganizationPlan(organizationId: string): Promise<{
+    planName: string;
+    industryLimit: number | null;
+    currentCount: number;
+    canAddMore: boolean;
+  }> {
+    // Get subscription plan and current industry count in parallel
+    const [subscriptionResult, currentCountResult, primaryIndustryResult] = await Promise.all([
+      supabase
+        .from('organization_subscriptions')
+        .select(`
+          subscription_plans(name, industry_limit)
+        `)
+        .eq('organization_id', organizationId)
+        .eq('status', 'active')
+        .single(),
+      
+      supabase
+        .from('organization_industries')
+        .select('industry_id', { count: 'exact' })
+        .eq('organization_id', organizationId),
+      
+      supabase
+        .from('organizations')
+        .select('industry_id')
+        .eq('id', organizationId)
+        .single()
+    ]);
+
+    if (subscriptionResult.error) {
+      console.error('Error fetching organization subscription:', subscriptionResult.error);
+      // Default to Free plan if no subscription found
+      const currentCount = (currentCountResult.count || 0) + (primaryIndustryResult.data?.industry_id ? 1 : 0);
+      return {
+        planName: 'Free',
+        industryLimit: 5,
+        currentCount,
+        canAddMore: currentCount < 5
+      };
+    }
+
+    const plan = subscriptionResult.data.subscription_plans;
+    const currentCount = (currentCountResult.count || 0) + (primaryIndustryResult.data?.industry_id ? 1 : 0);
+    const industryLimit = plan.industry_limit;
+    
+    return {
+      planName: plan.name,
+      industryLimit,
+      currentCount,
+      canAddMore: industryLimit === null || currentCount < industryLimit
+    };
+  }
+
+  /**
+   * Get organization's industry limit (number or null for unlimited)
+   */
+  static async getOrganizationIndustryLimit(organizationId: string): Promise<number | null> {
+    const { data, error } = await supabase
+      .from('organization_subscriptions')
+      .select(`
+        subscription_plans(industry_limit)
+      `)
+      .eq('organization_id', organizationId)
+      .eq('status', 'active')
+      .single();
+
+    if (error) {
+      console.error('Error fetching organization industry limit:', error);
+      // Default to Free plan limit
+      return 5;
+    }
+
+    return data.subscription_plans.industry_limit;
+  }
+
+  /**
+   * Count organization's total industries (including primary)
+   */
+  static async getOrganizationIndustryCount(organizationId: string): Promise<number> {
+    const [additionalResult, primaryResult] = await Promise.all([
+      supabase
+        .from('organization_industries')
+        .select('industry_id', { count: 'exact' })
+        .eq('organization_id', organizationId),
+      
+      supabase
+        .from('organizations')
+        .select('industry_id')
+        .eq('id', organizationId)
+        .single()
+    ]);
+
+    const additionalCount = additionalResult.count || 0;
+    const hasPrimary = primaryResult.data?.industry_id ? 1 : 0;
+    
+    return additionalCount + hasPrimary;
+  }
+
+  /**
+   * Check if organization can add more industries
+   */
+  static async canAddMoreIndustries(organizationId: string): Promise<boolean> {
+    const [limit, currentCount] = await Promise.all([
+      this.getOrganizationIndustryLimit(organizationId),
+      this.getOrganizationIndustryCount(organizationId)
+    ]);
+
+    // Unlimited plan (null limit)
+    if (limit === null) return true;
+    
+    return currentCount < limit;
+  }
 }

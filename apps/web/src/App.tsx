@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -7,9 +7,6 @@ import Dashboard from './pages/dashboard/Dashboard';
 import { TestAuth } from './components/auth/TestAuth';
 import { People } from './pages/People';
 import { PriceBook as PriceBookPage } from './pages/PriceBook';
-import ChatManagementSystem from './pages/chat/ChatManagementSystem';
-// ProductBuilderPage removed - using ProductAssemblyForm drawer instead
-import { InvoiceList } from './components/invoices/InvoiceList';
 import { InvoiceDetail } from './components/invoices/InvoiceDetail';
 import { ShareableInvoice } from './components/invoices/ShareableInvoice';
 import { EstimatesPage } from './pages/EstimatesPage';
@@ -28,16 +25,13 @@ import { Toaster } from 'react-hot-toast';
 import { ProjectList, ProjectForm, ProjectDetails } from './components/projects';
 import { ProjectNewPage } from './pages/ProjectNewPage';
 import LineItemTestPage from './pages/LineItemTestPage';
-import ProductVariantsDemo from './pages/ProductVariantsDemo';
 import { supabase } from './lib/supabase';
 import { DashboardLayout } from './components/layouts/DashboardLayout';
 import MarkdownViewer from './components/docs/MarkdownViewer';
 import Templates from './pages/Templates';
-import WorkPacksPage from './pages/WorkPacksPage';
-import { WorkPackDetail } from './pages/WorkPackDetail';
 import IndustrySettings from './pages/IndustrySettings';
+import OrganizationSettings from './pages/OrganizationSettings';
 import { Expenses } from './pages/Expenses';
-import { InvoicesPage } from './pages/InvoicesPage';
 import { VendorDetailPage } from './pages/VendorDetailPage';
 import { ClientDetailPage } from './pages/ClientDetailPage';
 import { SubcontractorDetailPage } from './pages/SubcontractorDetailPage';
@@ -46,6 +40,14 @@ import { DebugData } from './pages/DebugData';
 import { Work } from './pages/Work';
 import { ActivityPage } from './pages/ActivityPage';
 import { WhoWeServe } from './pages/WhoWeServe';
+import { ServicesPackages } from './pages/ServicesPackages';
+import Marketing from './pages/Marketing';
+
+// Lazy load the Experience page
+const Experience = React.lazy(() => import('./pages/Experience').then(module => ({ default: module.Experience })));
+const PixiTest = React.lazy(() => import('./pages/PixiTest').then(module => ({ default: module.PixiTest })));
+const SimpleExperience = React.lazy(() => import('./pages/SimpleExperience').then(module => ({ default: module.SimpleExperience })));
+const MinimalPixi = React.lazy(() => import('./pages/MinimalPixi').then(module => ({ default: module.MinimalPixi })));
 
 // Import debugging tools in development
 // COMMENTED OUT: These test utilities were running automatically and causing issues
@@ -151,6 +153,43 @@ function AppRoutes() {
       <Route path="/auth/test" element={<TestAuth />} />
       <Route path="/marketing/projects" element={<Projects />} />
       <Route path="/who-we-serve" element={<WhoWeServe />} />
+      
+      {/* Marketing page with Pixi.js - lazy loaded */}
+      <Route path="/marketing" element={
+        <React.Suspense fallback={<div className="min-h-screen bg-[#0A0A0A]" />}>
+          <Marketing />
+        </React.Suspense>
+      } />
+      
+      {/* Experience page with elaborate scroll-driven Pixi.js - lazy loaded */}
+      <Route path="/experience" element={
+        <React.Suspense fallback={<div className="min-h-screen bg-[#0a0f1f]" />}>
+          <Experience />
+        </React.Suspense>
+      } />
+      
+
+      
+      {/* Pixi.js test page */}
+      <Route path="/pixi-test" element={
+        <React.Suspense fallback={<div className="min-h-screen bg-gray-900" />}>
+          <PixiTest />
+        </React.Suspense>
+      } />
+      
+      {/* Simple scroll test */}
+      <Route path="/simple-experience" element={
+        <React.Suspense fallback={<div className="min-h-screen bg-blue-900" />}>
+          <SimpleExperience />
+        </React.Suspense>
+      } />
+      
+      {/* Minimal Pixi + Scroll test */}
+      <Route path="/minimal-pixi" element={
+        <React.Suspense fallback={<div className="min-h-screen bg-gray-900" />}>
+          <MinimalPixi />
+        </React.Suspense>
+      } />
 
       {/* Protected routes */}
       <Route
@@ -217,26 +256,6 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <Templates />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/work-packs"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <WorkPacksPage />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/work-packs/:id"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <WorkPackDetail />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -505,32 +524,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      
+      {/* Services & Packages route */}
       <Route
-        path="/price-book/work-packs"
+        path="/services"
         element={
           <ProtectedRoute>
             <DashboardLayout>
-              <PriceBookPage />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/price-book/services"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <PriceBookPage />
-            </DashboardLayout>
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/price-book/packages"
-        element={
-          <ProtectedRoute>
-            <DashboardLayout>
-              <PriceBookPage />
+              <ServicesPackages />
             </DashboardLayout>
           </ProtectedRoute>
         }
@@ -539,7 +540,7 @@ function AppRoutes() {
       {/* Legacy route redirects to unified Price Book */}
       <Route
         path="/items"
-        element={<Navigate to="/price-book" replace />}
+        element={<Navigate to="/price-book/items" replace />}
       />
       <Route
         path="/cost-codes"
@@ -571,6 +572,16 @@ function AppRoutes() {
           <ProtectedRoute>
             <DashboardLayout>
               <IndustrySettings />
+            </DashboardLayout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/organization"
+        element={
+          <ProtectedRoute>
+            <DashboardLayout>
+              <OrganizationSettings />
             </DashboardLayout>
           </ProtectedRoute>
         }

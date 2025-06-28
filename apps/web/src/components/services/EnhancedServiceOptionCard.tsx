@@ -6,11 +6,14 @@ import {
   Star, 
   ChevronDown, 
   ChevronUp,
+  ChevronRight,
   Award,
   Wrench,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Users
 } from 'lucide-react';
+
 import { ServiceOption } from '../../services/ServiceCatalogService';
 import { formatCurrency } from '../../utils/format';
 
@@ -19,22 +22,93 @@ interface EnhancedServiceOptionCardProps {
   isSelected: boolean;
   onSelect: () => void;
   industryName?: string;
+  lineItems?: Array<{
+    line_item: {
+      id: string;
+      name: string;
+      description: string;
+      price: number;
+      unit: string;
+    };
+    quantity: number;
+    is_optional: boolean;
+  }>;
+  layoutMode?: 'tabs' | 'collapsible' | 'cards' | 'columns' | 'default';
 }
 
 export const EnhancedServiceOptionCard: React.FC<EnhancedServiceOptionCardProps> = ({ 
   option, 
   isSelected, 
   onSelect,
-  industryName 
+  industryName,
+  lineItems = [],
+  layoutMode = 'default'
 }) => {
   const [showDetails, setShowDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<'labor' | 'materials' | 'equipment' | 'services'>('labor');
+  const [showModal, setShowModal] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const isBaseOption = option.name === 'Standard' || option.is_popular;
   
-  // Parse materials list
-  const parsedMaterials = option.materials_list?.map(material => {
-    const [name, quantity, unit] = material.split(':');
-    return { name, quantity, unit };
-  }) || [];
+  // Toggle section for collapsible layout
+  const toggleSection = (section: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(section)) {
+      newExpanded.delete(section);
+    } else {
+      newExpanded.add(section);
+    }
+    setExpandedSections(newExpanded);
+  };
+  
+  // Categorize line items by type
+  const categorizedItems = {
+    labor: [] as any[],
+    materials: [] as any[],
+    equipment: [] as any[],
+    services: [] as any[]
+  };
+
+  if (lineItems.length > 0) {
+    console.log('Line items for', option.name, ':', lineItems);
+    // Group line items by category
+    lineItems.filter(item => !item.is_optional).forEach(item => {
+      const itemData = {
+        name: item.line_item.name,
+        quantity: item.quantity.toString(),
+        unit: item.line_item.unit,
+        price: item.line_item.price,
+        total: item.line_item.price * item.quantity
+      };
+      
+      // Categorize by actual category from database
+      const category = item.line_item.category || 'material';
+      
+      switch (category) {
+        case 'labor':
+          categorizedItems.labor.push(itemData);
+          break;
+        case 'equipment':
+          categorizedItems.equipment.push(itemData);
+          break;
+        case 'service':
+          categorizedItems.services.push(itemData);
+          break;
+        case 'material':
+        default:
+          categorizedItems.materials.push(itemData);
+          break;
+      }
+    });
+  } else if (option.materials_list) {
+    // Fall back to old materials list
+    categorizedItems.materials = option.materials_list.map(material => {
+      const [name, quantity, unit] = material.split(':');
+      return { name, quantity, unit };
+    });
+  }
+
+  const totalLineItems = Object.values(categorizedItems).reduce((sum, items) => sum + items.length, 0);
 
   // Get quality badge color
   const getQualityColor = (quality?: string) => {
@@ -79,6 +153,241 @@ export const EnhancedServiceOptionCard: React.FC<EnhancedServiceOptionCardProps>
   };
 
   const keyAttributes = getKeyAttributes();
+
+  // Calculate category subtotals
+  const categorySubtotals = {
+    labor: categorizedItems.labor.reduce((sum, item) => sum + (item.total || 0), 0),
+    materials: categorizedItems.materials.reduce((sum, item) => sum + (item.total || 0), 0),
+    equipment: categorizedItems.equipment.reduce((sum, item) => sum + (item.total || 0), 0),
+    services: categorizedItems.services.reduce((sum, item) => sum + (item.total || 0), 0)
+  };
+
+  // Layout Mode: Tabbed Categories
+  const renderTabbedLayout = () => (
+    <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
+      {/* Tab Navigation */}
+      <div className="flex border-b border-[#444444] mb-4">
+        {(['labor', 'materials', 'equipment', 'services'] as const).map((category) => {
+          const items = categorizedItems[category];
+          const isActive = activeTab === category;
+          if (items.length === 0) return null;
+          
+          return (
+            <button
+              key={category}
+              onClick={() => setActiveTab(category)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                isActive 
+                  ? 'border-[#336699] text-white bg-[#336699]/10' 
+                  : 'border-transparent text-gray-400 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {category === 'labor' && <Users className="w-4 h-4" />}
+                {category === 'materials' && <Package className="w-4 h-4" />}
+                {category === 'equipment' && <Wrench className="w-4 h-4" />}
+                {category === 'services' && <CheckCircle className="w-4 h-4" />}
+                <span className="capitalize">{category}</span>
+                <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">
+                  {formatCurrency(categorySubtotals[category])}
+                </span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      
+      {/* Active Tab Content */}
+      <div className="space-y-2">
+        {categorizedItems[activeTab].map((item, index) => (
+          <div key={index} className="flex items-center justify-between text-sm p-2 bg-[#222222] rounded">
+            <span className="text-gray-300">{item.name}</span>
+            <span className="text-white font-mono">
+              {item.quantity} {item.unit}
+              <span className="text-gray-500 ml-2">
+                (${item.price.toFixed(2)}/{item.unit})
+              </span>
+            </span>
+          </div>
+        ))}
+      </div>
+      
+      {/* Total Summary */}
+      <div className="mt-4 pt-4 border-t border-gray-700">
+        <div className="flex justify-between font-semibold">
+          <span className="text-gray-300">Total:</span>
+          <span className="text-white font-mono">
+            {formatCurrency(Object.values(categorySubtotals).reduce((sum, val) => sum + val, 0))}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Layout Mode: Collapsible Sections
+  const renderCollapsibleLayout = () => (
+      <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
+        <div className="space-y-2">
+          {(['labor', 'materials', 'equipment', 'services'] as const).map((category) => {
+            const items = categorizedItems[category];
+            if (items.length === 0) return null;
+            
+            const isExpanded = expandedSections.has(category);
+            
+            return (
+              <div key={category} className="border border-[#444444] rounded">
+                <button
+                  onClick={() => toggleSection(category)}
+                  className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-[#252525] transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                    {category === 'labor' && <Users className="w-4 h-4" />}
+                    {category === 'materials' && <Package className="w-4 h-4" />}
+                    {category === 'equipment' && <Wrench className="w-4 h-4" />}
+                    {category === 'services' && <CheckCircle className="w-4 h-4" />}
+                    <span className="capitalize text-gray-300">{category}</span>
+                    <span className="text-xs text-gray-500">({items.length} items)</span>
+                  </div>
+                  <span className="text-white font-mono">
+                    {formatCurrency(categorySubtotals[category])}
+                  </span>
+                </button>
+                
+                {isExpanded && (
+                  <div className="px-4 pb-3 space-y-2 bg-[#1E1E1E]">
+                    {items.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-400">{item.name}</span>
+                        <span className="text-white font-mono">
+                          {item.quantity} {item.unit}
+                          <span className="text-gray-500 ml-2">
+                            (${item.price.toFixed(2)})
+                          </span>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Total Summary */}
+        <div className="mt-4 pt-4 border-t border-gray-700">
+          <div className="flex justify-between font-semibold">
+            <span className="text-gray-300">Total:</span>
+            <span className="text-white font-mono">
+              {formatCurrency(Object.values(categorySubtotals).reduce((sum, val) => sum + val, 0))}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+
+  // Layout Mode: Summary Cards
+  const renderCardsLayout = () => (
+    <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        {(['labor', 'materials', 'equipment', 'services'] as const).map((category) => {
+          const items = categorizedItems[category];
+          if (items.length === 0) return null;
+          
+          return (
+            <button
+              key={category}
+              onClick={() => setShowModal(true)}
+              className="p-3 bg-[#252525] hover:bg-[#2A2A2A] border border-[#444444] rounded transition-colors text-center"
+            >
+              <div className="flex flex-col items-center gap-2">
+                {category === 'labor' && <Users className="w-5 h-5 text-blue-400" />}
+                {category === 'materials' && <Package className="w-5 h-5 text-green-400" />}
+                {category === 'equipment' && <Wrench className="w-5 h-5 text-orange-400" />}
+                {category === 'services' && <CheckCircle className="w-5 h-5 text-purple-400" />}
+                <div className="text-xs text-gray-400 capitalize">{category}</div>
+                <div className="text-sm font-mono text-white">
+                  {formatCurrency(categorySubtotals[category])}
+                </div>
+                <div className="text-xs text-gray-500">{items.length} items</div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+      
+      {/* Total Summary */}
+      <div className="pt-3 border-t border-gray-700">
+        <div className="flex justify-between font-semibold">
+          <span className="text-gray-300">Total:</span>
+          <span className="text-white font-mono">
+            {formatCurrency(Object.values(categorySubtotals).reduce((sum, val) => sum + val, 0))}
+          </span>
+        </div>
+      </div>
+      
+      <div className="text-center mt-3">
+        <button
+          onClick={() => setShowModal(true)}
+          className="text-[#336699] text-sm hover:text-[#4477aa] transition-colors"
+        >
+          View detailed breakdown →
+        </button>
+      </div>
+    </div>
+  );
+
+  // Layout Mode: Horizontal Columns
+  const renderColumnsLayout = () => (
+    <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {(['labor', 'materials', 'equipment', 'services'] as const).map((category) => {
+          const items = categorizedItems[category];
+          if (items.length === 0) return null;
+          
+          return (
+            <div key={category} className="space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-300 border-b border-[#444444] pb-2">
+                {category === 'labor' && <Users className="w-4 h-4" />}
+                {category === 'materials' && <Package className="w-4 h-4" />}
+                {category === 'equipment' && <Wrench className="w-4 h-4" />}
+                {category === 'services' && <CheckCircle className="w-4 h-4" />}
+                <span className="capitalize">{category}</span>
+              </div>
+              
+              <div className="space-y-1 text-xs">
+                {items.map((item, index) => (
+                  <div key={index} className="flex flex-col">
+                    <span className="text-gray-400">{item.name}</span>
+                    <span className="text-white font-mono">
+                      {item.quantity} {item.unit} • ${item.price.toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="pt-2 border-t border-[#444444]">
+                <div className="text-xs text-gray-400">Subtotal:</div>
+                <div className="text-sm font-mono text-white">
+                  {formatCurrency(categorySubtotals[category])}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Total Summary */}
+      <div className="mt-4 pt-4 border-t border-gray-700">
+        <div className="flex justify-between font-semibold">
+          <span className="text-gray-300">Total:</span>
+          <span className="text-white font-mono">
+            {formatCurrency(Object.values(categorySubtotals).reduce((sum, val) => sum + val, 0))}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -141,10 +450,10 @@ export const EnhancedServiceOptionCard: React.FC<EnhancedServiceOptionCardProps>
                   {option.warranty_months}mo warranty
                 </span>
               )}
-              {parsedMaterials.length > 0 && (
+              {totalLineItems > 0 && (
                 <span className="flex items-center gap-1">
                   <Package className="w-3 h-3" />
-                  {parsedMaterials.length} materials
+                  {totalLineItems} items
                 </span>
               )}
               {option.skill_level && (
@@ -181,80 +490,315 @@ export const EnhancedServiceOptionCard: React.FC<EnhancedServiceOptionCardProps>
         </button>
       </div>
 
-      {/* Detailed Information */}
+      {/* Detailed Information - Conditional Layout */}
       {showDetails && (
-        <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
-          <div className="space-y-4">
-            {/* Materials List */}
-            {parsedMaterials.length > 0 && (
-              <div>
-                <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                  <Package className="w-4 h-4" />
-                  Included Materials
-                </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {parsedMaterials.map((material, index) => (
-                    <div key={index} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">{material.name}</span>
+        <>
+          {layoutMode === 'tabs' && renderTabbedLayout()}
+          {layoutMode === 'collapsible' && renderCollapsibleLayout()}
+          {layoutMode === 'cards' && renderCardsLayout()}
+          {layoutMode === 'columns' && renderColumnsLayout()}
+          {layoutMode === 'default' && (
+            <div className="border-t border-[#333333] p-4 bg-[#1A1A1A]">
+              <div className="space-y-4">
+                {/* Labor */}
+                {categorizedItems.labor.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Labor
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.labor.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)}/{item.unit})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Materials List */}
+                {categorizedItems.materials.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Materials
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.materials.map((material, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">{material.name}</span>
+                          <span className="text-white font-mono">
+                            {material.quantity} {material.unit}
+                            {material.price && (
+                              <span className="text-gray-500 ml-2">
+                                (${material.price.toFixed(2)})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Equipment */}
+                {categorizedItems.equipment.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Wrench className="w-4 h-4" />
+                      Equipment
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.equipment.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)}/{item.unit})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Services */}
+                {categorizedItems.services.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Services
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.services.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Total Cost Summary */}
+                {lineItems.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-700">
+                    <div className="space-y-1">
+                      {categorizedItems.labor.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Labor:</span>
+                          <span className="text-white font-mono">
+                            {formatCurrency(categorizedItems.labor.reduce((sum, m) => sum + (m.total || 0), 0))}
+                          </span>
+                        </div>
+                      )}
+                      {categorizedItems.materials.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Materials:</span>
+                          <span className="text-white font-mono">
+                            {formatCurrency(categorizedItems.materials.reduce((sum, m) => sum + (m.total || 0), 0))}
+                          </span>
+                        </div>
+                      )}
+                      {categorizedItems.equipment.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Equipment:</span>
+                          <span className="text-white font-mono">
+                            {formatCurrency(categorizedItems.equipment.reduce((sum, m) => sum + (m.total || 0), 0))}
+                          </span>
+                        </div>
+                      )}
+                      {categorizedItems.services.length > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Services:</span>
+                          <span className="text-white font-mono">
+                            {formatCurrency(categorizedItems.services.reduce((sum, m) => sum + (m.total || 0), 0))}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-sm font-semibold pt-1 border-t border-gray-700">
+                        <span className="text-gray-300">Total:</span>
+                        <span className="text-white font-mono">
+                          {formatCurrency(
+                            Object.values(categorizedItems).flat().reduce((sum, item) => sum + (item.total || 0), 0)
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Modal for Cards Layout */}
+      {showModal && layoutMode === 'cards' && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="p-4 border-b border-[#333333] flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">{option.name} - Detailed Breakdown</h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <ChevronUp className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              <div className="space-y-4">
+                {/* Labor */}
+                {categorizedItems.labor.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Labor
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.labor.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm p-2 bg-[#222222] rounded">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)}/{item.unit})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Materials */}
+                {categorizedItems.materials.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Package className="w-4 h-4" />
+                      Materials
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.materials.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm p-2 bg-[#222222] rounded">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Equipment */}
+                {categorizedItems.equipment.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <Wrench className="w-4 h-4" />
+                      Equipment
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.equipment.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm p-2 bg-[#222222] rounded">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)}/{item.unit})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Services */}
+                {categorizedItems.services.length > 0 && (
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Services
+                    </h5>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {categorizedItems.services.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between text-sm p-2 bg-[#222222] rounded">
+                          <span className="text-gray-400">{item.name}</span>
+                          <span className="text-white font-mono">
+                            {item.quantity} {item.unit}
+                            <span className="text-gray-500 ml-2">
+                              (${item.price.toFixed(2)})
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Total Summary */}
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <div className="space-y-1">
+                    {categorizedItems.labor.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Labor:</span>
+                        <span className="text-white font-mono">
+                          {formatCurrency(categorySubtotals.labor)}
+                        </span>
+                      </div>
+                    )}
+                    {categorizedItems.materials.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Materials:</span>
+                        <span className="text-white font-mono">
+                          {formatCurrency(categorySubtotals.materials)}
+                        </span>
+                      </div>
+                    )}
+                    {categorizedItems.equipment.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Equipment:</span>
+                        <span className="text-white font-mono">
+                          {formatCurrency(categorySubtotals.equipment)}
+                        </span>
+                      </div>
+                    )}
+                    {categorizedItems.services.length > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Services:</span>
+                        <span className="text-white font-mono">
+                          {formatCurrency(categorySubtotals.services)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-semibold pt-1 border-t border-gray-700">
+                      <span className="text-gray-300">Total:</span>
                       <span className="text-white font-mono">
-                        {material.quantity} {material.unit}
+                        {formatCurrency(Object.values(categorySubtotals).reduce((sum, val) => sum + val, 0))}
                       </span>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* All Attributes */}
-            {option.attributes && Object.keys(option.attributes).length > 0 && (
-              <div>
-                <h5 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
-                  <Wrench className="w-4 h-4" />
-                  Technical Specifications
-                </h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {Object.entries(option.attributes).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">{formatAttributeKey(key)}:</span>
-                      <span className="text-white">
-                        {formatAttributeValue(value)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Additional Information */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t border-[#333333]">
-              {option.estimated_hours && (
-                <div className="text-center">
-                  <Clock className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                  <div className="text-xs text-gray-400">Duration</div>
-                  <div className="text-sm text-white">{option.estimated_hours} hours</div>
-                </div>
-              )}
-              {option.warranty_months && (
-                <div className="text-center">
-                  <Shield className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                  <div className="text-xs text-gray-400">Warranty</div>
-                  <div className="text-sm text-white">{option.warranty_months} months</div>
-                </div>
-              )}
-              {option.material_quality && (
-                <div className="text-center">
-                  <Award className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                  <div className="text-xs text-gray-400">Quality</div>
-                  <div className="text-sm text-white capitalize">{option.material_quality}</div>
-                </div>
-              )}
-              {option.skill_level && (
-                <div className="text-center">
-                  <CheckCircle className="w-5 h-5 text-gray-500 mx-auto mb-1" />
-                  <div className="text-xs text-gray-400">Skill Level</div>
-                  <div className="text-sm text-white capitalize">{option.skill_level}</div>
-                </div>
-              )}
             </div>
           </div>
         </div>

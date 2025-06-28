@@ -1,0 +1,81 @@
+# Line Item Markup UI Visual Example
+
+## PriceBook View with Inline Markup Editor
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PRICE BOOK                                                                  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│ ——— CARPENTRY ———  (24 items)                                              │
+│                                                                             │
+│ CP100  Carpentry Labor  (4 items)                                          │
+│ ├─ Apprentice Carpenter                    $35.00/hour      [↗]           │
+│ ├─ Journeyman Carpenter                    $60.75/hour +10% [↗]           │
+│ │                                          per hour • 9.1% margin         │
+│ ├─ Master Carpenter     ┌──────────────────────────────────────┐          │
+│ │                       │ [%] [$]  [35]% → $101.25 (25.9%)  [✓][✗] Reset │ │
+│ │                       └──────────────────────────────────────┘          │
+│ └─ Framing Carpenter                       $52.50/hour +5%  [↗]           │
+│                                                                             │
+│ CP200  Framing/Structural  (6 items)                                       │
+│ ├─ Interior Wall Framing                   $156.25/wall +25% [↗]          │
+│ │                                          per wall • 20% margin          │
+│ ├─ Exterior Wall Framing                   $175.00/wall     [↗]           │
+│ ├─ Door Opening                            $325.00/each     [↗]           │
+│ └─ Window Opening                          $423.50/each +10% [↗]          │
+│                                                                             │
+│ CP500  Carpentry Materials  (4 items)                                      │
+│ ├─ 2x4 Lumber                              $5.95/8ft +40%   [↗]           │
+│ │                                          per 8ft • 28.6% margin         │
+│ ├─ 2x6 Lumber                              $6.50/8ft       [↗]           │
+│ └─ Plywood 1/2"                            $38.40/sheet +20% [↗]          │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Legend:
+[↗] = Markup editor button (TrendingUp icon)
++X% = Current markup percentage (shown in green)
+X% margin = Calculated profit margin
+[%] = Percentage mode button
+[$] = Custom price mode button  
+[✓] = Save button
+[✗] = Cancel button
+Reset = Reset to base price link
+```
+
+## Key UI States
+
+### 1. Default State (Not Editing)
+- Shows current price prominently
+- Displays markup % if applied (green text)
+- Shows margin % on hover/expanded view
+- Single click on [↗] to edit
+
+### 2. Editing State  
+- Inline editor replaces price display
+- Mode toggle between % and $
+- Live preview of resulting price
+- Live margin calculation
+- Save/Cancel/Reset actions
+
+### 3. Visual Indicators
+- **Green +X%**: Active markup applied
+- **Gray arrow →**: Shows calculation flow
+- **"Industry" badge**: Shared industry items
+- **Margin %**: Profitability indicator
+
+## Responsive Behavior
+
+### Condensed Mode
+```
+Master Carpenter    $101.25 +35% [↗]
+```
+
+### Expanded Mode
+```
+Master Carpenter    $101.25 +35% [↗]
+                    per hour • 25.9% margin
+```
+
+This design puts pricing control exactly where contractors need it - inline with their cost codes, making it intuitive to set different markups for different types of work.

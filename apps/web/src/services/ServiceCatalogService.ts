@@ -43,8 +43,26 @@ export interface ServiceOption {
   created_at: string;
   updated_at: string;
   attributes?: Record<string, any>; // JSONB field for industry-specific attributes
+  bundle_discount_percentage?: number; // Discount applied to bundled line items
+  // Calculated fields
+  base_price?: number; // Sum of line item prices
+  discounted_price?: number; // Price after bundle discount
   // Related data
   service?: Service;
+  service_option_items?: Array<{
+    id: string;
+    quantity: number;
+    is_optional: boolean;
+    display_order: number;
+    line_item: {
+      id: string;
+      name: string;
+      description?: string;
+      price: number;
+      unit: string;
+      category?: string;
+    };
+  }>;
 }
 
 export interface ServicePackage {
@@ -63,6 +81,7 @@ export interface ServicePackage {
   display_order: number;
   created_at: string;
   updated_at: string;
+  package_discount_percentage?: number; // Additional discount at package level
   // Computed fields from view
   item_count?: number;
   required_item_count?: number;
@@ -91,6 +110,92 @@ export interface ServicePackageItem {
 }
 
 export class ServiceCatalogService {
+  /**
+   * Get all service templates (service_options where is_template = true) for an organization
+   */
+  static async listTemplates(organizationId: string): Promise<any[]> {
+    // First get the organization's selected industries
+    const { data: orgIndustries, error: indError } = await supabase
+      .from('organization_industries')
+      .select('industry_id')
+      .eq('organization_id', organizationId);
+    
+    if (indError) {
+      console.error('Error fetching organization industries:', indError);
+      throw indError;
+    }
+    
+    const industryIds = orgIndustries?.map(oi => oi.industry_id) || [];
+    
+    // Get all service options that are templates for these industries
+    // Include both shared (organization_id IS NULL) and org-specific options
+    const { data, error } = await supabase
+      .from('service_options')
+      .select(`
+        *,
+        service:services!inner(
+          id,
+          name,
+          industry_id,
+          industry:industries(id, name)
+        ),
+        service_option_items(
+          id,
+          quantity,
+          line_item:line_items(
+            id,
+            name,
+            price,
+            unit,
+            cost_code_id,
+            cost_code:cost_codes(
+              code,
+              name,
+              category
+            )
+          )
+        )
+      `)
+      .eq('is_template', true)
+      .in('service.industry_id', industryIds)
+      .or(`organization_id.is.null,organization_id.eq.${organizationId}`)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching templates:', error);
+      throw error;
+    }
+
+    return (data || []).map(template => {
+      // Don't spread the entire template to avoid including joined fields
+      const cleanTemplate = {
+        id: template.id,
+        name: template.name,
+        description: template.description,
+        service_id: template.service_id,
+        organization_id: template.organization_id,
+        price: template.price,
+        unit: template.unit,
+        is_template: template.is_template,
+        attributes: template.attributes,
+        material_quality: template.material_quality,
+        warranty_months: template.warranty_months,
+        estimated_hours: template.estimated_hours,
+        skill_level: template.skill_level,
+        created_at: template.created_at,
+        updated_at: template.updated_at,
+        // Add computed fields
+        service_name: template.service?.name,
+        industry_name: template.service?.industry?.name,
+        industry_id: template.service?.industry_id,
+        line_item_count: template.service_option_items?.length || 0,
+        // Include the joined data separately
+        service: template.service,
+        service_option_items: template.service_option_items
+      };
+      return cleanTemplate;
+    });
+  }
   /**
    * List all services for an organization
    */
@@ -151,21 +256,73 @@ export class ServiceCatalogService {
 
     if (serviceError) throw serviceError;
 
-    // Get service options
+    // Get service options with line items using RPC function
     const { data: options, error: optionsError } = await supabase
-      .from('service_options')
-      .select('*')
-      .eq('service_id', serviceId)
-      .eq('is_active', true)
-      .order('display_order');
+      .rpc('get_service_options_with_line_items', {
+        p_service_id: serviceId
+      });
 
     if (optionsError) throw optionsError;
+
+    // The RPC function returns the data already in the correct format
+    const transformedOptions = (options || []).map((option: any) => ({
+      ...option,
+      service_option_items: option.service_option_items || []
+    }));
 
     return {
       ...service,
       industry_name: service.industry?.name,
-      options: options || []
+      options: transformedOptions
     };
+  }
+
+  /**
+   * List service options for a specific service
+   */
+  static async listServiceOptions(serviceId: string, organizationId: string): Promise<ServiceOption[]> {
+    const { data, error } = await supabase
+      .from('service_options')
+      .select(`
+        *,
+        service_option_items_with_category!service_option_items_with_category_service_option_id_fkey (
+          id,
+          quantity,
+          is_optional,
+          display_order,
+          line_item_id,
+          line_item_name,
+          line_item_description,
+          line_item_price,
+          line_item_unit,
+          line_item_category
+        )
+      `)
+      .eq('service_id', serviceId)
+      .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+      .eq('is_active', true)
+      .order('display_order');
+
+    if (error) throw error;
+
+    // Transform the data to match our interface
+    return (data || []).map(option => ({
+      ...option,
+      service_option_items: option.service_option_items_with_category?.map((item: any) => ({
+        id: item.id,
+        quantity: item.quantity,
+        is_optional: item.is_optional,
+        display_order: item.display_order,
+        line_item: {
+          id: item.line_item_id,
+          name: item.line_item_name,
+          description: item.line_item_description,
+          price: item.line_item_price,
+          unit: item.line_item_unit,
+          category: item.line_item_category
+        }
+      }))
+    }));
   }
 
   /**
@@ -288,22 +445,108 @@ export class ServiceCatalogService {
    * List all service packages for an organization
    */
   static async listPackages(organizationId: string): Promise<ServicePackage[]> {
-    const { data, error } = await supabase
-      .from('service_package_details')
-      .select('*')
-      .or(`organization_id.eq.${organizationId},organization_id.is.null`)
+    // First get the organization's selected industries
+    const { data: orgIndustries, error: indError } = await supabase
+      .from('organization_industries')
+      .select('industry_id')
+      .eq('organization_id', organizationId);
+    
+    if (indError) {
+      console.error('Error fetching organization industries:', indError);
+      throw indError;
+    }
+    
+    const industryIds = orgIndustries?.map(oi => oi.industry_id) || [];
+    
+    // Build the query for packages
+    let query = supabase
+      .from('service_packages')
+      .select(`
+        *,
+        industry:industries(id, name),
+        service_package_templates(
+          id,
+          quantity,
+          is_optional,
+          template:service_options(
+            id,
+            name,
+            price,
+            unit
+          )
+        )
+      `);
+    
+    // If organization has selected industries, filter by them
+    if (industryIds.length > 0) {
+      query = query.or(`organization_id.eq.${organizationId},and(organization_id.is.null,industry_id.in.(${industryIds.map(id => `"${id}"`).join(',')}))`);
+    } else {
+      // If no industries selected, only show org-specific packages
+      query = query.eq('organization_id', organizationId);
+    }
+    
+    // Complete the query
+    const { data: packages, error } = await query
       .order('level', { ascending: true })
       .order('display_order');
 
     if (error) throw error;
 
-    return data || [];
+    // Calculate prices and category counts for each package
+    return (packages || []).map(pkg => {
+      let requiredPrice = 0;
+      let optionalPrice = 0;
+      let requiredCount = 0;
+      let optionalCount = 0;
+      let laborCount = 0;
+      let materialCount = 0;
+      let equipmentCount = 0;
+      let serviceCount = 0;
+      
+      if (pkg.service_package_templates) {
+        pkg.service_package_templates.forEach((item: any) => {
+          if (item.template) {
+            const templatePrice = (item.template.price * (item.quantity || 1));
+            
+            if (item.is_optional) {
+              optionalPrice += templatePrice;
+              optionalCount++;
+            } else {
+              requiredPrice += templatePrice;
+              requiredCount++;
+            }
+          }
+        });
+      }
+      
+      // Calculate bundle discount (10% off when getting all optional items)
+      const bundleDiscount = optionalCount > 0 ? optionalPrice * 0.1 : 0;
+      const potentialValue = requiredPrice + optionalPrice;
+      const potentialValueWithDiscount = potentialValue - bundleDiscount;
+      
+      return {
+        ...pkg,
+        industry_name: pkg.industry?.name,
+        calculated_price: requiredPrice, // Base price (required only)
+        potential_price: potentialValue, // With all options
+        potential_price_discounted: potentialValueWithDiscount, // With bundle discount
+        bundle_discount: bundleDiscount,
+        required_count: requiredCount,
+        optional_count: optionalCount,
+        item_count: requiredCount + optionalCount,
+        completion_percentage: requiredCount > 0 ? Math.round((requiredPrice / potentialValue) * 100) : 0,
+        labor_count: laborCount,
+        material_count: materialCount,
+        equipment_count: equipmentCount,
+        service_count: serviceCount
+      };
+    });
   }
 
   /**
    * Get a single package with all items
    */
-  static async getPackageWithItems(packageId: string): Promise<ServicePackage & { items: ServicePackageItem[] }> {
+  static async getPackageWithItems(packageId: string): Promise<any> {
     // Get package details
     const { data: pkg, error: pkgError } = await supabase
       .from('service_packages')
@@ -316,22 +559,52 @@ export class ServiceCatalogService {
 
     if (pkgError) throw pkgError;
 
-    // Get package items with service option details
-    const { data: items, error: itemsError } = await supabase
-      .from('service_package_items')
+    // Get package templates with service options first
+    const { data: templates, error: templatesError } = await supabase
+      .from('service_package_templates')
       .select(`
         *,
-        service_option:service_options(*)
+        template:service_options(*)
       `)
       .eq('package_id', packageId)
+      .order('is_optional')
       .order('display_order');
 
-    if (itemsError) throw itemsError;
+    if (templatesError) throw templatesError;
+
+    // Now for each template, fetch the line items separately
+    const templatesWithItems = await Promise.all(
+      (templates || []).map(async (template) => {
+        if (!template.template) return template;
+
+        // Fetch service option items with line items for this template
+        const { data: items, error: itemsError } = await supabase
+          .from('service_option_items')
+          .select(`
+            *,
+            line_item:line_items(
+              *,
+              cost_code:cost_codes(
+                code,
+                name,
+                category
+              )
+            )
+          `)
+          .eq('service_option_id', template.template.id);
+
+        if (!itemsError && items) {
+          template.template.service_option_items = items;
+        }
+
+        return template;
+      })
+    );
 
     return {
       ...pkg,
       industry_name: pkg.industry?.name,
-      items: items || []
+      templates: templatesWithItems
     };
   }
 

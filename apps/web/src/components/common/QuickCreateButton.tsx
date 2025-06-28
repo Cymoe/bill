@@ -1,5 +1,4 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 
 interface Props {
@@ -19,6 +18,9 @@ export const QuickCreateButton: React.FC<Props> = ({
   isProjectsSidebarOpen = false,
   isIndustryDrawerOpen = false
 }) => {
+  const [isEstimateCartOpen, setIsEstimateCartOpen] = useState(false);
+  const [isIndustryModalOpen, setIsIndustryModalOpen] = useState(false);
+  
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Open with Cmd+K
@@ -32,12 +34,41 @@ export const QuickCreateButton: React.FC<Props> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onClick]);
 
+  // Listen for estimate cart toggle events
+  useEffect(() => {
+    const handleCartToggle = (event: CustomEvent) => {
+      setIsEstimateCartOpen(event.detail.isOpen);
+    };
+
+    window.addEventListener('estimateCartToggle', handleCartToggle as EventListener);
+    return () => {
+      window.removeEventListener('estimateCartToggle', handleCartToggle as EventListener);
+    };
+  }, []);
+
+  // Listen for industry modal toggle events
+  useEffect(() => {
+    const handleModalToggle = (event: CustomEvent) => {
+      setIsIndustryModalOpen(event.detail.isOpen);
+    };
+
+    window.addEventListener('industryModalToggle', handleModalToggle as EventListener);
+    return () => {
+      window.removeEventListener('industryModalToggle', handleModalToggle as EventListener);
+    };
+  }, []);
+
+  // Hide button when estimate cart or industry modal is open
+  if (isEstimateCartOpen || isIndustryModalOpen) {
+    return null;
+  }
+
   // Dynamic positioning based on sidebar states
   let baseRight = isSidebarCollapsed ? 96 : 240; // 24 * 4 or 60 * 4 (in pixels)
   let projectsOffset = (isProjectsSidebarLocked || isProjectsSidebarOpen) ? 320 : 0;
   let industryOffset = isIndustryDrawerOpen ? 400 : 0;
   
-  const totalRightPx = baseRight + projectsOffset + industryOffset;
+  let totalRightPx = baseRight + projectsOffset + industryOffset;
 
   return (
     <button

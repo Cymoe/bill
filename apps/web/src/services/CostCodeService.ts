@@ -26,7 +26,7 @@ export class CostCodeService {
    * List all cost codes for an organization, filtered by organization's selected industries
    */
   static async list(organizationId: string): Promise<CostCode[]> {
-    console.log('CostCodeService.list called with organizationId:', organizationId);
+    // console.log('CostCodeService.list called with organizationId:', organizationId);
     
     // Use the optimized database function
     const { data, error } = await supabase
@@ -39,8 +39,8 @@ export class CostCodeService {
       throw error;
     }
 
-    console.log('RPC returned data:', data?.length || 0, 'cost codes');
-    console.log('Sample RPC data:', data?.[0]);
+    // console.log('RPC returned data:', data?.length || 0, 'cost codes');
+    // console.log('Sample RPC data:', data?.[0]);
 
     // Transform the data to match our CostCode interface
     const costCodes: CostCode[] = (data || []).map(row => ({

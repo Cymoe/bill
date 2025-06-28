@@ -43,7 +43,8 @@ export type ActivityAction =
   | 'approved'
   | 'rejected'
   | 'status_changed'
-  | 'payment_received';
+  | 'payment_received'
+  | 'apply';
 
 export type EntityType =
   | 'invoice'
@@ -56,7 +57,13 @@ export type EntityType =
   | 'subcontractor'
   | 'team_member'
   | 'work_pack'
-  | 'template';
+  | 'template'
+  | 'service'
+  | 'service_option'
+  | 'service_package'
+  | 'line_item'
+  | 'line_item_override'
+  | 'pricing_mode';
 
 export interface ActivityFilter {
   entity_type?: EntityType;
@@ -164,6 +171,27 @@ export class ActivityLogService {
           case 'updated': return 'Edit';
           case 'deleted': return 'Trash2';
           default: return 'FileStack';
+        }
+      case 'service':
+        switch (activity.action) {
+          case 'created': return 'Plus';
+          case 'updated': return 'Edit';
+          case 'deleted': return 'Trash2';
+          default: return 'Settings';
+        }
+      case 'service_option':
+        switch (activity.action) {
+          case 'created': return 'Plus';
+          case 'updated': return 'Edit';
+          case 'deleted': return 'Trash2';
+          default: return 'List';
+        }
+      case 'service_package':
+        switch (activity.action) {
+          case 'created': return 'Plus';
+          case 'updated': return 'Edit';
+          case 'deleted': return 'Trash2';
+          default: return 'Package';
         }
       default: return 'Activity';
     }

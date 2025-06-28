@@ -125,6 +125,17 @@ export const LandingPage = () => {
     }
   ];
   
+  // Canvas animation state
+  const heroCanvasRef = useRef<HTMLCanvasElement>(null);
+  const heroParticles = useRef<Array<{
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    size: number;
+    opacity: number;
+  }>>([]);
+  
   // Add CSS to hide scrollbar and add auto-scrolling animation
   useEffect(() => {
     // Create style element
@@ -372,6 +383,89 @@ export const LandingPage = () => {
     }
   }, [user, isLoading, navigate]);
 
+  // Initialize hero canvas animation
+  useEffect(() => {
+    const canvas = heroCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Set canvas size
+    const resizeCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = 600; // Fixed height for hero section
+    };
+    resizeCanvas();
+
+    // Initialize particles
+    heroParticles.current = [];
+    for (let i = 0; i < 30; i++) {
+      heroParticles.current.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 2 + 0.5,
+        opacity: Math.random() * 0.3 + 0.1
+      });
+    }
+
+    let animationId: number;
+    const animate = () => {
+      // Clear canvas with fade effect
+      ctx.fillStyle = 'rgba(249, 250, 251, 0.1)'; // Light background with transparency
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Update and draw particles
+      heroParticles.current.forEach(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        
+        // Wrap around
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.y < 0) particle.y = canvas.height;
+        if (particle.y > canvas.height) particle.y = 0;
+        
+        // Draw particle
+        ctx.fillStyle = `rgba(51, 102, 153, ${particle.opacity})`; // Brand blue color
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Connect nearby particles
+      heroParticles.current.forEach((p1, i) => {
+        heroParticles.current.slice(i + 1).forEach(p2 => {
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < 100) {
+            ctx.strokeStyle = `rgba(51, 102, 153, ${0.1 * (1 - distance / 100)})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        });
+      });
+
+      animationId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    window.addEventListener('resize', resizeCanvas);
+
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationId);
+    };
+  }, []);
+
   // Show loading state while checking auth
   if (isLoading) {
     return (
@@ -387,11 +481,19 @@ export const LandingPage = () => {
       <MarketingHeader useAuthButtons={true} showSignIn={false} />
 
       {/* Hero Section */}
-      <main className="container mx-auto px-4 py-12 md:py-24">
-        <div className="text-center space-y-8">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 max-w-4xl mx-auto">
-            Streamline Your Business & Showcase Your Work
-          </h1>
+      <main className="relative">
+        {/* Animated Canvas Background */}
+        <canvas 
+          ref={heroCanvasRef}
+          className="absolute inset-0 w-full"
+          style={{ height: '600px', opacity: 0.3 }}
+        />
+        
+        <div className="container mx-auto px-4 py-12 md:py-24 relative z-10">
+          <div className="text-center space-y-8">
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 max-w-4xl mx-auto">
+              Streamline Your Business & Showcase Your Work
+            </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             BillBreeze empowers master craftsmen, trade professionals, and real estate investors to manage their business 
             with professional invoicing while tracking costs and showcasing their best projects.
@@ -417,6 +519,7 @@ export const LandingPage = () => {
             </button>
           </div>
         </div>
+      </div>
 
         {/* Portfolio Showcase Section - Full Width */}
         <div className="mt-12 sm:mt-16" style={{ position: 'relative', width: '100vw', left: '50%', right: '50%', marginLeft: '-50vw', marginRight: '-50vw', overflow: 'hidden' }}>
@@ -680,6 +783,41 @@ export const LandingPage = () => {
                 title="Stay Organized"
                 description="Keep all your billing and client information in one place"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Experience Preview Section */}
+        <div className="mt-24 text-center">
+          <div className="bg-gradient-to-b from-gray-900 to-gray-800 rounded-2xl p-12 relative overflow-hidden">
+            {/* Animated background effect */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="absolute top-0 left-1/4 w-64 h-64 bg-blue-500 rounded-full filter blur-3xl animate-pulse"></div>
+              <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-green-500 rounded-full filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            </div>
+            
+            <div className="relative z-10">
+              <h2 className="text-4xl md:text-5xl font-bold text-white mb-6">
+                Experience the Future of Construction Tech
+              </h2>
+              <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
+                Take an interactive journey through how BillBreeze transforms chaos into clarity with AI-powered automation and beautiful visualizations.
+              </p>
+              <button
+                onClick={() => navigate('/experience')}
+                className="inline-flex items-center px-8 py-4 text-lg font-semibold text-black bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 hover:shadow-xl"
+              >
+                Launch Interactive Experience
+                <ArrowRight className="ml-3 h-5 w-5" />
+              </button>
+              
+              <div className="mt-8 flex items-center justify-center space-x-4 text-sm text-gray-400">
+                <span>🎨 Stunning Visuals</span>
+                <span>•</span>
+                <span>🚀 Scroll-Driven Animation</span>
+                <span>•</span>
+                <span>✨ AI-Powered Insights</span>
+              </div>
             </div>
           </div>
         </div>

@@ -1,20 +1,7 @@
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { formatCurrency } from '../utils/format';
-
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  unit: string;
-  type: string;
-  cost_code_id?: string;
-  status: string;
-  favorite: boolean;
-  vendor_id?: string;
-  sku?: string;
-}
+import { LineItem } from '../types';
 
 interface CostCode {
   id: string;
@@ -23,7 +10,7 @@ interface CostCode {
 }
 
 export class CostCodeExportService {
-  static async exportToCSV(products: Product[], costCodes: CostCode[]): Promise<void> {
+  static async exportToCSV(lineItems: LineItem[], costCodes: CostCode[]): Promise<void> {
     try {
       // Create CSV content
       const rows: string[][] = [];
@@ -31,7 +18,7 @@ export class CostCodeExportService {
       // Header
       rows.push(['Cost Code Export']);
       rows.push([`Generated: ${new Date().toLocaleString()}`]);
-      rows.push([`Total Items: ${products.length}`]);
+      rows.push([`Total Items: ${lineItems.length}`]);
       rows.push(['']);
       
       // Column headers
@@ -39,29 +26,27 @@ export class CostCodeExportService {
         'Cost Code',
         'Item Name',
         'Description',
-        'Type',
         'Price',
         'Unit',
-        'SKU',
         'Status',
-        'Favorite'
+        'Favorite',
+        'Organization'
       ]);
       
       // Data rows
-      products.forEach(product => {
-        const costCode = costCodes.find(cc => cc.id === product.cost_code_id);
+      lineItems.forEach(lineItem => {
+        const costCode = costCodes.find(cc => cc.id === lineItem.cost_code_id);
         const costCodeDisplay = costCode ? `${costCode.code} ${costCode.name}` : '—';
         
         rows.push([
           costCodeDisplay,
-          product.name,
-          product.description || '',
-          product.type || '',
-          product.price.toFixed(2),
-          product.unit || '',
-          product.sku || '',
-          product.status || 'active',
-          product.favorite ? 'Yes' : 'No'
+          lineItem.name,
+          lineItem.description || '',
+          lineItem.price.toFixed(2),
+          lineItem.unit || '',
+          lineItem.status || 'active',
+          lineItem.favorite ? 'Yes' : 'No',
+          lineItem.organization_id ? 'Custom' : 'Industry Standard'
         ]);
       });
       
@@ -93,7 +78,7 @@ export class CostCodeExportService {
     }
   }
   
-  static async exportToExcel(products: Product[], costCodes: CostCode[]): Promise<void> {
+  static async exportToExcel(lineItems: LineItem[], costCodes: CostCode[]): Promise<void> {
     try {
       // Create workbook
       const wb = XLSX.utils.book_new();
@@ -102,37 +87,33 @@ export class CostCodeExportService {
       const summaryData = [
         ['Cost Code Export Summary'],
         [`Generated: ${new Date().toLocaleString()}`],
-        [`Total Items: ${products.length}`],
+        [`Total Items: ${lineItems.length}`],
         [''],
-        ['Statistics by Type:']
+        ['Statistics by Ownership:']
       ];
       
-      // Count by type
-      const typeCounts: Record<string, number> = {};
-      products.forEach(p => {
-        typeCounts[p.type || 'other'] = (typeCounts[p.type || 'other'] || 0) + 1;
-      });
+      // Count by ownership
+      const sharedCount = lineItems.filter(item => !item.organization_id).length;
+      const customCount = lineItems.filter(item => item.organization_id).length;
       
-      Object.entries(typeCounts).forEach(([type, count]) => {
-        summaryData.push([`${type}:`, count.toString()]);
-      });
+      summaryData.push(['Industry Standard:', sharedCount.toString()]);
+      summaryData.push(['Custom:', customCount.toString()]);
       
       const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
       XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary');
       
       // Cost Codes Detail Sheet
-      const detailData = products.map(product => {
-        const costCode = costCodes.find(cc => cc.id === product.cost_code_id);
+      const detailData = lineItems.map(lineItem => {
+        const costCode = costCodes.find(cc => cc.id === lineItem.cost_code_id);
         return {
           'Cost Code': costCode ? `${costCode.code} ${costCode.name}` : '—',
-          'Item Name': product.name,
-          'Description': product.description || '',
-          'Type': product.type || '',
-          'Price': product.price,
-          'Unit': product.unit || '',
-          'SKU': product.sku || '',
-          'Status': product.status || 'active',
-          'Favorite': product.favorite ? 'Yes' : 'No'
+          'Item Name': lineItem.name,
+          'Description': lineItem.description || '',
+          'Price': lineItem.price,
+          'Unit': lineItem.unit || '',
+          'Status': lineItem.status || 'active',
+          'Favorite': lineItem.favorite ? 'Yes' : 'No',
+          'Organization': lineItem.organization_id ? 'Custom' : 'Industry Standard'
         };
       });
       

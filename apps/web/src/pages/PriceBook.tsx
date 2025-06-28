@@ -6,30 +6,20 @@ import {
   Plus,
   Search,
   Layers,
-  Wrench,
-  Gift
 } from 'lucide-react';
 import { PriceBook as ItemsPage } from '../components/price-book/PriceBook';
 import CostCodesPage from './CostCodesPage';
-import { WorkPacksPage } from '../components/work-packs/WorkPacksPage';
-import { ServiceCatalog } from '../components/services/ServiceCatalog';
-import { ServicePackages } from '../components/services/ServicePackages';
 import { LineItemService } from '../services/LineItemService';
 import { CostCodeService } from '../services/CostCodeService';
-import { WorkPackService } from '../services/WorkPackService';
-import { ServiceCatalogService } from '../services/ServiceCatalogService';
 import { useAuth } from '../contexts/AuthContext';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
 import { supabase } from '../lib/supabase';
 
-type TabType = 'items' | 'cost-codes' | 'work-packs' | 'services' | 'packages';
+type TabType = 'items' | 'cost-codes';
 
 interface PriceBookStats {
   itemsCount: number;
   costCodesCount: number;
-  workPacksCount: number;
-  servicesCount: number;
-  packagesCount: number;
 }
 
 export const PriceBook: React.FC = () => {
@@ -42,35 +32,24 @@ export const PriceBook: React.FC = () => {
   const getTabFromPath = (path: string): TabType => {
     if (path.includes('/price-book/items')) {
       return 'items';
-    } else if (path.includes('/price-book/work-packs')) {
-      return 'work-packs';
-    } else if (path.includes('/price-book/services')) {
-      return 'services';
-    } else if (path.includes('/price-book/packages')) {
-      return 'packages';
     } else if (path.includes('/price-book/cost-codes')) {
       return 'cost-codes';
     } else {
-      return 'cost-codes';
+      return 'items';
     }
   };
 
   const [activeTab, setActiveTab] = useState<TabType>(() => getTabFromPath(location.pathname));
   const [stats, setStats] = useState<PriceBookStats>({
     itemsCount: 0,
-    costCodesCount: 0,
-    workPacksCount: 0,
-    servicesCount: 0,
-    packagesCount: 0
+    costCodesCount: 0
   });
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingWorkPack, setEditingWorkPack] = useState<any>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [triggerAddItem, setTriggerAddItem] = useState(0);
   const [triggerAddCostCode, setTriggerAddCostCode] = useState(0);
-  const [triggerAddService, setTriggerAddService] = useState(0);
   const [isAddingItem, setIsAddingItem] = useState(false);
 
   // Debounce search input
@@ -96,23 +75,12 @@ export const PriceBook: React.FC = () => {
     // Reset all trigger states when changing tabs
     setTriggerAddItem(0);
     setTriggerAddCostCode(0);
-    setTriggerAddService(0);
-    setEditingWorkPack(null);
     
     setActiveTab(tab);
     const basePath = '/price-book';
     switch (tab) {
       case 'items':
         navigate(`${basePath}/items`);
-        break;
-      case 'work-packs':
-        navigate(`${basePath}/work-packs`);
-        break;
-      case 'services':
-        navigate(`${basePath}/services`);
-        break;
-      case 'packages':
-        navigate(`${basePath}/packages`);
         break;
       case 'cost-codes':
         navigate(`${basePath}/cost-codes`);
@@ -131,20 +99,14 @@ export const PriceBook: React.FC = () => {
     }
     
     try {
-      const [lineItemsData, costCodesData, workPacksData, servicesData, packagesData] = await Promise.all([
+      const [lineItemsData, costCodesData] = await Promise.all([
         LineItemService.list(selectedOrg.id),
-        CostCodeService.list(selectedOrg.id),
-        WorkPackService.list(selectedOrg.id),
-        ServiceCatalogService.listServices(selectedOrg.id),
-        ServiceCatalogService.listPackages(selectedOrg.id)
+        CostCodeService.list(selectedOrg.id)
       ]);
 
       setStats({
         itemsCount: lineItemsData?.length || 0,
-        costCodesCount: costCodesData?.length || 0,
-        workPacksCount: workPacksData?.length || 0,
-        servicesCount: servicesData?.length || 0,
-        packagesCount: packagesData?.length || 0
+        costCodesCount: costCodesData?.length || 0
       });
     } catch (error) {
       console.error('Error loading price book stats:', error);
@@ -160,9 +122,6 @@ export const PriceBook: React.FC = () => {
   const getAddButtonText = () => {
     switch (activeTab) {
       case 'cost-codes': return 'Add Code';
-      case 'work-packs': return 'Add Work Pack';
-      case 'services': return 'Add Service';
-      case 'packages': return 'Add Package';
       default: return 'Add Item';
     }
   };
@@ -177,19 +136,9 @@ export const PriceBook: React.FC = () => {
           // Trigger the add cost code modal in CostCodesPage
           setTriggerAddCostCode(prev => prev + 1);
           break;
-        case 'work-packs':
-          setEditingWorkPack('new');
-          break;
         case 'items':
           // Trigger the add item modal in ItemsPage
           setTriggerAddItem(prev => prev + 1);
-          break;
-        case 'services':
-          // Trigger the add service drawer in ServiceCatalog
-          setTriggerAddService(prev => prev + 1);
-          break;
-        case 'packages':
-          // Packages tab handles its own state
           break;
         default:
           break;
@@ -243,24 +192,6 @@ export const PriceBook: React.FC = () => {
         <div className="border-t border-[#333333]">
           <div className="flex">
             <button
-              onClick={() => handleTabChange('cost-codes')}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-                activeTab === 'cost-codes'
-                  ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                  : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
-              }`}
-            >
-              <List className="w-4 h-4" />
-              Cost Codes
-              <span className="text-xs text-gray-500 ml-1">
-                {loading ? (
-                  <span className="inline-block w-4 h-4 border border-gray-500 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  `(${stats.costCodesCount})`
-                )}
-              </span>
-            </button>
-            <button
               onClick={() => handleTabChange('items')}
               className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
                 activeTab === 'items'
@@ -279,56 +210,20 @@ export const PriceBook: React.FC = () => {
               </span>
             </button>
             <button
-              onClick={() => handleTabChange('work-packs')}
+              onClick={() => handleTabChange('cost-codes')}
               className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-                activeTab === 'work-packs'
+                activeTab === 'cost-codes'
                   ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
                   : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              Work Packs
+              <List className="w-4 h-4" />
+              Cost Codes
               <span className="text-xs text-gray-500 ml-1">
                 {loading ? (
                   <span className="inline-block w-4 h-4 border border-gray-500 border-t-transparent rounded-full animate-spin" />
                 ) : (
-                  `(${stats.workPacksCount})`
-                )}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('services')}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-                activeTab === 'services'
-                  ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                  : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
-              }`}
-            >
-              <Wrench className="w-4 h-4" />
-              Services
-              <span className="text-xs text-gray-500 ml-1">
-                {loading ? (
-                  <span className="inline-block w-4 h-4 border border-gray-500 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  `(${stats.servicesCount})`
-                )}
-              </span>
-            </button>
-            <button
-              onClick={() => handleTabChange('packages')}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
-                activeTab === 'packages'
-                  ? 'text-white after:bg-[#336699] bg-[#1A1A1A]'
-                  : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699] hover:bg-[#1A1A1A]/50'
-              }`}
-            >
-              <Gift className="w-4 h-4" />
-              Packages
-              <span className="text-xs text-gray-500 ml-1">
-                {loading ? (
-                  <span className="inline-block w-4 h-4 border border-gray-500 border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  `(${stats.packagesCount})`
+                  `(${stats.costCodesCount})`
                 )}
               </span>
             </button>
@@ -344,7 +239,6 @@ export const PriceBook: React.FC = () => {
             <ItemsPage 
               key="items-tab" 
               triggerAddItem={triggerAddItem}
-              onAddItemComplete={() => {}}
             />
           </div>
         )}
@@ -354,28 +248,6 @@ export const PriceBook: React.FC = () => {
               key="cost-codes-tab" 
               triggerAddCostCode={triggerAddCostCode}
             />
-          </div>
-        )}
-        {activeTab === 'work-packs' && (
-          <div className="[&>div]:border-t-0 [&>div]:pt-0 [&>div>div]:border-t-0">
-            <WorkPacksPage 
-              key="work-packs-tab"
-              editingWorkPack={editingWorkPack} 
-              setEditingWorkPack={setEditingWorkPack}
-            />
-          </div>
-        )}
-        {activeTab === 'services' && (
-          <div className="[&>div]:border-t-0 [&>div]:pt-0 [&>div>div]:border-t-0">
-            <ServiceCatalog 
-              key="services-tab" 
-              triggerAddService={triggerAddService}
-            />
-          </div>
-        )}
-        {activeTab === 'packages' && (
-          <div className="[&>div]:border-t-0 [&>div]:pt-0 [&>div>div]:border-t-0">
-            <ServicePackages key="packages-tab" />
           </div>
         )}
       </div>

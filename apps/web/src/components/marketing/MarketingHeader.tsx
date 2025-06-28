@@ -59,6 +59,9 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
     if (path === '/who-we-serve' && location.pathname === '/who-we-serve') {
       return true;
     }
+    if (path === '/experience' && location.pathname === '/experience') {
+      return true;
+    }
     if (path === '/docs/construction-saas-user-feedback' && location.pathname.includes('/docs') && location.pathname.includes('feedback')) {
       return true;
     }
@@ -141,6 +144,15 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
         >
           Resources
         </a>
+        <button 
+          onClick={() => handleNavigation('/experience')}
+          className={`text-gray-700 font-medium transition-colors ${
+            isActive('/experience') ? '' : 'hover:text-blue-600'
+          }`}
+          style={{ color: isActive('/experience') ? '#336699' : undefined }}
+        >
+          Experience
+        </button>
         
         {showSignIn && !useAuthButtons && (
           <button 
@@ -215,6 +227,15 @@ export const MarketingHeader = ({ showSignIn = true, useAuthButtons = false }: M
               >
                 Resources
               </a>
+              <button 
+                onClick={() => handleNavigation('/experience')}
+                className={`text-gray-700 font-medium transition-colors text-left ${
+                  isActive('/experience') ? '' : 'hover:text-blue-600'
+                }`}
+                style={{ color: isActive('/experience') ? '#336699' : undefined }}
+              >
+                Experience
+              </button>
             </div>
           </div>
           

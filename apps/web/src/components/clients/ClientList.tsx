@@ -35,6 +35,7 @@ type Client = {
   user_id: string;
   organization_id: string;
   created_at: string;
+  discount_percentage?: number;
   // Calculated fields
   totalValue?: number;
   projectCount?: number;
@@ -794,6 +795,11 @@ export const ClientList: React.FC<ClientListProps> = ({
                                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400 flex-shrink-0">
                                     Active
                                   </span>
+                                  {client.discount_percentage && client.discount_percentage > 0 && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-400/10 text-purple-400 flex-shrink-0">
+                                      {client.discount_percentage}% discount
+                                    </span>
+                                  )}
                                 </div>
                                 
                                 <div className="flex items-center gap-3 text-xs text-gray-400">
@@ -895,6 +901,11 @@ export const ClientList: React.FC<ClientListProps> = ({
                                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-400/10 text-green-400">
                                     Active
                                   </span>
+                                  {client.discount_percentage && client.discount_percentage > 0 && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-400/10 text-purple-400">
+                                      {client.discount_percentage}% discount
+                                    </span>
+                                  )}
                                 </div>
                                 
                                 <div className="flex items-center gap-4 text-xs text-gray-400 mb-1">

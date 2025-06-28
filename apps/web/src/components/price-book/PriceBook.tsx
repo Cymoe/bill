@@ -5,19 +5,18 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Modal } from '../common/Modal';
 import { SlideOutDrawer } from '../common/SlideOutDrawer';
 import { LineItemForm } from './LineItemForm';
-import { LineItemModal } from '../modals/LineItemModal';
-import { EditLineItemModal } from '../modals/EditLineItemModal';
 import { LineItemService } from '../../services/LineItemService';
-import { IndustryService } from '../../services/IndustryService';
 import { CostCodeService } from '../../services/CostCodeService';
-import { LineItem, Industry } from '../../types';
-import { MoreVertical, Filter, ChevronDown, Plus, Copy, Star, Trash2, Edit3, Calculator, Search, Upload, Download, FileText, List, LayoutGrid, Settings, Columns, FileSpreadsheet, Tag, Package } from 'lucide-react';
-import { PageHeaderBar } from '../common/PageHeaderBar';
+import { LineItem } from '../../types';
+import { MoreVertical, Filter, Plus, Copy, Star, Trash2, Edit3, Upload, FileText, LayoutGrid, FileSpreadsheet, DollarSign } from 'lucide-react';
 import './price-book.css';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { LayoutContext, OrganizationContext } from '../layouts/DashboardLayout';
 import React from 'react';
 import { CostCodeExportService } from '../../services/CostCodeExportService';
+import { PricingModeSelector } from './PricingModeSelector';
+import { PricingModePreviewModal } from './PricingModePreviewModal';
+import { PricingModesService, PricingMode } from '../../services/PricingModesService';
 
 // Using LineItem interface from types instead of local Product interface
 
@@ -32,13 +31,11 @@ declare global {
 
 interface PriceBookProps {
   triggerAddItem?: number;
-  onAddItemComplete?: () => void;
 }
 
-export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemComplete }) => {
+export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const { } = React.useContext(LayoutContext);
   const { selectedOrg } = React.useContext(OrganizationContext);
   const [showNewLineItemModal, setShowNewLineItemModal] = useState(false);
@@ -46,15 +43,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
   const [editingLineItem, setEditingLineItem] = useState<LineItem | null>(null);
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [selectedUnit, setSelectedUnit] = useState('any');
   const [priceSort, setPriceSort] = useState<'asc' | 'desc'>('desc');
-  const [selectedLineItem, setSelectedLineItem] = useState<LineItem | null>(null);
-  const [showProductMenu, setShowProductMenu] = useState(false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [isClosingDropdown, setIsClosingDropdown] = useState(false);
@@ -76,14 +69,14 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     return false;
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTrade, setSelectedTrade] = useState('all');
-  const [viewMode, setViewMode] = useState<'expanded' | 'condensed'>('expanded');
   const [error, setError] = useState<string | null>(null);
   const [isLoadingCostCodes, setIsLoadingCostCodes] = useState(true);
-  const [activeIndustries, setActiveIndustries] = useState<Industry[]>([]);
   const [quickFilter, setQuickFilter] = useState<'all' | 'labor' | 'materials' | 'services' | 'installation'>('all');
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [recentlyUpdatedId, setRecentlyUpdatedId] = useState<string | null>(null);
+  const [selectedMode, setSelectedMode] = useState<PricingMode | null>(null);
+  const [showModePreview, setShowModePreview] = useState(false);
+  const [pendingModeId, setPendingModeId] = useState<string | null>(null);
+  const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
   
   // Calculate counts for each quick filter
   const quickFilterCounts = useMemo(() => {
@@ -111,9 +104,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     return counts;
   }, [lineItems, trades]);
   
-  // Check if tutorial mode is enabled via URL parameter
-  const searchParams = new URLSearchParams(location.search);
-  const showTutorial = searchParams.get('tutorial') === 'true';
   
   // Handle trigger from parent component
   useEffect(() => {
@@ -122,52 +112,102 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     }
   }, [triggerAddItem]);
   
-  const togglePriceSort = () => {
-    setPriceSort(priceSort === 'asc' ? 'desc' : 'asc');
-  };
   
   const handleEditLineItem = (lineItem: LineItem) => {
     setEditingLineItem(lineItem);
     setShowEditLineItemModal(true);
   };
 
-  const handleSaveEdit = async (data: Partial<LineItem>) => {
+  const handleSaveEdit = async (data: any) => {
     try {
-      if (!editingLineItem?.id) return;
+      if (!editingLineItem?.id || !selectedOrg?.id) return;
       
-      await LineItemService.update(editingLineItem.id, data);
+      // Optimistically update the UI immediately
+      setLineItems(prevItems => 
+        prevItems.map(item => 
+          item.id === editingLineItem.id 
+            ? {
+                ...item,
+                price: data.price,
+                name: data.name || item.name,
+                description: data.description !== undefined ? data.description : item.description,
+                unit: data.unit || item.unit,
+                has_override: !editingLineItem.organization_id && data.price !== editingLineItem.base_price,
+                markup_percentage: data.markup_percentage,
+                base_price: item.base_price // Keep base_price for strategy calculation
+              }
+            : item
+        )
+      );
       
+      // Trigger animation for the updated item
+      setRecentlyUpdatedId(editingLineItem.id);
+      setTimeout(() => setRecentlyUpdatedId(null), 1500); // Clear after animation
+      
+      // Close modal immediately for better UX
       setShowEditLineItemModal(false);
       setEditingLineItem(null);
-      await fetchLineItems();
+      
+      // Then update the backend
+      try {
+        // Check if this is a shared item (no organization_id)
+        if (!editingLineItem.organization_id) {
+          // For shared items, handle markup or custom price
+          if (data.markup_percentage !== undefined) {
+            // Set markup percentage
+            await LineItemService.setMarkupPercentage(editingLineItem.id, selectedOrg.id, data.markup_percentage);
+          } else if (data.price && data.price !== editingLineItem.base_price) {
+            // Set custom price
+            await LineItemService.setOverridePrice(editingLineItem.id, selectedOrg.id, data.price);
+          } else if (data.price === editingLineItem.base_price) {
+            // Reset to base price
+            await LineItemService.removeOverridePrice(editingLineItem.id, selectedOrg.id);
+          }
+        } else {
+          // For organization-owned items, update normally
+          await LineItemService.update(editingLineItem.id, {
+            name: data.name,
+            description: data.description,
+            price: data.price,
+            unit: data.unit,
+            cost_code_id: data.cost_code_id
+          }, selectedOrg.id);
+        }
+      } catch (error) {
+        // If backend update fails, revert the optimistic update
+        console.error('Error updating line item:', error);
+        alert(error instanceof Error ? error.message : 'Failed to update line item');
+        await fetchLineItems(); // Reload to get correct state
+      }
     } catch (error) {
-      console.error('Error updating line item:', error);
+      console.error('Error in handleSaveEdit:', error);
+      alert('Failed to update line item');
     }
   };
 
   const handleToggleFavorite = async (lineItem: LineItem) => {
     try {
+      // Only allow favoriting for organization-owned items or shared items
       await LineItemService.update(lineItem.id, {
         favorite: !lineItem.favorite
-      });
+      }, selectedOrg?.id);
       await fetchLineItems();
     } catch (error) {
       console.error('Error toggling favorite:', error);
+      // For shared items, we might need a different approach
+      // For now, just log the error
     }
   };
 
-  const handleAddToEstimate = async (lineItem: LineItem) => {
-    // TODO: Implement add to estimate functionality
-    console.log('Add to estimate:', lineItem);
-  };
 
   const handleDeleteLineItem = async (lineItem: LineItem) => {
     if (confirm('Are you sure you want to delete this line item?')) {
       try {
-        await LineItemService.delete(lineItem.id);
+        await LineItemService.delete(lineItem.id, selectedOrg?.id);
         await fetchLineItems();
       } catch (error) {
         console.error('Error deleting line item:', error);
+        alert(error instanceof Error ? error.message : 'Failed to delete line item');
       }
     }
   };
@@ -179,7 +219,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
         description: lineItem.description,
         price: lineItem.price,
         unit: lineItem.unit,
-        category: null,
         user_id: user?.id || '',
         organization_id: selectedOrg?.id || '',
         status: lineItem.status,
@@ -345,16 +384,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     }
   }, [user?.id, selectedOrg?.id]);
 
-  const fetchActiveIndustries = async () => {
-    try {
-      if (!selectedOrg?.id) return;
-      
-      const industries = await IndustryService.getOrganizationIndustries(selectedOrg.id);
-      setActiveIndustries(industries);
-    } catch (error) {
-      console.error('Error fetching active industries:', error);
-    }
-  };
 
   const fetchTrades = async () => {
     try {
@@ -399,8 +428,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
       }
       
       // Fetch all data in parallel for better performance
-      const [industriesResult, tradesResult, lineItemsResult] = await Promise.allSettled([
-        fetchActiveIndustries(),
+      const [tradesResult, lineItemsResult] = await Promise.allSettled([
         fetchTrades(),
         LineItemService.list(selectedOrg.id)
       ]);
@@ -422,21 +450,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     }
   };
 
-  // Helper function to get the cost code for a line item
-  const getTrade = (lineItem: LineItem): string => {
-    if (!lineItem.cost_code_id) return '—';
-    
-    // Check if cost_code is already populated from the service
-    if (lineItem.cost_code) {
-      return `${lineItem.cost_code.code} ${lineItem.cost_code.name}`;
-    }
-    
-    // Fall back to searching in trades array
-    const trade = trades.find(t => t.id === lineItem.cost_code_id);
-    if (!trade) return '—';
-    
-    return `${trade.code} ${trade.name}`;
-  };
+
   
 
   // Fetch vendors
@@ -448,11 +462,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     fetchVendors();
   }, []);
 
-  // Debounce search input
-  useEffect(() => {
-    const handler = setTimeout(() => setSearchTerm(searchInput), 300);
-    return () => clearTimeout(handler);
-  }, [searchInput]);
 
   const filteredLineItems = useMemo(() => {
     let filtered = [...lineItems];
@@ -596,65 +605,55 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
     localStorage.setItem('pricebook-condensed', String(condensed));
   }, [condensed]);
 
+  // Handle pricing mode application
+  const handleApplyPricingMode = async (modeId: string) => {
+    if (!selectedOrg?.id) return;
+    
+    // Show preview modal
+    setPendingModeId(modeId);
+    setShowModePreview(true);
+  };
+
+  const handleConfirmPricingMode = async () => {
+    if (!selectedOrg?.id || !pendingModeId) return;
+    
+    try {
+      const itemsToUpdate = selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined;
+      const appliedCount = await PricingModesService.applyMode(
+        selectedOrg.id,
+        pendingModeId,
+        itemsToUpdate
+      );
+      
+      // Refresh line items to show new prices
+      await fetchLineItems();
+      
+      // Clear selection
+      setSelectedLineItemIds([]);
+      
+      // Show success message
+      console.log(`Applied pricing mode to ${appliedCount} items`);
+    } catch (error) {
+      console.error('Error applying pricing mode:', error);
+    } finally {
+      setShowModePreview(false);
+      setPendingModeId(null);
+    }
+  };
+
   return (
     <div className="bg-transparent border border-[#333333] border-t-0">
 
 
-      {/* Quick Filter Buttons */}
-      <div className="border-t border-[#333333] px-6 py-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 uppercase tracking-wide mr-2">Quick Filters:</span>
-          <button
-            onClick={() => setQuickFilter('all')}
-            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
-              quickFilter === 'all' 
-                ? 'bg-[#336699] text-white' 
-                : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#333333]'
-            }`}
-          >
-            All Items ({quickFilterCounts.all})
-          </button>
-          <button
-            onClick={() => setQuickFilter('labor')}
-            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
-              quickFilter === 'labor' 
-                ? 'bg-green-600 text-white' 
-                : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#333333]'
-            }`}
-          >
-            Labor ({quickFilterCounts.labor})
-          </button>
-          <button
-            onClick={() => setQuickFilter('materials')}
-            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
-              quickFilter === 'materials' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#333333]'
-            }`}
-          >
-            Materials ({quickFilterCounts.materials})
-          </button>
-          <button
-            onClick={() => setQuickFilter('installation')}
-            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
-              quickFilter === 'installation' 
-                ? 'bg-orange-600 text-white' 
-                : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#333333]'
-            }`}
-          >
-            Installation ({quickFilterCounts.installation})
-          </button>
-          <button
-            onClick={() => setQuickFilter('services')}
-            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
-              quickFilter === 'services' 
-                ? 'bg-purple-600 text-white' 
-                : 'bg-[#1E1E1E] text-gray-300 hover:bg-[#333333] border border-[#333333]'
-            }`}
-          >
-            Services ({quickFilterCounts.services})
-          </button>
-        </div>
+
+
+      {/* Pricing Mode Selector */}
+      <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A]">
+        <PricingModeSelector
+          onModeChange={setSelectedMode}
+          selectedLineItemCount={selectedLineItemIds.length}
+          onApplyMode={handleApplyPricingMode}
+        />
       </div>
 
       {/* Table Controls */}
@@ -697,15 +696,16 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
               </button>
 
               {showFilterMenu && (
-                <div className="absolute top-full left-0 mt-2 w-80 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] p-4">
-                  <div className="space-y-4">
+                <div className="absolute top-full left-0 mt-2 w-72 bg-[#1E1E1E] border border-[#333333] shadow-lg z-[9999] p-3">
+                  <div className="space-y-3">
+
                     {/* Status Filter */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
                         Status
                       </label>
                       <select
-                        className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        className="w-full bg-[#333333] border border-[#555555] px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
                         value={selectedStatus}
                         onChange={(e) => setSelectedStatus(e.target.value)}
                       >
@@ -718,21 +718,21 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
 
                     {/* Price Range Filter */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
                         Price Range
                       </label>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="number"
                           placeholder="Min"
-                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={minPrice}
                           onChange={(e) => setMinPrice(e.target.value)}
                         />
                         <input
                           type="number"
                           placeholder="Max"
-                          className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                          className="w-full bg-[#333333] border border-[#555555] px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
                           value={maxPrice}
                           onChange={(e) => setMaxPrice(e.target.value)}
                         />
@@ -741,11 +741,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
 
                     {/* Vendor Filter */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">
+                      <label className="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">
                         Vendor
                       </label>
                       <select
-                        className="w-full bg-[#333333] border border-[#555555] px-3 py-2 text-sm text-white focus:outline-none focus:border-[#336699]"
+                        className="w-full bg-[#333333] border border-[#555555] px-2.5 py-1.5 text-sm text-white focus:outline-none focus:border-[#336699]"
                         value={selectedVendorId}
                         onChange={(e) => setSelectedVendorId(e.target.value)}
                       >
@@ -782,7 +782,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
                           setSelectedDateRange('all');
                           setShowFilterMenu(false);
                         }}
-                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-2 px-3 text-sm font-medium transition-colors"
+                        className="w-full bg-[#333333] hover:bg-[#404040] text-white py-1.5 px-2.5 text-sm font-medium transition-colors"
                       >
                         Clear All Filters
                       </button>
@@ -795,35 +795,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
 
           {/* Right side - View options */}
           <div className="flex items-center gap-3">
-            {/* Selection Mode Toggle */}
-            <button
-              onClick={() => {
-                setSelectionMode(!selectionMode);
-                setSelectedItemIds(new Set());
-              }}
-              className={`bg-[#1E1E1E] border border-[#333333] px-3 py-2 text-sm text-white hover:bg-[#333333] transition-colors flex items-center gap-2 ${
-                selectionMode ? 'bg-[#336699] text-white border-[#336699]' : ''
-              }`}
-            >
-              <input type="checkbox" checked={selectionMode} readOnly className="pointer-events-none" />
-              Select
-            </button>
-            
-            {/* Create Product Button - Only show when items are selected */}
-            {selectionMode && selectedItemIds.size > 0 && (
-              <button
-                onClick={() => {
-                  // Navigate to products page with selected items
-                  const itemIds = Array.from(selectedItemIds).join(',');
-                  navigate(`/price-book/products?createFrom=${itemIds}`);
-                }}
-                className="bg-[#336699] hover:bg-opacity-80 text-white px-4 py-2 text-sm font-medium transition-colors flex items-center gap-2"
-              >
-                <Package className="w-4 h-4" />
-                Create Product ({selectedItemIds.size} items)
-              </button>
-            )}
-            
             <button
               onClick={() => setCondensed(!condensed)}
               className="bg-[#1E1E1E] border border-[#333333] p-2 text-white hover:bg-[#333333] transition-colors"
@@ -882,8 +853,23 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
       {/* Table Column Headers */}
       <div className="border-t border-[#333333] px-6 py-3 bg-[#1E1E1E]/50">
         <div className="grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider items-center">
-          <div className="col-span-8">ITEM</div>
-          <div className="col-span-3 text-right">PRICE</div>
+          <div className="col-span-1 flex items-center">
+            <input
+              type="checkbox"
+              checked={selectedLineItemIds.length === filteredLineItems.length && filteredLineItems.length > 0}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setSelectedLineItemIds(filteredLineItems.map(item => item.id));
+                } else {
+                  setSelectedLineItemIds([]);
+                }
+              }}
+              className="w-4 h-4 rounded bg-[#333333] border-[#555555] text-[#336699] focus:ring-[#336699] focus:ring-offset-0"
+            />
+          </div>
+          <div className="col-span-6">ITEM</div>
+          <div className="col-span-2 text-right">PRICE</div>
+          <div className="col-span-2">STRATEGY</div>
           <div className="col-span-1 text-right"></div>
         </div>
       </div>
@@ -964,54 +950,41 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
             <div
               key={lineItem.id}
               onClick={(e) => {
-                // Don't open edit modal if clicking on checkbox
-                if ((e.target as HTMLElement).type === 'checkbox') {
-                  return;
-                }
                 // Don't open edit modal if dropdown is active or just closed
                 if (activeDropdown || isClosingDropdown) {
                   if (activeDropdown) setActiveDropdown(null);
                   return;
                 }
-                // Don't open edit modal in selection mode
-                if (selectionMode) {
-                  e.preventDefault();
-                  const newSelectedIds = new Set(selectedItemIds);
-                  if (selectedItemIds.has(lineItem.id)) {
-                    newSelectedIds.delete(lineItem.id);
-                  } else {
-                    newSelectedIds.add(lineItem.id);
-                  }
-                  setSelectedItemIds(newSelectedIds);
-                  return;
-                }
+                // Always open edit modal - it will handle overrides for shared items
                 handleEditLineItem(lineItem);
               }}
                 className={`grid grid-cols-12 gap-4 px-6 ${condensed ? 'py-2' : 'py-3'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer group relative ${index < items.length - 1 ? 'border-b border-[#333333]/20' : ''}`}
               >
+                {/* Checkbox Column */}
+                <div className="col-span-1 flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedLineItemIds.includes(lineItem.id)}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      if (e.target.checked) {
+                        setSelectedLineItemIds([...selectedLineItemIds, lineItem.id]);
+                      } else {
+                        setSelectedLineItemIds(selectedLineItemIds.filter(id => id !== lineItem.id));
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-4 h-4 rounded bg-[#333333] border-[#555555] text-[#336699] focus:ring-[#336699] focus:ring-offset-0"
+                  />
+                </div>
+                
                 {/* Item Column */}
-                <div className="col-span-8">
+                <div className="col-span-6">
                   <div className="flex items-center gap-3">
-                    {/* Checkbox for selection mode */}
-                    {selectionMode && (
-                      <input
-                        type="checkbox"
-                        checked={selectedItemIds.has(lineItem.id)}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          const newSelectedIds = new Set(selectedItemIds);
-                          if (e.target.checked) {
-                            newSelectedIds.add(lineItem.id);
-                          } else {
-                            newSelectedIds.delete(lineItem.id);
-                          }
-                          setSelectedItemIds(newSelectedIds);
-                        }}
-                        className="w-4 h-4 text-[#336699] bg-[#333333] border-[#555555] rounded focus:ring-[#336699] focus:ring-2"
-                      />
-                    )}
                     <div className="min-w-0 flex-1">
-                      <div className={`font-medium text-gray-100 truncate ${condensed ? 'text-sm' : ''}`}>{lineItem.name}</div>
+                      <div className="flex items-center gap-2">
+                        <div className={`font-medium text-gray-100 truncate ${condensed ? 'text-sm' : ''}`}>{lineItem.name}</div>
+                      </div>
                       {!condensed && lineItem.description && (
                         <div className="text-xs text-gray-400 truncate mt-0.5">{lineItem.description}</div>
                       )}
@@ -1020,11 +993,172 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
                 </div>
 
                 {/* Price Column */}
-                <div className="col-span-3 text-right">
-                  <div className={`font-mono font-semibold text-gray-100 ${condensed ? 'text-sm' : ''}`}>
-                    {formatCurrency(lineItem.price)}
+                <div className="col-span-2 text-right">
+                  <div className="flex flex-col items-end">
+                    <span className={`font-mono font-semibold ${condensed ? 'text-sm' : 'text-base'} text-gray-100 ${
+                      recentlyUpdatedId === lineItem.id ? 'price-updated' : ''
+                    }`}>
+                      {formatCurrency(lineItem.price)}
+                    </span>
+                    {!condensed && (
+                      <span className="text-xs text-gray-400 capitalize mt-0.5">{lineItem.unit}</span>
+                    )}
                   </div>
-                  {!condensed && <div className="text-xs text-gray-400 capitalize">{lineItem.unit}</div>}
+                </div>
+
+                {/* Strategy Column */}
+                <div className="col-span-2">
+                  {lineItem.has_override && (() => {
+                    // If we're in preview mode and this item is selected, show the mode being previewed
+                    if (showModePreview && selectedLineItemIds.includes(lineItem.id) && selectedMode) {
+                      let bgColor = 'bg-blue-500/20';
+                      let textColor = 'text-blue-400';
+                      
+                      switch (selectedMode.name) {
+                        case 'Hail Mary':
+                          bgColor = 'bg-red-500/20';
+                          textColor = 'text-red-400';
+                          break;
+                        case 'Rush Job':
+                          bgColor = 'bg-orange-500/20';
+                          textColor = 'text-orange-400';
+                          break;
+                        case 'Premium Service':
+                          bgColor = 'bg-purple-500/20';
+                          textColor = 'text-purple-400';
+                          break;
+                        case 'Busy Season':
+                          bgColor = 'bg-yellow-500/20';
+                          textColor = 'text-yellow-400';
+                          break;
+                        case 'Market Rate':
+                          bgColor = 'bg-gray-500/20';
+                          textColor = 'text-gray-400';
+                          break;
+                        case 'Competitive':
+                          bgColor = 'bg-blue-500/20';
+                          textColor = 'text-blue-400';
+                          break;
+                        case 'Slow Season':
+                          bgColor = 'bg-cyan-500/20';
+                          textColor = 'text-cyan-400';
+                          break;
+                        case 'Need This Job':
+                          bgColor = 'bg-green-500/20';
+                          textColor = 'text-green-400';
+                          break;
+                      }
+                      
+                      return (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${bgColor} ${textColor}`}>
+                          {selectedMode.name}
+                        </span>
+                      );
+                    }
+                    
+                    // If we have an applied mode name, use it directly
+                    if (lineItem.applied_mode_name) {
+                      let bgColor = 'bg-blue-500/20';
+                      let textColor = 'text-blue-400';
+                      
+                      switch (lineItem.applied_mode_name) {
+                        case 'Hail Mary':
+                          bgColor = 'bg-red-500/20';
+                          textColor = 'text-red-400';
+                          break;
+                        case 'Rush Job':
+                          bgColor = 'bg-orange-500/20';
+                          textColor = 'text-orange-400';
+                          break;
+                        case 'Premium Service':
+                          bgColor = 'bg-purple-500/20';
+                          textColor = 'text-purple-400';
+                          break;
+                        case 'Busy Season':
+                          bgColor = 'bg-yellow-500/20';
+                          textColor = 'text-yellow-400';
+                          break;
+                        case 'Market Rate':
+                          bgColor = 'bg-gray-500/20';
+                          textColor = 'text-gray-400';
+                          break;
+                        case 'Competitive':
+                          bgColor = 'bg-blue-500/20';
+                          textColor = 'text-blue-400';
+                          break;
+                        case 'Slow Season':
+                          bgColor = 'bg-cyan-500/20';
+                          textColor = 'text-cyan-400';
+                          break;
+                        case 'Need This Job':
+                          bgColor = 'bg-green-500/20';
+                          textColor = 'text-green-400';
+                          break;
+                      }
+                      
+                      return (
+                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${bgColor} ${textColor}`}>
+                          {lineItem.applied_mode_name}
+                        </span>
+                      );
+                    }
+                    
+                    // Fallback to ratio-based calculation for items without applied_mode_name
+                    const basePrice = lineItem.base_price || 0;
+                    const currentPrice = lineItem.price;
+                    if (basePrice === 0) return null;
+                    
+                    const ratio = currentPrice / basePrice;
+                    let label = 'custom';
+                    let bgColor = 'bg-blue-500/20';
+                    let textColor = 'text-blue-400';
+                    
+                    // Determine which pricing mode this falls into based on ratio
+                    // Match our actual pricing modes
+                    if (ratio >= 9.5) {
+                      label = 'Hail Mary';
+                      bgColor = 'bg-red-500/20';
+                      textColor = 'text-red-400';
+                    } else if (ratio >= 1.75) {
+                      label = 'Rush Job';
+                      bgColor = 'bg-orange-500/20';
+                      textColor = 'text-orange-400';
+                    } else if (ratio >= 1.45) {
+                      label = 'Premium Service';
+                      bgColor = 'bg-purple-500/20';
+                      textColor = 'text-purple-400';
+                    } else if (ratio >= 1.15) {
+                      label = 'Busy Season';
+                      bgColor = 'bg-yellow-500/20';
+                      textColor = 'text-yellow-400';
+                    } else if (ratio >= 0.97 && ratio <= 1.03) {
+                      label = 'Market Rate';
+                      bgColor = 'bg-gray-500/20';
+                      textColor = 'text-gray-400';
+                    } else if (ratio >= 0.93) {
+                      label = 'Competitive';
+                      bgColor = 'bg-blue-500/20';
+                      textColor = 'text-blue-400';
+                    } else if (ratio >= 0.87) {
+                      label = 'Slow Season';
+                      bgColor = 'bg-cyan-500/20';
+                      textColor = 'text-cyan-400';
+                    } else if (ratio >= 0.82) {
+                      label = 'Need This Job';
+                      bgColor = 'bg-green-500/20';
+                      textColor = 'text-green-400';
+                    } else {
+                      label = `${Math.round((1 - ratio) * 100)}% off`;
+                      bgColor = 'bg-red-500/20';
+                      textColor = 'text-red-400';
+                    }
+                    
+                    return (
+                      <span className={`text-xs px-1.5 py-0.5 rounded whitespace-nowrap ${bgColor} ${textColor}`}>
+                        {label}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 {/* Actions Column */}
@@ -1049,65 +1183,82 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
                 {activeDropdown === lineItem.id && (
                   <div
                     ref={dropdownRef}
-                    className="absolute right-0 top-8 w-48 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1"
+                    className="absolute right-0 top-8 w-52 bg-[#1E1E1E] border border-[#333333] shadow-lg z-50 py-1"
                   >
+                  {/* Edit option - different text based on ownership */}
                   <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditLineItem(lineItem);
                         setActiveDropdown(null);
                       }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors whitespace-nowrap"
                     >
                       <Edit3 className="w-4 h-4 mr-3 text-gray-400" />
-                      Edit Item
+                      {lineItem.organization_id ? 'Edit Item' : 'Edit Price'}
                   </button>
+                  
+                  {/* Reset Price - only for shared items with overrides */}
+                  {!lineItem.organization_id && lineItem.has_override && (
+                    <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          if (confirm('Reset to industry standard price?')) {
+                            try {
+                              await LineItemService.removeOverridePrice(lineItem.id, selectedOrg?.id || '');
+                              await fetchLineItems();
+                            } catch (error) {
+                              console.error('Error resetting price:', error);
+                            }
+                          }
+                          setActiveDropdown(null);
+                        }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors whitespace-nowrap"
+                      >
+                        <DollarSign className="w-4 h-4 mr-3 text-gray-400" />
+                        Reset to Standard Price
+                    </button>
+                  )}
                     
                   <button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDuplicateLineItem(lineItem);
                       }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
+                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors whitespace-nowrap"
                   >
                       <Copy className="w-4 h-4 mr-3 text-gray-400" />
                       Duplicate
                   </button>
                     
-                  <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleFavorite(lineItem);
-                      }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                  >
-                      <Star className={`w-4 h-4 mr-3 ${lineItem.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
-                      {lineItem.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                  </button>
-                    
-                  <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddToEstimate(lineItem);
-                      }}
-                        className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors"
-                  >
-                      <Calculator className="w-4 h-4 mr-3 text-[#F9D71C]" />
-                      Add to Current Estimate
-                  </button>
-                    
-                    <div className="border-t border-[#333333] my-1" />
-                    
-                  <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteLineItem(lineItem);
-                      }}
-                      className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
-                  >
-                      <Trash2 className="w-4 h-4 mr-3 text-red-400" />
-                      Delete
-                  </button>
+                  {/* Options only for owned items */}
+                  {lineItem.organization_id && (
+                    <>
+                      <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleToggleFavorite(lineItem);
+                          }}
+                            className="w-full flex items-center px-3 py-2 text-sm text-gray-100 hover:bg-[#333333] transition-colors whitespace-nowrap"
+                      >
+                          <Star className={`w-4 h-4 mr-3 ${lineItem.favorite ? 'text-yellow-400 fill-current' : 'text-gray-400'}`} />
+                          {lineItem.favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+                      </button>
+                      
+                      <div className="border-t border-[#333333] my-1" />
+                      
+                      <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteLineItem(lineItem);
+                          }}
+                          className="w-full flex items-center px-3 py-2 text-sm text-red-400 hover:bg-[#333333] transition-colors"
+                      >
+                          <Trash2 className="w-4 h-4 mr-3 text-red-400" />
+                          Delete
+                      </button>
+                    </>
+                  )}
                 </div>
                 )}
               </div>
@@ -1137,7 +1288,6 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
               description: data.description,
               price: data.price,
               unit: data.unit,
-              category: null, // Categories are no longer used
               cost_code_id: data.cost_code_id || undefined,
               user_id: user?.id || '',
               organization_id: selectedOrg?.id || '',
@@ -1165,8 +1315,14 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
       >
         {editingLineItem && (
           <LineItemForm
-            onSubmit={async (data: { name: string; description: string; price: number; unit: string; cost_code_id: string }) => {
-              await handleSaveEdit(data);
+            onSubmit={async (data) => {
+              await handleSaveEdit({
+                name: data.name,
+                description: data.description,
+                price: data.price,
+                unit: data.unit,
+                cost_code_id: data.cost_code_id || editingLineItem.cost_code_id
+              });
             }}
             onCancel={() => {
               setShowEditLineItemModal(false);
@@ -1177,6 +1333,22 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem, onAddItemC
           />
         )}
       </SlideOutDrawer>
+
+      {/* Pricing Mode Preview Modal */}
+      {pendingModeId && selectedMode && (
+        <PricingModePreviewModal
+          isOpen={showModePreview}
+          onClose={() => {
+            setShowModePreview(false);
+            setPendingModeId(null);
+          }}
+          mode={selectedMode}
+          organizationId={selectedOrg?.id || ''}
+          lineItemIds={selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined}
+          onConfirm={handleConfirmPricingMode}
+        />
+      )}
+
       </div>
   );
 };

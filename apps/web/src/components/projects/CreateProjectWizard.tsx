@@ -7,7 +7,7 @@ import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
 import { ExpenseService } from '../../services/expenseService';
 import { ActivityLogService } from '../../services/ActivityLogService';
-import WorkPackSelector from './WorkPackSelector';
+// import WorkPackSelector from './WorkPackSelector'; // TODO: Create ServicePackageSelector
 
 // Map category names to IDs from the database
 const categoryNameToId: Record<string, string> = {
@@ -93,7 +93,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
   const [selectedIndustry, setSelectedIndustry] = useState<Industry | null>(null);
   const [selectedProjectType, setSelectedProjectType] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<any>(null);
-  const [selectedWorkPack, setSelectedWorkPack] = useState<any>(null);
+  const [selectedServicePackage, setSelectedServicePackage] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [customBudget, setCustomBudget] = useState('');
@@ -122,7 +122,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
       setSelectedIndustry(null);
       setSelectedProjectType('');
       setSelectedCategory(null);
-      setSelectedWorkPack(null);
+      setSelectedServicePackage(null);
       setCustomBudget('');
       setProjectStatus('planned');
       setFormData({
@@ -323,24 +323,27 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
 
       case 2:
         return (
-          <WorkPackSelector
-            categoryId={selectedCategory?.id || ''}
-            categoryName={selectedCategory?.name || ''}
-            selectedWorkPackId={selectedWorkPack?.id || null}
-            onSelect={(workPack) => {
-              console.log('=== WORK PACK SELECTED ===');
-              console.log('Work pack received:', workPack);
-              console.log('Work pack name:', workPack.name);
-              console.log('Work pack items:', workPack.items);
-              console.log('Work pack items count:', workPack.items?.length);
-              setSelectedWorkPack(workPack);
-              setCurrentStep(3); // Automatically advance to step 3
-            }}
-            onCustom={() => {
-              setSelectedWorkPack({ id: 'custom', name: 'Custom Work Pack' });
-              setCurrentStep(3);
-            }}
-          />
+          <div className="space-y-4">
+            {/* ServicePackageSelector will be implemented here */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
+              <h4 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">
+                Service Package Selection Coming Soon
+              </h4>
+              <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+                We're updating our package selection to provide better service options.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedServicePackage({ id: 'custom', name: 'Custom Service Package' });
+                  setCurrentStep(3);
+                }}
+                className="w-full py-3 px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium"
+              >
+                Continue without package
+              </button>
+            </div>
+          </div>
         );
 
       case 3:
@@ -488,7 +491,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               {/* End Date */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs uppercase tracking-wider text-gray-500 font-medium">
-                  {selectedWorkPack ? 'Estimated End Date' : 'Target End Date'}
+                  {selectedServicePackage ? 'Estimated End Date' : 'Target End Date'}
                 </label>
                 <div className="relative">
                   <input
@@ -512,13 +515,13 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">$</span>
                   <input
                     type="text"
-                    value={selectedWorkPack ? formatCurrency(selectedWorkPack.base_price).replace('$', '') : customBudget}
+                    value={selectedServicePackage ? formatCurrency(selectedServicePackage.base_price).replace('$', '') : customBudget}
                     onChange={(e) => setCustomBudget(e.target.value)}
                     className="w-full h-12 pl-8 pr-4 bg-[#111] border border-[#2a2a2a] rounded-lg 
                              text-white focus:outline-none focus:border-[#3a3a3a] focus:bg-[#151515] 
                              transition-all text-sm"
                     placeholder="0.00"
-                    readOnly={!!selectedWorkPack}
+                    readOnly={!!selectedServicePackage}
                   />
                 </div>
               </div>
@@ -556,7 +559,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
             </div>
 
             {/* Summary Box */}
-            {selectedWorkPack && selectedWorkPack.id !== 'custom' && (
+            {selectedServicePackage && selectedServicePackage.id !== 'custom' && (
               <div className="mt-8 bg-[#111] border border-[#2a2a2a] rounded-lg p-5">
                 <h4 className="text-xs uppercase tracking-wider text-gray-500 font-medium mb-4">
                   Project Summary
@@ -570,17 +573,17 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                   
                   <div className="flex justify-between py-2">
                     <span className="text-sm text-gray-400">Work Pack</span>
-                    <span className="text-sm font-semibold text-white">{selectedWorkPack.name}</span>
+                    <span className="text-sm font-semibold text-white">{selectedServicePackage.name}</span>
                   </div>
                   
                   <div className="flex justify-between py-2">
                     <span className="text-sm text-gray-400">Products Included</span>
-                    <span className="text-sm font-semibold text-white">{selectedWorkPack.items?.[0]?.count || 0} products</span>
+                    <span className="text-sm font-semibold text-white">{selectedServicePackage.items?.[0]?.count || 0} products</span>
                   </div>
                   
                   <div className="flex justify-between py-2">
                     <span className="text-sm text-gray-400">Total Work Pack Value</span>
-                    <span className="text-sm font-semibold text-white">{formatCurrency(selectedWorkPack.base_price)}</span>
+                    <span className="text-sm font-semibold text-white">{formatCurrency(selectedServicePackage.base_price)}</span>
                   </div>
                 </div>
               </div>
@@ -597,7 +600,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
     console.log('=== handleNext called ===');
     console.log('Current step:', currentStep);
     console.log('Form data:', formData);
-    console.log('Selected work pack:', selectedWorkPack);
+    console.log('Selected service package:', selectedServicePackage);
     console.log('User:', user?.id);
     
     if (currentStep === 3) {
@@ -607,7 +610,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
       try {
         console.log('Creating project with data:', {
           formData,
-          selectedWorkPack,
+          selectedServicePackage,
           selectedCategory
         });
 
@@ -621,7 +624,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           start_date: formData.start_date,
           end_date: formData.end_date || formData.start_date,
           status: projectStatus,
-          budget: selectedWorkPack?.base_price || parseInt(customBudget) || 0,
+          budget: selectedServicePackage?.base_price || parseInt(customBudget) || 0,
           category: selectedCategory?.name || 'Custom Project'
         };
 
@@ -668,9 +671,9 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
             setIsCreating(false);
             return;
           }
-          // Check if we have a work pack with items to create estimate from
-          if (!selectedWorkPack || selectedWorkPack.id === 'custom' || !selectedWorkPack.items || selectedWorkPack.items.length === 0) {
-            console.log('Quote selected but no work pack items available - creating empty estimate');
+          // Check if we have a service package with items to create estimate from
+          if (!selectedServicePackage || selectedServicePackage.id === 'custom' || !selectedServicePackage.items || selectedServicePackage.items.length === 0) {
+            console.log('Quote selected but no service package items available - creating empty estimate');
             
             // Import EstimateService for empty estimate
             const { EstimateService } = await import('../../services/EstimateService');
@@ -715,7 +718,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
             }
           }
           
-          // If we reach here, we have a work pack with items - create estimate from work pack
+          // If we reach here, we have a service package with items - create estimate from service package
           console.log('=== ESTIMATE CREATION FOR QUOTED PROJECT ===');
           console.log('Creating estimate for quoted project:', project.name);
           
@@ -730,8 +733,8 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               project_id: project.id,
               title: `${project.name} - Estimate`,
               description: formData.description,
-              work_pack_id: selectedWorkPack.id,
-              work_pack_items: selectedWorkPack.items || []
+              service_package_id: selectedServicePackage?.id,
+              service_package_items: selectedServicePackage?.items || []
             });
             
             console.log('✅ Estimate created successfully:', estimate);
@@ -776,18 +779,18 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           onClose();
           return;
         }
-        // If a work pack was selected and it's a planned project (not lead or quote), create invoice with work pack items
-        else if (projectStatus === 'planned' && project && selectedWorkPack && selectedWorkPack.id !== 'custom') {
+        // If a service package was selected and it's a planned project (not lead or quote), create invoice with service package items
+        else if (projectStatus === 'planned' && project && selectedServicePackage && selectedServicePackage.id !== 'custom') {
           console.log('=== WORK PACK INVOICE CREATION ===');
-          console.log('Selected work pack:', selectedWorkPack);
-          console.log('Work pack has items?', selectedWorkPack.items);
-          console.log('Work pack items length:', selectedWorkPack.items?.length);
+          console.log('Selected service package:', selectedServicePackage);
+          console.log('Work pack has items?', selectedServicePackage.items);
+          console.log('Work pack items length:', selectedServicePackage.items?.length);
           
-          if (selectedWorkPack.items && selectedWorkPack.items.length > 0) {
-            console.log('Creating invoice for work pack:', selectedWorkPack.name);
-            console.log('Work pack base price:', selectedWorkPack.base_price);
-            console.log('Work pack items:', selectedWorkPack.items);
-            console.log('Work pack items details:', selectedWorkPack.items.map((item: any) => ({
+          if (selectedServicePackage.items && selectedServicePackage.items.length > 0) {
+            console.log('Creating invoice for service package:', selectedServicePackage.name);
+            console.log('Work pack base price:', selectedServicePackage.base_price);
+            console.log('Work pack items:', selectedServicePackage.items);
+            console.log('Work pack items details:', selectedServicePackage.items.map((item: any) => ({
               id: item.id,
               type: item.item_type,
               line_item: item.line_item,
@@ -805,7 +808,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               status: 'draft' as const,
               issue_date: new Date().toISOString().split('T')[0], // Today's date
               due_date: formData.end_date || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
-              amount: selectedWorkPack.base_price
+              amount: selectedServicePackage.base_price
             };
 
             console.log('Creating invoice with data:', invoiceData);
@@ -824,8 +827,8 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
             } else if (invoice && invoice.id) {
               console.log('Invoice created successfully:', invoice);
 
-              // Create invoice line items from work pack items
-              const lineItemsData = selectedWorkPack.items.map((item: any, index: number) => ({
+              // Create invoice line items from service package items
+              const lineItemsData = selectedServicePackage.items.map((item: any, index: number) => ({
                 invoice_id: invoice.id,
                 description: item.line_item?.name || item.product?.name || `Work Pack Item ${index + 1}`,
                 quantity: item.quantity,
@@ -845,38 +848,38 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                 alert(`Invoice created but line items creation failed: ${lineItemsError.message}`);
               } else {
                 console.log('Invoice line items created successfully:', lineItemsData.length, 'items');
-                console.log('✅ Project created with work pack invoice and line items!');
+                console.log('✅ Project created with service package invoice and line items!');
               }
             } else {
               console.error('Invoice creation returned no data');
               alert('Invoice creation returned no data');
             }
           } else {
-            console.log('No work pack selected or work pack has no items');
+            console.log('No service package selected or service package has no items');
           }
         } else {
-          console.log('No work pack selected or work pack has no items');
+          console.log('No service package selected or service package has no items');
         }
 
-        // Create tasks and expenses from work pack for planned projects only
-        if (projectStatus === 'planned' && selectedWorkPack && selectedWorkPack.id !== 'custom') {
-          console.log('=== TASK AND EXPENSE CREATION FROM WORK PACK ===');
-          console.log('Work pack:', selectedWorkPack.name, 'ID:', selectedWorkPack.id);
+        // Create tasks and expenses from service package for planned projects only
+        if (projectStatus === 'planned' && selectedServicePackage && selectedServicePackage.id !== 'custom') {
+          console.log('=== TASK AND EXPENSE CREATION FROM SERVICE PACKAGE ===');
+          console.log('Service package:', selectedServicePackage.name, 'ID:', selectedServicePackage.id);
           
-          // Fetch tasks from work pack
-          const { data: workPackTasks, error: tasksError } = await supabase
-            .from('work_pack_tasks')
+          // TODO: Update to use service_package_tasks when table is migrated
+          const { data: packageTasks, error: tasksError } = await supabase
+            .from('work_pack_tasks') // temporary - will be migrated
             .select('*')
-            .eq('work_pack_id', selectedWorkPack.id)
+            .eq('work_pack_id', selectedServicePackage.id)
             .order('display_order');
             
           if (tasksError) {
-            console.error('Error fetching work pack tasks:', tasksError);
-          } else if (workPackTasks && workPackTasks.length > 0) {
-            console.log(`Found ${workPackTasks.length} tasks in work pack`);
+            console.error('Error fetching service package tasks:', tasksError);
+          } else if (packageTasks && packageTasks.length > 0) {
+            console.log(`Found ${packageTasks.length} tasks in service package`);
             
-            // Create tasks from work pack
-            const tasksData = workPackTasks.map((task) => ({
+            // Create tasks from service package
+            const tasksData = packageTasks.map((task) => ({
               user_id: user?.id,
               project_id: project.id,
               title: task.title,
@@ -899,26 +902,26 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               console.error('Tasks creation error:', tasksInsertError);
               console.warn('Tasks creation failed but project continues');
             } else {
-              console.log(`✅ Created ${tasksData.length} tasks from work pack!`);
+              console.log(`✅ Created ${tasksData.length} tasks from service package!`);
             }
           } else {
-            console.log('No tasks found in work pack');
+            console.log('No tasks found in service package');
           }
           
-          // Fetch expenses from work pack
-          const { data: workPackExpenses, error: expensesError } = await supabase
-            .from('work_pack_expenses')
+          // TODO: Update to use service_package_expenses when table is migrated
+          const { data: packageExpenses, error: expensesError } = await supabase
+            .from('work_pack_expenses') // temporary - will be migrated
             .select('*')
-            .eq('work_pack_id', selectedWorkPack.id)
+            .eq('work_pack_id', selectedServicePackage.id)
             .order('display_order');
             
           if (expensesError) {
-            console.error('Error fetching work pack expenses:', expensesError);
-          } else if (workPackExpenses && workPackExpenses.length > 0) {
-            console.log(`Found ${workPackExpenses.length} expenses in work pack`);
+            console.error('Error fetching service package expenses:', expensesError);
+          } else if (packageExpenses && packageExpenses.length > 0) {
+            console.log(`Found ${packageExpenses.length} expenses in service package`);
             
-            // Create expenses from work pack
-            const expensesData = workPackExpenses.map((expense) => ({
+            // Create expenses from service package
+            const expensesData = packageExpenses.map((expense) => ({
               user_id: user?.id,
               project_id: project.id,
               description: expense.description,
@@ -940,29 +943,29 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               console.error('Expenses creation error:', expensesInsertError);
               console.warn('Expenses creation failed but project continues');
             } else {
-              console.log(`✅ Created ${expensesData.length} expenses from work pack!`);
+              console.log(`✅ Created ${expensesData.length} expenses from service package!`);
             }
           } else {
-            console.log('No expenses found in work pack');
+            console.log('No expenses found in service package');
           }
           
-          // Copy document templates from work pack
-          const { data: workPackDocuments, error: documentsError } = await supabase
-            .from('work_pack_document_templates')
+          // TODO: Update to use service_package_documents when table is migrated
+          const { data: packageDocuments, error: documentsError } = await supabase
+            .from('work_pack_document_templates') // temporary - will be migrated
             .select(`
               *,
               document_template:document_templates(*)
             `)
-            .eq('work_pack_id', selectedWorkPack.id)
+            .eq('work_pack_id', selectedServicePackage.id)
             .order('display_order');
             
           if (documentsError) {
-            console.error('Error fetching work pack documents:', documentsError);
-          } else if (workPackDocuments && workPackDocuments.length > 0) {
-            console.log(`Found ${workPackDocuments.length} document templates in work pack`);
+            console.error('Error fetching service package documents:', documentsError);
+          } else if (packageDocuments && packageDocuments.length > 0) {
+            console.log(`Found ${packageDocuments.length} document templates in service package`);
             
             // Create project documents from templates
-            const documentsData = workPackDocuments.map((wpDoc) => ({
+            const documentsData = packageDocuments.map((wpDoc) => ({
               project_id: project.id,
               document_template_id: wpDoc.document_template_id,
               name: wpDoc.document_template.name,
@@ -982,13 +985,13 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
               console.error('Documents creation error:', documentsInsertError);
               console.warn('Documents creation failed but project continues');
             } else {
-              console.log(`✅ Created ${documentsData.length} project documents from work pack!`);
+              console.log(`✅ Created ${documentsData.length} project documents from service package!`);
             }
           } else {
-            console.log('No document templates found in work pack');
+            console.log('No document templates found in service package');
           }
         } else {
-          console.log('No work pack selected or work pack has no items');
+          console.log('No service package selected or service package has no items');
         }
 
         // Success for planned projects (Lead and Quote already handled above)
@@ -1009,7 +1012,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           setTimeout(() => {
             const invoiceCount = projectInvoices?.length || 0;
             const message = invoiceCount > 0 
-              ? `🏗️ Project "${project.name}" created successfully!\n\n📄 ${invoiceCount} invoice(s) generated and ready for review.\n\n✅ Tasks and expenses have been set up from your work pack.\n\nYou'll be redirected to the project page.`
+              ? `🏗️ Project "${project.name}" created successfully!\n\n📄 ${invoiceCount} invoice(s) generated and ready for review.\n\n✅ Tasks and expenses have been set up from your service package.\n\nYou'll be redirected to the project page.`
               : `🏗️ Project "${project.name}" created successfully!\n\n📝 Your project is ready to start.\n\nYou'll be redirected to the project page.`;
             
             alert(message);
@@ -1027,7 +1030,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
           details: error?.details,
           hint: error?.hint,
           formData,
-          selectedWorkPack,
+          selectedServicePackage,
           user: user?.id
         });
         alert(`Failed to create project: ${error?.message || 'Unknown error'}. Check console for details.`);
@@ -1047,16 +1050,16 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
       setSelectedProjectType('');
       setSelectedCategory(null);
     } else if (currentStep === 2) {
-      // Going from work pack selection back to either project type or industry
+      // Going from service package selection back to either project type or industry
       const industryCategories = projectCategories.filter(c => c.industry_id === selectedIndustry?.id);
       if (industryCategories.length > 1) {
         setCurrentStep(1.5); // Go back to project type selection
       } else {
         setCurrentStep(1); // Go back to industry selection
       }
-      setSelectedWorkPack(null);
+      setSelectedServicePackage(null);
     } else if (currentStep === 3) {
-      // Going from project details back to work pack selection
+      // Going from project details back to service package selection
       setCurrentStep(2);
     }
   };
@@ -1141,7 +1144,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                   console.log('Button disabled?', isCreating);
                   console.log('Current step:', currentStep);
                   console.log('Form data present:', !!formData.name);
-                  console.log('Selected work pack:', !!selectedWorkPack);
+                  console.log('Selected service package:', !!selectedServicePackage);
                   console.log('About to call handleNext...');
                   
                   try {
@@ -1151,7 +1154,7 @@ export const CreateProjectWizard: React.FC<CreateProjectWizardProps> = ({ isOpen
                   }
                 }}
                 disabled={isCreating || 
-                         (currentStep === 2 && !selectedWorkPack) ||
+                         (currentStep === 2 && !selectedServicePackage) ||
                          (currentStep === 3 && projectStatus === 'quoted' && !formData.client_id)}
                 className="px-5 py-2.5 bg-[#fbbf24] text-black rounded-lg text-sm font-semibold hover:bg-[#f59e0b] hover:-translate-y-px transition-all duration-200 disabled:bg-[#2a2a2a] disabled:text-gray-600 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
                 style={{

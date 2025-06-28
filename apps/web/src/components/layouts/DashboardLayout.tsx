@@ -34,9 +34,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { NewClientModal } from '../clients/NewClientModal';
-import ProductForm from '../products/ProductForm';
 import { CreateInvoiceDrawer } from '../invoices/CreateInvoiceDrawer';
-import { useProductDrawer } from '../../contexts/ProductDrawerContext';
+import { LineItemModal } from '../modals/LineItemModal';
 import { Sidebar } from './Sidebar';
 import ChatManagementSystem from '../../pages/chat/ChatManagementSystem';
 import { MobileHeader } from './MobileHeader';
@@ -1236,20 +1235,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
                   />
 
                   {showLineItemDrawer && (
-                    <div className="fixed inset-0 z-[10000] flex justify-end">
-                      <div className="fixed inset-0 bg-black/60 backdrop-blur-md" onClick={() => setShowLineItemDrawer(false)} />
-                      <div className="relative w-full max-w-md bg-[#121212] shadow-xl">
-                    <ProductForm
-                      title="Create Line Item"
+                    <LineItemModal
                       onClose={() => setShowLineItemDrawer(false)}
-                      onSubmit={async (data) => {
+                      onSave={async (data) => {
                         console.log('New line item created:', data);
                         setShowLineItemDrawer(false);
+                        // Could refresh data here if needed
                       }}
-                      submitLabel="Create Item"
                     />
-                      </div>
-                    </div>
                   )}
 
                   {showHelpModal && (
