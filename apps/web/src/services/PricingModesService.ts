@@ -44,6 +44,17 @@ export interface PriceChange {
   change_percentage: number;
 }
 
+export interface ApplyModeResult {
+  totalAttempted: number;
+  successCount: number;
+  failedCount: number;
+  failedItems?: Array<{
+    line_item_id: string;
+    name: string;
+    error: string;
+  }>;
+}
+
 export class PricingModesService {
   /**
    * Get all available pricing modes for an organization
@@ -348,7 +359,161 @@ export class PricingModesService {
   }
 
   /**
-   * Apply a pricing mode to line items
+   * Apply a pricing mode to line items with error handling
+   */
+  static async applyModeWithErrorHandling(
+    organizationId: string,
+    modeId: string,
+    lineItemIds?: string[],
+    onProgress?: (current: number, total: number) => void
+  ): Promise<ApplyModeResult> {
+    const result: ApplyModeResult = {
+      totalAttempted: 0,
+      successCount: 0,
+      failedCount: 0,
+      failedItems: []
+    };
+
+    try {
+      // Get the mode details to check if it's "Reset to Baseline"
+      const { data: mode } = await supabase
+        .from('pricing_modes')
+        .select('name')
+        .eq('id', modeId)
+        .single();
+      
+      // If it's "Reset to Baseline", delete overrides
+      if (mode?.name === 'Reset to Baseline') {
+        // First, count how many overrides we'll delete
+        let countQuery = supabase
+          .from('line_item_overrides')
+          .select('*', { count: 'exact', head: true })
+          .eq('organization_id', organizationId);
+        
+        if (lineItemIds && lineItemIds.length > 0 && lineItemIds.length < 500) {
+          countQuery = countQuery.in('line_item_id', lineItemIds);
+        }
+        
+        const { count } = await countQuery;
+        result.totalAttempted = count || 0;
+        
+        if (!count || count === 0) {
+          return result; // No overrides to reset
+        }
+        
+        // Delete in batches for better error handling
+        const batchSize = 50;
+        const itemsToDelete = lineItemIds || [];
+        
+        for (let i = 0; i < itemsToDelete.length; i += batchSize) {
+          const batch = itemsToDelete.slice(i, i + batchSize);
+          
+          const { error } = await supabase
+            .from('line_item_overrides')
+            .delete()
+            .eq('organization_id', organizationId)
+            .in('line_item_id', batch);
+          
+          if (error) {
+            result.failedCount += batch.length;
+            batch.forEach(id => {
+              result.failedItems?.push({
+                line_item_id: id,
+                name: `Item ${id}`,
+                error: error.message
+              });
+            });
+          } else {
+            result.successCount += batch.length;
+          }
+          
+          onProgress?.(i + batch.length, itemsToDelete.length);
+        }
+        
+        return result;
+      }
+      
+      // Get preview first for normal pricing modes
+      const changes = await this.previewApplication(organizationId, modeId, lineItemIds);
+      result.totalAttempted = changes.length;
+
+      // Apply changes in batches with error handling
+      const batchSize = 50;
+
+      for (let i = 0; i < changes.length; i += batchSize) {
+        const batch = changes.slice(i, i + batchSize);
+        
+        // Create override records
+        const overrides = batch.map(change => ({
+          organization_id: organizationId,
+          line_item_id: change.line_item_id,
+          custom_price: change.new_price,
+          applied_mode_id: modeId,
+          mode_multiplier: change.multiplier,
+          updated_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase
+          .from('line_item_overrides')
+          .upsert(overrides, {
+            onConflict: 'organization_id,line_item_id'
+          });
+
+        if (error) {
+          console.error('Error applying pricing mode batch:', error);
+          result.failedCount += batch.length;
+          
+          // Track which specific items failed
+          batch.forEach(change => {
+            result.failedItems?.push({
+              line_item_id: change.line_item_id,
+              name: change.name,
+              error: error.message
+            });
+          });
+        } else {
+          result.successCount += batch.length;
+        }
+        
+        onProgress?.(i + batch.length, changes.length);
+      }
+      
+      // Only update usage count if at least some items succeeded
+      if (result.successCount > 0) {
+        const { data: modeData } = await supabase
+          .from('pricing_modes')
+          .select('usage_count')
+          .eq('id', modeId)
+          .single();
+        
+        await supabase
+          .from('pricing_modes')
+          .update({ 
+            usage_count: (modeData?.usage_count || 0) + 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', modeId);
+
+        // Log activity
+        await ActivityLogService.log({
+          organizationId,
+          entityType: 'pricing_mode',
+          entityId: modeId,
+          action: 'apply',
+          description: `Applied pricing mode to ${result.successCount} items${result.failedCount > 0 ? ` (${result.failedCount} failed)` : ''}`
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Unexpected error in applyModeWithErrorHandling:', error);
+      result.failedCount = result.totalAttempted - result.successCount;
+      return result;
+    }
+  }
+
+  /**
+   * Apply a pricing mode to line items (legacy method)
    */
   static async applyMode(
     organizationId: string,

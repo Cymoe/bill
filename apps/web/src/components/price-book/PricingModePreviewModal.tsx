@@ -253,6 +253,20 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
                 </div>
               </div>
             )}
+            
+            {/* Additional warning for bulk operations */}
+            {summary.itemCount > 10 && (
+              <div className="flex items-start gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-400">
+                  <p className="font-medium">Bulk pricing operation</p>
+                  <p className="text-xs mt-1 text-blue-400/80">
+                    You are about to update {summary.itemCount} items. This action cannot be easily undone.
+                    {summary.itemCount > 100 && ' Due to the large number of items, this may take a moment to complete.'}
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -274,9 +288,13 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
           <button
             onClick={handleConfirm}
             disabled={isLoading || isApplying}
-            className="px-4 py-2 bg-[#336699] text-white rounded-lg hover:bg-[#336699]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+              summary.itemCount > 50 
+                ? 'bg-orange-600 hover:bg-orange-700' 
+                : 'bg-[#336699] hover:bg-[#336699]/80'
+            }`}
           >
-            {isApplying ? 'Applying...' : 'Apply Changes'}
+            {isApplying ? 'Applying...' : summary.itemCount > 50 ? `Confirm Update ${summary.itemCount} Items` : 'Apply Changes'}
           </button>
         </div>
       </div>

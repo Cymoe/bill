@@ -77,6 +77,18 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
   const [showModePreview, setShowModePreview] = useState(false);
   const [pendingModeId, setPendingModeId] = useState<string | null>(null);
   const [selectedLineItemIds, setSelectedLineItemIds] = useState<string[]>([]);
+  const [lastPricingOperation, setLastPricingOperation] = useState<{
+    modeId: string;
+    modeName: string;
+    lineItemIds: string[];
+    previousPrices: Array<{ lineItemId: string; price: number }>;
+    timestamp: number;
+  } | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [applyingProgress, setApplyingProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   
   // Calculate counts for each quick filter
   const quickFilterCounts = useMemo(() => {
@@ -641,6 +653,16 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     localStorage.setItem('pricebook-condensed', String(condensed));
   }, [condensed]);
 
+  // Auto-hide undo button after 30 seconds
+  useEffect(() => {
+    if (showUndo) {
+      const timer = setTimeout(() => {
+        setShowUndo(false);
+      }, 30000);
+      return () => clearTimeout(timer);
+    }
+  }, [showUndo]);
+
   // Handle pricing mode application
   const handleApplyPricingMode = async (modeId: string) => {
     if (!selectedOrg?.id) return;
@@ -648,6 +670,108 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     // Show preview modal
     setPendingModeId(modeId);
     setShowModePreview(true);
+  };
+  
+  // Handle undo last pricing change
+  const handleUndoPricing = async () => {
+    if (!lastPricingOperation || !selectedOrg?.id) return;
+    
+    setShowUndo(false);
+    setApplyingProgress({ current: 0, total: lastPricingOperation.previousPrices.length });
+    
+    try {
+      let successCount = 0;
+      let failedCount = 0;
+      
+      // First, we need to check which items had overrides before
+      const lineItemIds = lastPricingOperation.previousPrices.map(p => p.lineItemId);
+      const { data: originalItems } = await supabase
+        .from('line_items')
+        .select('id, price')
+        .in('id', lineItemIds);
+      
+      const originalPriceMap = new Map(originalItems?.map(item => [item.id, item.price]) || []);
+      
+      // Separate items that need overrides vs those that need deletion
+      const itemsToRestore: typeof lastPricingOperation.previousPrices = [];
+      const itemsToDelete: string[] = [];
+      
+      lastPricingOperation.previousPrices.forEach(prev => {
+        const basePrice = originalPriceMap.get(prev.lineItemId);
+        // If previous price equals base price, delete the override
+        if (basePrice && Math.abs(basePrice - prev.price) < 0.01) {
+          itemsToDelete.push(prev.lineItemId);
+        } else {
+          itemsToRestore.push(prev);
+        }
+      });
+      
+      // Delete overrides for items that should use base price
+      if (itemsToDelete.length > 0) {
+        const { error } = await supabase
+          .from('line_item_overrides')
+          .delete()
+          .eq('organization_id', selectedOrg.id)
+          .in('line_item_id', itemsToDelete);
+        
+        if (!error) {
+          successCount += itemsToDelete.length;
+        } else {
+          failedCount += itemsToDelete.length;
+        }
+      }
+      
+      // Restore previous prices for items that had overrides
+      const batchSize = 50;
+      for (let i = 0; i < itemsToRestore.length; i += batchSize) {
+        const batch = itemsToRestore.slice(i, i + batchSize);
+        
+        const overrides = batch.map(item => ({
+          organization_id: selectedOrg.id,
+          line_item_id: item.lineItemId,
+          custom_price: item.price,
+          updated_at: new Date().toISOString()
+        }));
+        
+        const { error } = await supabase
+          .from('line_item_overrides')
+          .upsert(overrides, {
+            onConflict: 'organization_id,line_item_id'
+          });
+        
+        if (error) {
+          console.error('Error restoring prices:', error);
+          failedCount += batch.length;
+        } else {
+          successCount += batch.length;
+        }
+        
+        setApplyingProgress({ 
+          current: itemsToDelete.length + i + batch.length, 
+          total: lastPricingOperation.previousPrices.length 
+        });
+      }
+      
+      setApplyingProgress(null);
+      
+      if (successCount > 0) {
+        console.log(`Successfully restored ${successCount} items to previous prices`);
+        setLastPricingOperation(null);
+        
+        // Refresh the list
+        fetchLineItems(true);
+        
+        if (failedCount > 0) {
+          alert(`Restored ${successCount} items. Failed to restore ${failedCount} items.`);
+        }
+      } else {
+        alert('Failed to undo pricing changes. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error undoing pricing change:', error);
+      alert('Failed to undo pricing change. Please try again.');
+      setApplyingProgress(null);
+    }
   };
 
   const handleConfirmPricingMode = async () => {
@@ -714,27 +838,91 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     
     try {
       const itemsToUpdate = selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined;
-      const appliedCount = await PricingModesService.applyMode(
+      
+      // Show progress for large operations
+      let progressMessage = '';
+      if (updatedItems.length > 100) {
+        // TODO: Add progress toast notification here
+      }
+      
+      const result = await PricingModesService.applyModeWithErrorHandling(
         selectedOrg.id,
         pendingModeId,
-        itemsToUpdate
+        itemsToUpdate,
+        (current, total) => {
+          // Update progress state
+          setApplyingProgress({ current, total });
+        }
       );
+      
+      // Clear progress
+      setApplyingProgress(null);
+      
+      // Show success/error message
+      if (result.failedCount > 0) {
+        console.error(`Failed to update ${result.failedCount} items:`, result.failedItems);
+        // TODO: Show error toast with retry option
+        alert(`Updated ${result.successCount} items successfully. ${result.failedCount} items failed to update.`);
+      } else {
+        console.log(`Successfully applied pricing mode to ${result.successCount} items`);
+        
+        // Track successful operation for undo
+        if (result.successCount > 0 && selectedMode) {
+          // Store previous prices for undo
+          const previousPrices = lineItems
+            .filter(item => 
+              itemsToUpdate ? itemsToUpdate.includes(item.id) : true
+            )
+            .map(item => ({
+              lineItemId: item.id,
+              price: item.price
+            }));
+            
+          setLastPricingOperation({
+            modeId: pendingModeId,
+            modeName: selectedMode.name,
+            lineItemIds: itemsToUpdate || [],
+            previousPrices,
+            timestamp: Date.now()
+          });
+          setShowUndo(true);
+        }
+      }
       
       // Silently refresh in background with smart merge to avoid flicker
       fetchLineItems(true);
       
-      console.log(`Applied pricing mode to ${appliedCount} items`);
     } catch (error) {
       console.error('Error applying pricing mode:', error);
       // On error, revert to original state
       await fetchLineItems(false);
+      alert('Failed to apply pricing mode. Please try again.');
     } finally {
       setPendingModeId(null);
     }
   };
 
   return (
-    <div className="bg-transparent border border-[#333333] border-t-0">
+    <div className="bg-transparent border border-[#333333] border-t-0 relative">
+      {/* Progress Overlay */}
+      {applyingProgress && (
+        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-[#1E1E1E] border border-[#333333] p-6 rounded-lg shadow-xl">
+            <h3 className="text-white font-medium mb-4">Applying Pricing Changes</h3>
+            <div className="w-64 mb-2">
+              <div className="bg-[#333333] rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-[#336699] h-full transition-all duration-300"
+                  style={{ width: `${(applyingProgress.current / applyingProgress.total) * 100}%` }}
+                />
+              </div>
+            </div>
+            <p className="text-sm text-gray-400 text-center">
+              {applyingProgress.current} of {applyingProgress.total} items
+            </p>
+          </div>
+        </div>
+      )}
 
 
 
@@ -747,6 +935,24 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
             selectedLineItemCount={selectedLineItemIds.length}
             onApplyMode={handleApplyPricingMode}
           />
+        </div>
+      )}
+      
+      {/* Undo Button */}
+      {showUndo && lastPricingOperation && selectedLineItemIds.length === 0 && (
+        <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A] flex items-center justify-between">
+          <div className="text-sm text-gray-400">
+            Applied "{lastPricingOperation.modeName}" to {lastPricingOperation.lineItemIds.length || 'all'} items
+          </div>
+          <button
+            onClick={handleUndoPricing}
+            className="px-4 py-2 bg-[#252525] hover:bg-[#333333] text-white border border-[#333333] text-sm transition-colors flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+            </svg>
+            Undo
+          </button>
         </div>
       )}
 
