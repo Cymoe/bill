@@ -85,18 +85,7 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
     };
   };
 
-  const getCategoryIcon = (category: string) => {
-    const icons: Record<string, string> = {
-      labor: '👷',
-      materials: '📦',
-      services: '🔧',
-      installation: '🏗️',
-      equipment: '⚙️',
-      subcontractor: '👥',
-      all: '📊'
-    };
-    return icons[category] || '📋';
-  };
+  // Removed emoji icons for professional look
 
   const summary = getTotalSummary();
 
@@ -104,20 +93,64 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{mode.icon}</span>
-          <div>
-            <h2 className="text-lg font-semibold text-white">Apply {mode.name}</h2>
-            <p className="text-sm text-gray-400">{mode.description}</p>
-          </div>
-        </div>
-      }
+      title={`Apply ${mode.name}`}
     >
-      <div className="space-y-4">
+      <div className="p-6 space-y-4">
+        {/* Mode Description */}
+        <p className="text-sm text-gray-400 -mt-2">{mode.description}</p>
+        
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          <div className="space-y-4">
+            {/* Skeleton Summary Box */}
+            <div className="bg-[#1A1A1A] border border-[#333333] rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="h-4 bg-[#333333] rounded w-32 animate-pulse relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                </div>
+                <div className="h-4 bg-[#333333] rounded w-24 animate-pulse relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="h-3 bg-[#333333] rounded w-20 mx-auto mb-2 animate-pulse"></div>
+                  <div className="h-6 bg-[#333333] rounded w-16 mx-auto animate-pulse"></div>
+                </div>
+                <div>
+                  <div className="h-3 bg-[#333333] rounded w-20 mx-auto mb-2 animate-pulse"></div>
+                  <div className="h-6 bg-[#333333] rounded w-24 mx-auto animate-pulse"></div>
+                </div>
+                <div>
+                  <div className="h-3 bg-[#333333] rounded w-20 mx-auto mb-2 animate-pulse"></div>
+                  <div className="h-6 bg-[#333333] rounded w-24 mx-auto animate-pulse"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Skeleton Category List */}
+            <div className="space-y-3">
+              <div className="h-4 bg-[#333333] rounded w-36 animate-pulse"></div>
+              
+              {/* Skeleton category items */}
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-3 bg-[#252525] rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-[#333333] rounded animate-pulse"></div>
+                      <div>
+                        <div className="h-4 bg-[#333333] rounded w-24 mb-1 animate-pulse"></div>
+                        <div className="h-3 bg-[#333333] rounded w-16 animate-pulse"></div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="h-4 bg-[#333333] rounded w-12 animate-pulse"></div>
+                      <div className="h-3 bg-[#333333] rounded w-16 animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -163,7 +196,9 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
                   <details key={category} className="group">
                     <summary className="flex items-center justify-between p-3 bg-[#252525] rounded-lg cursor-pointer hover:bg-[#333333] transition-colors">
                       <div className="flex items-center gap-3">
-                        <span className="text-lg">{getCategoryIcon(category)}</span>
+                        <div className="w-8 h-8 bg-[#333333] rounded flex items-center justify-center">
+                          <span className="text-xs font-medium text-gray-400 uppercase">{category.substring(0, 2)}</span>
+                        </div>
                         <div>
                           <p className="text-sm font-medium text-white capitalize">{category}</p>
                           <p className="text-xs text-gray-400">{items.length} items</p>
@@ -223,7 +258,7 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between mt-6 pt-6 border-t border-[#333333]">
+      <div className="flex items-center justify-between p-6 border-t border-[#333333]">
         <button
           onClick={onClose}
           className="px-4 py-2 text-gray-400 hover:text-white transition-colors"

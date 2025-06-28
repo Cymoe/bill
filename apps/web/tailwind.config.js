@@ -35,12 +35,16 @@ export default {
         'slide-out': {
           '0%': { transform: 'translateX(0)' },
           '100%': { transform: 'translateX(100%)' }
+        },
+        'shimmer': {
+          '100%': { transform: 'translateX(100%)' }
         }
       },
       animation: {
         'progress-fill': 'progress-fill 0.5s ease-out forwards',
         'slide-in': 'slide-in 0.3s ease-out forwards',
-        'slide-out': 'slide-out 0.3s ease-out forwards'
+        'slide-out': 'slide-out 0.3s ease-out forwards',
+        'shimmer': 'shimmer 2s ease-out infinite'
       }
     },
   },

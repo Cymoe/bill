@@ -415,9 +415,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     }
   };
 
-  const fetchLineItems = async () => {
+  const fetchLineItems = async (smartMerge = false) => {
     try {
-      setIsLoading(true);
+      if (!smartMerge) {
+        setIsLoading(true);
+      }
       setError(null);
       
       if (!selectedOrg?.id) {
@@ -427,16 +429,44 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         return;
       }
       
-      // Fetch all data in parallel for better performance
-      const [tradesResult, lineItemsResult] = await Promise.allSettled([
-        fetchTrades(),
-        LineItemService.list(selectedOrg.id)
-      ]);
+      // Fetch only line items for smart merge
+      const lineItemsResult = await LineItemService.list(selectedOrg.id)
+        .then(data => ({ status: 'fulfilled', value: data }))
+        .catch(error => ({ status: 'rejected', reason: error }));
       
       // Handle line items result
       if (lineItemsResult.status === 'fulfilled') {
         const data = lineItemsResult.value;
-        setLineItems(data || []);
+        
+        if (smartMerge) {
+          // Smart merge: only update items that have changed
+          setLineItems(currentItems => {
+            const updatedItems = currentItems.map(currentItem => {
+              const serverItem = data?.find(item => item.id === currentItem.id);
+              if (serverItem) {
+                // Only update if there are actual differences (more thorough check)
+                const hasChanges = 
+                  Math.abs(serverItem.price - currentItem.price) > 0.001 || // Float comparison
+                  serverItem.applied_mode_name !== currentItem.applied_mode_name ||
+                  serverItem.applied_mode_id !== currentItem.applied_mode_id ||
+                  serverItem.has_override !== currentItem.has_override ||
+                  serverItem.base_price !== currentItem.base_price;
+                
+                return hasChanges ? serverItem : currentItem;
+              }
+              return currentItem;
+            });
+            
+            // Add any new items from server that aren't in current state
+            const currentIds = new Set(currentItems.map(item => item.id));
+            const newItems = data?.filter(item => !currentIds.has(item.id)) || [];
+            
+            return [...updatedItems, ...newItems];
+          });
+        } else {
+          // Full replace (original behavior)
+          setLineItems(data || []);
+        }
       } else if (lineItemsResult.status === 'rejected') {
         console.error('Failed to fetch line items:', lineItemsResult.reason);
         setError('Failed to load line items');
@@ -446,7 +476,9 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       console.error('Error details:', error);
       setError(error instanceof Error ? error.message : 'Failed to load line items');
     } finally {
-      setIsLoading(false);
+      if (!smartMerge) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -615,7 +647,66 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
   };
 
   const handleConfirmPricingMode = async () => {
-    if (!selectedOrg?.id || !pendingModeId) return;
+    if (!selectedOrg?.id || !pendingModeId || !selectedMode) return;
+    
+    // Close modal immediately for snappy feel
+    setShowModePreview(false);
+    
+    // Optimistically update the UI
+    const updatedItems = lineItems.map(item => {
+      // Skip items that aren't selected (when specific items are selected)
+      if (selectedLineItemIds.length > 0 && !selectedLineItemIds.includes(item.id)) {
+        return item;
+      }
+      
+      // For Reset to Baseline, only process items with overrides
+      if (selectedMode.name === 'Reset to Baseline' && !item.has_override) {
+        return item;
+      }
+      
+      // Apply the mode's adjustments optimistically
+      // Determine category from cost code number
+      let category = 'all';
+      if (item.cost_code?.code) {
+        const codeNumber = parseInt(item.cost_code.code.replace(/[^0-9]/g, ''));
+        if (!isNaN(codeNumber)) {
+          if (codeNumber >= 100 && codeNumber <= 199) category = 'labor';
+          else if (codeNumber >= 500 && codeNumber <= 599) category = 'materials';
+          else if (codeNumber >= 200 && codeNumber <= 299) category = 'installation';
+          else if ((codeNumber >= 300 && codeNumber <= 399) || (codeNumber >= 600 && codeNumber <= 699)) category = 'services';
+          else if (codeNumber >= 400 && codeNumber <= 499) category = 'equipment';
+          else if (codeNumber >= 700 && codeNumber <= 799) category = 'subcontractor';
+        }
+      }
+      const multiplier = selectedMode.adjustments[category] || selectedMode.adjustments.all || 1;
+      const newPrice = selectedMode.name === 'Reset to Baseline' 
+        ? item.base_price || item.price 
+        : (item.base_price || item.price) * multiplier;
+      
+      // For Reset to Baseline, remove override entirely
+      if (selectedMode.name === 'Reset to Baseline') {
+        return {
+          ...item,
+          price: item.base_price || item.price,
+          applied_mode_name: undefined,
+          applied_mode_id: undefined,
+          has_override: false
+        };
+      }
+      
+      // For other modes, ensure we have base_price for ratio calculations
+      // Don't set applied_mode_name - let the ratio-based rendering handle it
+      return {
+        ...item,
+        price: newPrice,
+        base_price: item.base_price || item.price, // Ensure base_price is set
+        has_override: true
+      };
+    });
+    
+    // Update UI immediately
+    setLineItems(updatedItems);
+    setSelectedLineItemIds([]);
     
     try {
       const itemsToUpdate = selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined;
@@ -625,18 +716,15 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         itemsToUpdate
       );
       
-      // Refresh line items to show new prices
-      await fetchLineItems();
+      // Silently refresh in background with smart merge to avoid flicker
+      fetchLineItems(true);
       
-      // Clear selection
-      setSelectedLineItemIds([]);
-      
-      // Show success message
       console.log(`Applied pricing mode to ${appliedCount} items`);
     } catch (error) {
       console.error('Error applying pricing mode:', error);
+      // On error, revert to original state
+      await fetchLineItems(false);
     } finally {
-      setShowModePreview(false);
       setPendingModeId(null);
     }
   };

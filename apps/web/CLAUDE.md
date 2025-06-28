@@ -361,6 +361,47 @@ The service packages system provides pre-configured bundles of services organize
 - `service_options` - Individual service templates
 - `service_option_items` - Line items within each service template
 
+## UI/UX Patterns
+
+### Optimistic UI Updates with Smart State Reconciliation
+This pattern makes the app feel blazing fast by updating the UI immediately while syncing with the server in the background.
+
+**Implementation Example**: See `PriceBook.tsx` - `handleConfirmPricingMode` and `fetchLineItems(smartMerge)`
+
+**Key Principles**:
+1. **Update UI Immediately**: Don't wait for server response
+   ```javascript
+   // Close modal and update state optimistically
+   setShowModal(false);
+   setItems(optimisticallyUpdatedItems);
+   ```
+
+2. **Smart Merge on Server Response**: Only update items that actually changed
+   ```javascript
+   setItems(currentItems => {
+     return currentItems.map(item => {
+       const serverItem = findServerItem(item.id);
+       const hasChanges = checkForRealDifferences(item, serverItem);
+       return hasChanges ? serverItem : item; // Keep same reference if no changes
+     });
+   });
+   ```
+
+3. **Preserve Object References**: React skips re-rendering when references don't change
+4. **Handle Errors Gracefully**: Revert to server state on failure
+
+**Benefits**:
+- Instant feedback (feels faster than 100ms)
+- No page flicker or reload
+- Smooth UX like Linear, Notion, Discord
+- Better perceived performance
+
+**When to Use**:
+- Bulk operations (applying pricing modes)
+- Form submissions
+- Toggle states
+- Any action where you can predict the server response
+
 ## Development Roadmap
 
 📋 **Next Steps**: See [NEXT_STEPS.md](./NEXT_STEPS.md) for detailed implementation plan
