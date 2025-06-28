@@ -85,9 +85,15 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     timestamp: number;
   } | null>(null);
   const [showUndo, setShowUndo] = useState(false);
+  const [undoTimeLeft, setUndoTimeLeft] = useState(30);
   const [applyingProgress, setApplyingProgress] = useState<{
     current: number;
     total: number;
+    action: 'applying' | 'undoing';
+  } | null>(null);
+  const [showSuccess, setShowSuccess] = useState<{
+    message: string;
+    itemCount: number;
   } | null>(null);
   
   // Calculate counts for each quick filter
@@ -653,15 +659,35 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     localStorage.setItem('pricebook-condensed', String(condensed));
   }, [condensed]);
 
-  // Auto-hide undo button after 30 seconds
+  // Auto-hide undo button after 30 seconds with countdown
   useEffect(() => {
     if (showUndo) {
-      const timer = setTimeout(() => {
-        setShowUndo(false);
-      }, 30000);
-      return () => clearTimeout(timer);
+      setUndoTimeLeft(30);
+      
+      // Update countdown every second
+      const countdownInterval = setInterval(() => {
+        setUndoTimeLeft(prev => {
+          if (prev <= 1) {
+            setShowUndo(false);
+            return 30;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      return () => clearInterval(countdownInterval);
     }
   }, [showUndo]);
+
+  // Auto-hide success message after 5 seconds
+  useEffect(() => {
+    if (showSuccess) {
+      const timer = setTimeout(() => {
+        setShowSuccess(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccess]);
 
   // Handle pricing mode application
   const handleApplyPricingMode = async (modeId: string) => {
@@ -677,7 +703,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     if (!lastPricingOperation || !selectedOrg?.id) return;
     
     setShowUndo(false);
-    setApplyingProgress({ current: 0, total: lastPricingOperation.previousPrices.length });
+    setApplyingProgress({ 
+      current: 0, 
+      total: lastPricingOperation.previousPrices.length,
+      action: 'undoing'
+    });
     
     try {
       let successCount = 0;
@@ -748,7 +778,8 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         
         setApplyingProgress({ 
           current: itemsToDelete.length + i + batch.length, 
-          total: lastPricingOperation.previousPrices.length 
+          total: lastPricingOperation.previousPrices.length,
+          action: 'undoing'
         });
       }
       
@@ -758,12 +789,21 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         console.log(`Successfully restored ${successCount} items to previous prices`);
         setLastPricingOperation(null);
         
+        // Show success message
+        if (failedCount > 0) {
+          setShowSuccess({
+            message: `Restored ${successCount} items. ${failedCount} items failed.`,
+            itemCount: successCount
+          });
+        } else {
+          setShowSuccess({
+            message: 'Successfully undid pricing changes',
+            itemCount: successCount
+          });
+        }
+        
         // Refresh the list
         fetchLineItems(true);
-        
-        if (failedCount > 0) {
-          alert(`Restored ${successCount} items. Failed to restore ${failedCount} items.`);
-        }
       } else {
         alert('Failed to undo pricing changes. Please try again.');
       }
@@ -851,7 +891,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         itemsToUpdate,
         (current, total) => {
           // Update progress state
-          setApplyingProgress({ current, total });
+          setApplyingProgress({ current, total, action: 'applying' });
         }
       );
       
@@ -861,10 +901,19 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       // Show success/error message
       if (result.failedCount > 0) {
         console.error(`Failed to update ${result.failedCount} items:`, result.failedItems);
-        // TODO: Show error toast with retry option
-        alert(`Updated ${result.successCount} items successfully. ${result.failedCount} items failed to update.`);
+        // Show error with partial success
+        setShowSuccess({
+          message: `Updated ${result.successCount} items. ${result.failedCount} items failed.`,
+          itemCount: result.successCount
+        });
       } else {
         console.log(`Successfully applied pricing mode to ${result.successCount} items`);
+        
+        // Show success confirmation
+        setShowSuccess({
+          message: `Successfully applied "${selectedMode.name}" pricing`,
+          itemCount: result.successCount
+        });
         
         // Track successful operation for undo
         if (result.successCount > 0 && selectedMode) {
@@ -906,9 +955,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     <div className="bg-transparent border border-[#333333] border-t-0 relative">
       {/* Progress Overlay */}
       {applyingProgress && (
-        <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-[#1E1E1E] border border-[#333333] p-6 rounded-lg shadow-xl">
-            <h3 className="text-white font-medium mb-4">Applying Pricing Changes</h3>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-[#1E1E1E] border border-[#333333] p-6 shadow-xl">
+            <h3 className="text-white font-medium mb-4">
+              {applyingProgress.action === 'undoing' ? 'Reverting Prices' : 'Applying Pricing Changes'}
+            </h3>
             <div className="w-64 mb-2">
               <div className="bg-[#333333] rounded-full h-2 overflow-hidden">
                 <div 
@@ -918,8 +969,32 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
               </div>
             </div>
             <p className="text-sm text-gray-400 text-center">
-              {applyingProgress.current} of {applyingProgress.total} items
+              {applyingProgress.action === 'undoing' 
+                ? `Reverting ${applyingProgress.current} of ${applyingProgress.total} items` 
+                : `Updating ${applyingProgress.current} of ${applyingProgress.total} items`}
             </p>
+            {applyingProgress.total > 100 && (
+              <p className="text-xs text-gray-500 text-center mt-2">
+                Processing {applyingProgress.total} items - this may take a moment
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {/* Success Confirmation */}
+      {showSuccess && !applyingProgress && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center pointer-events-none">
+          <div className="bg-[#1E1E1E] border border-green-600 p-6 shadow-xl pointer-events-auto">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+            <h3 className="text-white font-medium mb-2 text-center">{showSuccess.message}</h3>
+            <p className="text-sm text-gray-400 text-center">{showSuccess.itemCount} items updated</p>
           </div>
         </div>
       )}
@@ -944,15 +1019,24 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
           <div className="text-sm text-gray-400">
             Applied "{lastPricingOperation.modeName}" to {lastPricingOperation.lineItemIds.length || 'all'} items
           </div>
-          <button
-            onClick={handleUndoPricing}
-            className="px-4 py-2 bg-[#252525] hover:bg-[#333333] text-white border border-[#333333] text-sm transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-            Undo
-          </button>
+          <div className="flex items-center gap-3">
+            <div className={`text-sm font-medium ${undoTimeLeft <= 10 ? 'text-orange-400' : 'text-gray-400'}`}>
+              {undoTimeLeft}s
+            </div>
+            <button
+              onClick={handleUndoPricing}
+              className={`px-4 py-2 text-white text-sm transition-all flex items-center gap-2 font-medium ${
+                undoTimeLeft <= 10 
+                  ? 'bg-orange-600 hover:bg-orange-700 border-orange-600 animate-pulse' 
+                  : 'bg-[#336699] hover:bg-[#336699]/80 border-[#336699]'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Undo Changes
+            </button>
+          </div>
         </div>
       )}
 
