@@ -147,7 +147,7 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-4 py-2 bg-[#252525] hover:bg-[#333333] text-white border border-[#333333] rounded-lg transition-colors w-full sm:min-w-[200px]"
+          className="flex items-center gap-2 px-4 py-2 bg-[#252525] hover:bg-[#333333] text-white border border-[#333333] transition-colors w-full sm:min-w-[200px]"
         >
           <span className="text-lg">{currentMode?.icon || '📊'}</span>
           <span className="text-sm font-medium flex-1 text-left truncate">{currentMode?.name || 'Select Pricing Mode'}</span>
@@ -155,7 +155,7 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 right-0 sm:left-0 sm:right-auto mt-1 w-full sm:w-72 bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 sm:left-0 sm:right-auto mt-1 w-full sm:w-72 bg-[#1A1A1A] border border-[#333333] shadow-xl z-50 overflow-hidden">
             <div className="max-h-96 overflow-y-auto">
               {/* Preset Modes */}
               <div className="p-2">
