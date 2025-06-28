@@ -752,16 +752,25 @@ export class PricingModesService {
     // Mark as processing immediately
     await jobQueue.markAsProcessing(jobId);
 
-    // Trigger the actual processing
-    // In a real implementation, this would trigger a Supabase Edge Function
-    // For now, we'll process it inline but track progress
-    this.processJobInBackground(jobId, organizationId, modeId, lineItemIds);
+    // Trigger the Edge Function to process the job
+    const { error } = await supabase.functions.invoke('process-pricing-job', {
+      body: { jobId }
+    });
+
+    if (error) {
+      console.error('Error invoking pricing job function:', error);
+      // Fallback to inline processing if Edge Function fails
+      console.log('Falling back to inline processing');
+      this.processJobInBackground(jobId, organizationId, modeId, lineItemIds);
+    }
 
     return jobId;
   }
 
   /**
-   * Process a pricing job (this would normally run in an Edge Function)
+   * Process a pricing job inline (fallback when Edge Function is not available)
+   * The Edge Function code is ready in supabase/functions/process-pricing-job/
+   * Deploy with: supabase functions deploy process-pricing-job
    */
   private static async processJobInBackground(
     jobId: string,
