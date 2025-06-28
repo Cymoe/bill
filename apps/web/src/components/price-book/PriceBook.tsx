@@ -1020,7 +1020,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       )}
       
       {/* Undo Button */}
-      {showUndo && lastPricingOperation && selectedLineItemIds.length === 0 && (
+      {showUndo && lastPricingOperation && selectedLineItemIds.length === 0 && !applyingProgress && (
         <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A] flex items-center justify-between">
           <div className="text-sm text-gray-400">
             Applied "{lastPricingOperation.modeName}" to {lastPricingOperation.lineItemIds.length} items
