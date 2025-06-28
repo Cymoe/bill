@@ -66,10 +66,12 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
     }
   };
 
-  const handleSelectMode = (mode: PricingMode) => {
+  const handleSelectMode = async (mode: PricingMode) => {
     setCurrentMode(mode);
     onModeChange(mode);
     setIsOpen(false);
+    // Immediately trigger the apply action
+    await onApplyMode(mode.id);
   };
 
   const handleQuickApply = async (mode: PricingMode) => {
@@ -108,11 +110,6 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
     );
   }
 
-  const getButtonText = () => {
-    if (!currentMode) return 'Select mode';
-    if (currentMode.name === 'Reset to Baseline') return `Reset ${selectedLineItemCount} items to baseline`;
-    return `Apply ${currentMode.name} to ${selectedLineItemCount} items`;
-  };
 
   const getModeColor = (modeName: string): string => {
     switch (modeName) {
@@ -145,20 +142,20 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
       {/* Current Mode Dropdown */}
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border border-[#333333] rounded-lg hover:bg-[#333333] transition-colors w-56"
+          className="flex items-center gap-2 px-4 py-2 bg-[#252525] hover:bg-[#333333] text-white border border-[#333333] rounded-lg transition-colors w-full sm:min-w-[200px]"
         >
           <span className="text-lg">{currentMode?.icon || '📊'}</span>
-          <span className="text-sm text-white font-medium flex-1 text-left">{currentMode?.name || 'Select Mode'}</span>
-          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+          <span className="text-sm font-medium flex-1 text-left truncate">{currentMode?.name || 'Select Pricing Mode'}</span>
+          <ChevronDown className={`w-4 h-4 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {isOpen && (
-          <div className="absolute top-full left-0 mt-1 w-72 bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-xl z-50 overflow-hidden">
+          <div className="absolute top-full left-0 right-0 sm:left-0 sm:right-auto mt-1 w-full sm:w-72 bg-[#1A1A1A] border border-[#333333] rounded-lg shadow-xl z-50 overflow-hidden">
             <div className="max-h-96 overflow-y-auto">
               {/* Preset Modes */}
               <div className="p-2">
@@ -219,31 +216,8 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
           </div>
         )}
       </div>
-
-      {/* Apply Button */}
-      <button
-        onClick={() => currentMode && onApplyMode(currentMode.id)}
-        disabled={!currentMode}
-        className={`flex items-center gap-2 px-5 py-1.5 rounded-lg transition-all font-medium ${
-          currentMode 
-            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 shadow-sm cursor-pointer' 
-            : 'bg-[#252525] text-gray-500 border border-[#333333] cursor-not-allowed'
-        }`}
-      >
-        {currentMode ? (
-          <>
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="text-sm">{getButtonText()}</span>
-          </>
-        ) : (
-          <>
-            <AlertCircle className="w-4 h-4" />
-            <span className="text-sm">Select a mode to apply</span>
-          </>
-        )}
-      </button>
+      
+      <span className="text-sm text-gray-400 text-center sm:text-left">Apply pricing to {selectedLineItemCount} items</span>
     </div>
   );
 };

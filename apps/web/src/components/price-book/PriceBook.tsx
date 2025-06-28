@@ -961,7 +961,17 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
               className="w-4 h-4 rounded bg-[#333333] border-[#555555] text-[#336699] focus:ring-[#336699] focus:ring-offset-0"
             />
           </div>
-          <div className="col-span-6">ITEM</div>
+          <div className="col-span-6 flex items-center gap-3">
+            <span>ITEM</span>
+            {filteredLineItems.length > 0 && filteredLineItems.length < lineItems.length && (
+              <button
+                onClick={() => setSelectedLineItemIds(filteredLineItems.map(item => item.id))}
+                className="text-[#336699] hover:text-[#4477aa] text-xs font-normal normal-case transition-colors"
+              >
+                Select Visible ({filteredLineItems.length})
+              </button>
+            )}
+          </div>
           <div className="col-span-2 text-right">PRICE</div>
           <div className="col-span-2">STRATEGY</div>
           <div className="col-span-1 text-right"></div>
