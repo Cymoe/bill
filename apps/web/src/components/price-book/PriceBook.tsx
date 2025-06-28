@@ -851,55 +851,66 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         if (mostRecentJob.status === 'processing' || mostRecentJob.status === 'pending') {
           console.log('Resuming job on page refresh:', mostRecentJob);
           setActiveJobId(mostRecentJob.id);
+          
+          // Check if it's an undo job
+          const isUndoJob = mostRecentJob.operation_type === 'undo_pricing';
+          
           setApplyingProgress({
             current: mostRecentJob.processed_items || 0,
             total: mostRecentJob.total_items || 0,
-            action: 'applying'
+            action: isUndoJob ? 'undoing' : 'applying'
           });
           
           // Resume processing from where it left off
           const { mode_id, line_item_ids, previous_prices, mode_name } = mostRecentJob.job_data;
           
           try {
-            // Continue processing
-            const result = await PricingModesService.applyModeWithErrorHandling(
-              selectedOrg.id,
-              mode_id,
-              line_item_ids,
-              async (current, total) => {
-                setApplyingProgress({
-                  current,
-                  total,
-                  action: 'applying'
-                });
-                // Update job progress
-                await PricingModesService.updateJobProgress(mostRecentJob.id, current, total);
-              }
-            );
-            
-            // Mark job as completed
-            await PricingModesService.completeJob(mostRecentJob.id, result);
-            
-            // Small delay before hiding
-            await new Promise(resolve => setTimeout(resolve, 500));
-            setApplyingProgress(null);
-            setActiveJobId(null);
-            
-            if (result.successCount > 0) {
-              // Restore undo state if available
-              if (previous_prices) {
-                setLastPricingOperation({
-                  modeId: mode_id,
-                  modeName: mode_name || 'Pricing Mode',
-                  lineItemIds: line_item_ids || [],
-                  previousPrices: previous_prices,
-                  timestamp: Date.now()
-                });
-                setShowUndo(true);
-              }
+            if (isUndoJob) {
+              // For undo jobs, just resume monitoring since processing happens in background
+              await PricingModesService.resumeJob(mostRecentJob.id, selectedOrg.id);
+              // Start polling for updates
+              startJobPolling(mostRecentJob.id);
+            } else {
+              // Continue processing regular pricing job
+              const result = await PricingModesService.applyModeWithErrorHandling(
+                selectedOrg.id,
+                mode_id,
+                line_item_ids,
+                async (current, total) => {
+                  setApplyingProgress({
+                    current,
+                    total,
+                    action: 'applying'
+                  });
+                  // Update job progress
+                  await PricingModesService.updateJobProgress(mostRecentJob.id, current, total);
+                }
+              );
               
-              // Refresh data
-              fetchLineItems(true);
+              // Mark job as completed
+              await PricingModesService.completeJob(mostRecentJob.id, result);
+              
+              // Small delay before hiding
+              await new Promise(resolve => setTimeout(resolve, 500));
+              setApplyingProgress(null);
+              setActiveJobId(null);
+              
+              if (result.successCount > 0) {
+                // Restore undo state if available
+                if (previous_prices) {
+                  setLastPricingOperation({
+                    modeId: mode_id,
+                    modeName: mode_name || 'Pricing Mode',
+                    lineItemIds: line_item_ids || [],
+                    previousPrices: previous_prices,
+                    timestamp: Date.now()
+                  });
+                  setShowUndo(true);
+                }
+                
+                // Refresh data
+                fetchLineItems(true);
+              }
             }
           } catch (error) {
             console.error('Error resuming job:', error);
@@ -947,131 +958,107 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     });
     
     try {
-      let successCount = 0;
-      let failedCount = 0;
+      // Create undo job
+      const jobId = await PricingModesService.createUndoJob(
+        selectedOrg.id,
+        lastPricingOperation.previousPrices
+      );
       
-      // First, we need to check which items had overrides before
-      const lineItemIds = lastPricingOperation.previousPrices.map(p => p.lineItemId);
-      const { data: originalItems } = await supabase
-        .from('line_items')
-        .select('id, price')
-        .in('id', lineItemIds);
+      // Store job info for recovery
+      localStorage.setItem(`active_job_${selectedOrg.id}`, JSON.stringify({
+        jobId,
+        action: 'undoing',
+        timestamp: Date.now()
+      }));
       
-      const originalPriceMap = new Map(originalItems?.map(item => [item.id, item.price]) || []);
+      setActiveJobId(jobId);
       
-      // Separate items that need overrides vs those that need deletion
-      const itemsToRestore: typeof lastPricingOperation.previousPrices = [];
-      const itemsToDelete: string[] = [];
+      // Poll for job completion
+      let attempts = 0;
+      const maxAttempts = 600; // 10 minutes
+      let lastProgress = 0;
       
-      lastPricingOperation.previousPrices.forEach(prev => {
-        const basePrice = originalPriceMap.get(prev.lineItemId);
-        // If previous price equals base price, delete the override
-        if (basePrice && Math.abs(basePrice - prev.price) < 0.01) {
-          itemsToDelete.push(prev.lineItemId);
-        } else {
-          itemsToRestore.push(prev);
-        }
-      });
-      
-      // Delete overrides for items that should use base price
-      if (itemsToDelete.length > 0) {
-        const { error } = await supabase
-          .from('line_item_overrides')
-          .delete()
-          .eq('organization_id', selectedOrg.id)
-          .in('line_item_id', itemsToDelete);
+      const pollInterval = setInterval(async () => {
+        attempts++;
         
-        if (!error) {
-          successCount += itemsToDelete.length;
-        } else {
-          failedCount += itemsToDelete.length;
-        }
-      }
-      
-      // Store the last progress update time to throttle updates
-      let lastProgressUpdate = 0;
-      const progressThrottle = 200; // Update progress at most every 200ms to reduce flashing
-      
-      // Restore previous prices for items that had overrides
-      const batchSize = 50;
-      for (let i = 0; i < itemsToRestore.length; i += batchSize) {
-        const batch = itemsToRestore.slice(i, i + batchSize);
-        
-        const overrides = batch.map(item => ({
-          organization_id: selectedOrg.id,
-          line_item_id: item.lineItemId,
-          custom_price: item.price,
-          updated_at: new Date().toISOString()
-        }));
-        
-        const { error } = await supabase
-          .from('line_item_overrides')
-          .upsert(overrides, {
-            onConflict: 'organization_id,line_item_id'
-          });
-        
-        if (error) {
-          console.error('Error restoring prices:', error);
-          failedCount += batch.length;
-        } else {
-          successCount += batch.length;
-        }
-        
-        // Throttle progress updates to prevent flashing
-        const now = Date.now();
-        if (now - lastProgressUpdate > progressThrottle) {
-          setApplyingProgress({ 
-            current: itemsToDelete.length + i + batch.length, 
-            total: lastPricingOperation.previousPrices.length,
-            action: 'undoing'
-          });
-          lastProgressUpdate = now;
-        }
-      }
-      
-      // Ensure minimum display time to prevent flashing
-      const elapsedTime = Date.now() - progressStartTime;
-      const minimumDisplayTime = 1500; // Show for at least 1.5 seconds
-      if (elapsedTime < minimumDisplayTime) {
-        await new Promise(resolve => setTimeout(resolve, minimumDisplayTime - elapsedTime));
-      }
-      
-      // Additional delay for smooth transition
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setApplyingProgress(null);
-      
-      if (successCount > 0) {
-        console.log(`Successfully restored ${successCount} items to previous prices`);
-        setLastPricingOperation(null);
-        // Clear from localStorage
-        if (selectedOrg?.id) {
-          localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
-        }
-        
-        // Only show success message if there were failures
-        // The act of reverting is confirmation enough for successful undo
-        if (failedCount > 0) {
-          setShowSuccess({
-            message: `Restored ${successCount} items. ${failedCount} items failed.`,
-            itemCount: successCount
+        try {
+          const job = await PricingModesService.getJobStatus(jobId);
+          
+          if (!job) {
+            clearInterval(pollInterval);
+            throw new Error('Job not found');
+          }
+          
+          // Update progress only if changed
+          if (job.processed_items !== lastProgress) {
+            lastProgress = job.processed_items;
+            setApplyingProgress({
+              current: job.processed_items,
+              total: job.total_items,
+              action: 'undoing'
+            });
+          }
+          
+          if (job.status === 'completed') {
+            clearInterval(pollInterval);
+            
+            // Clear states
+            setLastPricingOperation(null);
+            localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
+            localStorage.removeItem(`active_job_${selectedOrg.id}`);
+            
+            // Ensure minimum display time
+            const elapsedTime = Date.now() - progressStartTime;
+            const minimumDisplayTime = 1500;
+            if (elapsedTime < minimumDisplayTime) {
+              await new Promise(resolve => setTimeout(resolve, minimumDisplayTime - elapsedTime));
+            }
+            
+            // Additional delay for smooth transition
+            await new Promise(resolve => setTimeout(resolve, 300));
+            setApplyingProgress(null);
+            setActiveJobId(null);
+            
+            const summary = job.result_summary;
+            if (summary?.failed_count > 0) {
+              setShowSuccess({
+                message: `Restored ${summary.success_count} items. ${summary.failed_count} items failed.`,
+                itemCount: summary.success_count
+              });
+            }
+            
+            // Refresh data
+            fetchLineItems(true);
+          } else if (job.status === 'failed') {
+            clearInterval(pollInterval);
+            throw new Error(job.error_message || 'Undo operation failed');
+          } else if (attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            throw new Error('Operation timed out');
+          }
+        } catch (error) {
+          clearInterval(pollInterval);
+          console.error('Error checking undo job status:', error);
+          
+          // Clean up
+          localStorage.removeItem(`active_job_${selectedOrg.id}`);
+          setApplyingProgress(null);
+          setActiveJobId(null);
+          setShowError({
+            title: 'Undo Failed',
+            message: error instanceof Error ? error.message : 'Failed to undo pricing changes. Please try again.'
           });
         }
-        
-        // Refresh the list
-        fetchLineItems(true);
-      } else {
-        setShowError({
-          title: 'Undo Failed',
-          message: 'Failed to undo pricing changes. Please try again.'
-        });
-      }
+      }, 1000);
+      
     } catch (error) {
-      console.error('Error undoing pricing change:', error);
+      console.error('Error starting undo operation:', error);
+      setApplyingProgress(null);
+      localStorage.removeItem(`active_job_${selectedOrg.id}`);
       setShowError({
         title: 'Undo Failed',
-        message: 'Failed to undo pricing change. Please try again.'
+        message: 'Could not start the undo operation. Please try again.'
       });
-      setApplyingProgress(null);
     }
   };
 
@@ -1247,10 +1234,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         total: job.total_items
       });
       
+      const isUndoJob = job.operation_type === 'undo_pricing';
       setApplyingProgress({
         current: job.processed_items || 0,
         total: job.total_items || 0,
-        action: 'applying'
+        action: isUndoJob ? 'undoing' : 'applying'
       });
     }
     
@@ -1267,28 +1255,36 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       
       if (job.status === 'completed') {
         const summary = job.result_summary;
+        const isUndoJob = job.operation_type === 'undo_pricing';
         
         // Only show success overlay if there were failures
-        // Otherwise, the undo bar is sufficient confirmation
         if (summary?.failed_count > 0) {
           setShowSuccess({
-            message: `Updated ${summary.success_count} items. ${summary.failed_count} items failed.`,
+            message: isUndoJob 
+              ? `Restored ${summary.success_count} items. ${summary.failed_count} items failed.`
+              : `Updated ${summary.success_count} items. ${summary.failed_count} items failed.`,
             itemCount: summary.success_count
           });
         }
         
-        // Show undo option (this is the main confirmation)
-        setTimeout(() => {
-          setShowUndo(true);
-        }, 50);
+        // Show undo option only for regular pricing jobs (not for undo jobs)
+        if (!isUndoJob) {
+          setTimeout(() => {
+            setShowUndo(true);
+          }, 50);
+        } else {
+          // For undo jobs, clear localStorage since we've successfully reverted
+          localStorage.removeItem(`active_job_${selectedOrg?.id}`);
+        }
         
         // Refresh data
         fetchLineItems(true);
       } else {
         // Failed
+        const isUndoJob = job.operation_type === 'undo_pricing';
         setShowError({
-          title: 'Update Failed',
-          message: job.error_message || 'Pricing update failed. Please try again.'
+          title: isUndoJob ? 'Undo Failed' : 'Update Failed',
+          message: job.error_message || (isUndoJob ? 'Failed to undo pricing changes. Please try again.' : 'Pricing update failed. Please try again.')
         });
         fetchLineItems(false);
       }

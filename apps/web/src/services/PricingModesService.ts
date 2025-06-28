@@ -888,15 +888,28 @@ export class PricingModesService {
       return;
     }
     
-    const { mode_id, line_item_ids } = job.job_data;
-    if (!mode_id) {
-      console.error('No mode_id in job data');
-      await jobQueue.markAsFailed(jobId, 'Missing mode_id in job data');
-      return;
+    // Check if it's an undo job
+    if (job.operation_type === 'undo_pricing') {
+      const { previous_prices } = job.job_data;
+      if (!previous_prices) {
+        console.error('No previous_prices in undo job data');
+        await jobQueue.markAsFailed(jobId, 'Missing previous_prices in job data');
+        return;
+      }
+      
+      // Resume undo job processing
+      this.processUndoJob(jobId, organizationId, previous_prices);
+    } else {
+      const { mode_id, line_item_ids } = job.job_data;
+      if (!mode_id) {
+        console.error('No mode_id in job data');
+        await jobQueue.markAsFailed(jobId, 'Missing mode_id in job data');
+        return;
+      }
+      
+      // Process regular pricing job
+      this.processJobInBackground(jobId, organizationId, mode_id, line_item_ids);
     }
-    
-    // Process the job inline
-    this.processJobInBackground(jobId, organizationId, mode_id, line_item_ids);
   }
 
   /**
@@ -933,6 +946,183 @@ export class PricingModesService {
    */
   static async failJob(jobId: string, error: string): Promise<void> {
     await jobQueue.markAsFailed(jobId, error);
+  }
+
+  /**
+   * Create an undo job for reverting pricing changes
+   */
+  static async createUndoJob(
+    organizationId: string,
+    previousPrices: Array<{ lineItemId: string; price: number }>
+  ): Promise<string> {
+    const jobId = await jobQueue.createJob({
+      organization_id: organizationId,
+      operation_type: 'undo_pricing',
+      total_items: previousPrices.length,
+      job_data: {
+        previous_prices: previousPrices
+      }
+    });
+
+    // Process inline since Edge Function isn't deployed
+    await jobQueue.markAsProcessing(jobId);
+    this.processUndoJob(jobId, organizationId, previousPrices);
+
+    return jobId;
+  }
+
+  /**
+   * Process an undo job
+   */
+  private static async processUndoJob(
+    jobId: string,
+    organizationId: string,
+    previousPrices: Array<{ lineItemId: string; price: number }>
+  ): Promise<void> {
+    setTimeout(async () => {
+      try {
+        console.log('Processing undo job:', jobId);
+        
+        // Check if job is still active
+        const currentJob = await jobQueue.getJob(jobId);
+        if (!currentJob || currentJob.status !== 'processing') {
+          console.log(`Undo job ${jobId} is no longer active`);
+          return;
+        }
+
+        let successCount = 0;
+        let failedCount = 0;
+        const failedItems: Array<{ line_item_id: string; name: string; error: string }> = [];
+
+        // Get base prices to determine which need overrides vs deletion
+        const lineItemIds = previousPrices.map(p => p.lineItemId);
+        const batchSize = 100;
+        let originalItems: any[] = [];
+        
+        for (let i = 0; i < lineItemIds.length; i += batchSize) {
+          const batch = lineItemIds.slice(i, i + batchSize);
+          const { data, error } = await supabase
+            .from('line_items')
+            .select('id, name, price')
+            .in('id', batch);
+          
+          if (error) {
+            console.error('Error fetching line items:', error);
+          } else {
+            originalItems = originalItems.concat(data || []);
+          }
+        }
+        
+        const originalMap = new Map(originalItems.map(item => [item.id, { name: item.name, price: item.price }]));
+        
+        // Separate items
+        const itemsToRestore: typeof previousPrices = [];
+        const itemsToDelete: string[] = [];
+        
+        previousPrices.forEach(prev => {
+          const original = originalMap.get(prev.lineItemId);
+          if (original && Math.abs(original.price - prev.price) < 0.01) {
+            itemsToDelete.push(prev.lineItemId);
+          } else {
+            itemsToRestore.push(prev);
+          }
+        });
+        
+        // Delete overrides for items that should use base price
+        if (itemsToDelete.length > 0) {
+          for (let i = 0; i < itemsToDelete.length; i += batchSize) {
+            const batch = itemsToDelete.slice(i, i + batchSize);
+            const { error } = await supabase
+              .from('line_item_overrides')
+              .delete()
+              .eq('organization_id', organizationId)
+              .in('line_item_id', batch);
+            
+            if (!error) {
+              successCount += batch.length;
+            } else {
+              failedCount += batch.length;
+              batch.forEach(id => {
+                const item = originalMap.get(id);
+                failedItems.push({
+                  line_item_id: id,
+                  name: item?.name || `Item ${id}`,
+                  error: error.message
+                });
+              });
+            }
+            
+            // Update progress
+            const processedSoFar = i + batch.length;
+            await jobQueue.updateProgress(jobId, { 
+              current: processedSoFar, 
+              total: previousPrices.length 
+            });
+          }
+        }
+        
+        // Restore overrides
+        for (let i = 0; i < itemsToRestore.length; i += 50) {
+          const batch = itemsToRestore.slice(i, i + 50);
+          
+          const overrides = batch.map(item => ({
+            organization_id: organizationId,
+            line_item_id: item.lineItemId,
+            custom_price: item.price,
+            updated_at: new Date().toISOString()
+          }));
+          
+          const { error } = await supabase
+            .from('line_item_overrides')
+            .upsert(overrides, {
+              onConflict: 'organization_id,line_item_id'
+            });
+          
+          if (error) {
+            console.error('Error restoring prices:', error);
+            failedCount += batch.length;
+            batch.forEach(item => {
+              const original = originalMap.get(item.lineItemId);
+              failedItems.push({
+                line_item_id: item.lineItemId,
+                name: original?.name || `Item ${item.lineItemId}`,
+                error: error.message
+              });
+            });
+          } else {
+            successCount += batch.length;
+          }
+          
+          // Update progress
+          const processedSoFar = itemsToDelete.length + i + batch.length;
+          await jobQueue.updateProgress(jobId, { 
+            current: processedSoFar, 
+            total: previousPrices.length 
+          });
+        }
+        
+        console.log(`Undo job ${jobId} completed:`, { successCount, failedCount });
+        
+        // Mark as completed
+        await jobQueue.markAsCompleted(jobId, {
+          success_count: successCount,
+          failed_count: failedCount,
+          failed_items: failedItems
+        });
+        
+      } catch (error) {
+        console.error('Error processing undo job:', error);
+        
+        if (error instanceof Error && error.message === 'Job cancelled') {
+          return;
+        }
+        
+        await jobQueue.markAsFailed(
+          jobId, 
+          error instanceof Error ? error.message : 'Unknown error occurred'
+        );
+      }
+    }, 100);
   }
 
 }
