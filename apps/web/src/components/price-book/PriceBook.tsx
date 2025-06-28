@@ -83,36 +83,9 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     lineItemIds: string[];
     previousPrices: Array<{ lineItemId: string; price: number }>;
     timestamp: number;
-  } | null>(() => {
-    // Restore from localStorage if available and not expired
-    const stored = localStorage.getItem(`pricing-undo-${selectedOrg?.id}`);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      const elapsed = Date.now() - parsed.timestamp;
-      // Only restore if less than 30 seconds old
-      if (elapsed < 30000) {
-        return parsed;
-      } else {
-        localStorage.removeItem(`pricing-undo-${selectedOrg?.id}`);
-      }
-    }
-    return null;
-  });
-  const [showUndo, setShowUndo] = useState(() => {
-    // If we restored an undo operation, show the undo button
-    if (lastPricingOperation) {
-      const elapsed = Date.now() - lastPricingOperation.timestamp;
-      return elapsed < 30000;
-    }
-    return false;
-  });
-  const [undoTimeLeft, setUndoTimeLeft] = useState(() => {
-    if (lastPricingOperation) {
-      const elapsed = Math.floor((Date.now() - lastPricingOperation.timestamp) / 1000);
-      return Math.max(0, 30 - elapsed);
-    }
-    return 30;
-  });
+  } | null>(null);
+  const [showUndo, setShowUndo] = useState(false);
+  const [undoTimeLeft, setUndoTimeLeft] = useState(30);
   const [applyingProgress, setApplyingProgress] = useState<{
     current: number;
     total: number;
@@ -122,6 +95,8 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     message: string;
     itemCount: number;
   } | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobPollingInterval, setJobPollingInterval] = useState<NodeJS.Timeout | null>(null);
   
   // Calculate counts for each quick filter
   const quickFilterCounts = useMemo(() => {
@@ -739,6 +714,70 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     }
   }, [lastPricingOperation, selectedOrg?.id]);
 
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (jobPollingInterval) {
+        clearInterval(jobPollingInterval);
+      }
+    };
+  }, [jobPollingInterval]);
+
+  // Restore undo state from localStorage when component mounts with selectedOrg
+  useEffect(() => {
+    if (selectedOrg?.id) {
+      const stored = localStorage.getItem(`pricing-undo-${selectedOrg.id}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          const elapsed = Date.now() - parsed.timestamp;
+          // Only restore if less than 30 seconds old
+          if (elapsed < 30000) {
+            setLastPricingOperation(parsed);
+            setShowUndo(true);
+            setUndoTimeLeft(Math.max(1, Math.floor((30000 - elapsed) / 1000)));
+          } else {
+            localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
+          }
+        } catch (error) {
+          console.error('Error restoring undo state:', error);
+          localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
+        }
+      }
+    }
+  }, [selectedOrg?.id]);
+
+  // Check for active jobs on mount/org change
+  useEffect(() => {
+    if (selectedOrg?.id) {
+      checkForActiveJobs();
+    }
+  }, [selectedOrg?.id]);
+
+  const checkForActiveJobs = async () => {
+    if (!selectedOrg?.id) return;
+    
+    try {
+      const activeJobs = await PricingModesService.getActiveJobs(selectedOrg.id);
+      
+      if (activeJobs.length > 0) {
+        // Resume tracking the most recent job
+        const mostRecentJob = activeJobs[0];
+        setActiveJobId(mostRecentJob.id);
+        
+        // If it's processing, resume polling
+        if (mostRecentJob.status === 'processing') {
+          startJobPolling(mostRecentJob.id);
+        } else {
+          // Check status once in case it just finished
+          checkJobStatus(mostRecentJob.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for active jobs:', error);
+    }
+  };
+
   // Handle pricing mode application
   const handleApplyPricingMode = async (modeId: string) => {
     if (!selectedOrg?.id) return;
@@ -874,142 +913,122 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     // Close modal immediately for snappy feel
     setShowModePreview(false);
     
-    // Optimistically update the UI
-    const updatedItems = lineItems.map(item => {
-      // Skip items that aren't selected (when specific items are selected)
-      if (selectedLineItemIds.length > 0 && !selectedLineItemIds.includes(item.id)) {
-        return item;
-      }
-      
-      // For Reset to Baseline, only process items with overrides
-      if (selectedMode.name === 'Reset to Baseline' && !item.has_override) {
-        return item;
-      }
-      
-      // Apply the mode's adjustments optimistically
-      // Determine category from cost code number
-      let category = 'all';
-      if (item.cost_code?.code) {
-        const codeNumber = parseInt(item.cost_code.code.replace(/[^0-9]/g, ''));
-        if (!isNaN(codeNumber)) {
-          if (codeNumber >= 100 && codeNumber <= 199) category = 'labor';
-          else if (codeNumber >= 500 && codeNumber <= 599) category = 'materials';
-          else if (codeNumber >= 200 && codeNumber <= 299) category = 'installation';
-          else if ((codeNumber >= 300 && codeNumber <= 399) || (codeNumber >= 600 && codeNumber <= 699)) category = 'services';
-          else if (codeNumber >= 400 && codeNumber <= 499) category = 'equipment';
-          else if (codeNumber >= 700 && codeNumber <= 799) category = 'subcontractor';
-        }
-      }
-      const multiplier = selectedMode.adjustments[category] || selectedMode.adjustments.all || 1;
-      const newPrice = selectedMode.name === 'Reset to Baseline' 
-        ? item.base_price || item.price 
-        : (item.base_price || item.price) * multiplier;
-      
-      // For Reset to Baseline, remove override entirely
-      if (selectedMode.name === 'Reset to Baseline') {
-        return {
-          ...item,
-          price: item.base_price || item.price,
-          applied_mode_name: undefined,
-          applied_mode_id: undefined,
-          has_override: false
-        };
-      }
-      
-      // For other modes, ensure we have base_price for ratio calculations
-      // Don't set applied_mode_name - let the ratio-based rendering handle it
-      return {
-        ...item,
-        price: newPrice,
-        base_price: item.base_price || item.price, // Ensure base_price is set
-        has_override: true
-      };
-    });
-    
-    // Update UI immediately
-    setLineItems(updatedItems);
-    setSelectedLineItemIds([]);
+    // Store previous prices for undo
+    const previousPrices = lineItems
+      .filter(item => 
+        selectedLineItemIds.length > 0 ? selectedLineItemIds.includes(item.id) : true
+      )
+      .map(item => ({
+        lineItemId: item.id,
+        price: item.price
+      }));
     
     try {
-      const itemsToUpdate = selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined;
-      
-      // Show progress for large operations
-      let progressMessage = '';
-      if (updatedItems.length > 100) {
-        // TODO: Add progress toast notification here
-      }
-      
-      const result = await PricingModesService.applyModeWithErrorHandling(
+      // Create a job for background processing
+      const jobId = await PricingModesService.createPricingJob(
         selectedOrg.id,
         pendingModeId,
-        itemsToUpdate,
-        (current, total) => {
-          // Update progress state
-          setApplyingProgress({ current, total, action: 'applying' });
-        }
+        selectedMode.name,
+        selectedLineItemIds.length > 0 ? selectedLineItemIds : undefined,
+        previousPrices
       );
       
-      // Clear progress
-      setApplyingProgress(null);
+      setActiveJobId(jobId);
+      setSelectedLineItemIds([]);
       
-      // Show success/error message
-      if (result.failedCount > 0) {
-        console.error(`Failed to update ${result.failedCount} items:`, result.failedItems);
-        // Show error with partial success
-        setShowSuccess({
-          message: `Updated ${result.successCount} items. ${result.failedCount} items failed.`,
-          itemCount: result.successCount
-        });
-      } else {
-        console.log(`Successfully applied pricing mode to ${result.successCount} items`);
-        
-        // Show success confirmation
-        setShowSuccess({
-          message: `Successfully applied "${selectedMode.name}" pricing`,
-          itemCount: result.successCount
-        });
-        
-        // Track successful operation for undo
-        if (result.successCount > 0 && selectedMode) {
-          // Store previous prices for undo
-          const previousPrices = lineItems
-            .filter(item => 
-              itemsToUpdate ? itemsToUpdate.includes(item.id) : true
-            )
-            .map(item => ({
-              lineItemId: item.id,
-              price: item.price
-            }));
-            
-          // Reset undo state first to restart the timer
-          setShowUndo(false);
-          setLastPricingOperation({
-            modeId: pendingModeId,
-            modeName: selectedMode.name,
-            lineItemIds: itemsToUpdate || [],
-            previousPrices,
-            timestamp: Date.now()
-          });
-          
-          // Set showUndo to true after a brief delay to trigger the useEffect
-          setTimeout(() => {
-            setShowUndo(true);
-          }, 50);
-        }
-      }
+      // Start polling for job updates
+      startJobPolling(jobId);
       
-      // Silently refresh in background with smart merge to avoid flicker
-      fetchLineItems(true);
+      // Store for undo capability
+      setShowUndo(false);
+      setLastPricingOperation({
+        modeId: pendingModeId,
+        modeName: selectedMode.name,
+        lineItemIds: selectedLineItemIds,
+        previousPrices,
+        timestamp: Date.now()
+      });
       
     } catch (error) {
-      console.error('Error applying pricing mode:', error);
-      // On error, revert to original state
-      await fetchLineItems(false);
-      alert('Failed to apply pricing mode. Please try again.');
+      console.error('Error creating pricing job:', error);
+      alert('Failed to start pricing update. Please try again.');
     } finally {
       setPendingModeId(null);
     }
   };
+
+  // Function to poll job status
+  const startJobPolling = (jobId: string) => {
+    // Clear any existing polling
+    if (jobPollingInterval) {
+      clearInterval(jobPollingInterval);
+    }
+    
+    // Initial check
+    checkJobStatus(jobId);
+    
+    // Poll every 2 seconds
+    const interval = setInterval(() => {
+      checkJobStatus(jobId);
+    }, 2000);
+    
+    setJobPollingInterval(interval);
+  };
+  
+  const checkJobStatus = async (jobId: string) => {
+    const job = await PricingModesService.getJobStatus(jobId);
+    
+    if (!job) return;
+    
+    // Update progress
+    if (job.status === 'processing') {
+      setApplyingProgress({
+        current: job.processed_items,
+        total: job.total_items,
+        action: 'applying'
+      });
+    }
+    
+    // Handle completion
+    if (job.status === 'completed' || job.status === 'failed') {
+      // Stop polling
+      if (jobPollingInterval) {
+        clearInterval(jobPollingInterval);
+        setJobPollingInterval(null);
+      }
+      
+      setActiveJobId(null);
+      setApplyingProgress(null);
+      
+      if (job.status === 'completed') {
+        const summary = job.result_summary;
+        if (summary?.failed_count > 0) {
+          setShowSuccess({
+            message: `Updated ${summary.success_count} items. ${summary.failed_count} items failed.`,
+            itemCount: summary.success_count
+          });
+        } else {
+          setShowSuccess({
+            message: `Successfully applied "${job.job_data.mode_name}" pricing`,
+            itemCount: summary?.success_count || 0
+          });
+        }
+        
+        // Show undo option
+        setTimeout(() => {
+          setShowUndo(true);
+        }, 50);
+        
+        // Refresh data
+        fetchLineItems(true);
+      } else {
+        // Failed
+        alert(`Pricing update failed: ${job.error_message || 'Unknown error'}`);
+        fetchLineItems(false);
+      }
+    }
+  };
+
 
   return (
     <div className="bg-transparent border border-[#333333] border-t-0 relative">

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { ActivityLogService } from './ActivityLogService';
+import { jobQueue } from './jobQueue';
 
 export interface PricingMode {
   id: string;
@@ -721,4 +722,102 @@ export class PricingModesService {
     
     return count || 0;
   }
+
+  /**
+   * Create a pricing job for background processing
+   */
+  static async createPricingJob(
+    organizationId: string,
+    modeId: string,
+    modeName: string,
+    lineItemIds?: string[],
+    previousPrices?: Array<{ lineItemId: string; price: number }>
+  ): Promise<string> {
+    // Get total item count
+    const totalItems = lineItemIds?.length || await this.getLineItemCount(organizationId);
+    
+    const jobId = await jobQueue.createJob({
+      organization_id: organizationId,
+      operation_type: 'apply_pricing_mode',
+      total_items: totalItems,
+      job_data: {
+        mode_id: modeId,
+        mode_name: modeName,
+        line_item_ids: lineItemIds,
+        previous_prices: previousPrices,
+        apply_to_all: !lineItemIds || lineItemIds.length === 0
+      }
+    });
+
+    // Mark as processing immediately
+    await jobQueue.markAsProcessing(jobId);
+
+    // Trigger the actual processing
+    // In a real implementation, this would trigger a Supabase Edge Function
+    // For now, we'll process it inline but track progress
+    this.processJobInBackground(jobId, organizationId, modeId, lineItemIds);
+
+    return jobId;
+  }
+
+  /**
+   * Process a pricing job (this would normally run in an Edge Function)
+   */
+  private static async processJobInBackground(
+    jobId: string,
+    organizationId: string,
+    modeId: string,
+    lineItemIds?: string[]
+  ): Promise<void> {
+    try {
+      const result = await this.applyModeWithErrorHandling(
+        organizationId,
+        modeId,
+        lineItemIds,
+        async (current, total) => {
+          // Update job progress
+          await jobQueue.updateProgress(jobId, { current, total });
+        }
+      );
+
+      // Mark job as completed
+      await jobQueue.markAsCompleted(jobId, {
+        success_count: result.successCount,
+        failed_count: result.failedCount,
+        failed_items: result.failedItems
+      });
+    } catch (error) {
+      console.error('Error processing pricing job:', error);
+      await jobQueue.markAsFailed(
+        jobId, 
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
+    }
+  }
+
+  /**
+   * Get the status of a pricing job
+   */
+  static async getJobStatus(jobId: string) {
+    return jobQueue.getJob(jobId);
+  }
+
+  /**
+   * Get active jobs for an organization
+   */
+  static async getActiveJobs(organizationId: string) {
+    return jobQueue.getActiveJobsForOrganization(organizationId);
+  }
+
+  /**
+   * Subscribe to job updates
+   */
+  static subscribeToJob(jobId: string, onUpdate: (job: any) => void): () => void {
+    const queue = jobQueue as any; // Type assertion for now
+    if (queue.subscribeToJobUpdates) {
+      return queue.subscribeToJobUpdates(jobId, onUpdate);
+    }
+    return () => {}; // No-op cleanup
+  }
+
 }
