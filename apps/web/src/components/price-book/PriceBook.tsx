@@ -83,9 +83,36 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     lineItemIds: string[];
     previousPrices: Array<{ lineItemId: string; price: number }>;
     timestamp: number;
-  } | null>(null);
-  const [showUndo, setShowUndo] = useState(false);
-  const [undoTimeLeft, setUndoTimeLeft] = useState(30);
+  } | null>(() => {
+    // Restore from localStorage if available and not expired
+    const stored = localStorage.getItem(`pricing-undo-${selectedOrg?.id}`);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      const elapsed = Date.now() - parsed.timestamp;
+      // Only restore if less than 30 seconds old
+      if (elapsed < 30000) {
+        return parsed;
+      } else {
+        localStorage.removeItem(`pricing-undo-${selectedOrg?.id}`);
+      }
+    }
+    return null;
+  });
+  const [showUndo, setShowUndo] = useState(() => {
+    // If we restored an undo operation, show the undo button
+    if (lastPricingOperation) {
+      const elapsed = Date.now() - lastPricingOperation.timestamp;
+      return elapsed < 30000;
+    }
+    return false;
+  });
+  const [undoTimeLeft, setUndoTimeLeft] = useState(() => {
+    if (lastPricingOperation) {
+      const elapsed = Math.floor((Date.now() - lastPricingOperation.timestamp) / 1000);
+      return Math.max(0, 30 - elapsed);
+    }
+    return 30;
+  });
   const [applyingProgress, setApplyingProgress] = useState<{
     current: number;
     total: number;
@@ -689,6 +716,29 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     }
   }, [showSuccess]);
 
+  // Prevent page refresh during pricing operations
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (applyingProgress) {
+        e.preventDefault();
+        e.returnValue = 'Pricing changes are still being applied. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [applyingProgress]);
+
+  // Persist undo state to localStorage
+  useEffect(() => {
+    if (lastPricingOperation && selectedOrg?.id) {
+      localStorage.setItem(`pricing-undo-${selectedOrg.id}`, JSON.stringify(lastPricingOperation));
+    } else if (selectedOrg?.id) {
+      localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
+    }
+  }, [lastPricingOperation, selectedOrg?.id]);
+
   // Handle pricing mode application
   const handleApplyPricingMode = async (modeId: string) => {
     if (!selectedOrg?.id) return;
@@ -788,6 +838,10 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       if (successCount > 0) {
         console.log(`Successfully restored ${successCount} items to previous prices`);
         setLastPricingOperation(null);
+        // Clear from localStorage
+        if (selectedOrg?.id) {
+          localStorage.removeItem(`pricing-undo-${selectedOrg.id}`);
+        }
         
         // Show success message
         if (failedCount > 0) {
@@ -961,7 +1015,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
     <div className="bg-transparent border border-[#333333] border-t-0 relative">
       {/* Progress Overlay */}
       {applyingProgress && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[12000] flex items-center justify-center">
           <div className="bg-[#1E1E1E] border border-[#333333] p-6 shadow-xl">
             <h3 className="text-white font-medium mb-4">
               {applyingProgress.action === 'undoing' ? 'Reverting Prices' : 'Applying Pricing Changes'}
@@ -990,7 +1044,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       
       {/* Success Confirmation */}
       {showSuccess && !applyingProgress && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center pointer-events-none">
+        <div className="fixed inset-0 bg-black/50 z-[12000] flex items-center justify-center pointer-events-none">
           <div className="bg-[#1E1E1E] border border-green-600 p-6 shadow-xl pointer-events-auto">
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center">
