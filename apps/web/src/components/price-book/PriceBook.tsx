@@ -1158,16 +1158,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
                     {items.map((lineItem, index) => (
             <div
               key={lineItem.id}
-              onClick={(e) => {
-                // Don't open edit modal if dropdown is active or just closed
-                if (activeDropdown || isClosingDropdown) {
-                  if (activeDropdown) setActiveDropdown(null);
-                  return;
-                }
-                // Always open edit modal - it will handle overrides for shared items
-                handleEditLineItem(lineItem);
-              }}
-                className={`grid grid-cols-12 gap-4 px-6 ${condensed ? 'py-2' : 'py-3'} items-center hover:bg-[#1A1A1A] transition-colors cursor-pointer group relative ${index < items.length - 1 ? 'border-b border-[#333333]/20' : ''}`}
+                className={`grid grid-cols-12 gap-4 px-6 ${condensed ? 'py-2' : 'py-3'} items-center hover:bg-[#1A1A1A] transition-colors group relative ${index < items.length - 1 ? 'border-b border-[#333333]/20' : ''}`}
               >
                 {/* Checkbox Column */}
                 <div className="col-span-1 flex items-center">

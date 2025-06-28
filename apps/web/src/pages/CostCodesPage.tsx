@@ -721,8 +721,7 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                       {codes.map((code) => (
                     <div
                       key={code.id}
-                      className="px-6 py-4 hover:bg-[#1E1E1E] transition-colors flex items-center gap-4 cursor-pointer"
-                      onClick={() => handleCostCodeClick(code)}
+                      className="px-6 py-4 hover:bg-[#1E1E1E] transition-colors flex items-center gap-4"
                     >
                       <div className="flex items-center gap-3 flex-1">
                         <div className="flex-1">
@@ -735,12 +734,15 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
-                          <span className="text-[#336699] font-medium text-sm">
-                            {costCodeItemCounts[code.id] || '-'}
+                        <button
+                          onClick={() => handleCostCodeClick(code)}
+                          className="flex items-center gap-2 text-[#336699] hover:text-[#4477aa] transition-colors group"
+                        >
+                          <span className="font-medium text-sm">
+                            {costCodeItemCounts[code.id] || '-'} items
                           </span>
-                          <ChevronRight className="w-5 h-5 text-gray-400" />
-                        </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#336699] transition-colors" />
+                        </button>
                       </div>
                     </div>
                   ))}
