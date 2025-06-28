@@ -476,8 +476,44 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
             {/* Line Items Content */}
             <div className="bg-[#0A0A0A]">
               {loadingLineItems ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="text-gray-400">Loading line items...</div>
+                <div className="animate-pulse">
+                  {/* Line Item Skeletons */}
+                  <div className="divide-y divide-[#333333]">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 flex-1">
+                            {/* Icon Skeleton */}
+                            <div className="p-2 bg-[#1E1E1E] rounded">
+                              <div className="w-5 h-5 bg-[#336699]/30 rounded relative overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                              </div>
+                            </div>
+                            
+                            {/* Title and Description Skeleton */}
+                            <div className="flex-1">
+                              <div className="h-4 bg-[#333333] rounded w-64 mb-2 relative overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                              </div>
+                              <div className="h-3 bg-[#333333]/70 rounded w-96 relative overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                              </div>
+                            </div>
+                            
+                            {/* Price and Unit Skeleton */}
+                            <div className="text-right">
+                              <div className="h-4 bg-[#333333] rounded w-20 mb-1 ml-auto relative overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                              </div>
+                              <div className="h-3 bg-[#333333]/70 rounded w-12 ml-auto relative overflow-hidden">
+                                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               ) : lineItems.length === 0 ? (
                 <div className="flex items-center justify-center h-64 text-center">
@@ -521,8 +557,134 @@ export default function CostCodesPage({ triggerAddCostCode }: CostCodesPageProps
             </div>
           </div>
         ) : isLoading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-gray-400">Loading cost codes...</div>
+          <div className="animate-pulse">
+            {/* Industry Group Skeleton 1 */}
+            <div className="border-b border-[#333333]">
+              <div className="px-6 py-4 bg-[#1A1A1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-4 bg-[#333333] rounded w-32 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-3 bg-[#333333] rounded w-24 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Cost Code Items Skeleton */}
+              <div className="divide-y divide-[#333333]">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-4 bg-[#336699]/30 rounded w-16 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="h-4 bg-[#333333] rounded w-48 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 bg-[#336699]/30 rounded w-8 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Industry Group Skeleton 2 */}
+            <div className="border-b border-[#333333]">
+              <div className="px-6 py-4 bg-[#1A1A1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-4 bg-[#333333] rounded w-40 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-3 bg-[#333333] rounded w-28 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="divide-y divide-[#333333]">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-4 bg-[#336699]/30 rounded w-16 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="h-4 bg-[#333333] rounded w-56 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 bg-[#336699]/30 rounded w-8 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Industry Group Skeleton 3 */}
+            <div className="border-b border-[#333333]">
+              <div className="px-6 py-4 bg-[#1A1A1A]">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-4 bg-[#333333] rounded w-36 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-3 bg-[#333333] rounded w-20 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Add some cost code items to the third skeleton */}
+              <div className="divide-y divide-[#333333]">
+                {[1, 2].map((i) => (
+                  <div key={i} className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="h-4 bg-[#336699]/30 rounded w-16 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="h-4 bg-[#333333] rounded w-44 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-4 bg-[#336699]/30 rounded w-8 relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                        </div>
+                        <div className="w-5 h-5 bg-[#333333] rounded relative overflow-hidden">
+                          <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : (
           /* List View - Grouped by Industry with Accordion */

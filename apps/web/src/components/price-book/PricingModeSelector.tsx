@@ -40,11 +40,24 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
       const quickModeNames = ['Rush Job', 'Competitive', 'Premium Service'];
       setQuickModes(allModes.filter(m => quickModeNames.includes(m.name)));
       
-      // Set Reset to Baseline as default
-      const resetToBaseline = allModes.find(m => m.name === 'Reset to Baseline');
-      if (resetToBaseline) {
-        setCurrentMode(resetToBaseline);
-        onModeChange(resetToBaseline);
+      // Only set default if no mode is currently selected
+      if (!currentMode) {
+        const resetToBaseline = allModes.find(m => m.name === 'Reset to Baseline');
+        if (resetToBaseline) {
+          setCurrentMode(resetToBaseline);
+          onModeChange(resetToBaseline);
+        }
+      } else {
+        // Ensure current mode still exists in the list
+        const stillExists = allModes.find(m => m.id === currentMode.id);
+        if (!stillExists) {
+          // Mode was deleted or is no longer available
+          const resetToBaseline = allModes.find(m => m.name === 'Reset to Baseline');
+          if (resetToBaseline) {
+            setCurrentMode(resetToBaseline);
+            onModeChange(resetToBaseline);
+          }
+        }
       }
     } catch (error) {
       console.error('Error fetching pricing modes:', error);

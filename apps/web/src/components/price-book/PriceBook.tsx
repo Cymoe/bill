@@ -381,6 +381,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
   useEffect(() => {
     if (selectedOrg?.id) {
       fetchLineItems();
+      fetchTrades();
     }
   }, [user?.id, selectedOrg?.id]);
 
@@ -429,6 +430,8 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
         return;
       }
       
+      console.log('Fetching line items for organization:', selectedOrg.id);
+      
       // Fetch only line items for smart merge
       const lineItemsResult = await LineItemService.list(selectedOrg.id)
         .then(data => ({ status: 'fulfilled', value: data }))
@@ -437,6 +440,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       // Handle line items result
       if (lineItemsResult.status === 'fulfilled') {
         const data = lineItemsResult.value;
+        console.log('Line items fetched successfully:', data?.length || 0, 'items');
         
         if (smartMerge) {
           // Smart merge: only update items that have changed
@@ -967,9 +971,114 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       {/* Table Content */}
       <div className="border-t border-[#333333]">
         {(isLoading || isLoadingCostCodes) ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-8 h-8 border-2 border-[#336699] border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-400">Loading items...</p>
+          <div className="animate-pulse">
+            {/* Industry Header Skeleton */}
+            <div className="px-6 py-3 bg-[#1A1A1A] border-y border-[#333333]">
+              <div className="h-4 bg-[#333333] rounded w-48 relative overflow-hidden">
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+              </div>
+            </div>
+            
+            {/* Cost Code Header Skeleton */}
+            <div className="px-6 py-2.5 bg-[#252525] border-y border-[#333333]/40">
+              <div className="flex items-center gap-3">
+                <div className="h-4 bg-[#336699]/30 rounded w-16 relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                </div>
+                <div className="h-4 bg-[#333333] rounded w-32 relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                </div>
+                <div className="h-3 bg-[#333333] rounded w-20 relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Line Items Skeleton */}
+            <div className="border-l-2 border-[#336699]/20 ml-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="grid grid-cols-12 gap-4 px-6 py-3 items-center border-b border-[#333333]/20">
+                  <div className="col-span-1">
+                    <div className="w-4 h-4 bg-[#333333] rounded relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                    </div>
+                  </div>
+                  <div className="col-span-6">
+                    <div className="h-4 bg-[#333333] rounded w-48 mb-1 relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                    </div>
+                    <div className="h-3 bg-[#333333] rounded w-32 relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-right">
+                    <div className="h-5 bg-[#333333] rounded w-20 ml-auto relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="h-6 bg-[#333333] rounded-full w-24 relative overflow-hidden">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                    </div>
+                  </div>
+                  <div className="col-span-1"></div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Second Industry Skeleton */}
+            <div className="mt-4">
+              <div className="px-6 py-3 bg-[#1A1A1A] border-y border-[#333333]">
+                <div className="h-4 bg-[#333333] rounded w-56 relative overflow-hidden">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                </div>
+              </div>
+              
+              <div className="px-6 py-2.5 bg-[#252525] border-y border-[#333333]/40">
+                <div className="flex items-center gap-3">
+                  <div className="h-4 bg-[#336699]/30 rounded w-16 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#336699]/50 to-transparent"></div>
+                  </div>
+                  <div className="h-4 bg-[#333333] rounded w-40 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                  <div className="h-3 bg-[#333333] rounded w-20 relative overflow-hidden">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="border-l-2 border-[#336699]/20 ml-6">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="grid grid-cols-12 gap-4 px-6 py-3 items-center border-b border-[#333333]/20">
+                    <div className="col-span-1">
+                      <div className="w-4 h-4 bg-[#333333] rounded relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                      </div>
+                    </div>
+                    <div className="col-span-6">
+                      <div className="h-4 bg-[#333333] rounded w-56 mb-1 relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                      </div>
+                      <div className="h-3 bg-[#333333] rounded w-24 relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                      </div>
+                    </div>
+                    <div className="col-span-2 text-right">
+                      <div className="h-5 bg-[#333333] rounded w-24 ml-auto relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="h-6 bg-[#333333] rounded-full w-28 relative overflow-hidden">
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-[#444444] to-transparent"></div>
+                      </div>
+                    </div>
+                    <div className="col-span-1"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
