@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { ChevronDown, Zap, TrendingUp, AlertCircle } from 'lucide-react';
+import { ChevronDown, AlertCircle } from 'lucide-react';
 import { PricingModesService, PricingMode } from '../../services/PricingModesService';
 import { OrganizationContext } from '../layouts/DashboardLayout';
 import { formatCurrency } from '../../utils/format';
@@ -61,9 +61,9 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
 
   const handleQuickApply = async (mode: PricingMode) => {
     try {
-      await onApplyMode(mode.id);
       setCurrentMode(mode);
       onModeChange(mode);
+      await onApplyMode(mode.id);
     } catch (error) {
       console.error('Error applying mode:', error);
     }
@@ -95,16 +95,52 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
     );
   }
 
+  const getButtonText = () => {
+    if (!currentMode) return 'Select mode';
+    if (currentMode.name === 'Reset to Baseline') return `Reset ${selectedLineItemCount} items to baseline`;
+    return `Apply ${currentMode.name} to ${selectedLineItemCount} items`;
+  };
+
+  const getModeColor = (modeName: string): string => {
+    switch (modeName) {
+      case 'Hail Mary':
+        return 'bg-red-400';
+      case 'Rush Job':
+        return 'bg-orange-400';
+      case 'Premium Service':
+        return 'bg-purple-400';
+      case 'Busy Season':
+        return 'bg-yellow-400';
+      case 'Market Rate':
+        return 'bg-gray-400';
+      case 'Competitive':
+        return 'bg-blue-400';
+      case 'Slow Season':
+        return 'bg-cyan-400';
+      case 'Need This Job':
+        return 'bg-green-400';
+      case 'Reset to Baseline':
+        return 'bg-gray-400';
+      default:
+        return 'bg-gray-400';
+    }
+  };
+
+  // Only show selector when items are selected
+  if (selectedLineItemCount === 0) {
+    return null;
+  }
+
   return (
     <div className="flex items-center gap-3">
       {/* Current Mode Dropdown */}
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border border-[#333333] rounded-lg hover:bg-[#333333] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[#252525] border border-[#333333] rounded-lg hover:bg-[#333333] transition-colors w-56"
         >
           <span className="text-lg">{currentMode?.icon || '📊'}</span>
-          <span className="text-sm text-white font-medium">{currentMode?.name || 'Select Mode'}</span>
+          <span className="text-sm text-white font-medium flex-1 text-left">{currentMode?.name || 'Select Mode'}</span>
           <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </button>
 
@@ -171,37 +207,30 @@ export const PricingModeSelector: React.FC<PricingModeSelectorProps> = ({
         )}
       </div>
 
-      {/* Quick Mode Buttons */}
-      <div className="flex items-center gap-2 pl-2 border-l border-[#333333]">
-        <span className="text-xs text-gray-500">Quick modes:</span>
-        {quickModes.map(mode => (
-          <button
-            key={mode.id}
-            onClick={() => handleQuickApply(mode)}
-            className="group relative px-2.5 py-1 bg-[#252525] border border-[#333333] rounded hover:bg-[#333333] transition-all hover:scale-105"
-            title={mode.description}
-          >
-            <span className="text-sm">{mode.icon}</span>
-            <span className="text-xs ml-1 text-gray-400 group-hover:text-white">{mode.name.split(' ')[0]}</span>
-            {/* Tooltip */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black rounded text-xs text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              {mode.description}
-              <div className="text-gray-400">{getModeDescription(mode)}</div>
-            </div>
-          </button>
-        ))}
-      </div>
-
       {/* Apply Button */}
-      {selectedLineItemCount > 0 && currentMode && (
-        <button
-          onClick={() => onApplyMode(currentMode.id)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#336699] text-white rounded-lg hover:bg-[#336699]/80 transition-colors"
-        >
-          <Zap className="w-4 h-4" />
-          <span className="text-sm">Apply to {selectedLineItemCount} items</span>
-        </button>
-      )}
+      <button
+        onClick={() => currentMode && onApplyMode(currentMode.id)}
+        disabled={!currentMode}
+        className={`flex items-center gap-2 px-5 py-1.5 rounded-lg transition-all font-medium ${
+          currentMode 
+            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:from-emerald-700 hover:to-emerald-800 shadow-sm cursor-pointer' 
+            : 'bg-[#252525] text-gray-500 border border-[#333333] cursor-not-allowed'
+        }`}
+      >
+        {currentMode ? (
+          <>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm">{getButtonText()}</span>
+          </>
+        ) : (
+          <>
+            <AlertCircle className="w-4 h-4" />
+            <span className="text-sm">Select a mode to apply</span>
+          </>
+        )}
+      </button>
     </div>
   );
 };

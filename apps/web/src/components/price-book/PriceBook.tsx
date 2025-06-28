@@ -648,13 +648,15 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
 
 
       {/* Pricing Mode Selector */}
-      <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A]">
-        <PricingModeSelector
-          onModeChange={setSelectedMode}
-          selectedLineItemCount={selectedLineItemIds.length}
-          onApplyMode={handleApplyPricingMode}
-        />
-      </div>
+      {selectedLineItemIds.length > 0 && (
+        <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A]">
+          <PricingModeSelector
+            onModeChange={setSelectedMode}
+            selectedLineItemCount={selectedLineItemIds.length}
+            onApplyMode={handleApplyPricingMode}
+          />
+        </div>
+      )}
 
       {/* Table Controls */}
       <div className="border-t border-[#333333] px-6 py-4">
