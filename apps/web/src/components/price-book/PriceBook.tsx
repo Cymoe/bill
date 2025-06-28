@@ -1017,7 +1017,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
       {showUndo && lastPricingOperation && selectedLineItemIds.length === 0 && (
         <div className="border-t border-[#333333] px-6 py-3 bg-[#1A1A1A] flex items-center justify-between">
           <div className="text-sm text-gray-400">
-            Applied "{lastPricingOperation.modeName}" to {lastPricingOperation.lineItemIds.length || 'all'} items
+            Applied "{lastPricingOperation.modeName}" to {lastPricingOperation.lineItemIds.length} items
           </div>
           <div className="flex items-center gap-3">
             <div className={`text-sm font-medium ${undoTimeLeft <= 10 ? 'text-orange-400' : 'text-gray-400'}`}>

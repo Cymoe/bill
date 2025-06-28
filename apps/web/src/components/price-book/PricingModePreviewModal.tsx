@@ -288,7 +288,7 @@ export const PricingModePreviewModal: React.FC<PricingModePreviewModalProps> = (
           <button
             onClick={handleConfirm}
             disabled={isLoading || isApplying}
-            className={`px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+            className={`px-4 py-2 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap ${
               summary.itemCount > 50 
                 ? 'bg-orange-600 hover:bg-orange-700' 
                 : 'bg-[#336699] hover:bg-[#336699]/80'
