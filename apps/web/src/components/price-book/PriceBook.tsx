@@ -927,6 +927,8 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
               price: item.price
             }));
             
+          // Reset undo state first to restart the timer
+          setShowUndo(false);
           setLastPricingOperation({
             modeId: pendingModeId,
             modeName: selectedMode.name,
@@ -934,7 +936,11 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
             previousPrices,
             timestamp: Date.now()
           });
-          setShowUndo(true);
+          
+          // Set showUndo to true after a brief delay to trigger the useEffect
+          setTimeout(() => {
+            setShowUndo(true);
+          }, 50);
         }
       }
       
@@ -1490,7 +1496,7 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
 
                 {/* Strategy Column */}
                 <div className="col-span-2">
-                  {lineItem.has_override && (() => {
+                  {(() => {
                     // If we're in preview mode and this item is selected, show the mode being previewed
                     if (showModePreview && selectedLineItemIds.includes(lineItem.id) && selectedMode) {
                       let bgColor = 'bg-blue-500/20';
@@ -1534,6 +1540,15 @@ export const PriceBook: React.FC<PriceBookProps> = ({ triggerAddItem }) => {
                       return (
                         <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${bgColor} ${textColor}`}>
                           {selectedMode.name}
+                        </span>
+                      );
+                    }
+                    
+                    // If no override, show Market Rate
+                    if (!lineItem.has_override) {
+                      return (
+                        <span className="text-xs px-1.5 py-0.5 rounded whitespace-nowrap bg-gray-500/20 text-gray-400">
+                          Market Rate
                         </span>
                       );
                     }
