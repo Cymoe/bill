@@ -216,7 +216,7 @@ export const ServiceQuickRow: React.FC<ServiceQuickRowProps> = ({
     <>
       <div
         className={`grid grid-cols-12 gap-4 px-6 ${isCondensed ? 'py-2' : 'py-3'} items-center transition-all group ${
-          isHighlighted ? 'bg-[#336699]/10 border-l-2 border-[#336699]' : 'hover:bg-[#1A1A1A]'
+          isHighlighted ? 'bg-[#336699]/10 border-l-2 border-[#336699]' : 'hover:bg-[#1A1A1A]/50'
         }`}
       >
         {/* Service Name & Description - 8 columns */}
@@ -231,45 +231,48 @@ export const ServiceQuickRow: React.FC<ServiceQuickRowProps> = ({
               }`}
             />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 flex-1">
-                  <div className={`font-medium text-gray-100 ${isCondensed ? 'text-sm' : ''}`}>
-                    {template.name}
-                  </div>
-                  {template.attributes?.parent_option_id && (
-                    <span className="text-xs text-[#336699]">• Customized</span>
-                  )}
-                  {template.material_quality && (
-                    <span className="text-xs text-gray-500">
-                      {getQualityLabel(template.material_quality)}
-                    </span>
-                  )}
-                  {/* Simple summary - show key info only when present */}
-                  <div className="flex items-center gap-3 text-xs text-gray-500">
-                    {template.estimated_hours && (
-                      <span title={`Estimated time: ${template.estimated_hours} hours`}>
-                        {template.estimated_hours}h
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className={`font-medium text-gray-100 ${isCondensed ? 'text-sm' : ''}`}>
+                      {template.name}
+                    </div>
+                    {template.attributes?.parent_option_id && (
+                      <span className="text-xs text-[#336699]">• Customized</span>
+                    )}
+                    {template.material_quality && (
+                      <span className="text-xs text-gray-500">
+                        {getQualityLabel(template.material_quality)}
                       </span>
                     )}
-                    {template.warranty_months && (
-                      <span title={`${template.warranty_months} month warranty`}>
-                        {template.warranty_months}mo warranty
-                      </span>
-                    )}
-                    {(template.permit_required || template.requires_inspection) && (
-                      <span className="text-amber-500">
-                        {template.permit_required && template.requires_inspection ? 'Permit + Inspection' : 
-                         template.permit_required ? 'Permit' : 'Inspection'}
-                      </span>
-                    )}
+                    {/* Simple summary - show key info only when present */}
+                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                      {template.estimated_hours && (
+                        <span title={`Estimated time: ${template.estimated_hours} hours`}>
+                          {template.estimated_hours}h
+                        </span>
+                      )}
+                      {template.warranty_months && (
+                        <span title={`${template.warranty_months} month warranty`}>
+                          {template.warranty_months}mo warranty
+                        </span>
+                      )}
+                      {(template.permit_required || template.requires_inspection) && (
+                        <span className="text-amber-500">
+                          {template.permit_required && template.requires_inspection ? 'Permit + Inspection' : 
+                           template.permit_required ? 'Permit' : 'Inspection'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {/* Description appears below when expanded, no space when collapsed */}
+                {isExpanded && template.description && (
+                  <div className="text-xs text-gray-400 mt-1 animate-in fade-in duration-200">
+                    {template.description}
+                  </div>
+                )}
               </div>
-              {!isCondensed && template.description && (
-                <div className="text-xs text-gray-400 truncate mt-0.5">
-                  {template.description}
-                </div>
-              )}
             </div>
           </div>
         </div>

@@ -442,12 +442,12 @@ export const ServicesPackages: React.FC = () => {
 
   const getCategoryLabel = (category: string) => {
     const labels: Record<string, string> = {
-      consultation: 'Consultation',
-      inspection: 'Inspection',
-      preparation: 'Preparation',
       installation: 'Installation',
       repair: 'Repair',
       maintenance: 'Maintenance',
+      inspection: 'Inspection',
+      consultation: 'Consultation',
+      preparation: 'Preparation',
       finishing: 'Finishing',
       uncategorized: 'Other'
     };
@@ -488,7 +488,7 @@ export const ServicesPackages: React.FC = () => {
           </div>
 
           {/* Tabs Navigation - subtle separator */}
-          <div className="border-t border-[#333333]/30">
+          <div className="border-t border-[#333333]/20">
             <div className="flex">
               <button
                 onClick={() => setActiveTab('packages')}
@@ -500,8 +500,8 @@ export const ServicesPackages: React.FC = () => {
               >
                 <Package className="w-4 h-4" />
                 Service Packages
-                <span className="text-xs text-gray-500 ml-1">
-                  ({packages.length})
+                <span className="text-[11px] text-gray-600">
+                  {packages.length}
                 </span>
               </button>
               <button
@@ -514,8 +514,8 @@ export const ServicesPackages: React.FC = () => {
               >
                 <List className="w-4 h-4" />
                 Individual Services
-                <span className="text-xs text-gray-500 ml-1">
-                  ({templates.length})
+                <span className="text-[11px] text-gray-600">
+                  {templates.length}
                 </span>
               </button>
             </div>
@@ -523,8 +523,8 @@ export const ServicesPackages: React.FC = () => {
         </div>
 
         {/* Filters Bar - seamless connection */}
-        <div className="border-t border-[#333333]/30 bg-[#1A1A1A]/30 backdrop-blur-sm">
-          <div className="px-4 py-2 flex items-center justify-between gap-4">
+        <div className="border-t border-[#333333]/20 bg-[#1A1A1A]/30 backdrop-blur-sm">
+          <div className="px-4 py-1.5 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
               {/* Search */}
               <div className="relative flex-1 max-w-md">
@@ -533,7 +533,7 @@ export const ServicesPackages: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={`Search ${activeTab === 'packages' ? 'packages' : 'services'} (try "permit required" or "energy star")...`}
+                  placeholder={`Search ${activeTab === 'packages' ? 'packages' : 'services'}...`}
                   className="w-full pl-10 pr-4 py-2 bg-[#252525]/80 border border-[#333333] rounded text-white text-sm focus:outline-none focus:border-[#336699]"
                 />
               </div>
@@ -622,6 +622,17 @@ export const ServicesPackages: React.FC = () => {
                       Bulk Customize
                     </button>
                   )}
+                  
+                  {/* Expand/Collapse All Button */}
+                  {servicesWithTemplates.length > 0 && (
+                    <button
+                      onClick={toggleAllServices}
+                      className="px-3 py-1.5 text-sm text-[#336699] hover:text-[#4477aa] hover:bg-[#252525] rounded transition-colors flex items-center gap-2"
+                    >
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expandedServices.size === servicesWithTemplates.length ? '' : '-rotate-90'}`} />
+                      {expandedServices.size === servicesWithTemplates.length ? 'Collapse All' : 'Expand All'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -636,7 +647,7 @@ export const ServicesPackages: React.FC = () => {
               <div className="p-4">
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                   {[1, 2, 3, 4, 5, 6].map(i => (
-                    <div key={i} className="bg-[#1A1A1A] rounded-lg p-6 border border-[#333333]">
+                    <div key={i} className="bg-[#1A1A1A] rounded-lg p-6 border border-[#333333]/20">
                       <div className="h-6 bg-[#252525] rounded w-3/4 mb-4"></div>
                       <div className="h-4 bg-[#252525] rounded w-full mb-3"></div>
                       <div className="h-4 bg-[#252525] rounded w-2/3 mb-6"></div>
@@ -651,7 +662,7 @@ export const ServicesPackages: React.FC = () => {
             ) : (
               // Services loading skeleton
               <div>
-                <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-[#333333]">
+                <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-[#333333]/20">
                   <div className="h-4 bg-[#252525] rounded w-32"></div>
                   <div className="h-8 bg-[#252525] rounded w-28"></div>
                 </div>
@@ -726,7 +737,7 @@ export const ServicesPackages: React.FC = () => {
                       ))}
                   </div>
                 ) : (
-                  <div className="text-center py-16 border border-dashed border-[#333333] rounded-lg">
+                  <div className="text-center py-16 border border-dashed border-[#333333]/20 rounded-lg">
                     <Package className="w-12 h-12 text-gray-500 mx-auto mb-4" />
                     <h3 className="text-lg font-medium text-white mb-2">No packages available</h3>
                     <p className="text-gray-400 max-w-md mx-auto">
@@ -768,28 +779,12 @@ export const ServicesPackages: React.FC = () => {
           <>
             {/* Attribute Filters - only show when an industry is selected */}
             {selectedIndustry !== 'all' && (
-              <div className="px-4 py-2 border-b border-[#333333]">
+              <div className="px-4 py-1.5 border-b border-[#333333]/20">
                 <ServiceAttributeFilters
                   industry={industries.find(i => i.id === selectedIndustry)?.name || ''}
                   activeFilters={attributeFilters}
                   onFiltersChange={setAttributeFilters}
                 />
-              </div>
-            )}
-
-            {/* Expand/Collapse All Button */}
-            {servicesWithTemplates.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-[#333333]">
-                <div className="text-sm text-gray-400">
-                  {servicesWithTemplates.length} {servicesWithTemplates.length === 1 ? 'service' : 'services'} available
-                </div>
-                <button
-                  onClick={toggleAllServices}
-                  className="px-3 py-1.5 text-sm text-[#336699] hover:text-[#4477aa] hover:bg-[#252525] rounded transition-colors flex items-center gap-2"
-                >
-                  <ChevronDown className={`w-4 h-4 transition-transform ${expandedServices.size === servicesWithTemplates.length ? '' : '-rotate-90'}`} />
-                  {expandedServices.size === servicesWithTemplates.length ? 'Collapse All' : 'Expand All'}
-                </button>
               </div>
             )}
             
@@ -801,54 +796,44 @@ export const ServicesPackages: React.FC = () => {
                     Array.from(servicesByIndustry.entries()).map(([industryId, { industryName, services }]) => (
                       <div key={industryId}>
                         {/* Industry Section Header */}
-                        <div className="py-2 px-4 bg-[#1A1A1A] border-t border-[#333333]">
-                          <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
+                        <div className="py-1.5 px-4 bg-[#1A1A1A] border-t border-[#333333]/20">
+                          <h3 className="text-sm font-medium text-gray-300">
                             {industryName}
                           </h3>
                         </div>
                         
                         {/* Services in this Industry */}
                         {services.map(service => (
-                          <div key={service.id} className="border-t border-[#333333]">
+                          <div key={service.id} className="border-t border-[#333333]/20">
                             {/* Service Header */}
                             <button
                               onClick={() => toggleService(service.id)}
-                              className="w-full py-3 bg-[#0A0A0A] hover:bg-[#252525] transition-colors flex items-center justify-between"
+                              className="w-full py-2.5 bg-transparent hover:bg-[#1A1A1A]/40 transition-colors flex items-center justify-between"
                             >
-                              <div className="flex items-center gap-3 pl-8">
+                              <div className="flex items-center gap-2.5 pl-8">
                                 <ChevronRight 
-                                  className={`w-5 h-5 text-gray-400 transition-transform ${
+                                  className={`w-4 h-4 text-gray-500 transition-transform ${
                                     expandedServices.has(service.id) ? 'rotate-90' : ''
                                   }`}
                                 />
                                 <div className="text-left">
                                   <h3 className="text-white font-medium">{service.name}</h3>
-                                  {service.description && (
-                                    <p className="text-gray-400 text-sm mt-0.5">{service.description}</p>
-                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-4 pr-4">
-                                <span className="text-sm text-gray-400">
-                                  {service.templates?.length || 0} options
+                                <span className="text-sm text-gray-500 bg-[#252525] px-2 py-0.5 rounded">
+                                  {service.templates?.length || 0}
                                 </span>
-                                <div className="text-right">
-                                  <div className="text-white font-medium">
-                                    {service.min_price && service.max_price ? (
-                                      service.min_price === service.max_price ? 
-                                        formatCurrency(service.min_price) : 
-                                        `${formatCurrency(service.min_price)} - ${formatCurrency(service.max_price)}`
-                                    ) : (
-                                      'Variable'
-                                    )}
-                                  </div>
-                                </div>
                               </div>
                             </button>
                             
                             {/* Service Options (Templates) - Only show when expanded */}
                             {expandedServices.has(service.id) && service.templates && (
-                              <div className="border-t border-[#333333] bg-[#1A1A1A]">
+                              <div className="border-t border-[#333333]/20 bg-[#1A1A1A]">
+                                {/* Show description when expanded */}
+                                {service.description && (
+                                  <p className="text-gray-400 text-sm px-8 pt-2">{service.description}</p>
+                                )}
                                 {service.templates.map((template: any, idx: number) => {
                                   const cartItem = cartItems.find(item => item.id === `template-${template.id}`);
                                   const cartQuantity = cartItem?.quantity || 0;
@@ -886,54 +871,44 @@ export const ServicesPackages: React.FC = () => {
                     Array.from(servicesByCategory.entries()).map(([category, services]) => (
                       <div key={category}>
                         {/* Category Label */}
-                        <div className="py-1">
-                          <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                            — {getCategoryLabel(category)} —
+                        <div className="py-1 px-4 bg-[#1A1A1A]/50">
+                          <div className="text-xs font-medium text-gray-400">
+                            {getCategoryLabel(category)}
                           </div>
                         </div>
                         
                         {/* Services in Category */}
                         {services.map(service => (
-                          <div key={service.id} className="border-t border-[#333333] last:border-b">
+                          <div key={service.id} className="border-t border-[#333333]/20 last:border-b last:border-[#333333]/20">
                             {/* Service Header */}
                             <button
                               onClick={() => toggleService(service.id)}
-                              className="w-full py-3 bg-[#1F2937] hover:bg-[#252525] transition-colors flex items-center justify-between"
+                              className="w-full py-2.5 bg-transparent hover:bg-[#252525]/40 transition-colors flex items-center justify-between"
                             >
-                              <div className="flex items-center gap-3 pl-4">
+                              <div className="flex items-center gap-2.5 pl-4">
                                 <ChevronRight 
-                                  className={`w-5 h-5 text-gray-400 transition-transform ${
+                                  className={`w-4 h-4 text-gray-500 transition-transform ${
                                     expandedServices.has(service.id) ? 'rotate-90' : ''
                                   }`}
                                 />
                                 <div className="text-left">
                                   <h3 className="text-white font-medium">{service.name}</h3>
-                                  {service.description && (
-                                    <p className="text-gray-400 text-sm mt-0.5">{service.description}</p>
-                                  )}
                                 </div>
                               </div>
                               <div className="flex items-center gap-4 pr-4">
-                                <span className="text-sm text-gray-400">
-                                  {service.templates?.length || 0} options
+                                <span className="text-sm text-gray-500 bg-[#252525] px-2 py-0.5 rounded">
+                                  {service.templates?.length || 0}
                                 </span>
-                                <div className="text-right">
-                                  <div className="text-white font-medium">
-                                    {service.min_price && service.max_price ? (
-                                      service.min_price === service.max_price ? 
-                                        formatCurrency(service.min_price) : 
-                                        `${formatCurrency(service.min_price)} - ${formatCurrency(service.max_price)}`
-                                    ) : (
-                                      'Variable'
-                                    )}
-                                  </div>
-                                </div>
                               </div>
                             </button>
                             
                             {/* Service Options (Templates) - Only show when expanded */}
                             {expandedServices.has(service.id) && service.templates && (
-                              <div className="border-t border-[#333333] bg-[#1A1A1A]">
+                              <div className="border-t border-[#333333]/20 bg-[#1A1A1A]">
+                                {/* Show description when expanded */}
+                                {service.description && (
+                                  <p className="text-gray-400 text-sm px-4 pt-2">{service.description}</p>
+                                )}
                                 {service.templates.map((template: any, idx: number) => {
                                   const cartItem = cartItems.find(item => item.id === `template-${template.id}`);
                                   const cartQuantity = cartItem?.quantity || 0;

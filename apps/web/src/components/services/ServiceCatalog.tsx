@@ -438,17 +438,6 @@ export const ServiceCatalog: React.FC<ServiceCatalogProps> = ({ triggerAddServic
                               </div>
                               
                               <div className="text-right ml-4">
-                                <div className="text-white font-medium">
-                                  {service.min_price && service.max_price ? (
-                                    service.min_price === service.max_price ? 
-                                      formatCurrency(service.min_price) : 
-                                      `${formatCurrency(service.min_price)} - ${formatCurrency(service.max_price)}`
-                                  ) : service.avg_price ? (
-                                    formatCurrency(service.avg_price)
-                                  ) : (
-                                    'Variable'
-                                  )}
-                                </div>
                                 {service.option_count > 0 && (
                                   <div className="text-gray-400 text-sm">{service.option_count} options</div>
                                 )}

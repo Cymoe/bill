@@ -9,7 +9,8 @@ import {
   Check,
   RefreshCw,
   Save,
-  Calculator
+  Calculator,
+  ChevronDown
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { supabase } from '../../lib/supabase';
@@ -57,6 +58,16 @@ interface CustomizeServiceDrawerProps {
   onSave: () => void;
 }
 
+// Get relevant cost codes based on service name
+const getRelevantCostCodes = (serviceName: string): string[] => {
+  const lowerName = serviceName.toLowerCase();
+  
+  // For now, let's be more permissive and just return empty array
+  // This will show all items but won't apply the "recommended" filtering
+  // We'll update this once we see what cost codes actually exist
+  return [];
+};
+
 export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
   isOpen,
   onClose,
@@ -70,6 +81,8 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [showAllItems, setShowAllItems] = useState(false);
 
   // Initialize current items when drawer opens
   useEffect(() => {
@@ -77,31 +90,83 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
       setCurrentItems([...serviceOption.service_option_items]);
       loadAvailableItems();
     }
-  }, [isOpen, serviceOption]);
+  }, [isOpen, serviceOption, organizationId]);
 
   // Load available line items
   const loadAvailableItems = async () => {
     setIsLoading(true);
+    console.log('Loading items for service option:', serviceOption);
+    console.log('Organization ID:', organizationId);
+    
     try {
-      // Get all line items from the service's industry
-      const { data: service } = await supabase
-        .from('services')
-        .select('industry_id')
-        .eq('id', serviceOption.service_id)
-        .single();
-
-      if (service) {
-        const { data: items } = await supabase
-          .from('line_items')
-          .select(`
-            *,
-            cost_code:cost_codes(code, name, category)
-          `)
-          .eq('industry_id', service.industry_id)
-          .order('name');
-
-        setAvailableItems(items || []);
+      let industryId: string | null = null;
+      
+      // Get industry_id from service or organization
+      if (serviceOption.service_id) {
+        const { data: service } = await supabase
+          .from('services')
+          .select('industry_id')
+          .eq('id', serviceOption.service_id)
+          .single();
+        
+        industryId = service?.industry_id;
+        console.log('Found industry from service:', industryId);
+      } else {
+        console.log('No service_id, checking organization...');
+        const { data: org } = await supabase
+          .from('organizations')
+          .select('industry_id')
+          .eq('id', organizationId)
+          .single();
+          
+        industryId = org?.industry_id;
+        console.log('Found industry from organization:', industryId);
       }
+      
+      if (!industryId) {
+        console.error('No industry_id found');
+        setAvailableItems([]);
+        return;
+      }
+      
+      // Get cost codes for this industry
+      const { data: costCodes, error: costCodeError } = await supabase
+        .from('cost_codes')
+        .select('id')
+        .eq('industry_id', industryId)
+        .is('organization_id', null); // System cost codes only
+      
+      console.log('Cost codes found:', costCodes?.length);
+      if (costCodeError) console.error('Cost code error:', costCodeError);
+      
+      if (!costCodes || costCodes.length === 0) {
+        console.error('No cost codes found for industry:', industryId);
+        setAvailableItems([]);
+        return;
+      }
+      
+      const costCodeIds = costCodes.map(cc => cc.id);
+      
+      // Get line items for these cost codes
+      const { data: items, error: itemsError } = await supabase
+        .from('line_items')
+        .select(`
+          *,
+          cost_code:cost_codes(code, name, category)
+        `)
+        .in('cost_code_id', costCodeIds)
+        .is('organization_id', null) // System line items only for now
+        .order('name');
+
+      console.log('Available items loaded:', items?.length);
+      if (itemsError) console.error('Items error:', itemsError);
+      
+      if (items && items.length > 0) {
+        console.log('Sample items:', items.slice(0, 3));
+        console.log('Cost codes in items:', [...new Set(items.map(i => i.cost_code?.name).filter(Boolean))]);
+      }
+      
+      setAvailableItems(items || []);
     } catch (error) {
       console.error('Error loading available items:', error);
     } finally {
@@ -109,15 +174,22 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
     }
   };
 
+  // Get relevant cost codes for the current service
+  const relevantCostCodes = useMemo(() => {
+    return getRelevantCostCodes(serviceOption.name);
+  }, [serviceOption.name]);
+
   // Filter available items
   const filteredItems = useMemo(() => {
     let items = availableItems;
 
     // Filter by search query
     if (searchQuery) {
+      const query = searchQuery.toLowerCase();
       items = items.filter(item => 
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.cost_code?.name.toLowerCase().includes(searchQuery.toLowerCase())
+        item.name.toLowerCase().includes(query) ||
+        item.cost_code?.name?.toLowerCase().includes(query) ||
+        item.cost_code?.code?.toLowerCase().includes(query)
       );
     }
 
@@ -126,12 +198,25 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
       items = items.filter(item => item.cost_code?.category === selectedCategory);
     }
 
-    // Exclude items already in the service
-    const currentItemIds = new Set(currentItems.map(ci => ci.line_item?.id));
-    items = items.filter(item => !currentItemIds.has(item.id));
-
     return items;
-  }, [availableItems, searchQuery, selectedCategory, currentItems]);
+  }, [availableItems, searchQuery, selectedCategory]);
+
+  // Split into recommended and other for display purposes
+  const { recommendedItems, otherItems } = useMemo(() => {
+    if (relevantCostCodes.length === 0 || showAllItems) {
+      // If no relevant codes defined or showing all, don't split
+      return { recommendedItems: filteredItems, otherItems: [] };
+    }
+    
+    const recommended = filteredItems.filter(item => 
+      relevantCostCodes.includes(item.cost_code?.name || '')
+    );
+    const others = filteredItems.filter(item => 
+      !relevantCostCodes.includes(item.cost_code?.name || '')
+    );
+
+    return { recommendedItems: recommended, otherItems: others };
+  }, [filteredItems, relevantCostCodes, showAllItems]);
 
   // Add item to service
   const handleAddItem = (lineItem: LineItem) => {
@@ -244,6 +329,7 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
     return Array.from(cats);
   }, [availableItems]);
 
+
   if (!isOpen) return null;
 
   return (
@@ -260,7 +346,7 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
       <div className="p-4 border-b border-[#333333]">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h2 className="text-lg font-semibold text-white">Customize Service Package</h2>
+            <h2 className="text-lg font-semibold text-white">Customize Service Option</h2>
             <p className="text-sm text-gray-400">{serviceOption.name}</p>
           </div>
           <button
@@ -291,26 +377,35 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
         {/* Current Items */}
         <div className="w-1/2 border-r border-[#333333] flex flex-col">
           <div className="p-4 border-b border-[#333333]">
-            <h3 className="text-sm font-medium text-gray-300">Current Items</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium text-gray-300">Current Items</h3>
+              <button
+                onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                className="text-xs text-gray-400 hover:text-[#336699] transition-colors flex items-center gap-1"
+              >
+                <span>{showAdvancedOptions ? 'Hide' : 'Show'} advanced options</span>
+                <ChevronDown className={`w-3 h-3 transition-transform ${showAdvancedOptions ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-4">
             {currentItems.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-8">
                 No items in this service package
               </p>
             ) : (
               currentItems.map((item) => (
-                <div key={item.id} className="bg-[#252525] rounded-md p-3">
+                <div key={item.id} className="group bg-[#252525] rounded-md p-3 mb-2 hover:bg-[#2A2A2A] transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <p className="text-sm text-white">{item.line_item?.name}</p>
+                      <p className="text-sm text-white font-medium">{item.line_item?.name}</p>
                       <p className="text-xs text-gray-400 mt-1">
                         {item.line_item?.cost_code?.name} • {formatCurrency(item.line_item?.price || 0)}/{item.line_item?.unit}
                       </p>
                     </div>
                     <button
                       onClick={() => handleRemoveItem(item.id)}
-                      className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                      className="p-1 text-gray-400 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -321,7 +416,7 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => handleQuantityChange(item.id, Math.max(0.1, item.quantity - 0.1))}
-                        className="p-1 bg-[#333333] hover:bg-[#404040] rounded text-gray-400"
+                        className="p-1 bg-[#333333] hover:bg-[#404040] rounded text-gray-400 transition-colors"
                       >
                         <Minus className="w-3 h-3" />
                       </button>
@@ -329,26 +424,34 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
                         type="number"
                         value={item.quantity}
                         onChange={(e) => handleQuantityChange(item.id, parseFloat(e.target.value) || 0)}
-                        className="w-16 px-2 py-1 bg-[#333333] border border-[#444444] rounded text-sm text-white text-center"
+                        className="w-16 px-2 py-1 bg-[#333333] border border-[#444444] rounded text-sm text-white text-center focus:border-[#336699] focus:outline-none"
                         step="0.1"
                       />
                       <button
                         onClick={() => handleQuantityChange(item.id, item.quantity + 0.1)}
-                        className="p-1 bg-[#333333] hover:bg-[#404040] rounded text-gray-400"
+                        className="p-1 bg-[#333333] hover:bg-[#404040] rounded text-gray-400 transition-colors"
                       >
                         <Plus className="w-3 h-3" />
                       </button>
                     </div>
                     
-                    <select
-                      value={item.calculation_type}
-                      onChange={(e) => handleCalcTypeChange(item.id, e.target.value as any)}
-                      className="flex-1 px-2 py-1 bg-[#333333] border border-[#444444] rounded text-sm text-white"
-                    >
-                      <option value="multiply">Per {serviceOption.unit}</option>
-                      <option value="fixed">Fixed Amount</option>
-                      <option value="per_unit">Per Unit</option>
-                    </select>
+                    {showAdvancedOptions ? (
+                      <select
+                        value={item.calculation_type}
+                        onChange={(e) => handleCalcTypeChange(item.id, e.target.value as any)}
+                        className="flex-1 px-2 py-1 bg-[#333333] border border-[#444444] rounded text-sm text-white"
+                      >
+                        <option value="multiply">Per {serviceOption.unit}</option>
+                        <option value="fixed">Fixed Amount</option>
+                        <option value="per_unit">Per Unit</option>
+                      </select>
+                    ) : (
+                      <div className="flex-1 px-2 py-1 text-sm text-gray-400">
+                        {item.calculation_type === 'fixed' ? 'Fixed Amount' : 
+                         item.calculation_type === 'per_unit' ? 'Per Unit' : 
+                         `Per ${serviceOption.unit}`}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))
@@ -359,7 +462,17 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
         {/* Available Items */}
         <div className="w-1/2 flex flex-col">
           <div className="p-4 border-b border-[#333333]">
-            <h3 className="text-sm font-medium text-gray-300 mb-3">Available Items</h3>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium text-gray-300">Available Items</h3>
+                {availableItems.length > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 bg-[#252525] text-gray-400 rounded">
+                    {filteredItems.length} of {availableItems.length}
+                  </span>
+                )}
+              </div>
+              {/* Temporarily removed the show all button until we fix the filtering */}
+            </div>
             
             {/* Search */}
             <div className="relative mb-2">
@@ -374,21 +487,23 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
             </div>
             
             {/* Category Filter */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 bg-[#252525] border border-[#333333] rounded-md text-sm text-white"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat?.charAt(0).toUpperCase() + cat?.slice(1)}
-                </option>
-              ))}
-            </select>
+            {categories.length > 0 && (
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full px-3 py-2 bg-[#252525] border border-[#333333] rounded-md text-sm text-white hover:border-[#444444] focus:border-[#336699] focus:outline-none focus:ring-1 focus:ring-[#336699]/20 transition-colors"
+              >
+                <option value="all">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>
+                    {cat?.charAt(0).toUpperCase() + cat?.slice(1)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto px-3 py-2">
             {isLoading ? (
               <p className="text-sm text-gray-500 text-center py-8">Loading...</p>
             ) : filteredItems.length === 0 ? (
@@ -396,23 +511,36 @@ export const CustomizeServiceDrawer: React.FC<CustomizeServiceDrawerProps> = ({
                 No items found
               </p>
             ) : (
-              filteredItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-[#252525] rounded-md p-3 hover:bg-[#333333] transition-colors cursor-pointer"
-                  onClick={() => handleAddItem(item)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm text-white">{item.name}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {item.cost_code?.name} • {formatCurrency(item.price)}/{item.unit}
-                      </p>
+              <>
+                {filteredItems.map((item) => {
+                  const isAlreadyIncluded = currentItems.some(ci => ci.line_item?.id === item.id);
+                  
+                  return (
+                    <div 
+                      key={item.id}
+                      className={`group bg-[#1F1F1F] rounded p-2 mb-1 hover:bg-[#252525] transition-all cursor-pointer ${
+                        isAlreadyIncluded ? 'opacity-50' : ''
+                      }`}
+                      onClick={() => handleAddItem(item)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-sm text-white truncate">{item.name}</p>
+                            {isAlreadyIncluded && (
+                              <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 truncate">
+                            <span className="font-mono text-gray-600">{item.cost_code?.code}</span> • {item.cost_code?.name} • {formatCurrency(item.price)}/{item.unit}
+                          </p>
+                        </div>
+                        <Plus className="w-3 h-3 text-[#336699] opacity-50 group-hover:opacity-100 ml-2 flex-shrink-0" />
+                      </div>
                     </div>
-                    <Plus className="w-4 h-4 text-[#336699]" />
-                  </div>
-                </div>
-              ))
+                  );
+                })}
+              </>
             )}
           </div>
         </div>
