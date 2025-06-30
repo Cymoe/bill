@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, ArrowRight, Check, Sparkles, ChevronRight, Package, FileText, DollarSign, Calendar, AlertCircle, Loader2, Zap, Building, Briefcase } from 'lucide-react';
+import { X, ArrowRight, Check, Sparkles, ChevronRight, Package, FileText, DollarSign, Calendar, AlertCircle, Loader2, Zap, Building, Briefcase, Lock, Unlock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { OrganizationContext } from '../layouts/DashboardLayout';
@@ -8,6 +8,7 @@ import { formatCurrency } from '../../utils/format';
 import { DocumentTemplateService } from '../../services/DocumentTemplateService';
 import { ActivityLogService } from '../../services/ActivityLogService';
 import { ServiceCatalogService } from '../../services/ServiceCatalogService';
+import { PricingModesService, PricingMode } from '../../services/PricingModesService';
 import type { Tables } from '../../lib/database';
 
 interface EnhancedProjectWizardProps {
@@ -133,9 +134,12 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
     start_date: new Date().toISOString().split('T')[0],
     end_date: '',
     description: '',
-    notes: ''
+    notes: '',
+    pricing_mode_id: '',
+    lock_pricing: false
   });
   const [clients, setClients] = useState<Tables['clients'][]>([]);
+  const [pricingModes, setPricingModes] = useState<PricingMode[]>([]);
   
   // Calculated values
   const [projectBudget, setProjectBudget] = useState(0);
@@ -214,6 +218,10 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
         .order('name');
       
       setClients(clientsList || []);
+      
+      // Load pricing modes
+      const pricingModesData = await PricingModesService.list(selectedOrg!.id);
+      setPricingModes(pricingModesData);
     } catch (error) {
       console.error('Error loading initial data:', error);
     } finally {
@@ -288,6 +296,8 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
           start_date: projectDetails.start_date,
           end_date: projectDetails.end_date,
           category: selectedProjectType,
+          pricing_mode_id: projectDetails.pricing_mode_id || null,
+          lock_pricing: projectDetails.lock_pricing,
           metadata: {
             industry_id: selectedIndustry,
             service_package_id: selectedServicePackage?.id,
@@ -722,6 +732,57 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
               </div>
             </div>
             
+            {/* Pricing Configuration */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Pricing Mode</label>
+                <select
+                  value={projectDetails.pricing_mode_id}
+                  onChange={(e) => setProjectDetails(prev => ({ ...prev, pricing_mode_id: e.target.value }))}
+                  className="w-full px-4 py-2 bg-[#111] border border-[#2a2a2a] rounded-lg text-white"
+                >
+                  <option value="">Use organization default</option>
+                  {pricingModes.map((mode) => (
+                    <option key={mode.id} value={mode.id}>
+                      {mode.icon} {mode.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-400">Override organization pricing for this project</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Pricing Lock</label>
+                <button
+                  type="button"
+                  onClick={() => setProjectDetails(prev => ({ ...prev, lock_pricing: !prev.lock_pricing }))}
+                  className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    projectDetails.lock_pricing 
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                      : 'bg-[#111] hover:bg-[#222] text-gray-300 border border-[#2a2a2a]'
+                  }`}
+                >
+                  {projectDetails.lock_pricing ? (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      Pricing Locked
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      Pricing Unlocked
+                    </>
+                  )}
+                </button>
+                <p className="mt-1 text-xs text-gray-400">
+                  {projectDetails.lock_pricing 
+                    ? 'Project keeps its pricing when org changes'
+                    : 'Project follows organization pricing'
+                  }
+                </p>
+              </div>
+            </div>
+            
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
               <textarea
@@ -770,6 +831,16 @@ export const EnhancedProjectWizard: React.FC<EnhancedProjectWizardProps> = ({ is
                   <span className="text-gray-400">Budget</span>
                   <span className="text-[#fbbf24] font-semibold text-lg">{formatCurrency(projectBudget)}</span>
                 </div>
+                
+                {projectDetails.pricing_mode_id && (
+                  <div className="flex justify-between py-2 border-b border-[#1a1a1a]">
+                    <span className="text-gray-400">Pricing Mode</span>
+                    <span className="text-white">
+                      {pricingModes.find(m => m.id === projectDetails.pricing_mode_id)?.icon} {pricingModes.find(m => m.id === projectDetails.pricing_mode_id)?.name}
+                      {projectDetails.lock_pricing && <Lock className="inline-block w-3 h-3 ml-1 text-orange-500" />}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="flex justify-between py-2 border-b border-[#1a1a1a]">
                   <span className="text-gray-400">Products & Services</span>

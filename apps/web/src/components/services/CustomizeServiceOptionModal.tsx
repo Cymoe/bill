@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, TrendingUp, DollarSign, AlertCircle, Check, Package } from 'lucide-react';
+import { X, DollarSign, AlertCircle, Check } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/format';
 
@@ -17,7 +17,6 @@ interface ServiceOption {
   attributes?: Record<string, any>;
   skill_level?: string;
   is_template?: boolean;
-  bundle_discount_percentage?: number;
 }
 
 interface CustomizeServiceOptionModalProps {
@@ -35,12 +34,11 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
   organizationId,
   onSuccess
 }) => {
-  const [bundleDiscount, setBundleDiscount] = useState<string>('0');
+  const [customPrice, setCustomPrice] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [existingCustom, setExistingCustom] = useState<ServiceOption | null>(null);
-  const [basePrice, setBasePrice] = useState<number>(0);
 
   useEffect(() => {
     if (serviceOption && isOpen) {
@@ -52,11 +50,8 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
       // Check if there's already a custom version
       checkExistingCustomization();
       
-      // Calculate base price from line items
-      calculateBasePrice();
-      
-      // Set initial discount value
-      setBundleDiscount((serviceOption.bundle_discount_percentage || 0).toString());
+      // Set initial price value
+      setCustomPrice(serviceOption.price.toString());
       setError(null);
       setShowSuccess(false);
     }
@@ -72,15 +67,13 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
         service_id: serviceOption.service_id
       });
       
-      // The constraint is likely on (name, service_id, organization_id)
-      // So we need to check for exact match on all three
       const { data, error } = await supabase
         .from('service_options')
         .select('*')
         .eq('organization_id', organizationId)
         .eq('name', serviceOption.name)
         .eq('service_id', serviceOption.service_id)
-        .maybeSingle(); // Use maybeSingle instead of single to avoid error if no match
+        .maybeSingle();
 
       if (error) {
         console.error('Error in checkExistingCustomization query:', error);
@@ -89,64 +82,20 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
       if (data) {
         console.log('Found existing customization:', data);
         setExistingCustom(data);
-        setBundleDiscount((data.bundle_discount_percentage || 0).toString());
-      } else {
-        console.log('No existing customization found in initial check');
-        
-        // Let's also check all options for this org and service
-        const { data: allOptions } = await supabase
-          .from('service_options')
-          .select('id, name, service_id, organization_id')
-          .eq('organization_id', organizationId)
-          .eq('service_id', serviceOption.service_id);
-        
-        console.log('All options for this service and org:', allOptions);
+        setCustomPrice(data.price.toString());
       }
     } catch (err) {
       console.error('Error checking existing customization:', err);
-      // No existing custom version - that's ok
-    }
-  };
-
-  const calculateBasePrice = async () => {
-    if (!serviceOption) return;
-
-    try {
-      // Get the line items for this service option
-      const { data, error } = await supabase
-        .from('service_option_items')
-        .select(`
-          quantity,
-          line_item:line_items!inner(
-            id,
-            price
-          )
-        `)
-        .eq('service_option_id', serviceOption.id);
-
-      if (error) {
-        console.error('Error fetching line items:', error);
-        return;
-      }
-
-      // Calculate total base price
-      const total = (data || []).reduce((sum, item) => {
-        return sum + (item.line_item.price * item.quantity);
-      }, 0);
-
-      setBasePrice(total);
-    } catch (err) {
-      console.error('Error calculating base price:', err);
     }
   };
 
   const handleSave = async () => {
     if (!serviceOption || !organizationId) return;
 
-    const discount = parseFloat(bundleDiscount);
+    const price = parseFloat(customPrice);
 
-    if (isNaN(discount) || discount < 0 || discount > 100) {
-      setError('Please enter a valid discount percentage (0-100)');
+    if (isNaN(price) || price < 0) {
+      setError('Please enter a valid price');
       return;
     }
 
@@ -162,7 +111,7 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
         const { error: updateError } = await supabase
           .from('service_options')
           .update({
-            bundle_discount_percentage: discount,
+            price: price,
             updated_at: new Date().toISOString()
           })
           .eq('id', idToUpdate);
@@ -176,17 +125,15 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
         }, 1500);
         return;
       } else {
-        // Create new custom version by copying only the database fields
-        // IMPORTANT: We need to make this distinct from the shared version
-        // The constraint might be on (name, service_id) without considering organization_id
+        // Create new custom version by copying the service option
         const customServiceOption = {
-          name: serviceOption.name, // Keep the same name for consistency
+          name: serviceOption.name,
           description: serviceOption.description,
           service_id: serviceOption.service_id,
           organization_id: organizationId,
-          bundle_discount_percentage: discount,
+          price: price,
           unit: serviceOption.unit,
-          is_template: true, // Keep as template so it shows up in the list
+          is_template: true,
           attributes: serviceOption.attributes || {},
           material_quality: serviceOption.material_quality,
           warranty_months: serviceOption.warranty_months,
@@ -199,26 +146,26 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
         console.log('Attempting to insert custom service option:', customServiceOption);
         
         // First check if a custom version already exists for this organization
-        const { data: existingCustom } = await supabase
+        const { data: existingOptions } = await supabase
           .from('service_options')
           .select('*')
           .eq('name', serviceOption.name)
           .eq('service_id', serviceOption.service_id)
           .eq('organization_id', organizationId);
         
-        console.log('Checking for existing custom version:', existingCustom);
+        console.log('Checking for existing custom version:', existingOptions);
         
-        if (existingCustom && existingCustom.length > 0) {
+        if (existingOptions && existingOptions.length > 0) {
           // Custom version already exists, just update the price
           console.log('Updating existing custom option');
           
           const { error: updateError } = await supabase
             .from('service_options')
             .update({ 
-              bundle_discount_percentage: discount, 
+              price: price, 
               updated_at: new Date().toISOString() 
             })
-            .eq('id', existingCustom[0].id);
+            .eq('id', existingOptions[0].id);
           
           if (updateError) throw updateError;
           
@@ -278,10 +225,6 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
     }
   };
 
-  const discount = parseFloat(bundleDiscount) || 0;
-  const discountedPrice = basePrice * (1 - discount / 100);
-  const savedAmount = basePrice - discountedPrice;
-
   if (!isOpen || !serviceOption) return null;
 
   return (
@@ -299,10 +242,10 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-[#336699]/10 rounded-lg">
-                <Package className="w-5 h-5 text-[#336699]" />
+                <DollarSign className="w-5 h-5 text-[#336699]" />
               </div>
               <h3 className="text-lg font-semibold text-white">
-                {existingCustom ? 'Update Service Bundle Discount' : 'Set Service Bundle Discount'}
+                {existingCustom ? 'Update Custom Pricing' : 'Set Custom Pricing'}
               </h3>
             </div>
             <button
@@ -334,9 +277,9 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
                 </div>
               </div>
               <div className="text-right ml-4">
-                <p className="text-sm text-gray-400">Base Price</p>
+                <p className="text-sm text-gray-400">Standard Price</p>
                 <p className="text-lg font-semibold text-white">
-                  {formatCurrency(basePrice)}/{serviceOption.unit}
+                  {formatCurrency(serviceOption.price)}/{serviceOption.unit}
                 </p>
               </div>
             </div>
@@ -346,42 +289,25 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                Bundle Discount Percentage
+                Your Custom Price
               </label>
               <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-400">$</span>
+                </div>
                 <input
                   type="number"
-                  value={bundleDiscount}
-                  onChange={(e) => setBundleDiscount(e.target.value)}
-                  className="block w-full pl-4 pr-10 py-2 bg-[#252525] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#336699] focus:border-transparent"
-                  placeholder="0"
-                  step="1"
+                  value={customPrice}
+                  onChange={(e) => setCustomPrice(e.target.value)}
+                  className="block w-full pl-8 pr-16 py-2 bg-[#252525] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#336699] focus:border-transparent"
+                  placeholder="0.00"
+                  step="0.01"
                   min="0"
-                  max="100"
                 />
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <span className="text-gray-400">%</span>
+                  <span className="text-gray-400">/{serviceOption.unit}</span>
                 </div>
               </div>
-              
-              {/* Discount Result Indicator */}
-              {discount > 0 && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Base Price:</span>
-                    <span className="text-white">{formatCurrency(basePrice)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-400">Discount ({discount}%):</span>
-                    <span className="text-emerald-400">-{formatCurrency(savedAmount)}</span>
-                  </div>
-                  <div className="h-px bg-[#333333]"></div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-300">Customer Price:</span>
-                    <span className="text-lg font-semibold text-white">{formatCurrency(discountedPrice)}</span>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 
@@ -390,12 +316,12 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
             <div className="flex gap-3">
               <AlertCircle className="w-5 h-5 text-[#336699] flex-shrink-0 mt-0.5" />
               <div className="text-sm text-gray-300">
-                <p className="font-medium text-white mb-1">How Bundle Discounts Work</p>
+                <p className="font-medium text-white mb-1">How Custom Pricing Works</p>
                 <ul className="space-y-1">
-                  <li>• Discount applies to the total of all line items</li>
-                  <li>• Base prices remain unchanged for transparency</li>
-                  <li>• Your discount will be shown on estimates</li>
-                  <li>• Perfect for competitive pricing or promotions</li>
+                  <li>• Sets your specific price for this service</li>
+                  <li>• Overrides the standard pricing</li>
+                  <li>• Only applies to your organization</li>
+                  <li>• All discounts are handled at the estimate level</li>
                   <li>• Can be updated or removed anytime</li>
                 </ul>
               </div>
@@ -415,7 +341,7 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
               <div className="flex items-center gap-2">
                 <Check className="w-5 h-5 text-emerald-400" />
                 <p className="text-sm text-emerald-400">
-                  Service bundle discount saved successfully!
+                  Custom pricing saved successfully!
                 </p>
               </div>
             </div>
@@ -434,7 +360,7 @@ export const CustomizeServiceOptionModal: React.FC<CustomizeServiceOptionModalPr
               disabled={isLoading || showSuccess}
               className="flex-1 px-4 py-2 text-black bg-[#F59E0B] rounded-lg hover:bg-[#D97706] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {isLoading ? 'Saving...' : existingCustom ? 'Update Bundle Discount' : 'Save Bundle Discount'}
+              {isLoading ? 'Saving...' : existingCustom ? 'Update Custom Price' : 'Save Custom Price'}
             </button>
           </div>
         </div>

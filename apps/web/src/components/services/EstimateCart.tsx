@@ -9,7 +9,9 @@ import {
   Send,
   Trash2,
   Calculator,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  Minus
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
 import { TemplateRow } from './TemplateRow';
@@ -158,19 +160,43 @@ export const EstimateCart: React.FC<EstimateCartProps> = ({
                 </h3>
                 <div className="space-y-2">
                   {templateItems.map(item => (
-                    <div key={item.id} className="bg-[#252525] border border-[#333333] rounded">
-                      <TemplateRow
-                        template={{
-                          id: item.templateId || item.id,
-                          name: item.name,
-                          price: item.price,
-                          unit: item.unit
-                        }}
-                        quantity={item.quantity}
-                        onQuantityChange={(qty) => onUpdateQuantity(item.id, qty)}
-                        isInCart={true}
-                        allowRemove={true}
-                      />
+                    <div key={item.id} className="bg-[#252525] border border-[#333333] rounded p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-white font-medium text-sm truncate">{item.name}</h4>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {formatCurrency(item.price)} per {item.unit}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 bg-[#1A1A1A] rounded border border-[#333333]">
+                            <button
+                              onClick={() => onUpdateQuantity(item.id, Math.max(0, item.quantity - 1))}
+                              className="p-1 text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className="px-2 text-sm text-white min-w-[2rem] text-center">
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                              className="p-1 text-gray-400 hover:text-white hover:bg-[#252525] transition-colors"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-white font-mono text-sm min-w-[4rem] text-right">
+                            {formatCurrency(item.subtotal)}
+                          </div>
+                          <button
+                            onClick={() => onRemoveItem(item.id)}
+                            className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

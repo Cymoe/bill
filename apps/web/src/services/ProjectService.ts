@@ -17,6 +17,14 @@ export interface Project {
   notes?: string;
   created_at?: string;
   updated_at?: string;
+  pricing_mode_id?: string;
+  lock_pricing?: boolean;
+  pricing_mode?: {
+    id: string;
+    name: string;
+    icon: string;
+    description?: string;
+  };
   client?: {
     id: string;
     name: string;
@@ -30,7 +38,8 @@ export class ProjectService {
       .from('projects')
       .select(`
         *,
-        client:clients(id, name, company_name)
+        client:clients(id, name, company_name),
+        pricing_mode:pricing_modes(id, name, icon, description)
       `)
       .eq('organization_id', organizationId)
       .order('created_at', { ascending: false });
@@ -44,7 +53,8 @@ export class ProjectService {
       .from('projects')
       .select(`
         *,
-        client:clients(id, name, company_name)
+        client:clients(id, name, company_name),
+        pricing_mode:pricing_modes(id, name, icon, description)
       `)
       .eq('id', id)
       .single();

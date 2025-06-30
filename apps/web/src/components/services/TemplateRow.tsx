@@ -133,13 +133,9 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
 
             {/* Quick Stats */}
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
-              <span className="flex items-center gap-1">
-                <DollarSign className="w-3 h-3" />
-                {formatCurrency(template.price)}/{template.unit}
-                {(hasCustomPricing || template.organization_id) && (
-                  <span className="ml-1 text-[#F59E0B]">(customized)</span>
-                )}
-              </span>
+              {(hasCustomPricing || template.organization_id) && (
+                <span className="text-[#F59E0B]">(customized pricing)</span>
+              )}
 
               {template.estimated_hours && (
                 <span className="flex items-center gap-1">
@@ -253,7 +249,6 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
             {/* Line Items Breakdown */}
             {showLineItems && template.service_option_items && template.service_option_items.length > 0 && (
               <div className="mt-3 p-3 bg-[#252525]/50 rounded border border-[#333333]">
-                <div className="text-xs font-medium text-gray-400 mb-2">Service includes:</div>
                 <div className="space-y-1">
                   {template.service_option_items.map((item, idx) => (
                     <div key={item.id || idx} className="flex items-center justify-between text-xs">
@@ -263,7 +258,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                           {item.quantity} × {item.line_item?.name || 'Unknown item'}
                         </span>
                         <span className="text-gray-500">
-                          @ {formatCurrency(item.line_item?.price || 0)}/{item.line_item?.unit || 'unit'}
+                          @ {formatCurrency(item.line_item?.price || 0)}
                         </span>
                       </div>
                       <span className="text-gray-400 font-mono">
@@ -307,14 +302,10 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                 type="number"
                 value={quantity}
                 onChange={(e) => handleInputChange(e.target.value)}
-                className="w-16 text-center bg-transparent text-white text-sm border-x border-[#333333] focus:outline-none"
+                className="w-16 text-center bg-transparent text-white text-sm focus:outline-none"
                 min={allowRemove ? 0 : 1}
                 step="1"
               />
-              
-              <span className="px-2 text-xs text-gray-500 border-r border-[#333333]">
-                {template.unit}
-              </span>
               
               <button
                 onClick={() => handleQuantityChange(1)}
@@ -368,7 +359,7 @@ export const TemplateRow: React.FC<TemplateRowProps> = ({
                         <p className="mb-2">{template.description}</p>
                       )}
                       <div className="space-y-1">
-                        <div>Base Price: {formatCurrency(template.price)}/{template.unit}</div>
+                        <div>Base Price: {formatCurrency(template.price)}</div>
                         {template.estimated_hours && (
                           <div>Est. Time: {template.estimated_hours} hours</div>
                         )}

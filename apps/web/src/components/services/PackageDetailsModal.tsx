@@ -9,7 +9,6 @@ import {
   CheckCircle,
   AlertCircle,
   Hash,
-  TrendingUp,
   Sparkles
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/format';
@@ -91,46 +90,6 @@ export const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          {/* Upsell Banner */}
-          {(() => {
-            const optionalTemplates = (pkg.templates || pkg.service_package_templates)?.filter((t: any) => t.is_optional) || [];
-            const optionalTotal = optionalTemplates.reduce((sum: number, item: any) => {
-              if (item.template) {
-                // Use the template's price (now corrected in database)
-                const templatePrice = item.template.price || 0;
-                return sum + (templatePrice * (item.quantity || 1));
-              }
-              return sum;
-            }, 0);
-            
-            if (optionalTotal > 0) {
-              const bundleDiscount = optionalTotal * 0.1; // 10% discount
-              const discountedTotal = optionalTotal - bundleDiscount;
-              
-              return (
-                <div className="bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/30 rounded-lg p-4 mb-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="text-white font-medium flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-green-400" />
-                        Complete Package Options
-                      </h4>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {optionalTemplates.length} additional service{optionalTemplates.length > 1 ? 's' : ''} available
-                      </p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        Total with all options: {formatCurrency(discountedTotal)}
-                      </p>
-                    </div>
-                    <button className="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded hover:bg-green-500/30 transition-colors text-sm font-medium">
-                      Add All Options
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-            return null;
-          })()}
 
           {(pkg.templates || pkg.service_package_templates) && (pkg.templates || pkg.service_package_templates).length > 0 ? (
             <div className="space-y-6">
@@ -206,9 +165,7 @@ export const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
                 }
                 
                 const hasOptionals = optionalTotal > 0;
-                const bundleDiscount = hasOptionals ? optionalTotal * 0.1 : 0;
                 const potentialTotal = requiredTotal + optionalTotal;
-                const potentialDiscounted = potentialTotal - bundleDiscount;
                 
                 return (
                   <div className="grid grid-cols-2 gap-4">
@@ -227,7 +184,7 @@ export const PackageDetailsModal: React.FC<PackageDetailsModalProps> = ({
                       <div className="border-l border-[#333333] pl-4">
                         <div className="text-xs text-gray-500 mb-1">With All Add-ons</div>
                         <div className="text-2xl font-semibold text-green-400">
-                          {formatCurrency(potentialDiscounted)}
+                          {formatCurrency(potentialTotal)}
                         </div>
                         <div className="text-xs text-gray-400 mt-1">
                           Includes all optional items

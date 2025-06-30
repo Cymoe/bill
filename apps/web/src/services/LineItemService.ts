@@ -217,6 +217,93 @@ export class LineItemService {
   }
 
   /**
+   * Get line items with project-specific pricing context
+   * If the project has a pricing mode, it will be applied to the line items
+   */
+  static async listForProject(organizationId: string, projectId?: string): Promise<LineItem[]> {
+    // First, get the project's pricing mode if a project is specified
+    let projectPricingMode = null;
+    if (projectId) {
+      const { data: project } = await supabase
+        .from('projects')
+        .select('pricing_mode_id, lock_pricing')
+        .eq('id', projectId)
+        .single();
+      
+      if (project?.pricing_mode_id) {
+        // Get the pricing mode details
+        const { data: pricingMode } = await supabase
+          .from('pricing_modes')
+          .select('*')
+          .eq('id', project.pricing_mode_id)
+          .single();
+        
+        projectPricingMode = pricingMode;
+      }
+    }
+
+    // Get line items with organization overrides
+    const lineItems = await this.list(organizationId);
+
+    // If project has a specific pricing mode, apply it
+    if (projectPricingMode) {
+      // Get cost codes to determine categories
+      const costCodeIds = [...new Set(lineItems.map(item => item.cost_code_id).filter(Boolean))];
+      const { data: costCodes } = await supabase
+        .from('cost_codes')
+        .select('id, code')
+        .in('id', costCodeIds);
+      
+      const costCodeMap = new Map(costCodes?.map(cc => [cc.id, cc.code]) || []);
+
+      // Apply project pricing mode adjustments
+      return lineItems.map(item => {
+        const costCodeValue = item.cost_code_id ? costCodeMap.get(item.cost_code_id) : undefined;
+        const category = this.getCategoryFromCostCode(costCodeValue);
+        const multiplier = projectPricingMode.adjustments[category] || projectPricingMode.adjustments.all || 1;
+        
+        // Apply multiplier to base price (not current price) to get project price
+        const basePrice = item.base_price || item.price;
+        const projectPrice = basePrice * multiplier;
+        
+        return {
+          ...item,
+          price: projectPrice,
+          // Add metadata about pricing source
+          pricing_source: 'project',
+          applied_mode_id: projectPricingMode.id,
+          applied_mode_name: projectPricingMode.name
+        };
+      });
+    }
+
+    // No project pricing, return items with organization pricing
+    return lineItems.map(item => ({
+      ...item,
+      pricing_source: 'organization'
+    }));
+  }
+
+  /**
+   * Helper to determine category from cost code
+   */
+  private static getCategoryFromCostCode(code?: string): string {
+    if (!code) return 'all';
+    
+    const codeNumber = parseInt(code.replace(/[^0-9]/g, ''));
+    if (isNaN(codeNumber)) return 'all';
+    
+    if (codeNumber >= 100 && codeNumber <= 199) return 'labor';
+    if (codeNumber >= 500 && codeNumber <= 599) return 'materials';
+    if (codeNumber >= 200 && codeNumber <= 299) return 'installation';
+    if ((codeNumber >= 300 && codeNumber <= 399) || (codeNumber >= 600 && codeNumber <= 699)) return 'services';
+    if (codeNumber >= 400 && codeNumber <= 499) return 'equipment';
+    if (codeNumber >= 700 && codeNumber <= 799) return 'subcontractor';
+    
+    return 'all';
+  }
+
+  /**
    * Bulk create line items (admin only)
    */
   static async bulkCreate(lineItems: Omit<LineItem, 'id' | 'created_at' | 'updated_at'>[]): Promise<LineItem[]> {

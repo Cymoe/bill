@@ -1,22 +1,17 @@
 import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { 
   Package, 
-  Tag, 
   Search, 
-  SlidersHorizontal as Filter,
   ShoppingCart,
   X,
   ChevronDown,
   ChevronRight,
-  Building,
   Star,
-  Grid3X3,
   List,
   SlidersHorizontal,
   Eye,
   CheckCircle,
   Plus,
-  Clock,
   Copy
 } from 'lucide-react';
 import { OrganizationContext } from '../components/layouts/DashboardLayout';
@@ -25,12 +20,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { EstimateCart } from '../components/services/EstimateCart';
 import { PackageDetailsModal } from '../components/services/PackageDetailsModal';
 import { ServiceAttributeFilters } from '../components/services/ServiceAttributeFilters';
-import { TemplateRow } from '../components/services/TemplateRow';
+import { ServiceQuickRow } from '../components/services/ServiceQuickRow';
 import { CreateEstimateDrawer } from '../components/estimates/CreateEstimateDrawer';
 import { EstimateService } from '../services/EstimateService';
 import { ServiceCatalogService } from '../services/ServiceCatalogService';
 import { formatCurrency } from '../utils/format';
-import { CustomizeServiceOptionModal } from '../components/services/CustomizeServiceOptionModal';
 import { BulkCustomizeServicesModal } from '../components/services/BulkCustomizeServicesModal';
 
 interface CartItem {
@@ -49,7 +43,6 @@ interface CartItem {
 export const ServicesPackages: React.FC = () => {
   const { selectedOrg } = useContext(OrganizationContext);
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [activeTab, setActiveTab] = useState<'packages' | 'services'>('packages');
   const [selectedIndustry, setSelectedIndustry] = useState<string>('all');
   const [selectedLevel, setSelectedLevel] = useState<string>('all');
@@ -70,15 +63,14 @@ export const ServicesPackages: React.FC = () => {
   const [templates, setTemplates] = useState<any[]>([]);
   const [industries, setIndustries] = useState<any[]>([]);
   
-  // Customization modal state
-  const [showCustomizeModal, setShowCustomizeModal] = useState(false);
-  const [selectedTemplateForCustomization, setSelectedTemplateForCustomization] = useState<any>(null);
   const [showBulkCustomizeModal, setShowBulkCustomizeModal] = useState(false);
+  const [condensedView, setCondensedView] = useState(false);
 
   useEffect(() => {
     if (selectedOrg?.id) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOrg?.id]);
 
   const loadData = async () => {
@@ -161,29 +153,23 @@ export const ServicesPackages: React.FC = () => {
     }
   };
 
-  const loadPackageDetails = async (packageId: string) => {
-    try {
-      const details = await ServiceCatalogService.getPackageWithItems(packageId);
-      setSelectedPackage(details);
-      setShowPackageDetails(true);
-    } catch (error) {
-      console.error('Error loading package details:', error);
-    }
-  };
 
   // Removed loadCustomPrices - service options get pricing from line items
 
   const addToCart = (item: any, type: 'package' | 'template') => {
+    const quantity = item.quantity || 1;
+    const price = type === 'package' ? (item.calculated_price || 0) : item.price;
+    
     const cartItem: CartItem = {
       id: `${type}-${item.id}`,
       type,
       name: item.name,
-      price: type === 'package' ? (item.calculated_price || 0) : item.price,
-      quantity: 1,
+      price,
+      quantity,
       unit: type === 'package' ? 'package' : item.unit,
       packageId: type === 'package' ? item.id : undefined,
       templateId: type === 'template' ? item.id : undefined,
-      subtotal: type === 'package' ? (item.calculated_price || 0) : item.price,
+      subtotal: price * quantity,
       // Store the full item data for later expansion
       fullData: item
     };
@@ -191,9 +177,10 @@ export const ServicesPackages: React.FC = () => {
     setCartItems(prev => {
       const existing = prev.find(i => i.id === cartItem.id);
       if (existing) {
+        // Replace the existing item with new quantity
         return prev.map(i => 
           i.id === cartItem.id 
-            ? { ...i, quantity: i.quantity + 1, subtotal: i.price * (i.quantity + 1) }
+            ? cartItem
             : i
         );
       }
@@ -204,21 +191,38 @@ export const ServicesPackages: React.FC = () => {
   };
 
   const updateCartQuantity = (itemId: string, quantity: number) => {
-    setCartItems(prev => 
-      prev.map(item => 
+    setCartItems(prev => {
+      const updatedItems = prev.map(item => 
         item.id === itemId 
           ? { ...item, quantity, subtotal: item.price * quantity }
           : item
-      ).filter(item => item.quantity > 0)
-    );
+      ).filter(item => item.quantity > 0);
+      
+      // Auto-close cart if it becomes empty
+      if (updatedItems.length === 0) {
+        setShowCart(false);
+      }
+      
+      return updatedItems;
+    });
   };
 
   const removeFromCart = (itemId: string) => {
-    setCartItems(prev => prev.filter(item => item.id !== itemId));
+    setCartItems(prev => {
+      const updatedItems = prev.filter(item => item.id !== itemId);
+      
+      // Auto-close cart if it becomes empty
+      if (updatedItems.length === 0) {
+        setShowCart(false);
+      }
+      
+      return updatedItems;
+    });
   };
 
   const clearCart = () => {
     setCartItems([]);
+    setShowCart(false); // Auto-close cart when emptied
   };
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -426,6 +430,7 @@ export const ServicesPackages: React.FC = () => {
     });
   };
 
+
   // Expand/collapse all services
   const toggleAllServices = () => {
     if (expandedServices.size === servicesWithTemplates.length) {
@@ -449,79 +454,77 @@ export const ServicesPackages: React.FC = () => {
     return labels[category] || category;
   };
 
+
   return (
     <div className="min-h-screen bg-[#0A0A0A]">
-        {/* Header - sticky below IndustryBanner */}
-        <div className="mt-12 sticky top-[32px] z-40 border-b border-[#333333]/50 bg-[#1A1A1A]/80 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[#1A1A1A]/70 supports-[backdrop-filter]:backdrop-blur-xl">
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Package className="w-7 h-7 text-[#336699]" />
-                  Services & Packages
-                </h1>
-                <p className="text-gray-400 text-sm mt-1">
-                  Build estimates quickly with pre-configured packages or individual services
-                </p>
-              </div>
-              
-              {/* Cart Button */}
+      <div className={`w-full transition-all duration-300 ${showCart ? 'mr-96' : ''}`}>
+        {/* Header Section - no border, blends into background */}
+        <div className="bg-transparent">
+          {/* Header */}
+          <div className="px-4 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-white flex items-center gap-2">
+                <Package className="w-7 h-7 text-[#336699]" />
+                Services & Packages
+              </h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Build estimates quickly with pre-configured packages or individual services
+              </p>
+            </div>
+            
+            {/* Cart Button */}
+            <button
+              onClick={() => setShowCart(!showCart)}
+              className="relative px-4 py-2 bg-[#336699] text-white font-medium rounded hover:bg-[#4477aa] transition-colors flex items-center gap-2"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              <span>Cart</span>
+              {cartItemCount > 0 && (
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                  {cartItemCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Tabs Navigation - subtle separator */}
+          <div className="border-t border-[#333333]/30">
+            <div className="flex">
               <button
-                onClick={() => setShowCart(!showCart)}
-                className="relative px-4 py-2 bg-[#336699] text-white font-medium rounded hover:bg-[#4477aa] transition-colors flex items-center gap-2"
+                onClick={() => setActiveTab('packages')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+                  activeTab === 'packages'
+                    ? 'text-white after:bg-[#336699] bg-[#1A1A1A]/50'
+                    : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]/50 hover:bg-[#1A1A1A]/30'
+                }`}
               >
-                <ShoppingCart className="w-4 h-4" />
-                <span>Cart</span>
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {cartItemCount}
-                  </span>
-                )}
+                <Package className="w-4 h-4" />
+                Service Packages
+                <span className="text-xs text-gray-500 ml-1">
+                  ({packages.length})
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('services')}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors relative flex items-center justify-center gap-2 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:transition-colors ${
+                  activeTab === 'services'
+                    ? 'text-white after:bg-[#336699] bg-[#1A1A1A]/50'
+                    : 'text-gray-500 hover:text-gray-400 after:bg-transparent hover:after:bg-[#336699]/50 hover:bg-[#1A1A1A]/30'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                Individual Services
+                <span className="text-xs text-gray-500 ml-1">
+                  ({templates.length})
+                </span>
               </button>
             </div>
           </div>
-
-          {/* Tabs */}
-          <div className="px-6 flex items-center gap-6">
-            <button
-              onClick={() => setActiveTab('packages')}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'packages'
-                  ? 'text-white border-[#336699]'
-                  : 'text-gray-400 border-transparent hover:text-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4" />
-                Service Packages
-                <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">
-                  {packages.length}
-                </span>
-              </div>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('services')}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === 'services'
-                  ? 'text-white border-[#336699]'
-                  : 'text-gray-400 border-transparent hover:text-gray-300'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <List className="w-4 h-4" />
-                Individual Services
-                <span className="text-xs bg-gray-700 px-2 py-0.5 rounded">
-                  {templates.length}
-                </span>
-              </div>
-            </button>
-          </div>
         </div>
 
-        {/* Filters Bar - sticky below header */}
-        <div className="sticky top-[141px] z-30 border-b border-[#333333]/50 bg-[#1A1A1A]/80 backdrop-blur-xl backdrop-saturate-150 shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
-          <div className="px-6 py-3 flex items-center justify-between gap-4">
+        {/* Filters Bar - seamless connection */}
+        <div className="border-t border-[#333333]/30 bg-[#1A1A1A]/30 backdrop-blur-sm">
+          <div className="px-4 py-2 flex items-center justify-between gap-4">
             <div className="flex items-center gap-4 flex-1">
               {/* Search */}
               <div className="relative flex-1 max-w-md">
@@ -568,66 +571,57 @@ export const ServicesPackages: React.FC = () => {
 
               {/* Sort Controls (Services only) */}
               {activeTab === 'services' && (
-                <>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-3 py-2 bg-[#252525]/80 border border-[#333333] rounded text-white text-sm focus:outline-none focus:border-[#336699]"
-                  >
-                    <option value="name">Sort by Name</option>
-                    <option value="price">Sort by Price</option>
-                    <option value="warranty">Sort by Warranty</option>
-                    <option value="skill_level">Sort by Skill Level</option>
-                    <option value="material_quality">Sort by Material Quality</option>
-                  </select>
-                  
-                  <button
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="px-3 py-2 bg-[#252525]/80 border border-[#333333] rounded text-white text-sm hover:border-[#336699] transition-colors"
-                    title={sortOrder === 'asc' ? 'Sort Ascending' : 'Sort Descending'}
-                  >
-                    {sortOrder === 'asc' ? '↑' : '↓'}
-                  </button>
-                </>
+                <select
+                  value={`${sortBy}-${sortOrder}`}
+                  onChange={(e) => {
+                    const [field, order] = e.target.value.split('-');
+                    setSortBy(field as any);
+                    setSortOrder(order as 'asc' | 'desc');
+                  }}
+                  className="px-3 py-2 bg-[#252525]/80 border border-[#333333] rounded text-white text-sm focus:outline-none focus:border-[#336699]"
+                >
+                  <option value="name-asc">Name (A-Z)</option>
+                  <option value="name-desc">Name (Z-A)</option>
+                  <option value="price-asc">Price (Low to High)</option>
+                  <option value="price-desc">Price (High to Low)</option>
+                  <option value="warranty-asc">Warranty (Short to Long)</option>
+                  <option value="warranty-desc">Warranty (Long to Short)</option>
+                  <option value="skill_level-asc">Skill Level (Basic to Expert)</option>
+                  <option value="skill_level-desc">Skill Level (Expert to Basic)</option>
+                  <option value="material_quality-asc">Quality (Economy to Luxury)</option>
+                  <option value="material_quality-desc">Quality (Luxury to Economy)</option>
+                </select>
               )}
             </div>
 
             {/* Right side actions */}
             <div className="flex items-center gap-3">
-              {/* Bulk Customize Button - Services only */}
-              {activeTab === 'services' && selectedIndustry !== 'all' && servicesWithTemplates.length > 0 && (
-                <button
-                  onClick={() => setShowBulkCustomizeModal(true)}
-                  className="px-3 py-2 bg-[#336699] text-white text-sm font-medium rounded hover:bg-[#4477aa] transition-colors flex items-center gap-2"
-                >
-                  <Copy className="w-4 h-4" />
-                  Bulk Customize
-                </button>
-              )}
-
-              {/* View Mode Toggle */}
-              {activeTab === 'packages' && (
-                <div className="flex items-center gap-1 bg-[#252525]/80 rounded p-1">
+              {/* Services Controls */}
+              {activeTab === 'services' && (
+                <div className="flex items-center gap-3">
+                  {/* Condensed View Toggle */}
                   <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'grid'
+                    onClick={() => setCondensedView(!condensedView)}
+                    className={`p-2 rounded transition-colors ${
+                      condensedView
                         ? 'bg-[#336699] text-white'
-                        : 'text-gray-400 hover:text-white'
+                        : 'bg-[#252525] text-gray-300 hover:text-white'
                     }`}
+                    title={condensedView ? 'Expanded View' : 'Condensed View'}
                   >
-                    <Grid3X3 className="w-4 h-4" />
+                    <SlidersHorizontal className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded transition-colors ${
-                      viewMode === 'list'
-                        ? 'bg-[#336699] text-white'
-                        : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
+                  
+                  {/* Bulk Customize Button */}
+                  {selectedIndustry !== 'all' && servicesWithTemplates.length > 0 && (
+                    <button
+                      onClick={() => setShowBulkCustomizeModal(true)}
+                      className="px-3 py-2 bg-[#336699] text-white text-sm font-medium rounded hover:bg-[#4477aa] transition-colors flex items-center gap-2"
+                    >
+                      <Copy className="w-4 h-4" />
+                      Bulk Customize
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -639,8 +633,8 @@ export const ServicesPackages: React.FC = () => {
           <div className="animate-pulse">
             {activeTab === 'packages' ? (
               // Package loading skeleton
-              <div className="p-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
+              <div className="p-4">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                   {[1, 2, 3, 4, 5, 6].map(i => (
                     <div key={i} className="bg-[#1A1A1A] rounded-lg p-6 border border-[#333333]">
                       <div className="h-6 bg-[#252525] rounded w-3/4 mb-4"></div>
@@ -657,7 +651,7 @@ export const ServicesPackages: React.FC = () => {
             ) : (
               // Services loading skeleton
               <div>
-                <div className="flex items-center justify-between px-4 py-3 bg-[#1A1A1A] border-b border-[#333333]">
+                <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-[#333333]">
                   <div className="h-4 bg-[#252525] rounded w-32"></div>
                   <div className="h-8 bg-[#252525] rounded w-28"></div>
                 </div>
@@ -687,21 +681,18 @@ export const ServicesPackages: React.FC = () => {
             )}
           </div>
         ) : activeTab === 'packages' ? (
-          // Packages View - keep padding for cards
-          <div className="p-6">
+          // Packages View - minimal padding for cards
+          <div className="p-4">
             {filteredPackages.length > 0 ? (
               <>
                 {/* Featured Packages */}
                 {filteredPackages.filter(p => p.is_featured).length > 0 && (
-                  <div className="mb-8">
-                    <h2 className="text-lg font-semibold text-white mb-6 flex items-center gap-2">
+                                  <div className="mb-4">
+                  <h2 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                       <Star className="w-5 h-5 text-[#336699]" />
                       Featured Packages
                     </h2>
-                    <div className={viewMode === 'grid' 
-                      ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                      : "space-y-4"
-                    }>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filteredPackages
                         .filter(p => p.is_featured)
                         .map(pkg => (
@@ -718,14 +709,11 @@ export const ServicesPackages: React.FC = () => {
 
               {/* All Packages */}
               <div>
-                <h2 className="text-lg font-semibold text-white mb-6">
+                <h2 className="text-lg font-semibold text-white mb-3">
                   All Packages
                 </h2>
                 {filteredPackages.filter(p => !p.is_featured).length > 0 ? (
-                  <div className={viewMode === 'grid' 
-                    ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-                    : "space-y-4"
-                  }>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredPackages
                       .filter(p => !p.is_featured)
                       .map(pkg => (
@@ -780,7 +768,7 @@ export const ServicesPackages: React.FC = () => {
           <>
             {/* Attribute Filters - only show when an industry is selected */}
             {selectedIndustry !== 'all' && (
-              <div className="px-4 py-4 border-b border-[#333333]">
+              <div className="px-4 py-2 border-b border-[#333333]">
                 <ServiceAttributeFilters
                   industry={industries.find(i => i.id === selectedIndustry)?.name || ''}
                   activeFilters={attributeFilters}
@@ -791,7 +779,7 @@ export const ServicesPackages: React.FC = () => {
 
             {/* Expand/Collapse All Button */}
             {servicesWithTemplates.length > 0 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-[#1A1A1A] border-b border-[#333333]">
+              <div className="flex items-center justify-between px-4 py-2 bg-[#1A1A1A] border-b border-[#333333]">
                 <div className="text-sm text-gray-400">
                   {servicesWithTemplates.length} {servicesWithTemplates.length === 1 ? 'service' : 'services'} available
                 </div>
@@ -813,7 +801,7 @@ export const ServicesPackages: React.FC = () => {
                     Array.from(servicesByIndustry.entries()).map(([industryId, { industryName, services }]) => (
                       <div key={industryId}>
                         {/* Industry Section Header */}
-                        <div className="py-3 px-4 bg-[#1A1A1A] border-t border-[#333333]">
+                        <div className="py-2 px-4 bg-[#1A1A1A] border-t border-[#333333]">
                           <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">
                             {industryName}
                           </h3>
@@ -825,7 +813,7 @@ export const ServicesPackages: React.FC = () => {
                             {/* Service Header */}
                             <button
                               onClick={() => toggleService(service.id)}
-                              className="w-full py-4 bg-[#0A0A0A] hover:bg-[#252525] transition-colors flex items-center justify-between"
+                              className="w-full py-3 bg-[#0A0A0A] hover:bg-[#252525] transition-colors flex items-center justify-between"
                             >
                               <div className="flex items-center gap-3 pl-8">
                                 <ChevronRight 
@@ -860,26 +848,33 @@ export const ServicesPackages: React.FC = () => {
                             
                             {/* Service Options (Templates) - Only show when expanded */}
                             {expandedServices.has(service.id) && service.templates && (
-                              <div className="border-t border-[#333333] bg-[#1A1A1A] py-4 px-4 space-y-3">
-                                {service.templates.map(template => (
-                                  <div key={template.id}>
-                                    <TemplateRow
+                              <div className="border-t border-[#333333] bg-[#1A1A1A]">
+                                {service.templates.map((template: any, idx: number) => {
+                                  const cartItem = cartItems.find(item => item.id === `template-${template.id}`);
+                                  const cartQuantity = cartItem?.quantity || 0;
+                                  
+                                  return (
+                                    <ServiceQuickRow
+                                      key={template.id}
                                       template={template}
-                                      quantity={1}
-                                      onQuantityChange={(qty) => {
-                                        if (qty > 0) {
-                                          addToCart({ ...template, quantity: qty }, 'template');
+                                      cartQuantity={cartQuantity}
+                                      onQuantityChange={(templateId, quantity) => {
+                                        if (quantity === 0) {
+                                          removeFromCart(`template-${templateId}`);
+                                        } else {
+                                          updateCartQuantity(`template-${templateId}`, quantity);
                                         }
                                       }}
-                                      onCustomizePricing={() => {
-                                        setSelectedTemplateForCustomization(template);
-                                        setShowCustomizeModal(true);
+                                      onAddToCart={(template, quantity) => {
+                                        addToCart({ ...template, quantity }, 'template');
                                       }}
-                                      hasCustomPricing={template.organization_id === selectedOrg?.id}
+                                      isCondensed={condensedView}
+                                      isHighlighted={false}
+                                      onCustomized={loadData}
                                       organizationId={selectedOrg?.id}
                                     />
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -891,7 +886,7 @@ export const ServicesPackages: React.FC = () => {
                     Array.from(servicesByCategory.entries()).map(([category, services]) => (
                       <div key={category}>
                         {/* Category Label */}
-                        <div className="py-2">
+                        <div className="py-1">
                           <div className="text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
                             — {getCategoryLabel(category)} —
                           </div>
@@ -903,7 +898,7 @@ export const ServicesPackages: React.FC = () => {
                             {/* Service Header */}
                             <button
                               onClick={() => toggleService(service.id)}
-                              className="w-full py-4 bg-[#1F2937] hover:bg-[#252525] transition-colors flex items-center justify-between"
+                              className="w-full py-3 bg-[#1F2937] hover:bg-[#252525] transition-colors flex items-center justify-between"
                             >
                               <div className="flex items-center gap-3 pl-4">
                                 <ChevronRight 
@@ -938,26 +933,33 @@ export const ServicesPackages: React.FC = () => {
                             
                             {/* Service Options (Templates) - Only show when expanded */}
                             {expandedServices.has(service.id) && service.templates && (
-                              <div className="border-t border-[#333333] bg-[#1A1A1A] py-4 px-4 space-y-3">
-                                {service.templates.map(template => (
-                                  <div key={template.id}>
-                                    <TemplateRow
+                              <div className="border-t border-[#333333] bg-[#1A1A1A]">
+                                {service.templates.map((template: any, idx: number) => {
+                                  const cartItem = cartItems.find(item => item.id === `template-${template.id}`);
+                                  const cartQuantity = cartItem?.quantity || 0;
+                                  
+                                  return (
+                                    <ServiceQuickRow
+                                      key={template.id}
                                       template={template}
-                                      quantity={1}
-                                      onQuantityChange={(qty) => {
-                                        if (qty > 0) {
-                                          addToCart({ ...template, quantity: qty }, 'template');
+                                      cartQuantity={cartQuantity}
+                                      onQuantityChange={(templateId, quantity) => {
+                                        if (quantity === 0) {
+                                          removeFromCart(`template-${templateId}`);
+                                        } else {
+                                          updateCartQuantity(`template-${templateId}`, quantity);
                                         }
                                       }}
-                                      onCustomizePricing={() => {
-                                        setSelectedTemplateForCustomization(template);
-                                        setShowCustomizeModal(true);
+                                      onAddToCart={(template, quantity) => {
+                                        addToCart({ ...template, quantity }, 'template');
                                       }}
-                                      hasCustomPricing={template.organization_id === selectedOrg?.id}
+                                      isCondensed={condensedView}
+                                      isHighlighted={false}
+                                      onCustomized={loadData}
                                       organizationId={selectedOrg?.id}
                                     />
-                                  </div>
-                                ))}
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
@@ -1097,20 +1099,6 @@ export const ServicesPackages: React.FC = () => {
           }}
         />
 
-        {/* Customize Service Option Modal */}
-        <CustomizeServiceOptionModal
-          isOpen={showCustomizeModal}
-          onClose={() => {
-            setShowCustomizeModal(false);
-            setSelectedTemplateForCustomization(null);
-          }}
-          serviceOption={selectedTemplateForCustomization}
-          organizationId={selectedOrg?.id || ''}
-          onSuccess={() => {
-            // Reload templates to show the custom pricing
-            loadData();
-          }}
-        />
 
         {/* Bulk Customize Services Modal */}
         <BulkCustomizeServicesModal
@@ -1127,6 +1115,7 @@ export const ServicesPackages: React.FC = () => {
           }}
         />
       </div>
+    </div>
   );
 };
 

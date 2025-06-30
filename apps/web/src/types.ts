@@ -37,6 +37,7 @@ export interface LineItem {
   margin_percentage?: number; // Calculated margin percentage for display
   applied_mode_id?: string; // ID of the pricing mode that was applied
   applied_mode_name?: string; // Name of the pricing mode that was applied
+  pricing_source?: 'organization' | 'project'; // Indicates where the pricing came from
 }
 
 // Product Assemblies (bundles made of line items - formerly bundled products)

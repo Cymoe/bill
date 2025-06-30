@@ -43,7 +43,6 @@ export interface ServiceOption {
   created_at: string;
   updated_at: string;
   attributes?: Record<string, any>; // JSONB field for industry-specific attributes
-  bundle_discount_percentage?: number; // Discount applied to bundled line items
   // Calculated fields
   base_price?: number; // Sum of line item prices
   discounted_price?: number; // Price after bundle discount
@@ -52,6 +51,7 @@ export interface ServiceOption {
   service_option_items?: Array<{
     id: string;
     quantity: number;
+    calculation_type?: 'multiply' | 'fixed' | 'per_unit';
     is_optional: boolean;
     display_order: number;
     line_item: {
@@ -142,6 +142,9 @@ export class ServiceCatalogService {
         service_option_items(
           id,
           quantity,
+          calculation_type,
+          coverage_amount,
+          coverage_unit,
           line_item:line_items(
             id,
             name,
@@ -288,6 +291,9 @@ export class ServiceCatalogService {
         service_option_items_with_category!service_option_items_with_category_service_option_id_fkey (
           id,
           quantity,
+          calculation_type,
+          coverage_amount,
+          coverage_unit,
           is_optional,
           display_order,
           line_item_id,
@@ -311,6 +317,9 @@ export class ServiceCatalogService {
       service_option_items: option.service_option_items_with_category?.map((item: any) => ({
         id: item.id,
         quantity: item.quantity,
+        calculation_type: item.calculation_type,
+        coverage_amount: item.coverage_amount,
+        coverage_unit: item.coverage_unit,
         is_optional: item.is_optional,
         display_order: item.display_order,
         line_item: {
@@ -519,18 +528,13 @@ export class ServiceCatalogService {
         });
       }
       
-      // Calculate bundle discount (10% off when getting all optional items)
-      const bundleDiscount = optionalCount > 0 ? optionalPrice * 0.1 : 0;
       const potentialValue = requiredPrice + optionalPrice;
-      const potentialValueWithDiscount = potentialValue - bundleDiscount;
       
       return {
         ...pkg,
         industry_name: pkg.industry?.name,
         calculated_price: requiredPrice, // Base price (required only)
         potential_price: potentialValue, // With all options
-        potential_price_discounted: potentialValueWithDiscount, // With bundle discount
-        bundle_discount: bundleDiscount,
         required_count: requiredCount,
         optional_count: optionalCount,
         item_count: requiredCount + optionalCount,
@@ -806,5 +810,149 @@ export class ServiceCatalogService {
       options: options.data || [],
       packages: packages.data || []
     };
+  }
+
+  /**
+   * Customize a service option by creating an org-specific copy
+   */
+  static async customizeOption(
+    optionId: string,
+    organizationId: string,
+    customizations: {
+      swappedItems?: Record<string, string>; // Map of original item ID to replacement item ID
+      removedItems?: string[]; // IDs of items to remove
+      addedItems?: Array<{ line_item_id: string; quantity: number; calculation_type: string }>; // New items to add
+      priceOverride?: number;
+      name?: string;
+    }
+  ): Promise<ServiceOption> {
+    // First, get the original option with all its items
+    const { data: originalOption, error: fetchError } = await supabase
+      .from('service_options')
+      .select(`
+        *,
+        service_option_items (
+          id,
+          line_item_id,
+          quantity,
+          calculation_type,
+          coverage_amount,
+          coverage_unit,
+          display_order
+        )
+      `)
+      .eq('id', optionId)
+      .single();
+
+    if (fetchError || !originalOption) {
+      throw new Error('Service option not found');
+    }
+
+    // Check if a customized version already exists
+    const { data: existingCustom } = await supabase
+      .from('service_options')
+      .select('id')
+      .eq('organization_id', organizationId)
+      .eq('attributes->parent_option_id', optionId)
+      .single();
+
+    if (existingCustom) {
+      // Update existing customization
+      const { data: updated, error: updateError } = await supabase
+        .from('service_options')
+        .update({
+          attributes: {
+            ...originalOption.attributes,
+            parent_option_id: optionId,
+            custom_items: customizations.swappedItems || {},
+            customized_at: new Date().toISOString()
+          },
+          price: customizations.priceOverride || originalOption.price,
+          name: customizations.name || originalOption.name,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingCustom.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+      return updated;
+    }
+
+    // Create new customized version
+    const { data: customOption, error: createError } = await supabase
+      .from('service_options')
+      .insert({
+        ...originalOption,
+        id: undefined, // Let DB generate new ID
+        organization_id: organizationId,
+        attributes: {
+          ...originalOption.attributes,
+          parent_option_id: optionId,
+          custom_items: customizations.swappedItems || {},
+          customized_at: new Date().toISOString()
+        },
+        price: customizations.priceOverride || originalOption.price,
+        name: customizations.name || originalOption.name,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) throw createError;
+
+    // Copy service option items with any swaps and handle removals
+    if (originalOption.service_option_items && originalOption.service_option_items.length > 0) {
+      // Filter out removed items and apply swaps
+      const removedSet = new Set(customizations.removedItems || []);
+      const customItems = originalOption.service_option_items
+        .filter(item => !removedSet.has(item.id))
+        .map(item => ({
+          service_option_id: customOption.id,
+          line_item_id: customizations.swappedItems?.[item.id] || item.line_item_id,
+          quantity: item.quantity,
+          calculation_type: item.calculation_type,
+          coverage_amount: item.coverage_amount,
+          coverage_unit: item.coverage_unit,
+          display_order: item.display_order
+        }));
+
+      // Add new items
+      if (customizations.addedItems && customizations.addedItems.length > 0) {
+        const newItems = customizations.addedItems.map((item, index) => ({
+          service_option_id: customOption.id,
+          line_item_id: item.line_item_id,
+          quantity: item.quantity,
+          calculation_type: item.calculation_type,
+          coverage_amount: null,
+          coverage_unit: null,
+          display_order: customItems.length + index + 1
+        }));
+        customItems.push(...newItems);
+      }
+
+      if (customItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('service_option_items')
+          .insert(customItems);
+
+        if (itemsError) throw itemsError;
+      }
+    }
+
+    // Log the customization
+    await ActivityLogService.log({
+      action: 'customize_service_option',
+      entity_type: 'service_option',
+      entity_id: customOption.id,
+      details: {
+        original_option_id: optionId,
+        customizations
+      },
+      organization_id: organizationId
+    });
+
+    return customOption;
   }
 }

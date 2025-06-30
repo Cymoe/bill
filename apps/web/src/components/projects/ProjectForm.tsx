@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, X, Search, Plus } from 'lucide-react';
+import { ArrowLeft, Save, X, Search, Plus, Lock, Unlock } from 'lucide-react';
 import { db } from '../../lib/database';
 import type { Tables } from '../../lib/database';
 import { supabase } from '../../lib/supabase';
 import { Combobox } from '../ui/Combobox';
+import { PricingModesService, PricingMode } from '../../services/PricingModesService';
+import { useAuth } from '../../contexts/AuthContext';
 
 type Client = Tables['clients'];
 type LineItem = {
@@ -25,6 +27,8 @@ type ProjectFormData = Omit<Tables['projects'], 'id' | 'created_at' | 'updated_a
   end_date: string;
   items: LineItem[];
   template_id: string;
+  pricing_mode_id?: string;
+  lock_pricing?: boolean;
 };
 
 export const ProjectForm: React.FC = () => {
@@ -37,12 +41,14 @@ export const ProjectForm: React.FC = () => {
   };
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [clients, setClients] = React.useState<Client[]>([]);
   const [products, setProducts] = React.useState<any[]>([]);
   const [templates, setTemplates] = React.useState<any[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = React.useState('');
   const [rawTemplateItems, setRawTemplateItems] = React.useState<any[]>([]);
+  const [pricingModes, setPricingModes] = React.useState<PricingMode[]>([]);
 
   const addItem = () => {
     setFormData(prev => ({
@@ -88,6 +94,8 @@ export const ProjectForm: React.FC = () => {
     items: [{ product_id: '', quantity: 1, price: 0 }],
     user_id: '',
     template_id: '',
+    pricing_mode_id: undefined,
+    lock_pricing: false,
   });
 
   React.useEffect(() => {
@@ -106,16 +114,21 @@ export const ProjectForm: React.FC = () => {
         const userId = session.user.id;
         setUserIdInForm(userId);
 
-        // Fetch clients, products, and templates
-        const [clientsData, productsData, templatesData] = await Promise.all([
+        // Get organization ID from user metadata
+        const organizationId = session.user.user_metadata?.organizationId || session.user.id;
+
+        // Fetch clients, products, templates, and pricing modes
+        const [clientsData, productsData, templatesData, pricingModesData] = await Promise.all([
           db.clients.list(session.user.id),
           db.products.list(session.user.id),
-          db.invoice_templates.list(session.user.id)
+          db.invoice_templates.list(session.user.id),
+          PricingModesService.list(organizationId)
         ]);
 
         setClients(clientsData);
         setProducts(productsData);
         setTemplates(templatesData);
+        setPricingModes(pricingModesData);
 
         // If editing, fetch project data
         if (id) {
@@ -344,6 +357,66 @@ export const ProjectForm: React.FC = () => {
                   required
                 />
                 <p className="mt-2 text-xs text-gray-400">Expected completion date</p>
+              </div>
+            </div>
+
+            {/* Pricing Mode Selector */}
+            <div className="sm:col-span-3">
+              <label htmlFor="pricing_mode_id" className="block text-sm font-medium text-gray-400">
+                Pricing Mode
+              </label>
+              <div className="mt-1">
+                <select
+                  id="pricing_mode_id"
+                  name="pricing_mode_id"
+                  value={formData.pricing_mode_id || ''}
+                  onChange={handleChange}
+                  className="mt-1 block w-full h-10 px-3 rounded-md border-0 bg-[#2a3441] text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                >
+                  <option value="" className="text-gray-900">Use organization default</option>
+                  {pricingModes.map((mode) => (
+                    <option key={mode.id} value={mode.id} className="text-gray-900">
+                      {mode.icon} {mode.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-gray-400">Override organization pricing for this project</p>
+              </div>
+            </div>
+
+            {/* Lock Pricing Toggle */}
+            <div className="sm:col-span-3">
+              <label className="block text-sm font-medium text-gray-400">
+                Pricing Lock
+              </label>
+              <div className="mt-1">
+                <button
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, lock_pricing: !prev.lock_pricing }))}
+                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    formData.lock_pricing 
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                      : 'bg-[#2a3441] hover:bg-[#3a4451] text-gray-300'
+                  }`}
+                >
+                  {formData.lock_pricing ? (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      Pricing Locked
+                    </>
+                  ) : (
+                    <>
+                      <Unlock className="h-4 w-4" />
+                      Pricing Unlocked
+                    </>
+                  )}
+                </button>
+                <p className="mt-2 text-xs text-gray-400">
+                  {formData.lock_pricing 
+                    ? 'This project will maintain its pricing even when organization pricing changes'
+                    : 'This project will update when organization pricing changes'
+                  }
+                </p>
               </div>
             </div>
 

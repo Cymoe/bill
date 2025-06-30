@@ -7,6 +7,7 @@ import { Search, Plus, Minus, X, Save, FileText, Package, ArrowRight, CheckCircl
 import { getCollectionLabel } from '../../constants/collections';
 import { EstimateService } from '../../services/EstimateService';
 import { ServiceCatalogService } from '../../services/ServiceCatalogService';
+import { LineItemService } from '../../services/LineItemService';
 
 interface EstimateItem {
   product_id: string;
@@ -254,6 +255,13 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     }
   }, [issueDate, validityDays]);
 
+  // Reload line items when project selection changes to get project-specific pricing
+  useEffect(() => {
+    if (isOpen && selectedOrg.id && selectedProject) {
+      loadProjectPricing();
+    }
+  }, [selectedProject]);
+
   // Generate estimate number when opening
   useEffect(() => {
     if (isOpen && !editingEstimate && !estimateNumber) {
@@ -315,6 +323,38 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
     }
   };
 
+  const loadProjectPricing = async () => {
+    if (!selectedOrg.id || !selectedProject) return;
+    
+    try {
+      // Load line items with project-specific pricing
+      const lineItemsData = await LineItemService.listForProject(
+        selectedOrg.id,
+        selectedProject
+      );
+      
+      // Process line items - convert to Product format for compatibility
+      const allLineItems = lineItemsData.map((item: any) => ({
+        ...item,
+        // Price is already resolved based on project context
+        unit: item.unit || 'ea',
+        trade_id: item.trade_id || null,
+        // Add category from cost code
+        type: item.cost_code?.category || 'material'
+      }));
+      
+      setLineItems(allLineItems as Product[]);
+      
+      console.log('Loaded project pricing:', {
+        projectId: selectedProject,
+        itemCount: allLineItems.length,
+        pricingSource: allLineItems[0]?.pricing_source
+      });
+    } catch (error) {
+      console.error('Error loading project pricing:', error);
+    }
+  };
+
   const loadData = async () => {
     try {
       setIsLoading(true);
@@ -336,10 +376,6 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       const queries = [
         supabase.from('clients').select('*').eq('organization_id', orgId),
         supabase.from('projects').select('*').eq('organization_id', orgId).order('name'),
-        // Get all line items (both org-specific and shared)
-        supabase.from('line_items')
-          .select('*, cost_code:cost_codes(code, name, category)')
-          .or(`organization_id.eq.${orgId},organization_id.is.null`),
         supabase.from('trades')
           .select('id, name')
           .order('name')
@@ -357,14 +393,24 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       }
       
       // Execute all queries
-      const [clientsRes, projectsRes, lineItemsRes, tradesRes] = await Promise.all(queries);
+      const [clientsRes, projectsRes, tradesRes] = await Promise.all(queries);
       const templatesRes = await templateQuery;
 
       if (clientsRes.error) throw clientsRes.error;
       if (projectsRes.error) throw projectsRes.error;
-      if (lineItemsRes.error) throw lineItemsRes.error;
       if (tradesRes.error) console.error('Trades error:', tradesRes.error);
       if (templatesRes.error) console.error('Templates error:', templatesRes.error);
+      
+      // Load line items with project context if available
+      let lineItemsData: any[] = [];
+      try {
+        lineItemsData = await LineItemService.listForProject(
+          orgId, 
+          selectedProject || projectContext?.projectId
+        );
+      } catch (error) {
+        console.error('Error loading line items:', error);
+      }
       
       // Load service templates using ServiceCatalogService
       let servicesData: any[] = [];
@@ -376,9 +422,9 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
       }
       
       // Process line items - convert to Product format for compatibility
-      const allLineItems = (lineItemsRes.data || []).map((item: any) => ({
+      const allLineItems = lineItemsData.map((item: any) => ({
         ...item,
-        price: item.base_price || 0,
+        // Price is already resolved based on project context
         unit: item.unit || 'ea',
         trade_id: item.trade_id || null,
         // Add category from cost code
@@ -1121,6 +1167,12 @@ export const CreateEstimateDrawer: React.FC<CreateEstimateDrawerProps> = ({
                         </option>
                       ))}
                   </select>
+                  {selectedProject && lineItems.some(item => item.pricing_source === 'project') && (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-green-400">
+                      <span className="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                      Project pricing active
+                    </div>
+                  )}
                 </div>
 
                 {/* Dates */}
